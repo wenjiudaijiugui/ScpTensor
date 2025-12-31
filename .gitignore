@@ -136,6 +136,10 @@ benchmark_example_results/
 results/
 res/
 fig/
+tests/comparison_results/
+tests/pipeline_results/
+tests/res/
+tests/viz/
 
 # Data
 data/raw/
