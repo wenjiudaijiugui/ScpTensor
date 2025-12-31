@@ -1,0 +1,31 @@
+[project]
+name = "scptensor"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.10.7",
+    "numpy>=2.3.5",
+    "polars>=1.35.2",
+    "pyarrow>=22.0.0",
+    "scienceplots>=2.2.0",
+    "scikit-learn>=1.7.2",
+    "scipy>=1.16.3",
+    "seaborn>=0.13.2",
+    "umap-learn>=0.5.9.post2",
+    "numba>=0.62.1",
+    "plotly>=6.5.0",
+]
+
+[dependency-groups]
+dev = [
+    "combat>=0.3.3",
+    "ipykernel>=7.1.0",
+    "pytest>=9.0.1",
+    "scanpy>=1.11.5",
+]
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
+default = true
