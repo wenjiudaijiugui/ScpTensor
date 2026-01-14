@@ -15,6 +15,7 @@ from .exceptions import (
     ScpValueError,
     StructureError,
     ValidationError,
+    VisualizationError,
 )
 
 # JIT operations
@@ -135,4 +136,5 @@ __all__ = [
     "DimensionError",
     "ScpValueError",
     "MaskCodeError",
+    "VisualizationError",
 ]

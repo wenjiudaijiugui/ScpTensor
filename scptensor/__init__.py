@@ -52,6 +52,7 @@ from scptensor.core import (
     ScpValueError,
     StructureError,
     ValidationError,
+    VisualizationError,
 )
 
 # Core I/O and sparse utilities
@@ -211,6 +212,7 @@ __all__ = [
     "DimensionError",
     "MaskCodeError",
     "ScpValueError",
+    "VisualizationError",
     # Core I/O
     "load_csv",
     "save_csv",
