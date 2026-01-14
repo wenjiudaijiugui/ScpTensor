@@ -1,3 +1,8 @@
+from .differential import (
+    rank_genes_groups_dotplot,
+    rank_genes_groups_stacked_violin,
+    volcano as volcano_enhanced,
+)
 from .embedding import pca, scatter, tsne, umap
 from .feature import dotplot
 from .matrix import heatmap, matrixplot, tracksplot
@@ -17,4 +22,7 @@ __all__ = [
     "qc_completeness",
     "qc_matrix_spy",
     "volcano",
+    "volcano_enhanced",
+    "rank_genes_groups_dotplot",
+    "rank_genes_groups_stacked_violin",
 ]
