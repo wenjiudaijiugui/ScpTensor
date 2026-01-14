@@ -11,16 +11,19 @@ Demonstrates:
 
 import time
 import warnings
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+
 from scptensor.benchmark import (
-    BenchmarkSuite, SyntheticDataset, create_method_configs,
-    create_normalization_parameter_grids, ResultsVisualizer
+    BenchmarkSuite,
+    ResultsVisualizer,
+    SyntheticDataset,
+    create_method_configs,
 )
-from scptensor.core import MatrixOps
 
 # Suppress warnings for cleaner output
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 def run_efficient_benchmark():
@@ -53,7 +56,7 @@ def run_efficient_benchmark():
             n_batches=2,
             missing_rate=0.2,
             signal_to_noise_ratio=3.0,
-            random_seed=42
+            random_seed=42,
         ).generate(),
         SyntheticDataset(
             n_samples=100,
@@ -62,8 +65,8 @@ def run_efficient_benchmark():
             n_batches=3,
             missing_rate=0.3,
             signal_to_noise_ratio=2.0,
-            random_seed=123
-        ).generate()
+            random_seed=123,
+        ).generate(),
     ]
 
     dataset_time = time.time() - dataset_start
@@ -78,18 +81,19 @@ def run_efficient_benchmark():
 
     # Limit to normalization methods for demonstration
     normalization_methods = {
-        name: config for name, config in method_configs.items()
-        if 'normalization' in name or name in ['tmm_normalization', 'sample_median_normalization']
+        name: config
+        for name, config in method_configs.items()
+        if "normalization" in name or name in ["tmm_normalization", "sample_median_normalization"]
     }
 
     # Create focused parameter grids (not too large for demo)
     parameter_grids = {
-        'tmm_normalization': {
-            'trim_ratio': [0.1, 0.3, 0.5],  # Reduced from 5 to 3 values
+        "tmm_normalization": {
+            "trim_ratio": [0.1, 0.3, 0.5],  # Reduced from 5 to 3 values
         },
-        'upper_quartile_normalization': {
-            'percentile': [0.7, 0.75, 0.8],  # Reduced range
-        }
+        "upper_quartile_normalization": {
+            "percentile": [0.7, 0.75, 0.8],  # Reduced range
+        },
         # Other methods use default parameters (no grid)
     }
 
@@ -102,7 +106,7 @@ def run_efficient_benchmark():
         methods=normalization_methods,
         datasets=datasets,
         parameter_grids=parameter_grids,
-        random_seed=42
+        random_seed=42,
     )
     print("   ✅ Benchmark suite initialized")
 
@@ -113,8 +117,12 @@ def run_efficient_benchmark():
     # Run comparison without parameter optimization for speed
     comparison_results = suite.run_method_comparison(
         optimize_params=False,  # Skip optimization for faster demo
-        methods=['tmm_normalization', 'sample_median_normalization',
-                'global_median_normalization', 'upper_quartile_normalization']
+        methods=[
+            "tmm_normalization",
+            "sample_median_normalization",
+            "global_median_normalization",
+            "upper_quartile_normalization",
+        ],
     )
 
     comparison_time = time.time() - comparison_start
@@ -128,13 +136,11 @@ def run_efficient_benchmark():
     # Find best method from comparison
     method_comparison_df = comparison_results.get_method_comparison()
     if not method_comparison_df.empty:
-        best_method = method_comparison_df['mean_group_separation'].idxmax()
+        best_method = method_comparison_df["mean_group_separation"].idxmax()
         print(f"   🏆 Best method: {best_method}")
 
         # Run limited parameter optimization
-        optimization_results = suite.run_parameter_optimization(
-            method_name=best_method
-        )
+        optimization_results = suite.run_parameter_optimization(method_name=best_method)
 
         optimization_time = time.time() - optimization_start
         print(f"   ✅ Parameter optimization completed in {optimization_time:.2f} seconds")
@@ -155,9 +161,7 @@ def run_efficient_benchmark():
 
     # Generate comprehensive report
     plot_paths = visualizer.create_comprehensive_report(
-        comparison_results,
-        output_dir=str(output_dir),
-        create_interactive=True
+        comparison_results, output_dir=str(output_dir), create_interactive=True
     )
 
     viz_time = time.time() - viz_start
@@ -173,13 +177,12 @@ def run_efficient_benchmark():
         total_runs += len(optimization_results.runs)
 
     runs_per_second = total_runs / workflow_time
-    avg_memory_usage = np.mean([
-        run.computational_scores.memory_usage_mb
-        for run in comparison_results.runs
-    ])
+    avg_memory_usage = np.mean(
+        [run.computational_scores.memory_usage_mb for run in comparison_results.runs]
+    )
 
     # Step 8: Summary report
-    print(f"\n🎉 BENCHMARK COMPLETED SUCCESSFULLY!")
+    print("\n🎉 BENCHMARK COMPLETED SUCCESSFULLY!")
     print("=" * 60)
     print(f"⏱️  Total workflow time: {workflow_time:.2f} seconds")
     print(f"📊 Total benchmark runs: {total_runs}")
@@ -189,8 +192,8 @@ def run_efficient_benchmark():
 
     # Show best performing methods
     if not method_comparison_df.empty:
-        print(f"\n🏆 TOP 3 METHODS (by biological performance):")
-        top_3 = method_comparison_df.nlargest(3, 'mean_group_separation')
+        print("\n🏆 TOP 3 METHODS (by biological performance):")
+        top_3 = method_comparison_df.nlargest(3, "mean_group_separation")
         for i, (method, row) in enumerate(top_3.iterrows(), 1):
             print(f"   {i}. {method}:")
             print(f"      Group Separation: {row['mean_group_separation']:.3f}")
@@ -198,14 +201,14 @@ def run_efficient_benchmark():
             print(f"      Data Recovery: {row['mean_data_recovery_rate']:.3f}")
 
     # Show generated files
-    print(f"\n📁 Generated Files:")
+    print("\n📁 Generated Files:")
     for plot_type, file_path in plot_paths.items():
         file_name = Path(file_path).name
         file_size = Path(file_path).stat().st_size / 1024  # KB
         print(f"   {plot_type}: {file_name} ({file_size:.1f} KB)")
 
     # Performance recommendations
-    print(f"\n💡 PERFORMANCE RECOMMENDATIONS:")
+    print("\n💡 PERFORMANCE RECOMMENDATIONS:")
     if workflow_time > 60:
         print("   ⚠️  Workflow took >1min. Consider:")
         print("      - Reducing parameter grid size")
@@ -233,39 +236,31 @@ def run_parameter_sensitivity_analysis():
 
     # Create test dataset
     dataset = SyntheticDataset(
-        n_samples=50,
-        n_features=200,
-        n_groups=2,
-        n_batches=2,
-        missing_rate=0.25,
-        random_seed=42
+        n_samples=50, n_features=200, n_groups=2, n_batches=2, missing_rate=0.25, random_seed=42
     ).generate()
 
     # Setup benchmark suite
     method_configs = create_method_configs()
     suite = BenchmarkSuite(
-        methods={'tmm_normalization': method_configs['tmm_normalization']},
+        methods={"tmm_normalization": method_configs["tmm_normalization"]},
         datasets=[dataset],
-        parameter_grids={
-            'tmm_normalization': {
-                'trim_ratio': [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]
-            }
-        },
-        random_seed=42
+        parameter_grids={"tmm_normalization": {"trim_ratio": [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]}},
+        random_seed=42,
     )
 
     # Run parameter optimization
-    results = suite.run_parameter_optimization(
-        method_name='tmm_normalization',
-        n_trials=20
-    )
+    results = suite.run_parameter_optimization(method_name="tmm_normalization", n_trials=20)
 
     # Analyze parameter sensitivity
-    sensitivity_df = results.get_parameter_sensitivity('tmm_normalization')
+    sensitivity_df = results.get_parameter_sensitivity("tmm_normalization")
 
-    print(f"📊 Parameter Sensitivity Results:")
-    print(f"   Best trim_ratio: {sensitivity_df.loc[sensitivity_df['group_separation'].idxmax(), 'trim_ratio']}")
-    print(f"   Performance range: {sensitivity_df['group_separation'].min():.3f} - {sensitivity_df['group_separation'].max():.3f}")
+    print("📊 Parameter Sensitivity Results:")
+    print(
+        f"   Best trim_ratio: {sensitivity_df.loc[sensitivity_df['group_separation'].idxmax(), 'trim_ratio']}"
+    )
+    print(
+        f"   Performance range: {sensitivity_df['group_separation'].min():.3f} - {sensitivity_df['group_separation'].max():.3f}"
+    )
 
     return results
 

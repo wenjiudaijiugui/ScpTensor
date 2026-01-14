@@ -205,7 +205,7 @@ class CompetitorBenchmarkSuite:
                 random_seed=42 + i,
             )
             datasets.append(generator.generate())
-            self._log(f"  Dataset {i+1}: {n_samples} samples x {n_features} features")
+            self._log(f"  Dataset {i + 1}: {n_samples} samples x {n_features} features")
 
         self.datasets = datasets
         return datasets
@@ -236,9 +236,7 @@ class CompetitorBenchmarkSuite:
         layer = assay.layers[layer_name]
         return layer.X, layer.M
 
-    def _run_benchmark(
-        self, fn, *args: Any
-    ) -> tuple[np.ndarray, float, float]:
+    def _run_benchmark(self, fn, *args: Any) -> tuple[np.ndarray, float, float]:
         """Run a benchmark function and track time/memory.
 
         Parameters
@@ -267,14 +265,14 @@ class CompetitorBenchmarkSuite:
     # Normalization Benchmarks
     # ========================================================================
 
-    def _benchmark_log_normalization(
-        self, dataset: ScpContainer
-    ) -> ComparisonResult:
+    def _benchmark_log_normalization(self, dataset: ScpContainer) -> ComparisonResult:
         """Benchmark log normalization: ScpTensor vs numpy."""
         X, M = self.extract_matrix_data(dataset)
 
         # Competitor
-        comp_X, comp_time, comp_memory = NumpyLogNormalize.run(X, M, base=2.0, offset=1.0)
+        comp_X, comp_time, comp_memory = NumpyLogNormalize.run(
+            X, M, base=2.0, offset=1.0
+        )
 
         # ScpTensor (direct array version for fair comparison)
         def _scptensor_log(x, m):
@@ -348,7 +346,9 @@ class CompetitorBenchmarkSuite:
         """Benchmark KNN imputation: ScpTensor vs sklearn."""
         X, M = self.extract_matrix_data(dataset)
 
-        comp_X, comp_time, comp_memory = SklearnKNNImputer.run(X, M, n_neighbors=n_neighbors)
+        comp_X, comp_time, comp_memory = SklearnKNNImputer.run(
+            X, M, n_neighbors=n_neighbors
+        )
 
         def _scptensor_knn(x, m, k):
             x_masked = x.copy().astype(float)
@@ -357,7 +357,9 @@ class CompetitorBenchmarkSuite:
             imputer = KNNImputer(n_neighbors=k)
             return imputer.fit_transform(x_masked)
 
-        scp_X, scp_time, scp_memory = self._run_benchmark(_scptensor_knn, X, M, n_neighbors)
+        scp_X, scp_time, scp_memory = self._run_benchmark(
+            _scptensor_knn, X, M, n_neighbors
+        )
 
         accuracy = _compute_correlation(scp_X, comp_X)
         speedup = scp_time / comp_time if comp_time > 0 else 1.0
@@ -382,7 +384,9 @@ class CompetitorBenchmarkSuite:
         """Benchmark SVD imputation: ScpTensor vs scipy."""
         X, M = self.extract_matrix_data(dataset)
 
-        comp_X, comp_time, comp_memory = ScipySVDImputer.run(X, M, n_components=n_components)
+        comp_X, comp_time, comp_memory = ScipySVDImputer.run(
+            X, M, n_components=n_components
+        )
 
         def _scptensor_svd(x, m, n_comp):
             x_masked = x.copy().astype(float)
@@ -402,9 +406,7 @@ class CompetitorBenchmarkSuite:
                     U, s, Vt = np.linalg.svd(x_mean, full_matrices=False)
                     S = np.zeros_like(x_mean)
                     np.fill_diagonal(S, s[:n_comp])
-                    x_recon = (
-                        U[:, :n_comp] @ S[:n_comp, :n_comp] @ Vt[:n_comp, :]
-                    )
+                    x_recon = U[:, :n_comp] @ S[:n_comp, :n_comp] @ Vt[:n_comp, :]
                     x_recon = x_recon + np.nanmean(result, axis=0)
                     missing = np.isnan(x_masked)
                     result[missing] = x_recon[missing]
@@ -413,7 +415,9 @@ class CompetitorBenchmarkSuite:
 
             return result
 
-        scp_X, scp_time, scp_memory = self._run_benchmark(_scptensor_svd, X, M, n_components)
+        scp_X, scp_time, scp_memory = self._run_benchmark(
+            _scptensor_svd, X, M, n_components
+        )
 
         accuracy = _compute_correlation(scp_X, comp_X)
         speedup = scp_time / comp_time if comp_time > 0 else 1.0
@@ -456,13 +460,17 @@ class CompetitorBenchmarkSuite:
             pca = PCA(n_components=n_comp, random_state=42)
             return pca.fit_transform(x_valid)
 
-        scp_X, scp_time, scp_memory = self._run_benchmark(_scptensor_pca, X, M, n_components)
+        scp_X, scp_time, scp_memory = self._run_benchmark(
+            _scptensor_pca, X, M, n_components
+        )
 
         # Compute accuracy (absolute correlation of PCs)
         n_comp = min(n_components, scp_X.shape[1], comp_X.shape[1])
         accuracy = max(
-            (np.abs(np.corrcoef(scp_X[:, i], comp_X[:, i])[0, 1])
-             for i in range(n_comp)),
+            (
+                np.abs(np.corrcoef(scp_X[:, i], comp_X[:, i])[0, 1])
+                for i in range(n_comp)
+            ),
             default=0.0,
         )
 
@@ -513,9 +521,11 @@ class CompetitorBenchmarkSuite:
         if operations is None:
             operations = list(_DEFAULT_OPERATIONS)
 
-        self._log(f"\n{'='*60}")
-        self._log(f"Running {len(operations)} benchmark operations on {len(datasets)} datasets")
-        self._log(f"{'='*60}\n")
+        self._log(f"\n{'=' * 60}")
+        self._log(
+            f"Running {len(operations)} benchmark operations on {len(datasets)} datasets"
+        )
+        self._log(f"{'=' * 60}\n")
 
         results = {op: [] for op in operations}
         total_start = time.time()
@@ -523,7 +533,9 @@ class CompetitorBenchmarkSuite:
         for i, dataset in enumerate(datasets):
             n_samples = dataset.n_samples
             n_features = dataset.assays["protein"].n_features
-            self._log(f"\n--- Dataset {i+1}: {n_samples} samples x {n_features} features ---")
+            self._log(
+                f"\n--- Dataset {i + 1}: {n_samples} samples x {n_features} features ---"
+            )
 
             for operation in operations:
                 self._log(f"  Benchmarking: {operation}...", end=" ")
@@ -539,7 +551,7 @@ class CompetitorBenchmarkSuite:
                     if speedup > 1.2:
                         status = f"OK (ScpTensor {speedup:.2f}x faster)"
                     elif speedup < 0.8:
-                        status = f"OK (Competitor {1/speedup:.2f}x faster)"
+                        status = f"OK (Competitor {1 / speedup:.2f}x faster)"
                     else:
                         status = "OK (Similar performance)"
 
@@ -549,9 +561,9 @@ class CompetitorBenchmarkSuite:
 
         total_time = time.time() - total_start
 
-        self._log(f"\n{'='*60}")
+        self._log(f"\n{'=' * 60}")
         self._log(f"All benchmarks completed in {total_time:.2f} seconds")
-        self._log(f"{'='*60}\n")
+        self._log(f"{'=' * 60}\n")
 
         self.results = results
         return results
@@ -694,19 +706,21 @@ class CompetitorBenchmarkSuite:
 
         for operation, results in self.results.items():
             for i, result in enumerate(results):
-                rows.append({
-                    "operation": result.operation,
-                    "dataset_index": i,
-                    "scptensor_time_ms": result.scptensor_time * 1000,
-                    "competitor_time_ms": result.competitor_time * 1000,
-                    "speedup_factor": result.speedup_factor,
-                    "scptensor_memory_mb": result.scptensor_memory,
-                    "competitor_memory_mb": result.competitor_memory,
-                    "memory_ratio": result.memory_ratio,
-                    "accuracy_correlation": result.accuracy_correlation,
-                    "competitor": result.competitor_name,
-                    "parameters": str(result.parameters),
-                })
+                rows.append(
+                    {
+                        "operation": result.operation,
+                        "dataset_index": i,
+                        "scptensor_time_ms": result.scptensor_time * 1000,
+                        "competitor_time_ms": result.competitor_time * 1000,
+                        "speedup_factor": result.speedup_factor,
+                        "scptensor_memory_mb": result.scptensor_memory,
+                        "competitor_memory_mb": result.competitor_memory,
+                        "memory_ratio": result.memory_ratio,
+                        "accuracy_correlation": result.accuracy_correlation,
+                        "competitor": result.competitor_name,
+                        "parameters": str(result.parameters),
+                    }
+                )
 
         return pd.DataFrame(rows)
 
@@ -714,20 +728,22 @@ class CompetitorBenchmarkSuite:
         """Print a summary of benchmark results."""
         summaries = self.summarize_results()
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("COMPETITOR BENCHMARK SUMMARY")
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         for operation, summary in summaries.items():
             print(f"Operation: {operation}")
             print(f"  Comparisons: {summary.n_comparisons}")
-            print(f"  Mean Speedup: {summary.mean_speedup:.3f}x (+/- {summary.std_speedup:.3f})")
+            print(
+                f"  Mean Speedup: {summary.mean_speedup:.3f}x (+/- {summary.std_speedup:.3f})"
+            )
             print(f"  Mean Memory Ratio: {summary.mean_memory_ratio:.3f}")
             print(f"  Mean Accuracy: {summary.mean_accuracy:.3f}")
             print(f"  Winner: {summary.winner.upper()}")
             print()
 
-        print("="*70)
+        print("=" * 70)
 
 
 # =============================================================================

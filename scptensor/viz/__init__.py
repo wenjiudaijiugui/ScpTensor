@@ -1,14 +1,14 @@
-from .base import scatter, heatmap, violin
-from .recipes.qc import qc_completeness, qc_matrix_spy
-from .recipes.embedding import embedding
-from .recipes.stats import volcano
+from .base import heatmap, scatter, violin
+from .recipes import embedding, qc_completeness, qc_matrix_spy, volcano
 
 __all__ = [
-    'scatter',
-    'heatmap',
-    'violin',
-    'qc_completeness',
-    'qc_matrix_spy',
-    'embedding',
-    'volcano'
+    # Base primitives
+    "scatter",
+    "heatmap",
+    "violin",
+    # Recipe plots
+    "embedding",
+    "qc_completeness",
+    "qc_matrix_spy",
+    "volcano",
 ]

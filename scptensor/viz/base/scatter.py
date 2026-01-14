@@ -1,78 +1,130 @@
-import numpy as np
+from typing import Any, Literal
+
 import matplotlib.pyplot as plt
-from typing import Optional, Union, Any
+import numpy as np
+
 from .style import setup_style
+
+MaskStyle = Literal["subtle", "explicit", "none"]
+
 
 def scatter(
     X: np.ndarray,
-    c: Optional[np.ndarray] = None,
-    m: Optional[np.ndarray] = None,
-    mask_style: str = 'subtle',
-    ax: Optional[plt.Axes] = None,
-    title: Optional[str] = None,
-    xlabel: Optional[str] = None,
-    ylabel: Optional[str] = None,
-    **kwargs: Any
+    c: np.ndarray | None = None,
+    m: np.ndarray | None = None,
+    mask_style: MaskStyle = "subtle",
+    ax: plt.Axes | None = None,
+    title: str | None = None,
+    xlabel: str | None = None,
+    ylabel: str | None = None,
+    **kwargs: Any,
 ) -> plt.Axes:
-    """
-    Primitive Scatter Plot with Mask handling.
-    
-    Args:
-        X: Coordinates (N, 2).
-        c: Color values (N,).
-        m: Mask values (N,). 0=Valid.
-        mask_style: 'subtle' (alpha coding) or 'explicit' (shape coding).
-        ax: Matplotlib axes.
-        **kwargs: Passed to scatter.
+    """Create a scatter plot with mask-aware rendering.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Coordinates of shape (N, 2).
+    c : np.ndarray | None
+        Color values of shape (N,).
+    m : np.ndarray | None
+        Mask values (N,), where 0=Valid, non-zero=Missing/Imputed.
+    mask_style : {"subtle", "explicit", "none"}
+        How to render masked points:
+        - "subtle": alpha coding (valid=opaque, invalid=transparent)
+        - "explicit": shape coding (valid=circle, invalid=x)
+        - "none": no distinction
+    ax : plt.Axes | None
+        Matplotlib axes. If None, creates new figure.
+    title : str | None
+        Plot title.
+    xlabel : str | None
+        X-axis label.
+    ylabel : str | None
+        Y-axis label.
+    **kwargs : Any
+        Passed to ``scatter``.
+
+    Returns
+    -------
+    plt.Axes
+        The axes containing the plot.
+
     """
     setup_style()
-    
+
     if ax is None:
-        fig, ax = plt.subplots(figsize=(6, 5))
-    
+        _, ax = plt.subplots(figsize=(6, 5))
+
+    # Default: all points valid
     if m is None:
-        m = np.zeros(X.shape[0], dtype=int)
-        
-    valid_mask = (m == 0)
-    invalid_mask = ~valid_mask
-    
-    # Base kwargs
-    scatter_kwargs = {'s': 20, 'edgecolor': 'none'}
-    scatter_kwargs.update(kwargs)
-    
-    if mask_style == 'subtle':
-        # Valid data: alpha=1.0, zorder=10
-        if np.any(valid_mask):
-            c_valid = c[valid_mask] if c is not None else None
-            ax.scatter(X[valid_mask, 0], X[valid_mask, 1], c=c_valid, alpha=1.0, zorder=10, label='Measured', **scatter_kwargs)
-            
-        # Invalid data: alpha=0.3, zorder=0
-        if np.any(invalid_mask):
-            c_invalid = c[invalid_mask] if c is not None else 'gray'
-            # If c is continuous, c_invalid might be numeric, which is fine.
-            # If c is categorical/colors, it works too.
-            # But usually missing values might imply missing color source? 
-            # If color source is Metadata (e.g. Batch), it exists for invalid data.
-            # If color source is Expression, it might be imputed or missing.
-            ax.scatter(X[invalid_mask, 0], X[invalid_mask, 1], c=c_invalid, alpha=0.3, zorder=0, label='Imputed/Missing', **scatter_kwargs)
-            
-    elif mask_style == 'explicit':
-        # Valid data: marker='o'
-        if np.any(valid_mask):
-            c_valid = c[valid_mask] if c is not None else None
-            ax.scatter(X[valid_mask, 0], X[valid_mask, 1], c=c_valid, marker='o', label='Measured', **scatter_kwargs)
-            
-        # Invalid data: marker='x'
-        if np.any(invalid_mask):
-            c_invalid = c[invalid_mask] if c is not None else 'gray'
-            ax.scatter(X[invalid_mask, 0], X[invalid_mask, 1], c=c_invalid, marker='x', label='Imputed/Missing', **scatter_kwargs)
-            
+        m = np.zeros(X.shape[0], dtype=np.int8)
+
+    valid = m == 0
+    invalid = ~valid
+
+    base_kwargs = {"s": 20, "edgecolor": "none", **kwargs}
+
+    if mask_style == "subtle":
+        _scatter_subtle(ax, X, c, valid, invalid, base_kwargs)
+    elif mask_style == "explicit":
+        _scatter_explicit(ax, X, c, valid, invalid, base_kwargs)
     else:
-        # Default fallback
-        ax.scatter(X[:, 0], X[:, 1], c=c, **scatter_kwargs)
-        
-    if title: ax.set_title(title)
-    if xlabel: ax.set_xlabel(xlabel)
-    if ylabel: ax.set_ylabel(ylabel)
-    
+        ax.scatter(X[:, 0], X[:, 1], c=c, **base_kwargs)
+
+    if title:
+        ax.set_title(title)
+    if xlabel:
+        ax.set_xlabel(xlabel)
+    if ylabel:
+        ax.set_ylabel(ylabel)
+
     return ax
+
+
+def _scatter_subtle(
+    ax: plt.Axes,
+    X: np.ndarray,
+    c: np.ndarray | None,
+    valid: np.ndarray,
+    invalid: np.ndarray,
+    kwargs: dict,
+) -> None:
+    """Render scatter with alpha-based mask distinction."""
+    if np.any(valid):
+        c_valid = None if c is None else c[valid]
+        ax.scatter(
+            X[valid, 0], X[valid, 1],
+            c=c_valid, alpha=1.0, zorder=10, label="Measured", **kwargs
+        )
+
+    if np.any(invalid):
+        c_invalid = "gray" if c is None else c[invalid]
+        ax.scatter(
+            X[invalid, 0], X[invalid, 1],
+            c=c_invalid, alpha=0.3, zorder=0, label="Imputed/Missing", **kwargs
+        )
+
+
+def _scatter_explicit(
+    ax: plt.Axes,
+    X: np.ndarray,
+    c: np.ndarray | None,
+    valid: np.ndarray,
+    invalid: np.ndarray,
+    kwargs: dict,
+) -> None:
+    """Render scatter with marker-based mask distinction."""
+    if np.any(valid):
+        c_valid = None if c is None else c[valid]
+        ax.scatter(
+            X[valid, 0], X[valid, 1],
+            c=c_valid, marker="o", label="Measured", **kwargs
+        )
+
+    if np.any(invalid):
+        c_invalid = "gray" if c is None else c[invalid]
+        ax.scatter(
+            X[invalid, 0], X[invalid, 1],
+            c=c_invalid, marker="x", label="Imputed/Missing", **kwargs
+        )

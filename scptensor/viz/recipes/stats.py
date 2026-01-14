@@ -1,96 +1,97 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
 from scptensor.core.structures import ScpContainer
-from scptensor.viz.base import scatter
+from scptensor.viz.base.scatter import scatter
+
 
 def volcano(
-    container: ScpContainer, 
+    container: ScpContainer,
     comparison: str,
-    assay_name: str = 'protein',
-    logfc_col: str = None,
-    pval_col: str = None,
+    assay_name: str = "protein",
+    logfc_col: str | None = None,
+    pval_col: str | None = None,
     fc_threshold: float = 1.0,
-    pval_threshold: float = 0.05
-):
+    pval_threshold: float = 0.05,
+) -> plt.Axes:
+    """Create a volcano plot for differential expression results.
+
+    Displays log2 fold change vs -log10 p-value, with significant
+    up/down-regulated points highlighted in red/blue.
+
+    Parameters
+    ----------
+    container : ScpContainer
+        Input data container with DE results in ``var``.
+    comparison : str
+        Comparison name. Used to construct default column names
+        (e.g., "Treat_vs_Ctrl" -> "{comparison}_logFC").
+    assay_name : str, default "protein"
+        Assay containing DE results.
+    logfc_col : str | None
+        Explicit logFC column name. If None, uses "{comparison}_logFC".
+    pval_col : str | None
+        Explicit p-value column name. If None, uses "{comparison}_pval".
+    fc_threshold : float, default 1.0
+        Log2 fold change threshold for significance.
+    pval_threshold : float, default 0.05
+        P-value threshold for significance.
+
+    Returns
+    -------
+    plt.Axes
+        The axes containing the plot.
+
+    Raises
+    ------
+    ValueError
+        If assay or required columns are not found.
+
     """
-    Volcano Plot for Differential Expression.
-    
-    Args:
-        container: ScpContainer.
-        comparison: Name of the comparison (used to find columns in var if defaults not set).
-                    e.g. "Treat_vs_Ctrl" -> expects "Treat_vs_Ctrl_logFC" and "Treat_vs_Ctrl_pval".
-        assay_name: Assay containing DE results in var.
-        logfc_col: Explicit column name for logFC.
-        pval_col: Explicit column name for P-value.
-        fc_threshold: Fold Change threshold (log2 scale).
-        pval_threshold: P-value threshold.
-    """
-    if assay_name not in container.assays:
+    assay = container.assays.get(assay_name)
+    if assay is None:
         raise ValueError(f"Assay '{assay_name}' not found.")
-        
-    var = container.assays[assay_name].var
-    
-    # Determine columns
-    if logfc_col is None:
-        logfc_col = f"{comparison}_logFC"
-    if pval_col is None:
-        pval_col = f"{comparison}_pval"
-        
-    if logfc_col not in var.columns:
-        raise ValueError(f"Column '{logfc_col}' not found in {assay_name}.var")
-    if pval_col not in var.columns:
-        raise ValueError(f"Column '{pval_col}' not found in {assay_name}.var")
-        
+
+    var = assay.var
+
+    # Resolve column names
+    logfc_col = logfc_col or f"{comparison}_logFC"
+    pval_col = pval_col or f"{comparison}_pval"
+
+    missing = [c for c in (logfc_col, pval_col) if c not in var.columns]
+    if missing:
+        raise ValueError(f"Columns not found in {assay_name}.var: {missing}")
+
     logfc = var[logfc_col].to_numpy()
     pval = var[pval_col].to_numpy()
-    
-    # Calculate -log10(pval)
-    # Handle zeros to avoid inf
-    pval_safe = pval.copy()
-    pval_safe[pval_safe < 1e-300] = 1e-300
-    neg_log_pval = -np.log10(pval_safe)
-    
-    # Classify points
-    # 0: NS, 1: Sig (FC only), 2: Sig (Pval only), 3: Sig (Both) -> simplified coloring
-    # Usually: Up (Red), Down (Blue), NS (Grey)
-    
-    colors = np.array(['grey'] * len(logfc), dtype=object)
-    
-    is_sig_pval = pval < pval_threshold
-    is_up = (logfc > fc_threshold) & is_sig_pval
-    is_down = (logfc < -fc_threshold) & is_sig_pval
-    
-    colors[is_up] = 'red'
-    colors[is_down] = 'blue'
-    
-    # Map colors to numbers/RGBA for scatter primitive? 
-    # Primitive scatter handles 'c' array. If strings, we need to pass them carefully or use mask.
-    # Our primitive 'scatter' logic for 'c' with mask:
-    # "if c is not None ... c_valid = c[valid_mask]"
-    # Matplotlib scatter accepts array of color strings.
-    
-    # Prepare X for scatter: (logFC, -log10P)
-    X_plot = np.column_stack((logfc, neg_log_pval))
-    
-    # All valid (no missingness in DE results usually, or we filter NaNs)
-    # If logFC or pval is NaN, mask it
-    mask = np.isnan(logfc) | np.isnan(pval)
-    # Convert bool mask to int (0=Valid, 1=Invalid)
-    m = mask.astype(int)
-    
+
+    # Avoid log(0) in -log10(pval)
+    pval_clipped = np.clip(pval, 1e-300, None)
+    neg_log_pval = -np.log10(pval_clipped)
+
+    # Color coding: grey=NS, red=up, blue=down
+    colors = np.full(len(logfc), "grey", dtype=object)
+    is_sig = pval < pval_threshold
+    colors[is_sig & (logfc > fc_threshold)] = "red"
+    colors[is_sig & (logfc < -fc_threshold)] = "blue"
+
+    X = np.column_stack((logfc, neg_log_pval))
+    m = (np.isnan(logfc) | np.isnan(pval)).astype(np.int8)
+
     ax = scatter(
-        X=X_plot,
+        X=X,
         c=colors,
         m=m,
-        mask_style='subtle', # NaNs will be greyed out/transparent
+        mask_style="subtle",
         title=f"Volcano Plot: {comparison}",
         xlabel="log2 Fold Change",
-        ylabel="-log10 P-value"
+        ylabel="-log10 P-value",
     )
-    
-    # Add threshold lines
-    ax.axhline(-np.log10(pval_threshold), linestyle='--', color='black', linewidth=0.5, alpha=0.5)
-    ax.axvline(fc_threshold, linestyle='--', color='black', linewidth=0.5, alpha=0.5)
-    ax.axvline(-fc_threshold, linestyle='--', color='black', linewidth=0.5, alpha=0.5)
-    
+
+    # Threshold lines
+    line_kwargs = {"linestyle": "--", "color": "black", "linewidth": 0.5, "alpha": 0.5}
+    ax.axhline(-np.log10(pval_threshold), **line_kwargs)
+    ax.axvline(fc_threshold, **line_kwargs)
+    ax.axvline(-fc_threshold, **line_kwargs)
+
     return ax

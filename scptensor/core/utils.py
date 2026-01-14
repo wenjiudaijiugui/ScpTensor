@@ -1,25 +1,130 @@
-import importlib
-from functools import wraps
-from .exceptions import MissingDependencyError
+"""Core utility functions for ScpTensor."""
 
-def requires_dependency(package_name: str, install_hint: str):
+from collections.abc import Callable
+from functools import wraps
+from typing import Any
+
+import numpy as np
+
+from scptensor.core.exceptions import MissingDependencyError
+
+
+def compute_pca(
+    X: np.ndarray,
+    n_components: int = 2,
+    center: bool = True,
+    random_state: int | None = None,
+) -> np.ndarray:
+    """Compute Principal Component Analysis on input matrix.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Input data matrix of shape (n_samples, n_features).
+    n_components : int, default=2
+        Number of principal components to compute.
+    center : bool, default=True
+        Whether to center the data before PCA.
+    random_state : int, optional
+        Random seed for reproducibility (not used in SVD).
+
+    Returns
+    -------
+    np.ndarray
+        PCA scores of shape (n_samples, n_components).
     """
-    Decorator to ensure a dependency is installed before executing a function.
-    
+    # Handle NaN: vectorized column median imputation
+    if np.any(np.isnan(X)):
+        X = X.copy()
+        col_medians = np.nanmedian(X, axis=0, keepdims=True)
+        nan_mask = np.isnan(X)
+        X[nan_mask] = np.take(col_medians, np.where(nan_mask)[1])
+
+    # Center
+    if center:
+        X = X - np.mean(X, axis=0, keepdims=True)
+
+    # SVD
+    U, S, _ = np.linalg.svd(X, full_matrices=False)
+
+    # Return scores
+    return U[:, :n_components] * S[:n_components]
+
+
+def compute_umap(
+    X: np.ndarray,
+    n_components: int = 2,
+    random_state: int | None = None,
+    **kwargs: Any,
+) -> np.ndarray:
+    """Compute UMAP embedding on input matrix.
+
+    Falls back to random projection if umap-learn is not available.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Input data matrix of shape (n_samples, n_features).
+    n_components : int, default=2
+        Number of embedding dimensions.
+    random_state : int, optional
+        Random seed for reproducibility.
+    **kwargs : Any
+        Additional parameters passed to UMAP.
+
+    Returns
+    -------
+    np.ndarray
+        Embedding of shape (n_samples, n_components).
+    """
+    # Handle NaN: vectorized column median imputation
+    if np.any(np.isnan(X)):
+        X = X.copy()
+        col_medians = np.nanmedian(X, axis=0, keepdims=True)
+        nan_mask = np.isnan(X)
+        X[nan_mask] = np.take(col_medians, np.where(nan_mask)[1])
+
+    try:
+        from umap import UMAP
+        return UMAP(n_components=n_components, random_state=random_state, **kwargs).fit_transform(X)
+    except ImportError:
+        # Fallback: normalized random projection
+        if random_state is not None:
+            rng = np.random.default_rng(random_state)
+        else:
+            rng = np.random
+
+        projection = rng.standard_normal((X.shape[1], n_components))
+        projection = projection / np.linalg.norm(projection, axis=0, keepdims=True)
+
+        embedding = X @ projection
+        return (embedding - np.mean(embedding, axis=0)) / (np.std(embedding, axis=0) + 1e-8)
+
+
+def requires_dependency(package_name: str, install_hint: str) -> Callable:
+    """Decorator to ensure a dependency is installed before executing a function.
+
     Args:
-        package_name: The name of the package to import.
-        install_hint: Command or instruction to install the package.
+        package_name: Name of the package to import.
+        install_hint: Installation instruction.
+
+    Returns:
+        Decorator function that checks for dependency before execution.
     """
-    def decorator(func):
+    def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
-                importlib.import_module(package_name)
+                __import__(package_name)
             except ImportError:
-                raise MissingDependencyError(
-                    f"Method '{func.__name__}' requires '{package_name}'. "
-                    f"Please install it via: {install_hint}"
-                )
+                raise MissingDependencyError(package_name)
             return func(*args, **kwargs)
         return wrapper
     return decorator
+
+
+__all__ = [
+    "compute_pca",
+    "compute_umap",
+    "requires_dependency",
+]

@@ -7,7 +7,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 # =============================================================================
@@ -76,18 +75,20 @@ def _results_to_dataframe(results: dict[str, Any]) -> pd.DataFrame:
             continue
 
         for dataset_index, result in enumerate(operation_results):
-            rows.append({
-                "operation": result["operation"],
-                "dataset_index": dataset_index,
-                "scptensor_time_ms": result["scptensor_time"] * 1000,
-                "competitor_time_ms": result["competitor_time"] * 1000,
-                "speedup_factor": result["speedup_factor"],
-                "scptensor_memory_mb": result["scptensor_memory"],
-                "competitor_memory_mb": result["competitor_memory"],
-                "memory_ratio": result["memory_ratio"],
-                "accuracy": result["accuracy_correlation"],
-                "competitor": result["competitor_name"],
-            })
+            rows.append(
+                {
+                    "operation": result["operation"],
+                    "dataset_index": dataset_index,
+                    "scptensor_time_ms": result["scptensor_time"] * 1000,
+                    "competitor_time_ms": result["competitor_time"] * 1000,
+                    "speedup_factor": result["speedup_factor"],
+                    "scptensor_memory_mb": result["scptensor_memory"],
+                    "competitor_memory_mb": result["competitor_memory"],
+                    "memory_ratio": result["memory_ratio"],
+                    "accuracy": result["accuracy_correlation"],
+                    "competitor": result["competitor_name"],
+                }
+            )
 
     return pd.DataFrame(rows)
 
@@ -248,7 +249,9 @@ class CompetitorResultVisualizer:
 
         ax.set_xlabel("Operation", fontweight="bold")
         ax.set_ylabel("Speedup Factor (ScpTensor / Competitor)", fontweight="bold")
-        ax.set_title("ScpTensor Performance vs Competitors", fontsize=14, fontweight="bold")
+        ax.set_title(
+            "ScpTensor Performance vs Competitors", fontsize=14, fontweight="bold"
+        )
         ax.legend(title="Dataset")
         ax.grid(axis="y", alpha=0.3)
 
@@ -296,7 +299,11 @@ class CompetitorResultVisualizer:
 
         ax.set_xlabel("Operation", fontweight="bold")
         ax.set_ylabel("Runtime (ms)", fontweight="bold")
-        ax.set_title("Runtime Comparison: ScpTensor vs Competitors", fontsize=14, fontweight="bold")
+        ax.set_title(
+            "Runtime Comparison: ScpTensor vs Competitors",
+            fontsize=14,
+            fontweight="bold",
+        )
         ax.legend(title="Implementation")
         ax.grid(axis="y", alpha=0.3)
         plt.xticks(rotation=45, ha="right")
@@ -402,7 +409,9 @@ class CompetitorResultVisualizer:
 
         ax.set_xlabel("Operation", fontweight="bold")
         ax.set_ylabel("Output Correlation", fontweight="bold")
-        ax.set_title("Result Agreement: ScpTensor vs Competitors", fontsize=14, fontweight="bold")
+        ax.set_title(
+            "Result Agreement: ScpTensor vs Competitors", fontsize=14, fontweight="bold"
+        )
         ax.set_ylim(0, 1.1)
         ax.grid(axis="y", alpha=0.3)
         plt.xticks(rotation=45, ha="right")
@@ -447,8 +456,12 @@ class CompetitorResultVisualizer:
 
         # Plot 2: Runtime
         ax = axes[0, 1]
-        df_grouped = df.groupby("operation")[["scptensor_time_ms", "competitor_time_ms"]].mean()
-        df_grouped.plot(kind="bar", ax=ax, rot=45, color=[_SCPTENSOR_COLOR, _COMPETITOR_COLOR])
+        df_grouped = df.groupby("operation")[
+            ["scptensor_time_ms", "competitor_time_ms"]
+        ].mean()
+        df_grouped.plot(
+            kind="bar", ax=ax, rot=45, color=[_SCPTENSOR_COLOR, _COMPETITOR_COLOR]
+        )
         ax.set_xlabel("Operation", fontweight="bold")
         ax.set_ylabel("Runtime (ms)", fontweight="bold")
         ax.set_title("Mean Runtime", fontsize=12, fontweight="bold")
@@ -469,7 +482,14 @@ class CompetitorResultVisualizer:
 
         # Plot 4: Accuracy
         ax = axes[1, 1]
-        sns.barplot(data=df, x="operation", y="accuracy", ax=ax, color=_SCPTENSOR_COLOR, errorbar="sd")
+        sns.barplot(
+            data=df,
+            x="operation",
+            y="accuracy",
+            ax=ax,
+            color=_SCPTENSOR_COLOR,
+            errorbar="sd",
+        )
         ax.axhline(y=1.0, color="gray", linestyle="--", alpha=0.7)
         ax.set_xlabel("Operation", fontweight="bold")
         ax.set_ylabel("Output Correlation", fontweight="bold")
@@ -478,7 +498,11 @@ class CompetitorResultVisualizer:
         ax.grid(axis="y", alpha=0.3)
         ax.tick_params(axis="x", rotation=45)
 
-        plt.suptitle("ScpTensor vs Competitors: Comprehensive Benchmark", fontsize=16, fontweight="bold")
+        plt.suptitle(
+            "ScpTensor vs Competitors: Comprehensive Benchmark",
+            fontsize=16,
+            fontweight="bold",
+        )
         plt.tight_layout()
 
         _save_or_show_figure(output_path, "comprehensive summary")
