@@ -6,6 +6,7 @@ This module exports core visualization utilities for ScpTensor:
 - Multi-panel layout management
 - Missing value handling
 - Plot functions (scatter, heatmap, violin)
+- Validation utilities for input checking
 """
 
 from .data_extractor import DataExtractor
@@ -14,6 +15,13 @@ from .missing_value import MissingValueHandler
 from .multi_panel import PanelLayout
 from .scatter import scatter
 from .style import CMAP_PROTEOMICS, THEMES, PlotStyle, setup_style
+from .validation import (
+    validate_container,
+    validate_features,
+    validate_groupby,
+    validate_layer,
+    validate_plot_data,
+)
 from .violin import violin
 
 __all__ = [
@@ -30,4 +38,10 @@ __all__ = [
     "scatter",
     "heatmap",
     "violin",
+    # Validation
+    "validate_container",
+    "validate_layer",
+    "validate_features",
+    "validate_groupby",
+    "validate_plot_data",
 ]

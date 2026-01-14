@@ -93,6 +93,18 @@ class MissingDependencyError(ScpTensorError):
         self.dependency_name = dependency_name
 
 
+class VisualizationError(ScpTensorError):
+    """Error in visualization operations (e.g., invalid data, missing layers)."""
+
+    def __init__(
+        self,
+        message: str,
+        parameter: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.parameter = parameter
+
+
 __all__ = [
     "ScpTensorError",
     "StructureError",
@@ -103,6 +115,7 @@ __all__ = [
     "DimensionError",
     "ScpValueError",
     "MaskCodeError",
+    "VisualizationError",
 ]
 
 
