@@ -47,34 +47,32 @@ class DataExtractor:
         assay = container.assays[assay_name]
         scpmatrix = assay.layers[layer]
 
-        X = scpmatrix.X
+        X = scpmatrix.X  # noqa: N806
         if sparse.issparse(X):
-            X = X.toarray()
-        M = scpmatrix.M if scpmatrix.M is not None else np.zeros_like(X, dtype=int)
+            X = X.toarray()  # noqa: N806
+        M = scpmatrix.M if scpmatrix.M is not None else np.zeros_like(X, dtype=int)  # noqa: N806
 
         # Filter samples
         if samples is not None:
             sample_idx = [
-                i for i, s in enumerate(container.obs["sample_id"]) if s in samples
+                i for i, s in enumerate(container.obs[container.sample_id_col]) if s in samples
             ]
-            X = X[sample_idx]
-            M = M[sample_idx]
+            X = X[sample_idx]  # noqa: N806
+            M = M[sample_idx]  # noqa: N806
             obs = container.obs[sample_idx]
         else:
             obs = container.obs
 
         # Filter features
         if var_names is not None:
-            feature_idx = [
-                i for i, v in enumerate(assay.var["protein"]) if v in var_names
-            ]
-            X = X[:, feature_idx]
-            M = M[:, feature_idx]
+            feature_idx = [i for i, v in enumerate(assay.var["protein"]) if v in var_names]
+            X = X[:, feature_idx]  # noqa: N806
+            M = M[:, feature_idx]  # noqa: N806
             var = assay.var[feature_idx]
         else:
             var = assay.var
 
-        return X, obs.to_numpy(), var.to_numpy()
+        return X, obs.to_numpy(), var.to_numpy()  # noqa: N806
 
     @staticmethod
     def get_group_data(
@@ -102,8 +100,8 @@ class DataExtractor:
 
     @staticmethod
     def handle_missing_values(
-        X: np.ndarray,
-        M: np.ndarray,
+        X: np.ndarray,  # noqa: N803
+        M: np.ndarray,  # noqa: N803
         method: Literal["separate", "transparent", "imputed"] = "separate",
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
@@ -136,13 +134,13 @@ class DataExtractor:
         missing_mask = M > 0
 
         if method == "transparent":
-            X_result = X.copy().astype(float)
+            X_result = X.copy().astype(float)  # noqa: N806
             X_result[missing_mask] = np.nan
             return X_result, np.array([]), M[missing_mask]
 
         # method == 'separate'
-        X_valid = X[valid_mask]
-        X_missing = X[missing_mask]
-        M_types = M[missing_mask]
+        X_valid = X[valid_mask]  # noqa: N806
+        X_missing = X[missing_mask]  # noqa: N806
+        M_types = M[missing_mask]  # noqa: N806
 
         return X_valid, X_missing, M_types
