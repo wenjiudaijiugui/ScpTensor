@@ -1,56 +1,91 @@
-from typing import Optional
+"""Global median normalization for ScpTensor."""
+
 import numpy as np
+
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
 from scptensor.core.structures import ScpContainer, ScpMatrix
+
 
 def global_median_normalization(
     container: ScpContainer,
-    assay_name: str = 'protein',
-    base_layer_name: str = 'raw',
-    new_layer_name: str = "global_median_norm"
+    assay_name: str = "protein",
+    base_layer_name: str = "raw",
+    new_layer_name: str = "global_median_norm",
 ) -> ScpContainer:
     """
     Global median normalization to align all samples to the global median.
-
-    Mathematical Formulation:
-        bias = median(X, axis=1) - global_median(X)
-        X_normalized = X - bias
 
     This method ensures all samples have the same median value (global median),
     which helps remove systematic technical variation while preserving biological
     differences between samples.
 
-    Args:
-        container: ScpContainer containing the data
-        assay_name: Name of the assay to process
-        base_layer_name: Name of the layer to normalize
-        new_layer_name: Name for the new normalized layer
+    Mathematical Formulation:
+        bias = median(X, axis=1) - global_median(X)
+        X_normalized = X - bias
 
-    Returns:
-        ScpContainer with added normalized layer
+    Parameters
+    ----------
+    container : ScpContainer
+        ScpContainer containing the data.
+    assay_name : str, default="protein"
+        Name of the assay to process.
+    base_layer_name : str, default="raw"
+        Name of the layer to normalize.
+    new_layer_name : str, default="global_median_norm"
+        Name for the new normalized layer.
+
+    Returns
+    -------
+    ScpContainer
+        ScpContainer with added normalized layer.
+
+    Raises
+    ------
+    AssayNotFoundError
+        If the specified assay does not exist.
+    LayerNotFoundError
+        If the specified layer does not exist in the assay.
+
+    Examples
+    --------
+    >>> import polars as pl
+    >>> from scptensor.core.structures import ScpContainer, Assay, ScpMatrix
+    >>> import numpy as np
+    >>> container = ScpContainer(obs=pl.DataFrame({'_index': ['s1', 's2']}))
+    >>> assay = Assay(var=pl.DataFrame({'_index': ['p1', 'p2']}))
+    >>> assay.add_layer('raw', ScpMatrix(X=np.array([[1, 2], [3, 4]])))
+    >>> container.add_assay('protein', assay)
+    >>> result = global_median_normalization(container)
+    >>> 'global_median_norm' in result.assays['protein'].layers
+    True
     """
+    # Validate assay and layer existence
     if assay_name not in container.assays:
-        raise ValueError(f"Assay '{assay_name}' not found.")
+        raise AssayNotFoundError(assay_name)
 
     assay = container.assays[assay_name]
     if base_layer_name not in assay.layers:
-        raise ValueError(f"Layer '{base_layer_name}' not found in assay '{assay_name}'.")
+        raise LayerNotFoundError(base_layer_name, assay_name)
 
-    base_layer = assay.layers[base_layer_name]
-    X = base_layer.X
+    input_layer = assay.layers[base_layer_name]
+    X = input_layer.X
 
-    # Calculate global median and sample-wise biases
+    # Compute global median and sample-wise biases (vectorized)
     global_median = np.nanmedian(X)
     sample_medians = np.nanmedian(X, axis=1, keepdims=True)
-    bias = sample_medians - global_median
-    X_normalized = X - bias
+    X_normalized = X - (sample_medians - global_median)
 
-    new_layer = ScpMatrix(X_normalized, base_layer.M.copy())
-    container.assays[assay_name].add_layer(new_layer_name, new_layer)
+    # Create new layer
+    new_matrix = ScpMatrix(
+        X=X_normalized,
+        M=input_layer.M.copy() if input_layer.M is not None else None,
+    )
+    assay.add_layer(new_layer_name, new_matrix)
 
     container.log_operation(
         action="normalization_global_median",
         params={"assay": assay_name},
-        description=f"Global median normalization on layer '{base_layer_name}' -> '{new_layer_name}'."
+        description=f"Global median normalization on layer '{base_layer_name}' -> '{new_layer_name}'.",
     )
 
     return container

@@ -1,268 +1,350 @@
-from typing import Optional, List, Union
+"""ComBat batch effect correction for single-cell proteomics data.
+
+Reference
+---------
+Johnson, W. E., Li, C., & Rabinovic, A. (2007). Adjusting batch effects in
+microarray expression data using empirical Bayes methods. Biostatistics.
+
+Fortin, J.-P., et al. (2017). Correction of unwanted variation in
+microarray data using empirical Bayes methods. bioRxiv.
+"""
+
+from collections.abc import Sequence
+
 import numpy as np
 import polars as pl
+import scipy.sparse as sp
+
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
+from scptensor.core.exceptions import ScpValueError
+from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import ScpContainer, ScpMatrix
 
-# 引用: Johnson, W. E., Li, C., & Rabinovic, A. (2007). Biostatistics.
-# 引用: Fortin, J.-P., et al. (2017). bioRxiv (neuroCombat implementation).
 
 def combat(
     container: ScpContainer,
     batch_key: str,
-    assay_name: str = 'protein',
-    base_layer: str = 'raw',
-    new_layer_name: Optional[str] = 'combat',
-    covariates: Optional[List[str]] = None
+    assay_name: str = "protein",
+    base_layer: str = "raw",
+    new_layer_name: str | None = "combat",
+    covariates: Sequence[str] | None = None,
 ) -> ScpContainer:
-    
+    """Apply ComBat batch effect correction using empirical Bayes.
+
+    ComBat (ComBat for Batch Adjustment) corrects for batch effects using an
+    empirical Bayes framework. It models batch-specific location and scale
+    parameters and shrinks them towards global estimates.
+
+    Parameters
+    ----------
+    container : ScpContainer
+        Input container with batch information
+    batch_key : str
+        Column name in obs containing batch labels
+    assay_name : str, optional
+        Name of the assay to process (default: 'protein')
+    base_layer : str, optional
+        Name of the layer to use as input (default: 'raw')
+    new_layer_name : str, optional
+        Name for the new layer with corrected data (default: 'combat')
+    covariates : Sequence[str] or None, optional
+        Optional list of covariate column names in obs to preserve
+
+    Returns
+    -------
+    ScpContainer
+        Container with batch-corrected layer added
+
+    Raises
+    ------
+    AssayNotFoundError
+        If the specified assay does not exist
+    LayerNotFoundError
+        If the specified layer does not exist in the assay
+    ScpValueError
+        If batch_key not found in obs, fewer than 2 batches, or <2 samples per batch
+    ValueError
+        If design matrix is rank deficient
+
+    Notes
+    -----
+    The algorithm:
+        1. Fit linear model with batch and covariates
+        2. Estimate batch-specific mean and variance parameters
+        3. Apply empirical Bayes shrinkage
+        4. Adjust data using shrunken parameters
+
+    Examples
+    --------
+    >>> container = combat(container, batch_key='batch')
+    >>> container = combat(container, batch_key='batch', covariates=['condition'])
+    """
+    # Validate assay and layer
     if assay_name not in container.assays:
-        raise ValueError(f"Assay '{assay_name}' not found.")
-    
+        raise AssayNotFoundError(assay_name)
+
     assay = container.assays[assay_name]
     if base_layer not in assay.layers:
-         raise ValueError(f"Layer '{base_layer}' not found in assay '{assay_name}'.")
+        raise LayerNotFoundError(base_layer, assay_name)
 
-    X: np.ndarray = assay.layers[base_layer].X.copy() 
-    
-    obs_df: pl.DataFrame = container.obs
+    X = assay.layers[base_layer].X.copy()
+    input_was_sparse = is_sparse_matrix(X)
+
+    # Convert to dense for ComBat computation
+    X_dense = X.toarray() if input_was_sparse else np.asarray(X)
+
+    # Validate batch_key
+    obs_df = container.obs
     if batch_key not in obs_df.columns:
-        raise ValueError(f"Batch key '{batch_key}' not found in obs.")
-    
-    batch: Union[List, np.ndarray, pl.Series] = obs_df[batch_key] # type: ignore
-    
-    # NaN Handling
-    if np.isnan(X).any():
-        # [Correction]: Use batch-specific mean imputation
-        batch_items_unique = batch.unique().to_numpy()
-        for b in batch_items_unique:
-            batch_idx = np.where(batch.to_numpy() == b)[0]
-            batch_data = X[batch_idx]
-            batch_mean = np.nanmean(batch_data, axis=0)
-            
-            # Find NaNs in this batch
-            inds = np.where(np.isnan(batch_data))
-            if len(inds[0]) > 0:
-                # Map local batch indices to global X indices
-                global_rows = batch_idx[inds[0]]
-                cols = inds[1]
-                X[global_rows, cols] = batch_mean[cols]
-        
-        # Fallback for any remaining NaNs (e.g. if a gene is all-NaN in a batch)
-        if np.isnan(X).any():
-            col_mean = np.nanmean(X, axis=0)
-            # If global mean is also NaN (all samples NaN), fill with 0
-            col_mean = np.nan_to_num(col_mean, nan=0.0)
-            inds = np.where(np.isnan(X))
-            X[inds] = np.take(col_mean, inds[1])
-    
-    dat: np.ndarray = X.T # (n_features, n_samples)
-    
-    # Design Matrix Construction
+        raise ScpValueError(
+            f"Batch key '{batch_key}' not found in obs. "
+            f"Available columns: {list(obs_df.columns)}",
+            parameter="batch_key",
+            value=batch_key,
+        )
+
+    batch = obs_df[batch_key]
+
+    # Impute NaN values with batch-specific means
+    if np.isnan(X_dense).any():
+        X_dense = _impute_nans_batchwise(X_dense, batch.to_numpy())
+
+    # Transpose: (n_features, n_samples) for feature-wise operations
+    dat = X_dense.T
+
+    # Build design matrix
     batch_items = batch.unique().to_numpy()
-    
-    # Use Polars to_dummies
-    # pl.Series.to_dummies() returns a DataFrame with dummy columns.
-    # We need to ensure we capture all batch levels.
-    # Note: batch.to_dummies() column names are {name}_{value}
     batch_info = batch.to_dummies()
-    n_batch = batch_info.shape[1]
-    n_sample = batch_info.shape[0]
+    n_batch, n_sample = batch_info.shape[1], batch_info.shape[0]
     sample_per_batch = batch_info.sum().to_numpy().flatten()
-    
-    # Check singleton batches
+
+    # Check minimum sample requirement
     if (sample_per_batch < 2).any():
-         raise ValueError("ComBat requires at least 2 samples per batch.")
+        raise ScpValueError(
+            "ComBat requires at least 2 samples per batch.",
+            parameter="batch_key",
+            value=batch_key,
+        )
 
-    # Design matrix for biology (Covariates)
-    if covariates:
-        covar_df = obs_df.select(covariates)
-        # Ensure covariates are numeric (get_dummies for categoricals)
-        # Polars equivalent: identify string/categorical cols and to_dummies them
-        cat_cols = [c for c, t in covar_df.schema.items() if t in (pl.String, pl.Categorical, pl.Object)]
-        
-        if cat_cols:
-             mod = covar_df.to_dummies(columns=cat_cols, drop_first=True)
-        else:
-             mod = covar_df
-        
-        # Convert to float and add intercept
-        # Note: Polars cast(pl.Float64)
-        # We need to convert to pandas-like structure for concatenation or just use numpy directly later?
-        # The original code uses pd.concat([batch_info, mod_for_design], axis=1)
-        # We will use pl.concat([batch_info, mod], how="horizontal")
-        
-        # Add intercept
-        mod = mod.with_columns(pl.lit(1.0).alias('intercept'))
-    else:
-        mod = pl.DataFrame({'intercept': np.ones(n_sample)})
+    # Build covariate design matrix
+    mod = _build_covariate_design(obs_df, covariates, n_sample)
 
-    # [Correction 1]: 
-    # Standard implementation constructs the design matrix by dropping the intercept 
-    # from the biological model to allow inclusion of all batch columns.
-    # This avoids rank deficiency caused by Sum(Batch_i) = Intercept.
-    
-    if 'intercept' in mod.columns:
-        mod_for_design = mod.drop('intercept')
-    else:
-        mod_for_design = mod
-        
+    # Combine batch and covariate matrices (drop intercept to avoid rank deficiency)
+    mod_for_design = mod.drop("intercept") if "intercept" in mod.columns else mod
     design_matrix = pl.concat([batch_info, mod_for_design], how="horizontal")
     X_design = design_matrix.to_numpy().astype(float)
-    
-    # [Correction 2]: Robust Rank Checking and Coefficients Calculation
-    # We rely on lstsq, but we must calculate rank for degrees of freedom correctly.
-    # Reference: sva R package logic.
-    
+
+    # Check for rank deficiency
     rank_design = np.linalg.matrix_rank(X_design)
     if rank_design < X_design.shape[1]:
-        # [Correction]: Raise Error for Rank Deficiency
-        # [修正]: 针对秩亏情况抛出错误
         raise ValueError(
-            f"Design matrix is rank deficient. Rank: {rank_design}, Cols: {X_design.shape[1]}.\n"
-            "This indicates that batch and biological covariates are confounded.\n"
-            "ComBat cannot distinguish between batch effects and biological signals in this case.\n"
-            "设计矩阵秩亏。这意味着批次效应与生物学协变量存在混淆。\n"
-            "在这种情况下，ComBat 无法区分批次效应和生物学信号。"
+            f"Design matrix is rank deficient (rank={rank_design}, cols={X_design.shape[1]}). "
+            "Batch and biological covariates are confounded."
         )
-    
-    # B_hat: (n_params, n_features)
+
+    # Fit model and extract coefficients
     B_hat = np.linalg.lstsq(X_design, dat.T, rcond=None)[0].T
-    
-    # Identification of indices
-    batch_indices = list(range(n_batch))
-    covar_indices = list(range(n_batch, design_matrix.shape[1]))
-    
-    B_batch = B_hat[:, batch_indices]
-    B_covar = B_hat[:, covar_indices]
-    X_covar = X_design[:, covar_indices]
-    
-    # Calculate Grand Mean and Variance
-    # [Correction]: Use mean of fitted values to ensure physical meaning with covariates.
-    # [修正]: 使用拟合值的均值，以确保在包含协变量时的物理意义。
-    grand_mean = np.dot((design_matrix.to_numpy().astype(float) @ B_hat.T).T, np.ones(n_sample)) / n_sample
-    
-    # Residuals
-    residuals = dat - (X_design @ B_hat.T).T
-    
-    # [Correction 3]: Correct Degrees of Freedom for Sigma
-    # sigma = sqrt( SSE / (N - rank) )
+    B_batch, B_covar = B_hat[:, :n_batch], B_hat[:, n_batch:]
+    X_covar = X_design[:, n_batch:]
+
+    # Compute grand mean and standardize
+    fitted_values = (X_design @ B_hat.T).T  # (n_features, n_samples)
+    grand_mean = np.dot(fitted_values, np.ones(n_sample)) / n_sample  # (n_features,)
+    residuals = dat - fitted_values
     sigma = np.sqrt(np.sum(residuals**2, axis=1) / (n_sample - rank_design))
-    
-    # Handling zero variance (safety)
     sigma[sigma == 0] = 1e-8
-    
-    # Standardization
+
+    # Standardize data
     covar_effect = (X_covar @ B_covar.T).T
     Z = (dat - grand_mean[:, None] - covar_effect) / sigma[:, None]
-    
-    # --- Empirical Bayes Estimation ---
-    
-    gamma_hat = np.zeros((n_batch, dat.shape[0]))
-    delta_hat = np.zeros((n_batch, dat.shape[0]))
-    
+
+    # Empirical Bayes estimation
+    gamma_hat, delta_hat = _compute_batch_moments(Z, batch.to_numpy(), batch_items, n_batch)
+    gamma_bar, t2, a_prior, b_prior = _compute_eb_priors(gamma_hat, delta_hat)
+    gamma_star, delta_star = _solve_eb_for_batches(
+        gamma_hat, delta_hat, batch.to_numpy(), batch_items,
+        gamma_bar, t2, a_prior, b_prior,
+    )
+
+    # Apply correction
+    out_data = _apply_combat_correction(Z, batch.to_numpy(), batch_items, gamma_star, delta_star)
+    out_data = out_data * sigma[:, None] + grand_mean[:, None] + covar_effect
+    X_corrected = out_data.T
+
+    # Preserve sparsity if appropriate
+    if input_was_sparse:
+        sparsity_ratio = 1.0 - (np.count_nonzero(X_corrected) / X_corrected.size)
+        if sparsity_ratio > 0.5:
+            X_corrected = sp.csr_matrix(X_corrected)
+
+    # Create new layer and log
+    M_input = assay.layers[base_layer].M
+    new_matrix = ScpMatrix(
+        X=X_corrected,
+        M=M_input.copy() if M_input is not None else None,
+    )
+    container.assays[assay_name].add_layer(new_layer_name or "combat", new_matrix)
+    container.log_operation(
+        action="integration_combat",
+        params={"batch_key": batch_key, "covariates": list(covariates) if covariates else None},
+        description="ComBat batch correction.",
+    )
+
+    return container
+
+
+def _impute_nans_batchwise(X: np.ndarray, batches: np.ndarray) -> np.ndarray:
+    """Impute NaN values using batch-specific column means."""
+    X_imputed = X.copy()
+    for b in np.unique(batches):
+        batch_idx = np.where(batches == b)[0]
+        batch_data = X_imputed[batch_idx]
+        batch_mean = np.nanmean(batch_data, axis=0)
+
+        nan_mask = np.isnan(batch_data)
+        if nan_mask.any():
+            global_rows = batch_idx[nan_mask[:, 0]]  # Get affected global rows
+            for col in range(X.shape[1]):
+                col_nans = np.where(nan_mask[:, col])[0]
+                if col_nans.size > 0:
+                    X_imputed[batch_idx[col_nans], col] = batch_mean[col]
+
+    # Fallback for remaining NaNs
+    if np.isnan(X_imputed).any():
+        col_mean = np.nan_to_num(np.nanmean(X_imputed, axis=0), nan=0.0)
+        nan_idx = np.where(np.isnan(X_imputed))
+        X_imputed[nan_idx] = np.take(col_mean, nan_idx[1])
+
+    return X_imputed
+
+
+def _build_covariate_design(
+    obs_df: pl.DataFrame,
+    covariates: Sequence[str] | None,
+    n_sample: int,
+) -> pl.DataFrame:
+    """Build design matrix for covariates with dummy encoding for categoricals."""
+    if not covariates:
+        return pl.DataFrame({"intercept": np.ones(n_sample)})
+
+    covar_df = obs_df.select(covariates)
+    cat_cols = [
+        c for c, t in covar_df.schema.items()
+        if t in (pl.String, pl.Categorical, pl.Object)
+    ]
+
+    mod = covar_df.to_dummies(columns=cat_cols, drop_first=True) if cat_cols else covar_df
+    return mod.with_columns(pl.lit(1.0).alias("intercept"))
+
+
+def _compute_batch_moments(
+    Z: np.ndarray,
+    batches: np.ndarray,
+    batch_items: np.ndarray,
+    n_batch: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute mean and variance for each batch."""
+    gamma_hat = np.zeros((n_batch, Z.shape[0]))
+    delta_hat = np.zeros((n_batch, Z.shape[0]))
+
     for i, b in enumerate(batch_items):
-        idx = np.where(batch.to_numpy() == b)[0]
+        idx = np.where(batches == b)[0]
         Z_batch = Z[:, idx]
         gamma_hat[i] = np.mean(Z_batch, axis=1)
         delta_hat[i] = np.var(Z_batch, axis=1, ddof=1)
-        
-    # Method of Moments for Priors
+
+    return gamma_hat, delta_hat
+
+
+def _compute_eb_priors(
+    gamma_hat: np.ndarray,
+    delta_hat: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Compute empirical Bayes priors using method of moments."""
     gamma_bar = np.mean(gamma_hat, axis=1)
     t2 = np.var(gamma_hat, axis=1, ddof=1)
-    
-    # Inverse Gamma priors
-    # Reference: Johnson et al. 2007, Supp Info.
-    delta_mean_prior = np.mean(delta_hat, axis=1)
-    delta_var_prior = np.var(delta_hat, axis=1, ddof=1)
-    
-    # Safety for division
-    delta_var_prior[delta_var_prior == 0] = 1e-8
-    
-    a_prior = (delta_mean_prior**2 / delta_var_prior) + 2
-    b_prior = delta_mean_prior * (a_prior - 1)
-    
-    # Improved Vectorized Solver
-    def solve_eb(g_hat, d_hat, g_bar, t2, a, b, n, conv=1e-4):
-        g_old = g_hat.copy()
-        d_old = d_hat.copy()
-        
-        # Broadcast scalars to arrays
-        # Ensure inputs are arrays or properly broadcastable scalars
-        # In this loop context, g_bar, t2, a, b are scalars (float)
-        # We don't need [:, None] for scalars.
-        # But if they were arrays (e.g. per-gene priors?), we would.
-        # Given the usage below:
-        # gamma_bar[i] is a scalar (mean of gamma_hat for batch i)
-        # So we just ensure they are treated as such.
-        
-        # If they are scalars, just use them as is. 
-        # If they are arrays, ensure shape matches g_hat
-        
-        change = 1
-        count = 0
-        while change > conv and count < 100:
-            # Post Mean Gamma
-            # g_new = (n * t2 * g_hat + d_old * g_bar) / (n * t2 + d_old)
-            g_new = (n * t2 * g_hat + d_old * g_bar) / (n * t2 + d_old)
-            
-            # Post Mean Delta
-            # sum2 = (n - 1) * d_hat + n * (g_hat - g_new)**2
-            sum2 = (n - 1) * d_hat + n * (g_hat - g_new)**2
-            d_new = (b + 0.5 * sum2) / (a + n/2)
-            
-            # [Correction]: Use relative error to avoid instability when g_old is close to 0
-            # [修正]: 使用相对误差以避免当 g_old 接近 0 时的不稳定性
-            change = np.max(np.abs(g_new - g_old) / (np.abs(g_old) + 1e-8)) + \
-                     np.max(np.abs(d_new - d_old) / (np.abs(d_old) + 1e-8))
-            
-            g_old = g_new
-            d_old = d_new
-            count += 1
-            
-        return g_new, d_new
 
+    delta_mean = np.mean(delta_hat, axis=1)
+    delta_var = np.var(delta_hat, axis=1, ddof=1)
+    delta_var[delta_var == 0] = 1e-8
+
+    a_prior = (delta_mean**2 / delta_var) + 2
+    b_prior = delta_mean * (a_prior - 1)
+
+    return gamma_bar, t2, a_prior, b_prior
+
+
+def _solve_eb_for_batches(
+    gamma_hat: np.ndarray,
+    delta_hat: np.ndarray,
+    batches: np.ndarray,
+    batch_items: np.ndarray,
+    gamma_bar: np.ndarray,
+    t2: np.ndarray,
+    a_prior: np.ndarray,
+    b_prior: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Solve empirical Bayes for all batches."""
+    n_batch, n_features = gamma_hat.shape
     gamma_star = np.zeros_like(gamma_hat)
     delta_star = np.zeros_like(delta_hat)
-    
+
     for i, b in enumerate(batch_items):
-        idx = np.where(batch.to_numpy() == b)[0]
+        idx = np.where(batches == b)[0]
         n_samples = len(idx)
-        
-        # Inputs need to be shaped correctly for broadcasting
-        # g_hat[i]: (n_features,) -> (n_features, 1)
+
         g_h = gamma_hat[i][:, None]
         d_h = delta_hat[i][:, None]
-        
-        # Run solver
-        g_s, d_s = solve_eb(
-            g_h, d_h, 
-            gamma_bar[i], t2[i], 
-            a_prior[i], b_prior[i], 
-            n_samples
-        )
+
+        g_s, d_s = _solve_eb(g_h, d_h, gamma_bar[i], t2[i], a_prior[i], b_prior[i], n_samples)
         gamma_star[i] = g_s.flatten()
         delta_star[i] = d_s.flatten()
 
-    # Final Adjustment
+    return gamma_star, delta_star
+
+
+def _solve_eb(
+    g_hat: np.ndarray,
+    d_hat: np.ndarray,
+    g_bar: float,
+    t2: float,
+    a: float,
+    b: float,
+    n: int,
+    conv: float = 1e-4,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Solve empirical Bayes using iterative posterior estimation."""
+    g_old, d_old = g_hat.copy(), d_hat.copy()
+
+    for _ in range(100):
+        g_new = (n * t2 * g_hat + d_old * g_bar) / (n * t2 + d_old)
+        sum2 = (n - 1) * d_hat + n * (g_hat - g_new) ** 2
+        d_new = (b + 0.5 * sum2) / (a + n / 2)
+
+        change = (
+            np.max(np.abs(g_new - g_old) / (np.abs(g_old) + 1e-8)) +
+            np.max(np.abs(d_new - d_old) / (np.abs(d_old) + 1e-8))
+        )
+
+        g_old, d_old = g_new, d_new
+        if change <= conv:
+            break
+
+    return g_old, d_old
+
+
+def _apply_combat_correction(
+    Z: np.ndarray,
+    batches: np.ndarray,
+    batch_items: np.ndarray,
+    gamma_star: np.ndarray,
+    delta_star: np.ndarray,
+) -> np.ndarray:
+    """Apply ComBat correction to standardized data."""
     out_data = np.zeros_like(Z)
+
     for i, b in enumerate(batch_items):
-        idx = np.where(batch.to_numpy() == b)[0]
-        # (Z - gamma_star) / sqrt(delta_star)
+        idx = np.where(batches == b)[0]
         out_data[:, idx] = (Z[:, idx] - gamma_star[i][:, None]) / np.sqrt(delta_star[i][:, None])
-        
-    # De-standardize: Add back Grand Mean and Covariates (Biological Signal)
-    out_data = out_data * sigma[:, None] + grand_mean[:, None] + covar_effect
-    
-    X_corrected = out_data.T
-    
-    new_matrix = ScpMatrix(X=X_corrected, M=assay.layers[base_layer].M.copy())
-    container.assays[assay_name].add_layer(new_layer_name, new_matrix) # type: ignore
-    
-    # Logging (keep original logic)
-    container.log_operation(
-        action="integration_combat",
-        params={"batch_key": batch_key, "covariates": covariates},
-        description=f"ComBat batch correction."
-    )
-    
-    return container
+
+    return out_data

@@ -1,127 +1,81 @@
+"""UMAP (Uniform Manifold Approximation and Projection) for dimensionality reduction.
 
-from typing import Optional, Union, Type, List, Dict
+This module provides UMAP embedding for single-cell proteomics data,
+using the umap-learn library with ScpTensor integration.
+
+Reference:
+    McInnes, L., Healy, J., & Melville, J. (2018).
+    UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction.
+    arXiv:1802.03426
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 import polars as pl
 import umap as umap_learn
-import scipy.sparse as sp
-from scptensor.core.structures import ScpContainer, ScpMatrix, Assay
 
-def umap_transform(
-    container: ScpContainer,
-    assay_name: str,
-    base_layer_name: str,
-    new_assay_name: str = "umap",
-    n_components: int = 2,
-    n_neighbors: int = 15,
-    min_dist: float = 0.1,
-    metric: str = "euclidean",
-    random_state: Optional[Union[int, np.random.RandomState]] = 42,
-    dtype: Type = np.float64
-) -> ScpContainer:
-    """
-    Perform UMAP on a specific layer of an assay.
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError, ValidationError
+from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
+
+if TYPE_CHECKING:
+    from numpy.typing import DTypeLike
+
+
+def _validate_embedding_params(
+    n_components: int,
+    n_neighbors: int,
+    min_dist: float,
+) -> None:
+    """Validate UMAP embedding parameters.
 
     Args:
-        container (ScpContainer): The data container.
-        assay_name (str): The name of the assay to use.
-        base_layer_name (str): The name of the layer in the assay to use as input.
-        new_assay_name (str, optional): The name of the new assay to store UMAP results. Defaults to "umap".
-        n_components (int, optional): The number of components to compute. Defaults to 2.
-        n_neighbors (int, optional): The size of local neighborhood. Defaults to 15.
-        min_dist (float, optional): The effective minimum distance between embedded points. Defaults to 0.1.
-        metric (str, optional): The metric to use to calculate distance between examples in a feature array. Defaults to "euclidean".
-        random_state (int, RandomState, optional): Seed for the random number generator. Defaults to 42.
-        dtype (Type, optional): The desired data type for computation. Defaults to np.float64.
+        n_components: Number of UMAP dimensions
+        n_neighbors: Size of local neighborhood
+        min_dist: Minimum distance between embedded points
 
-    Returns:
-        ScpContainer: A new container with the UMAP results added as a new assay.
+    Raises:
+        ScpValueError: If any parameter is invalid
     """
-    if assay_name not in container.assays:
-        raise ValueError(f"Assay '{assay_name}' not found.")
+    if n_components <= 0:
+        raise ScpValueError(
+            f"n_components must be positive, got {n_components}.",
+            parameter="n_components",
+            value=n_components,
+        )
+    if n_neighbors <= 0:
+        raise ScpValueError(
+            f"n_neighbors must be positive, got {n_neighbors}.",
+            parameter="n_neighbors",
+            value=n_neighbors,
+        )
+    if not (0.0 <= min_dist < 1.0):
+        raise ScpValueError(
+            f"min_dist must be in [0, 1), got {min_dist}.",
+            parameter="min_dist",
+            value=min_dist,
+        )
 
-    assay = container.assays[assay_name]
-    if base_layer_name not in assay.layers:
-        raise ValueError(f"Layer '{base_layer_name}' not found in assay '{assay_name}'.")
 
-    input_matrix = assay.layers[base_layer_name]
-    X = input_matrix.X
+def _check_valid_data(X: np.ndarray) -> None:
+    """Check that input data has no NaN or infinite values.
 
-    # Check for NaN or infinite values
-    if sp.issparse(X):
-        if np.any(np.isnan(X.data)) or np.any(np.isinf(X.data)):
-            raise ValueError(
-                "Input data contains NaN or infinite values. "
-                "ScpTensor UMAP requires a complete data matrix. "
-                "Please use an imputed layer (e.g. run imputation first)."
-            )
-    else:
-        if np.any(np.isnan(X)) or np.any(np.isinf(X)):
-            raise ValueError(
-                "Input data contains NaN or infinite values. "
-                "ScpTensor UMAP requires a complete data matrix. "
-                "Please use an imputed layer (e.g. run imputation first)."
-            )
+    Args:
+        X: Input data matrix
 
-    reducer = umap_learn.UMAP(
-        n_neighbors=n_neighbors,
-        n_components=n_components,
-        min_dist=min_dist,
-        metric=metric,
-        random_state=random_state
-    )
+    Raises:
+        ValidationError: If data contains NaN or Inf
+    """
+    if np.any(np.isnan(X)) or np.any(np.isinf(X)):
+        raise ValidationError(
+            "Input data contains NaN or infinite values. "
+            "ScpTensor UMAP requires a complete data matrix. "
+            "Please use an imputed layer (e.g. run imputation first).",
+            field="X",
+        )
 
-    embedding = reducer.fit_transform(X)
-    
-    if dtype != embedding.dtype:
-        embedding = embedding.astype(dtype)
-
-    # Create feature metadata for UMAP dimensions
-    feature_names = [f"UMAP_{i+1}" for i in range(n_components)]
-    var_df = pl.DataFrame({"feature_id": feature_names})
-
-    # Create a new Assay for UMAP results
-    new_assay = Assay(
-        var=var_df,
-        feature_id_col="feature_id"
-    )
-    
-    # Add the embedding as a layer
-    # UMAP doesn't change cells, so M should match input cells
-    # However, M usually tracks missing values in original features.
-    # In UMAP space, the concept of missingness per "UMAP dimension" is different.
-    # Typically, if a sample is successfully embedded, it's valid.
-    # So we can create a generic "Valid" mask (all zeros)
-    
-    M = np.zeros(embedding.shape, dtype=np.int8)
-
-    new_assay.add_layer(
-        name="embedding",
-        matrix=ScpMatrix(X=embedding, M=M)
-    )
-    
-    # Add the new assay to the container
-    new_container = container.copy()
-    new_container.add_assay(new_assay_name, new_assay)
-    
-    # Log the operation
-    params = {
-        "assay_name": assay_name,
-        "base_layer_name": base_layer_name,
-        "new_assay_name": new_assay_name,
-        "n_components": n_components,
-        "n_neighbors": n_neighbors,
-        "min_dist": min_dist,
-        "metric": metric,
-        "random_state": random_state if isinstance(random_state, int) else "RandomState",
-        "dtype": str(dtype)
-    }
-    new_container.log_operation(
-        action="umap_transform",
-        params=params,
-        description=f"Performed UMAP on {assay_name}/{base_layer_name}"
-    )
-    
-    return new_container
 
 def umap(
     container: ScpContainer,
@@ -132,18 +86,134 @@ def umap(
     n_neighbors: int = 15,
     min_dist: float = 0.1,
     metric: str = "euclidean",
-    random_state: Optional[Union[int, np.random.RandomState]] = 42,
-    dtype: Type = np.float64
+    random_state: int | np.random.RandomState | None = 42,
+    dtype: DTypeLike = np.float64,
 ) -> ScpContainer:
-    return umap_transform(
-        container=container,
-        assay_name=assay_name,
-        base_layer_name=base_layer,
-        new_assay_name=new_assay_name,
-        n_components=n_components,
+    """Perform UMAP dimensionality reduction on a specific assay layer.
+
+    UMAP (Uniform Manifold Approximation and Projection) is a manifold learning
+    technique that preserves both local and global structure in high-dimensional
+    data. This function creates a new assay containing the UMAP embedding.
+
+    Parameters
+    ----------
+    container : ScpContainer
+        The data container containing the input assay.
+    assay_name : str
+        Name of the assay to transform.
+    base_layer : str
+        Name of the layer within the assay to use as input.
+    new_assay_name : str, optional
+        Name for the new assay storing UMAP results. Default is "umap".
+    n_components : int, optional
+        Number of UMAP dimensions to compute. Default is 2.
+    n_neighbors : int, optional
+        Size of the local neighborhood for UMAP. Larger values preserve more
+        global structure. Default is 15.
+    min_dist : float, optional
+        Effective minimum distance between embedded points. Smaller values
+        create tighter clusters. Default is 0.1.
+    metric : str, optional
+        Distance metric to use. Default is "euclidean".
+    random_state : int or RandomState or None, optional
+        Random seed for reproducibility. Default is 42.
+    dtype : type or dtype, optional
+        Data type for computation. Default is np.float64.
+
+    Returns
+    -------
+    ScpContainer
+        A new container with the UMAP results added as a new assay.
+
+    Raises
+    ------
+    AssayNotFoundError
+        If the specified assay does not exist.
+    LayerNotFoundError
+        If the specified layer does not exist in the assay.
+    ScpValueError
+        If n_neighbors, min_dist, or n_components parameters are invalid.
+    ValidationError
+        If the input data contains NaN or infinite values.
+
+    Examples
+    --------
+    >>> from scptensor import create_test_container
+    >>> container = create_test_container()
+    >>> result = umap(container, "proteins", "imputed", n_components=2)
+    >>> result = umap(
+    ...     container, "proteins", "imputed",
+    ...     n_neighbors=30, min_dist=0.2
+    ... )
+    """
+    # Validate parameters early
+    _validate_embedding_params(n_components, n_neighbors, min_dist)
+
+    # Validate assay and layer exist
+    if assay_name not in container.assays:
+        raise AssayNotFoundError(assay_name)
+
+    assay = container.assays[assay_name]
+    if base_layer not in assay.layers:
+        raise LayerNotFoundError(base_layer, assay_name)
+
+    # Extract input data
+    input_matrix = assay.layers[base_layer]
+    X = input_matrix.X
+
+    # Validate data completeness
+    _check_valid_data(X)
+
+    # Configure and fit UMAP
+    reducer = umap_learn.UMAP(
         n_neighbors=n_neighbors,
+        n_components=n_components,
         min_dist=min_dist,
         metric=metric,
         random_state=random_state,
-        dtype=dtype
     )
+
+    embedding = reducer.fit_transform(X)
+
+    if np.dtype(dtype) != embedding.dtype:
+        embedding = embedding.astype(dtype)
+
+    # Create feature metadata for UMAP dimensions
+    feature_names = [f"UMAP_{i + 1}" for i in range(n_components)]
+    var_df = pl.DataFrame({"feature_id": feature_names})
+
+    # Create new assay with embedding layer
+    new_assay = Assay(var=var_df, feature_id_col="feature_id")
+
+    # UMAP embeddings are always valid (no missingness in reduced space)
+    M = np.zeros(embedding.shape, dtype=np.int8)
+    new_assay.add_layer(name="embedding", matrix=ScpMatrix(X=embedding, M=M))
+
+    # Create new container with updated assays
+    new_container = container.copy()
+    new_container.add_assay(new_assay_name, new_assay)
+
+    # Log operation for provenance tracking
+    random_state_str = (
+        str(random_state) if isinstance(random_state, int) else "RandomState"
+    )
+    new_container.log_operation(
+        action="umap",
+        params={
+            "assay_name": assay_name,
+            "base_layer": base_layer,
+            "new_assay_name": new_assay_name,
+            "n_components": n_components,
+            "n_neighbors": n_neighbors,
+            "min_dist": min_dist,
+            "metric": metric,
+            "random_state": random_state_str,
+            "dtype": str(dtype),
+        },
+        description=f"Performed UMAP on {assay_name}/{base_layer}",
+    )
+
+    return new_container
+
+
+__all__ = ["umap"]

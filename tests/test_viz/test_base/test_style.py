@@ -10,7 +10,7 @@ def test_apply_default_style():
     PlotStyle.apply_style()
     import matplotlib.pyplot as plt
 
-    assert plt.rcParams["axes.unicode_minus"] == False
+    assert not plt.rcParams["axes.unicode_minus"]
     # Check if science styles are available
     assert "science" in plt.style.available
 

@@ -16,8 +16,6 @@ from scipy import sparse, stats
 from sklearn.decomposition import PCA
 from sklearn.impute import KNNImputer
 
-from scptensor.core.structures import ScpContainer
-
 
 # =============================================================================
 # Context Manager for Resource Tracking
@@ -110,6 +108,7 @@ class CompetitorResult:
 def _get_timestamp() -> str:
     """Get current timestamp in ISO format."""
     import time
+
     return time.strftime("%Y-%m-%d %H:%M:%S")
 
 
@@ -152,6 +151,7 @@ class NumpyLogNormalize:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         X_valid = get_valid_data(X, M)
@@ -170,7 +170,9 @@ class SklearnStandardScaler:
     name = "sklearn_standard"
 
     @staticmethod
-    def run(X: np.ndarray, M: np.ndarray | None = None) -> tuple[np.ndarray, float, float]:
+    def run(
+        X: np.ndarray, M: np.ndarray | None = None
+    ) -> tuple[np.ndarray, float, float]:
         """Run z-score standardization using sklearn.
 
         Parameters
@@ -191,6 +193,7 @@ class SklearnStandardScaler:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         X_valid = get_valid_data(X, M)
@@ -233,6 +236,7 @@ class ScipyZScore:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         X_valid = get_valid_data(X, M)
@@ -284,6 +288,7 @@ class SklearnKNNImputer:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         if M is None:
@@ -309,7 +314,9 @@ class NumpyMeanImputer:
     name = "numpy_mean"
 
     @staticmethod
-    def run(X: np.ndarray, M: np.ndarray | None = None) -> tuple[np.ndarray, float, float]:
+    def run(
+        X: np.ndarray, M: np.ndarray | None = None
+    ) -> tuple[np.ndarray, float, float]:
         """Run mean imputation using numpy.
 
         Parameters
@@ -328,6 +335,7 @@ class NumpyMeanImputer:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         if M is None:
@@ -382,6 +390,7 @@ class ScipySVDImputer:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         if M is None:
@@ -461,6 +470,7 @@ class SklearnPCA:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         X_valid = get_valid_data(X, M)
@@ -511,6 +521,7 @@ class SparsePCA:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         if M is not None:
@@ -564,6 +575,7 @@ class SklearnKMeans:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         X_valid = get_valid_data(X, M)
@@ -655,12 +667,17 @@ def get_competitors_by_operation(operation: str) -> dict[str, type]:
     operation_map = {
         "normalization": ["numpy_log", "sklearn_standard", "scipy_zscore"],
         "imputation": ["sklearn_knn", "numpy_mean", "scipy_svd"],
-        "dim_reduction": ["sklearn_pca", "sparse_pca"],
-        "clustering": ["sklearn_kmeans"],
+        "dim_reduction": ["sklearn_pca", "sparse_pca", "umap_learn", "scanpy_umap"],
+        "clustering": ["sklearn_kmeans", "sklearn_agglomerative"],
+        "umap": ["umap_learn", "scanpy_umap"],
     }
 
     competitors = operation_map.get(operation, [])
-    return {name: COMPETITOR_REGISTRY[name] for name in competitors if name in COMPETITOR_REGISTRY}
+    return {
+        name: COMPETITOR_REGISTRY[name]
+        for name in competitors
+        if name in COMPETITOR_REGISTRY
+    }
 
 
 # =============================================================================
@@ -705,6 +722,7 @@ class ScanpyStyleOps:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         X_valid = get_valid_data(X, M)
@@ -749,6 +767,7 @@ class ScanpyStyleOps:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         X_valid = get_valid_data(X, M)
@@ -788,6 +807,7 @@ class ScanpyStyleOps:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         X_valid = get_valid_data(X, M)
@@ -844,6 +864,7 @@ class ScanpyStyleOps:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         X_valid = get_valid_data(X, M)
@@ -860,3 +881,214 @@ class ScanpyStyleOps:
         memory = tracker.stop()
 
         return X_pca, runtime, memory
+
+
+# =============================================================================
+# UMAP Competitors
+# =============================================================================
+
+
+class UmapLearnUMAP:
+    """umap-learn UMAP implementation."""
+
+    name = "umap_learn"
+
+    @staticmethod
+    def run(
+        X: np.ndarray,
+        M: np.ndarray | None = None,
+        n_components: int = 2,
+        n_neighbors: int = 15,
+        min_dist: float = 0.1,
+    ) -> tuple[np.ndarray, float, float]:
+        """Run UMAP using umap-learn.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Input data.
+        M : np.ndarray | None
+            Mask matrix.
+        n_components : int
+            Number of UMAP components.
+        n_neighbors : int
+            Size of local neighborhood.
+        min_dist : float
+            Minimum distance between points.
+
+        Returns
+        -------
+        tuple[np.ndarray, float, float]
+            (result_array, runtime_seconds, memory_mb)
+        """
+        import umap
+
+        tracker = _ResourceTracker()
+        tracker.start()
+
+        import time
+        start_time = time.time()
+
+        X_valid = get_valid_data(X, M)
+
+        if np.any(np.isnan(X_valid)):
+            col_means = np.nanmean(X_valid, axis=0)
+            col_means = np.nan_to_num(col_means, nan=0.0)
+            for i in range(X_valid.shape[1]):
+                X_valid[np.isnan(X_valid[:, i]), i] = col_means[i]
+
+        reducer = umap.UMAP(
+            n_neighbors=n_neighbors,
+            n_components=n_components,
+            min_dist=min_dist,
+            random_state=42,
+        )
+        X_umap = reducer.fit_transform(X_valid)
+
+        runtime = time.time() - start_time
+        memory = tracker.stop()
+
+        return X_umap, runtime, memory
+
+
+class ScanpyStyleUMAP:
+    """Scanpy-style UMAP (uses umap-learn with scanpy defaults)."""
+
+    name = "scanpy_umap"
+
+    @staticmethod
+    def run(
+        X: np.ndarray,
+        M: np.ndarray | None = None,
+        n_components: int = 2,
+        n_neighbors: int = 15,
+        min_dist: float = 0.1,
+    ) -> tuple[np.ndarray, float, float]:
+        """Run Scanpy-style UMAP.
+
+        Equivalent to sc.tl.umap in scanpy (uses same defaults).
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Input data.
+        M : np.ndarray | None
+            Mask matrix.
+        n_components : int
+            Number of UMAP components.
+        n_neighbors : int
+            Size of local neighborhood.
+        min_dist : float
+            Minimum distance between points.
+
+        Returns
+        -------
+        tuple[np.ndarray, float, float]
+            (result_array, runtime_seconds, memory_mb)
+        """
+        import umap
+
+        tracker = _ResourceTracker()
+        tracker.start()
+
+        import time
+        start_time = time.time()
+
+        X_valid = get_valid_data(X, M)
+
+        if np.any(np.isnan(X_valid)):
+            col_means = np.nanmean(X_valid, axis=0)
+            col_means = np.nan_to_num(col_means, nan=0.0)
+            for i in range(X_valid.shape[1]):
+                X_valid[np.isnan(X_valid[:, i]), i] = col_means[i]
+
+        # Scanpy uses these defaults
+        reducer = umap.UMAP(
+            n_neighbors=n_neighbors,
+            n_components=n_components,
+            min_dist=min_dist,
+            spread=1.0,
+            random_state=0,
+        )
+        X_umap = reducer.fit_transform(X_valid)
+
+        runtime = time.time() - start_time
+        memory = tracker.stop()
+
+        return X_umap, runtime, memory
+
+
+# =============================================================================
+# Clustering Competitors (Extended)
+# =============================================================================
+
+
+class SklearnAgglomerativeClustering:
+    """scikit-learn Agglomerative clustering."""
+
+    name = "sklearn_agglomerative"
+
+    @staticmethod
+    def run(
+        X: np.ndarray,
+        M: np.ndarray | None = None,
+        n_clusters: int = 5,
+        linkage: str = "ward",
+    ) -> tuple[np.ndarray, float, float]:
+        """Run agglomerative clustering using sklearn.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Input data.
+        M : np.ndarray | None
+            Mask matrix.
+        n_clusters : int
+            Number of clusters.
+        linkage : str
+            Linkage criterion.
+
+        Returns
+        -------
+        tuple[np.ndarray, float, float]
+            (labels, runtime_seconds, memory_mb)
+        """
+        from sklearn.cluster import AgglomerativeClustering
+
+        tracker = _ResourceTracker()
+        tracker.start()
+
+        import time
+        start_time = time.time()
+
+        X_valid = get_valid_data(X, M)
+
+        if np.any(np.isnan(X_valid)):
+            col_means = np.nanmean(X_valid, axis=0)
+            for i in range(X_valid.shape[1]):
+                X_valid[np.isnan(X_valid[:, i]), i] = col_means[i]
+
+        clustering = AgglomerativeClustering(
+            n_clusters=n_clusters, linkage=linkage
+        )
+        labels = clustering.fit_predict(X_valid)
+
+        runtime = time.time() - start_time
+        memory = tracker.stop()
+
+        return labels, runtime, memory
+
+
+# =============================================================================
+# Update Registry
+# =============================================================================
+
+
+# Add new competitors to registry
+COMPETITOR_REGISTRY.update({
+    # UMAP
+    "umap_learn": UmapLearnUMAP,
+    "scanpy_umap": ScanpyStyleUMAP,
+    # Additional clustering
+    "sklearn_agglomerative": SklearnAgglomerativeClustering,
+})
