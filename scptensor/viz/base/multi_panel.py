@@ -1,7 +1,11 @@
 """Multi-panel layout manager for combined plots."""
 
-from typing import Callable, Any
+import math
+from collections.abc import Callable
+from typing import Any
+
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 
@@ -42,8 +46,8 @@ class PanelLayout:
         self._auto_grid = grid is None  # Track if using auto-grid mode
         self._n_panels = 0
         self._figure: Figure | None = None
-        self._axes: list[plt.Axes] = []
-        self._colorbar_sources: list[tuple[plt.Axes, Any]] = []
+        self._axes: list[Axes] = []
+        self._colorbar_sources: list[tuple[Axes, Any]] = []
         self._legend_elements: list[dict[str, Any]] = []
 
     def _compute_grid(self, n_panels: int) -> tuple[int, int]:
@@ -59,8 +63,6 @@ class PanelLayout:
         tuple of (int, int)
             (n_rows, n_cols) grid specification.
         """
-        import math
-
         if n_panels == 0:
             return (1, 1)
 
@@ -124,9 +126,9 @@ class PanelLayout:
     def add_panel(
         self,
         position: int | tuple[int, int],
-        plot_func: Callable[[plt.Axes], Any],
-        **kwargs,
-    ) -> plt.Axes:
+        plot_func: Callable[[Axes], Any],
+        **kwargs: Any,
+    ) -> Axes:
         """
         Add subplot panel.
 
@@ -178,7 +180,10 @@ class PanelLayout:
         return ax
 
     def add_legend(
-        self, position: str = "right", labels: list[str] | None = None, **kwargs
+        self,
+        position: str = "right",
+        labels: list[str] | None = None,
+        **kwargs: Any,
     ) -> None:
         """
         Add shared legend across panels.
@@ -287,7 +292,7 @@ class PanelLayout:
         return self._figure
 
     @property
-    def axes(self) -> list[plt.Axes]:
+    def axes(self) -> list[Axes]:
         """Get all axes.
 
         Returns
