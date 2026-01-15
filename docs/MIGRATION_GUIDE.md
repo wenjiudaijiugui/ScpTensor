@@ -2,23 +2,23 @@
 
 This guide documents API changes between ScpTensor versions and helps you migrate your code.
 
-## Current Version: v0.1.0-beta
+## Current Version: v0.2.0 (development)
+
+## Breaking Change: Old Parameter Names Removed
+
+**⚠️ IMPORTANT:** As of v0.2.0, old parameter names have been **removed** and are no longer supported. You must update your code to use the new parameter names.
 
 ---
 
 ## Parameter Naming Changes
 
-### Overview
-
-As part of improving code consistency, ScpTensor has standardized parameter names across modules. The old parameter names are still supported for backward compatibility but will be removed in version 1.0.0.
-
 ### Normalization Module
 
 | Old Parameter | New Parameter | Status |
 |--------------|---------------|--------|
-| `base_layer` | `source_layer` | Deprecated - use `source_layer` |
-| `base_layer_name` | `source_layer` | Deprecated - use `source_layer` |
-| `new_layer` | `new_layer_name` | Deprecated - use `new_layer_name` |
+| `base_layer` | `source_layer` | ❌ Removed - use `source_layer` |
+| `base_layer_name` | `source_layer` | ❌ Removed - use `source_layer` |
+| `new_layer` | `new_layer_name` | ❌ Removed - use `new_layer_name` |
 
 **Affected Functions:**
 - `log_normalize()`
@@ -35,9 +35,9 @@ As part of improving code consistency, ScpTensor has standardized parameter name
 
 | Old Parameter | New Parameter | Status |
 |--------------|---------------|--------|
-| `base_layer` | `source_layer` | Deprecated - use `source_layer` |
-| `layer` | `source_layer` | Deprecated - use `source_layer` |
-| `output_layer` | `new_layer_name` | Deprecated - use `new_layer_name` |
+| `base_layer` | `source_layer` | ❌ Removed - use `source_layer` |
+| `layer` | `source_layer` | ❌ Removed - use `source_layer` |
+| `output_layer` | `new_layer_name` | ❌ Removed - use `new_layer_name` |
 
 **Affected Functions:**
 - `knn()`
@@ -75,15 +75,15 @@ The integration module uses `base_layer` consistently (no change planned):
 
 ### Example 1: Log Normalization
 
-**Before (Deprecated):**
+**Before (v0.1.x - No longer supported):**
 ```python
 from scptensor import log_normalize
 
 result = log_normalize(
     container,
     "proteins",
-    base_layer="raw",
-    new_layer="log"
+    base_layer="raw",      # ❌ Removed
+    new_layer="log"        # ❌ Removed
 )
 ```
 
@@ -101,15 +101,15 @@ result = log_normalize(
 
 ### Example 2: KNN Imputation
 
-**Before (Deprecated):**
+**Before (v0.1.x - No longer supported):**
 ```python
 from scptensor import knn
 
 result = knn(
     container,
     "proteins",
-    layer="log",
-    output_layer="imputed"
+    layer="log",              # ❌ Removed
+    output_layer="imputed"    # ❌ Removed
 )
 ```
 
@@ -127,15 +127,15 @@ result = knn(
 
 ### Example 3: Z-score Standardization
 
-**Before (Deprecated):**
+**Before (v0.1.x - No longer supported):**
 ```python
 from scptensor import zscore
 
 result = zscore(
     container,
     "proteins",
-    base_layer_name="corrected",
-    new_layer="zscore"
+    base_layer_name="corrected",  # ❌ Removed
+    new_layer="zscore"            # ❌ Removed
 )
 ```
 
@@ -153,14 +153,14 @@ result = zscore(
 
 ### Example 4: TMM Normalization
 
-**Before (Deprecated):**
+**Before (v0.1.x - No longer supported):**
 ```python
 from scptensor import tmm_normalization
 
 result = tmm_normalization(
     container,
     "proteins",
-    base_layer_name="raw"
+    base_layer_name="raw"  # ❌ Removed
 )
 ```
 
@@ -177,28 +177,11 @@ result = tmm_normalization(
 
 ---
 
-## Deprecated Warnings
-
-When you use old parameter names, ScpTensor will emit a deprecation warning:
-
-```
-DeprecationWarning: 'base_layer' is deprecated, use 'source_layer' instead.
-This parameter will be removed in version 1.0.0.
-```
-
-To see all deprecation warnings, run Python with warnings enabled:
-
-```bash
-python -W default your_script.py
-```
-
----
-
 ## Parameter Naming Convention
 
-### New Convention
+### Standard Convention
 
-Starting from v0.1.0-beta, ScpTensor follows these naming conventions:
+As of v0.2.0, ScpTensor follows these naming conventions:
 
 | Parameter Type | Name | Usage |
 |----------------|------|-------|
@@ -223,15 +206,15 @@ Starting from v0.1.0-beta, ScpTensor follows these naming conventions:
 
 ## Timeline
 
-- **v0.1.0-beta (Current):** Old parameters supported with deprecation warnings
-- **v0.2.0:** Old parameters still supported, warnings may become errors
-- **v1.0.0:** Old parameters removed
+- **v0.1.0-beta:** Old parameters supported with deprecation warnings
+- **v0.2.0 (Current):** Old parameters **removed**, only new parameter names supported
+- **v1.0.0:** Future release
 
 ---
 
 ## Auto-Migration Script
 
-For large codebases, you can use this sed command to automatically replace deprecated parameter names:
+For large codebases, you can use this sed command to automatically replace old parameter names:
 
 ```bash
 # Replace base_layer with source_layer in normalization/imputation functions
