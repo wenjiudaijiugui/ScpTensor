@@ -13,6 +13,7 @@ import copy
 from dataclasses import dataclass
 from datetime import datetime
 from enum import IntEnum
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -811,3 +812,74 @@ class ScpContainer:
             )
         )
         return new_history
+
+    def save(
+        self,
+        path: str | Path,
+        *,
+        compression: str | None = "gzip",
+        compression_level: int = 4,
+        overwrite: bool = False,
+    ) -> None:
+        """Save container to file, auto-detecting format from extension.
+
+        Parameters
+        ----------
+        path : str | Path
+            Output file path. Extension determines format (.h5, .parquet)
+        compression : str | None, default "gzip"
+            Compression algorithm for HDF5
+        compression_level : int, default 4
+            Compression level (0-9)
+        overwrite : bool, default False
+            Whether to overwrite existing file
+
+        Raises
+        ------
+        ValueError
+            If file extension is not recognized
+        """
+        from scptensor.io import save_hdf5
+
+        path = Path(path)
+        suffix = path.suffix.lower()
+
+        if suffix == ".h5" or suffix == ".hdf5":
+            save_hdf5(
+                self,
+                path,
+                compression=compression,
+                compression_level=compression_level,
+                overwrite=overwrite,
+            )
+        else:
+            raise ValueError(f"Unsupported file format: {suffix}. Use .h5")
+
+    @classmethod
+    def load(cls, path: str | Path) -> ScpContainer:
+        """Load container from file, auto-detecting format from extension.
+
+        Parameters
+        ----------
+        path : str | Path
+            Input file path. Extension determines format
+
+        Returns
+        -------
+        ScpContainer
+            Loaded container
+
+        Raises
+        ------
+        ValueError
+            If file extension is not recognized
+        """
+        from scptensor.io import load_hdf5
+
+        path = Path(path)
+        suffix = path.suffix.lower()
+
+        if suffix == ".h5" or suffix == ".hdf5":
+            return load_hdf5(path)
+        else:
+            raise ValueError(f"Unsupported file format: {suffix}. Use .h5")
