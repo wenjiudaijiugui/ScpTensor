@@ -144,6 +144,7 @@ tests/viz/
 # Data
 data/raw/
 data/processed/
+scptensor/datasets
 *.csv
 *.h5
 *.hdf5

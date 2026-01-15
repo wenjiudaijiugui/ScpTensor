@@ -137,9 +137,7 @@ def rank_genes_groups_dotplot(
         group1 = unique_groups[0]
     if group2 is None:
         if len(unique_groups) < 2:
-            raise ValueError(
-                f"Need at least 2 groups for comparison, found {len(unique_groups)}"
-            )
+            raise ValueError(f"Need at least 2 groups for comparison, found {len(unique_groups)}")
         group2 = unique_groups[1]
 
     # Verify groups exist
@@ -199,7 +197,6 @@ def rank_genes_groups_dotplot(
 
     # Get group indices
     g1_mask = groups == group1
-    g2_mask = groups == group2
 
     # Calculate expression percentage for group1
     pct_expr = np.zeros(n_top)
@@ -210,14 +207,18 @@ def rank_genes_groups_dotplot(
     # Get color values based on values_to_plot
     if values_to_plot == "logfc":
         # Get logFC from DE result
-        logfc_map = dict(zip(de_df["feature_id"].to_list(), de_df["log2_fc"].to_list(), strict=False))
+        logfc_map = dict(
+            zip(de_df["feature_id"].to_list(), de_df["log2_fc"].to_list(), strict=False)
+        )
         color_values = np.array([logfc_map.get(g, 0) for g in top_genes])
         color_label = "log2 Fold Change"
         # Symmetric color scale
         vlim = max(abs(color_values).min(0), 0.1)  # At least some range
         vmin, vmax = -vlim, vlim
     elif values_to_plot == "pval":
-        pval_map = dict(zip(de_df["feature_id"].to_list(), de_df["p_value"].to_list(), strict=False))
+        pval_map = dict(
+            zip(de_df["feature_id"].to_list(), de_df["p_value"].to_list(), strict=False)
+        )
         pvals = np.array([pval_map.get(g, 1.0) for g in top_genes])
         color_values = -np.log10(np.clip(pvals, 1e-300, None))
         color_label = "-log10 P-value"
@@ -374,9 +375,7 @@ def rank_genes_groups_stacked_violin(
         group1 = unique_groups[0]
     if group2 is None:
         if len(unique_groups) < 2:
-            raise ValueError(
-                f"Need at least 2 groups for comparison, found {len(unique_groups)}"
-            )
+            raise ValueError(f"Need at least 2 groups for comparison, found {len(unique_groups)}")
         group2 = unique_groups[1]
 
     # Verify groups exist
@@ -455,7 +454,7 @@ def rank_genes_groups_stacked_violin(
     violin_data_g1 = []
     violin_data_g2 = []
 
-    for i, idx in enumerate(feature_idx):
+    for _i, idx in enumerate(feature_idx):
         g1_vals = x[g1_mask, idx]
         g2_vals = x[g2_mask, idx]
         violin_data_g1.append(g1_vals)
@@ -603,9 +602,7 @@ def volcano(
         group1 = unique_groups[0]
     if group2 is None:
         if len(unique_groups) < 2:
-            raise ValueError(
-                f"Need at least 2 groups for comparison, found {len(unique_groups)}"
-            )
+            raise ValueError(f"Need at least 2 groups for comparison, found {len(unique_groups)}")
         group2 = unique_groups[1]
 
     # Verify groups exist
@@ -627,9 +624,7 @@ def volcano(
     # Convert to DataFrame
     de_df = de_result.to_dataframe()
     # Filter out NaN values
-    de_df = de_df.filter(
-        pl.col("p_value").is_not_nan() & pl.col("log2_fc").is_not_nan()
-    )
+    de_df = de_df.filter(pl.col("p_value").is_not_nan() & pl.col("log2_fc").is_not_nan())
 
     n_total = len(de_df)
     if n_total == 0:
@@ -663,7 +658,9 @@ def volcano(
         ax.scatter(logfc, neg_log_pvals, c=point_colors, alpha=0.6, s=20, edgecolors="none")
 
         # Threshold lines
-        ax.axhline(-np.log10(pval_threshold), linestyle="--", color="black", linewidth=0.5, alpha=0.5)
+        ax.axhline(
+            -np.log10(pval_threshold), linestyle="--", color="black", linewidth=0.5, alpha=0.5
+        )
         ax.axvline(logfc_threshold, linestyle="--", color="black", linewidth=0.5, alpha=0.5)
         ax.axvline(-logfc_threshold, linestyle="--", color="black", linewidth=0.5, alpha=0.5)
 
@@ -704,6 +701,7 @@ def volcano(
 
         # Legend
         from matplotlib.patches import Patch
+
         legend_elements = [
             Patch(facecolor=colors[0], label=f"Not significant ({n_total - n_sig})"),
             Patch(facecolor=colors[1], label=f"Upregulated ({n_up})"),
@@ -728,8 +726,15 @@ def volcano(
         Median log2FC: {np.median(logfc):.3f}
         Median -log10(p): {np.median(neg_log_pvals):.3f}
         """
-        ax.text(0.1, 0.5, stats_text, transform=ax.transAxes, fontsize=10,
-                verticalalignment="center", family="monospace")
+        ax.text(
+            0.1,
+            0.5,
+            stats_text,
+            transform=ax.transAxes,
+            fontsize=10,
+            verticalalignment="center",
+            family="monospace",
+        )
 
     layout.add_panel((0, 2), _plot_stats)
 
@@ -740,11 +745,13 @@ def volcano(
         if len(up_df) > 0:
             table_data = []
             for row in up_df.iter_rows(named=True):
-                table_data.append([
-                    row["feature_id"],
-                    f"{row['log2_fc']:.2f}",
-                    f"{row['p_value']:.2e}",
-                ])
+                table_data.append(
+                    [
+                        row["feature_id"],
+                        f"{row['log2_fc']:.2f}",
+                        f"{row['p_value']:.2e}",
+                    ]
+                )
 
             table = ax.table(
                 cellText=table_data,
@@ -773,11 +780,13 @@ def volcano(
         if len(down_df) > 0:
             table_data = []
             for row in down_df.iter_rows(named=True):
-                table_data.append([
-                    row["feature_id"],
-                    f"{row['log2_fc']:.2f}",
-                    f"{row['p_value']:.2e}",
-                ])
+                table_data.append(
+                    [
+                        row["feature_id"],
+                        f"{row['log2_fc']:.2f}",
+                        f"{row['p_value']:.2e}",
+                    ]
+                )
 
             table = ax.table(
                 cellText=table_data,
@@ -835,7 +844,10 @@ if __name__ == "__main__":
 
     # Create test container
     obs = pl.DataFrame(
-        {"_index": [f"S{i}" for i in range(60)], "condition": np.repeat(["Control", "Treatment"], 30)}
+        {
+            "_index": [f"S{i}" for i in range(60)],
+            "condition": np.repeat(["Control", "Treatment"], 30),
+        }
     )
     container = ScpContainer(obs=obs)
 

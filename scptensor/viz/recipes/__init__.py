@@ -5,7 +5,7 @@ from .differential import (
 from .differential import (
     volcano as volcano_enhanced,
 )
-from .embedding import pca, scatter, tsne, umap
+from .embedding import embedding, pca, scatter, tsne, umap
 from .feature import dotplot
 from .matrix import heatmap, matrixplot, tracksplot
 from .qc import (

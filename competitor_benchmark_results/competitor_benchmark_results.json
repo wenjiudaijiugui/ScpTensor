@@ -1,0 +1,69 @@
+{
+  "log_normalization": [
+    {
+      "operation": "log_normalization",
+      "scptensor_time": 0.0002658367156982422,
+      "competitor_time": 0.0002796649932861328,
+      "scptensor_memory": 0,
+      "competitor_memory": 0.0,
+      "speedup_factor": 0.9505541346973572,
+      "memory_ratio": 1.0,
+      "accuracy_correlation": 1.0,
+      "competitor_name": "numpy_log",
+      "parameters": {
+        "base": 2.0,
+        "offset": 1.0
+      },
+      "timestamp": "2026-01-14T16:51:22.531818"
+    }
+  ],
+  "pca": [
+    {
+      "operation": "pca",
+      "scptensor_time": 0.0015215873718261719,
+      "competitor_time": 0.12448740005493164,
+      "scptensor_memory": 0,
+      "competitor_memory": 60.0,
+      "speedup_factor": 0.012222822319003788,
+      "memory_ratio": 0.0,
+      "accuracy_correlation": 1.0,
+      "competitor_name": "sklearn_pca",
+      "parameters": {
+        "n_components": 50
+      },
+      "timestamp": "2026-01-14T16:51:22.659218"
+    }
+  ],
+  "_summary": {
+    "log_normalization": {
+      "n_comparisons": 1,
+      "mean_speedup": 0.9505541346973572,
+      "std_speedup": 0.0,
+      "min_speedup": 0.9505541346973572,
+      "max_speedup": 0.9505541346973572,
+      "mean_memory_ratio": 1.0,
+      "mean_accuracy": 1.0,
+      "winner": "mixed"
+    },
+    "pca": {
+      "n_comparisons": 1,
+      "mean_speedup": 0.012222822319003788,
+      "std_speedup": 0.0,
+      "min_speedup": 0.012222822319003788,
+      "max_speedup": 0.012222822319003788,
+      "mean_memory_ratio": 0.0,
+      "mean_accuracy": 1.0,
+      "winner": "competitor"
+    }
+  },
+  "_metadata": {
+    "timestamp": "2026-01-14T16:51:22.659338",
+    "n_datasets": 1,
+    "dataset_sizes": [
+      [
+        50,
+        200
+      ]
+    ]
+  }
+}

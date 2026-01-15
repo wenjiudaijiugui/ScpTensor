@@ -18,19 +18,6 @@ from .exceptions import (
     VisualizationError,
 )
 
-# JIT operations
-from .jit_ops import (
-    NUMBA_AVAILABLE,
-    apply_mask_threshold,
-    compute_euclidean_distance,
-    count_mask_codes,
-    fill_missing_with_value,
-    find_missing_indices,
-)
-
-# Matrix operations
-from .matrix_ops import MatrixOps
-
 # I/O functions
 from .io import (
     from_scanpy,
@@ -44,6 +31,19 @@ from .io import (
     to_scanpy,
     write_h5ad,
 )
+
+# JIT operations
+from .jit_ops import (
+    NUMBA_AVAILABLE,
+    apply_mask_threshold,
+    compute_euclidean_distance,
+    count_mask_codes,
+    fill_missing_with_value,
+    find_missing_indices,
+)
+
+# Matrix operations
+from .matrix_ops import MatrixOps
 
 # Reader
 from .reader import reader
