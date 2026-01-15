@@ -193,13 +193,15 @@ When updating a module to meet standards:
 
 | Module | P0 Fixes | P1 Fixes | P2 Fixes | Status |
 |--------|----------|----------|----------|--------|
-| core/structures.py | layer → layer_name | Add list methods | Review names | 🔄 Pending |
-| normalization/* | base_layer → source_layer | Error messages | - | 🔄 Pending |
-| impute/* | layer → source_layer | Error messages | - | 🔄 Pending |
-| qc/* | obs_subset → obs_names | Error messages | - | 🔄 Pending |
+| core/structures.py | layer → layer_name | Add list methods | Review names | ✅ Completed (2026-01-15) |
+| normalization/* | base_layer → source_layer | Error messages | - | ✅ Completed (2026-01-15) |
+| impute/* | layer → source_layer | Error messages | - | ✅ Completed (2026-01-15) |
+| qc/* | obs_subset → obs_names | Error messages | - | ✅ Completed (2026-01-15) |
 | integration/* | - | Error messages | - | ✅ Clean |
 | dim_reduction/* | - | Error messages | - | ✅ Clean |
 | cluster/* | - | Error messages | - | ✅ Clean |
+
+**All high-priority modules completed as of 2026-01-15.**
 
 ---
 
