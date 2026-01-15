@@ -12,7 +12,8 @@ rather than modifying in-place.
 """
 
 import re
-from typing import Literal
+import warnings
+from typing import Any, Literal
 
 import numpy as np
 import polars as pl
@@ -20,7 +21,7 @@ import scipy.sparse as sp
 from sklearn.neighbors import NearestNeighbors
 
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
-from scptensor.core.structures import ScpContainer, ScpMatrix
+from scptensor.core.structures import ScpContainer
 
 # Default contaminant patterns for proteomics
 _DEFAULT_CONTAMINANT_PATTERNS = [
@@ -106,7 +107,7 @@ def _sparse_row_medians(data: np.ndarray, indptr: np.ndarray, n_rows: int) -> np
     return result
 
 
-def filter_features_by_missing_rate(
+def filter_features_missing(
     container: ScpContainer,
     assay_name: str = "protein",
     layer_name: str = "raw",
@@ -151,7 +152,7 @@ def filter_features_by_missing_rate(
 
     Examples
     --------
-    >>> container = filter_features_by_missing_rate(
+    >>> container = filter_features_missing(
     ...     container, assay_name="protein", max_missing_rate=0.3
     ... )
     """
@@ -195,7 +196,7 @@ def filter_features_by_missing_rate(
         new_container = container.filter_features(assay_name, feature_indices=keep_indices)
         n_removed = assay.n_features - new_container.assays[assay_name].n_features
         new_container.log_operation(
-            action="filter_features_by_missing_rate",
+            action="filter_features_missing",
             params={
                 "assay": assay_name,
                 "layer_name": layer_name,
@@ -214,7 +215,7 @@ def filter_features_by_missing_rate(
     return _create_container_with_updated_var(container, assay_name, new_var)
 
 
-def filter_features_by_variance(
+def filter_features_variance(
     container: ScpContainer,
     assay_name: str = "protein",
     layer_name: str = "raw",
@@ -261,11 +262,11 @@ def filter_features_by_variance(
     Examples
     --------
     >>> # Keep features with variance > 0.1
-    >>> container = filter_features_by_variance(
+    >>> container = filter_features_variance(
     ...     container, assay_name="protein", min_variance=0.1
     ... )
     >>> # Keep top 1000 most variable features
-    >>> container = filter_features_by_variance(
+    >>> container = filter_features_variance(
     ...     container, assay_name="protein", top_n=1000
     ... )
     """
@@ -324,7 +325,7 @@ def filter_features_by_variance(
         new_container = container.filter_features(assay_name, feature_indices=keep_indices)
         n_removed = assay.n_features - new_container.assays[assay_name].n_features
         new_container.log_operation(
-            action="filter_features_by_variance",
+            action="filter_features_variance",
             params={
                 "assay": assay_name,
                 "layer_name": layer_name,
@@ -345,7 +346,7 @@ def filter_features_by_variance(
     return _create_container_with_updated_var(container, assay_name, new_var)
 
 
-def filter_features_by_prevalence(
+def filter_features_prevalence(
     container: ScpContainer,
     assay_name: str = "protein",
     layer_name: str = "raw",
@@ -394,11 +395,11 @@ def filter_features_by_prevalence(
     Examples
     --------
     >>> # Keep features detected in at least 3 samples
-    >>> container = filter_features_by_prevalence(
+    >>> container = filter_features_prevalence(
     ...     container, assay_name="protein", min_prevalence=3
     ... )
     >>> # Keep features detected in at least 10% of samples
-    >>> container = filter_features_by_prevalence(
+    >>> container = filter_features_prevalence(
     ...     container, assay_name="protein", min_prevalence_ratio=0.1
     ... )
     """
@@ -451,7 +452,7 @@ def filter_features_by_prevalence(
         new_container = container.filter_features(assay_name, feature_indices=keep_indices)
         n_removed = assay.n_features - new_container.assays[assay_name].n_features
         new_container.log_operation(
-            action="filter_features_by_prevalence",
+            action="filter_features_prevalence",
             params={
                 "assay": assay_name,
                 "layer_name": layer_name,
@@ -469,7 +470,7 @@ def filter_features_by_prevalence(
     return _create_container_with_updated_var(container, assay_name, new_var)
 
 
-def filter_samples_by_total_count(
+def filter_samples_count(
     container: ScpContainer,
     assay_name: str = "protein",
     layer_name: str = "raw",
@@ -517,7 +518,7 @@ def filter_samples_by_total_count(
     Examples
     --------
     >>> # Remove samples with total intensity < 1000
-    >>> container = filter_samples_by_total_count(
+    >>> container = filter_samples_count(
     ...     container, assay_name="protein", min_total=1000, inplace=True
     ... )
     """
@@ -571,7 +572,7 @@ def filter_samples_by_total_count(
 
         n_removed = container.n_samples - new_container.n_samples
         new_container.log_operation(
-            action="filter_samples_by_total_count",
+            action="filter_samples_count",
             params={
                 "assay": assay_name,
                 "layer_name": layer_name,
@@ -601,7 +602,7 @@ def filter_samples_by_total_count(
         return new_container
 
 
-def filter_samples_by_missing_rate(
+def filter_samples_missing(
     container: ScpContainer,
     assay_name: str = "protein",
     layer_name: str = "raw",
@@ -646,7 +647,7 @@ def filter_samples_by_missing_rate(
     Examples
     --------
     >>> # Remove samples with >50% missing values
-    >>> container = filter_samples_by_missing_rate(
+    >>> container = filter_samples_missing(
     ...     container, assay_name="protein", max_missing_rate=0.5, inplace=True
     ... )
     """
@@ -690,7 +691,7 @@ def filter_samples_by_missing_rate(
 
         n_removed = container.n_samples - new_container.n_samples
         new_container.log_operation(
-            action="filter_samples_by_missing_rate",
+            action="filter_samples_missing",
             params={
                 "assay": assay_name,
                 "layer_name": layer_name,
@@ -719,7 +720,7 @@ def filter_samples_by_missing_rate(
         return new_container
 
 
-def detect_contaminant_proteins(
+def detect_contaminants(
     container: ScpContainer,
     assay_name: str = "protein",
     layer_name: str = "raw",
@@ -766,7 +767,7 @@ def detect_contaminant_proteins(
 
     Examples
     --------
-    >>> container = detect_contaminant_proteins(
+    >>> container = detect_contaminants(
     ...     container, assay_name="protein"
     ... )
     >>> # Get list of detected contaminants
@@ -842,7 +843,7 @@ def detect_contaminant_proteins(
 
     n_contaminants = int(np.sum(is_detected_contaminant))
     new_container.log_operation(
-        action="detect_contaminant_proteins",
+        action="detect_contaminants",
         params={
             "assay": assay_name,
             "layer_name": layer_name,
@@ -1168,152 +1169,92 @@ def calculate_qc_metrics(
     return new_container
 
 
-if __name__ == "__main__":
-    import sys
+# Backward compatibility aliases
+def filter_features_by_missing_rate(*args: Any, **kwargs: Any) -> ScpContainer:
+    """Deprecated: Use filter_features_missing instead.
 
-    print("Testing advanced QC methods...")
-    print()
-
-    # Create test data
-    np.random.seed(42)
-    n_samples = 100
-    n_features = 50
-
-    # Create synthetic data with some missing values
-    X_dense = np.random.exponential(1.0, size=(n_samples, n_features))
-    missing_mask = np.random.random((n_samples, n_features)) < 0.3
-    X_dense[missing_mask] = 0
-
-    # Add some contaminants (first 5 features)
-    X_dense[:, :5] *= 2  # Higher abundance for contaminants
-
-    # Create container
-    import polars as pl
-
-    obs = pl.DataFrame(
-        {
-            "_index": [f"sample_{i}" for i in range(n_samples)],
-        }
+    This function is maintained for backward compatibility and will be
+    removed in version 1.0.0.
+    """
+    warnings.warn(
+        "'filter_features_by_missing_rate' is deprecated, use 'filter_features_missing' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
     )
+    return filter_features_missing(*args, **kwargs)
 
-    var = pl.DataFrame(
-        {
-            "_index": [f"protein_{i}" for i in range(n_features)],
-            "name": [f"KRT{i}" if i < 5 else f"PROT{i}" for i in range(n_features)],
-        }
+
+def filter_features_by_variance(*args: Any, **kwargs: Any) -> ScpContainer:
+    """Deprecated: Use filter_features_variance instead.
+
+    This function is maintained for backward compatibility and will be
+    removed in version 1.0.0.
+    """
+    warnings.warn(
+        "'filter_features_by_variance' is deprecated, use 'filter_features_variance' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
     )
+    return filter_features_variance(*args, **kwargs)
 
-    from scptensor.core.structures import Assay, ScpMatrix
 
-    assay = Assay(var=var, layers={"raw": ScpMatrix(X=X_dense, M=None)})
-    container = ScpContainer(obs=obs, assays={"protein": assay})
+def filter_features_by_prevalence(*args: Any, **kwargs: Any) -> ScpContainer:
+    """Deprecated: Use filter_features_prevalence instead.
 
-    # Test 1: calculate_qc_metrics
-    print("Test 1: calculate_qc_metrics")
-    container = calculate_qc_metrics(container, assay_name="protein")
-    assert "n_detected" in container.obs.columns
-    assert "total_intensity" in container.obs.columns
-    assert "missing_rate" in container.obs.columns
-    assert "prevalence" in container.assays["protein"].var.columns
-    assert "mean_intensity" in container.assays["protein"].var.columns
-    print("  QC metrics added successfully")
-
-    # Test 2: filter_features_by_missing_rate (non-inplace)
-    print("Test 2: filter_features_by_missing_rate")
-    container = filter_features_by_missing_rate(
-        container, assay_name="protein", max_missing_rate=0.5, inplace=False
+    This function is maintained for backward compatibility and will be
+    removed in version 1.0.0.
+    """
+    warnings.warn(
+        "'filter_features_by_prevalence' is deprecated, use 'filter_features_prevalence' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
     )
-    assert "missing_rate" in container.assays["protein"].var.columns
-    print("  Missing rate filter calculated successfully")
+    return filter_features_prevalence(*args, **kwargs)
 
-    # Test 3: filter_features_by_variance (non-inplace)
-    print("Test 3: filter_features_by_variance")
-    container = filter_features_by_variance(
-        container, assay_name="protein", min_variance=0.1, inplace=False
+
+def filter_samples_by_total_count(*args: Any, **kwargs: Any) -> ScpContainer:
+    """Deprecated: Use filter_samples_count instead.
+
+    This function is maintained for backward compatibility and will be
+    removed in version 1.0.0.
+    """
+    warnings.warn(
+        "'filter_samples_by_total_count' is deprecated, use 'filter_samples_count' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
     )
-    assert "feature_variance" in container.assays["protein"].var.columns
-    print("  Variance filter calculated successfully")
+    return filter_samples_count(*args, **kwargs)
 
-    # Test 4: filter_features_by_prevalence (non-inplace)
-    print("Test 4: filter_features_by_prevalence")
-    container = filter_features_by_prevalence(
-        container, assay_name="protein", min_prevalence=10, inplace=False
+
+def filter_samples_by_missing_rate(*args: Any, **kwargs: Any) -> ScpContainer:
+    """Deprecated: Use filter_samples_missing instead.
+
+    This function is maintained for backward compatibility and will be
+    removed in version 1.0.0.
+    """
+    warnings.warn(
+        "'filter_samples_by_missing_rate' is deprecated, use 'filter_samples_missing' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
     )
-    assert "prevalence" in container.assays["protein"].var.columns
-    print("  Prevalence filter calculated successfully")
+    return filter_samples_missing(*args, **kwargs)
 
-    # Test 5: filter_samples_by_total_count (non-inplace)
-    print("Test 5: filter_samples_by_total_count")
-    container = filter_samples_by_total_count(
-        container, assay_name="protein", min_total=10, inplace=False
+
+def detect_contaminant_proteins(*args: Any, **kwargs: Any) -> ScpContainer:
+    """Deprecated: Use detect_contaminants instead.
+
+    This function is maintained for backward compatibility and will be
+    removed in version 1.0.0.
+    """
+    warnings.warn(
+        "'detect_contaminant_proteins' is deprecated, use 'detect_contaminants' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
     )
-    assert "total_count" in container.obs.columns
-    print("  Total count filter calculated successfully")
-
-    # Test 6: filter_samples_by_missing_rate (non-inplace)
-    print("Test 6: filter_samples_by_missing_rate")
-    container = filter_samples_by_missing_rate(
-        container, assay_name="protein", max_missing_rate=0.5, inplace=False
-    )
-    assert "missing_rate" in container.obs.columns
-    print("  Sample missing rate filter calculated successfully")
-
-    # Test 7: detect_contaminant_proteins
-    print("Test 7: detect_contaminant_proteins")
-    container = detect_contaminant_proteins(container, assay_name="protein")
-    assert "is_contaminant" in container.assays["protein"].var.columns
-    assert "contaminant_content" in container.obs.columns
-    n_contaminants = container.assays["protein"].var["is_contaminant"].sum()
-    print(f"  Detected {n_contaminants} contaminant proteins")
-
-    # Test 8: detect_doublets
-    print("Test 8: detect_doublets")
-    container = detect_doublets(container, assay_name="protein", method="knn")
-    assert "is_doublet" in container.obs.columns
-    assert "doublet_score" in container.obs.columns
-    n_doublets = container.obs["is_doublet"].sum()
-    print(f"  Detected {n_doublets} potential doublets")
-
-    # Test 9: Inplace filtering
-    print("Test 9: Inplace feature filtering")
-    original_n_features = container.assays["protein"].n_features
-    container_filtered = filter_features_by_missing_rate(
-        container, assay_name="protein", max_missing_rate=0.2, inplace=True
-    )
-    assert container_filtered.assays["protein"].n_features < original_n_features
-    print(
-        f"  Features reduced from {original_n_features} to {container_filtered.assays['protein'].n_features}"
-    )
-
-    # Test 10: Inplace sample filtering
-    print("Test 10: Inplace sample filtering")
-    original_n_samples = container.n_samples
-    container_filtered_samples = filter_samples_by_missing_rate(
-        container, assay_name="protein", max_missing_rate=0.3, inplace=True
-    )
-    assert container_filtered_samples.n_samples <= original_n_samples
-    print(f"  Samples reduced from {original_n_samples} to {container_filtered_samples.n_samples}")
-
-    # Test 11: Top N features by variance
-    print("Test 11: Filter top N features by variance")
-    container_top_n = filter_features_by_variance(
-        container, assay_name="protein", top_n=20, inplace=True
-    )
-    assert container_top_n.assays["protein"].n_features == 20
-    print("  Kept top 20 features by variance")
-
-    # Test 12: Sparse matrix support
-    print("Test 12: Sparse matrix support")
-    X_sparse = sp.csr_matrix(X_dense)
-    assay_sparse = Assay(var=var, layers={"raw": ScpMatrix(X=X_sparse, M=None)})
-    container_sparse = ScpContainer(obs=obs, assays={"protein": assay_sparse})
-    container_sparse = calculate_qc_metrics(container_sparse, assay_name="protein")
-    assert "n_detected" in container_sparse.obs.columns
-    assert "prevalence" in container_sparse.assays["protein"].var.columns
-    print("  Sparse matrix support works correctly")
-
-    print()
-    print("=" * 60)
-    print("All advanced QC tests passed successfully!")
-    print("=" * 60)
-    sys.exit(0)
+    return detect_contaminants(*args, **kwargs)

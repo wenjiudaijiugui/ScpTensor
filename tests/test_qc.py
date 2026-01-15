@@ -162,9 +162,9 @@ class TestBasicQC:
         assert isinstance(result, ScpContainer)
         assert result.n_samples <= qc_container.n_samples
         assert result.assays["protein"].n_features <= qc_container.assays["protein"].n_features
-        # Check history was logged
+        # Check history was logged (action is now qc_basic for the new function name)
         assert len(result.history) > 0
-        assert result.history[-1].action == "basic_qc"
+        assert result.history[-1].action == "qc_basic"
 
     def test_basic_qc_custom_thresholds(self, qc_container):
         """Test basic_qc with custom min_features and min_cells."""

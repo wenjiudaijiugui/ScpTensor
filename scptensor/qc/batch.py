@@ -5,6 +5,7 @@ in single-cell proteomics data, which is critical for ensuring data quality
 before downstream analysis.
 """
 
+import warnings
 from typing import Literal
 
 import numpy as np
@@ -16,7 +17,7 @@ from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, Sc
 from scptensor.core.structures import ScpContainer
 
 
-def compute_batch_metrics(
+def qc_batch_metrics(
     container: ScpContainer,
     assay_name: str = "protein",
     layer_name: str = "raw",
@@ -59,7 +60,7 @@ def compute_batch_metrics(
 
     Examples
     --------
-    >>> container = compute_batch_metrics(
+    >>> container = qc_batch_metrics(
     ...     container, assay_name="protein", batch_col="batch"
     ... )
     """
@@ -99,7 +100,7 @@ def compute_batch_metrics(
 
     # Calculate per-sample metrics
     n_features = X.shape[1]
-    detected_mask = X > detection_threshold
+    detected_mask = detection_threshold < X
 
     n_detected_per_sample = detected_mask.sum(axis=1)
     total_intensity_per_sample = X.sum(axis=1)
@@ -156,7 +157,7 @@ def compute_batch_metrics(
     )
 
     new_container.log_operation(
-        action="compute_batch_metrics",
+        action="qc_batch_metrics",
         params={
             "assay": assay_name,
             "layer_name": layer_name,
@@ -166,6 +167,33 @@ def compute_batch_metrics(
     )
 
     return new_container
+
+
+def compute_batch_metrics(
+    container: ScpContainer,
+    assay_name: str = "protein",
+    layer_name: str = "raw",
+    batch_col: str | None = None,
+    detection_threshold: float = 0.0,
+) -> ScpContainer:
+    """Deprecated: Use qc_batch_metrics instead.
+
+    This function is maintained for backward compatibility and will be
+    removed in version 1.0.0.
+    """
+    warnings.warn(
+        "'compute_batch_metrics' is deprecated, use 'qc_batch_metrics' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return qc_batch_metrics(
+        container=container,
+        assay_name=assay_name,
+        layer_name=layer_name,
+        batch_col=batch_col,
+        detection_threshold=detection_threshold,
+    )
 
 
 def detect_batch_effects(
@@ -199,7 +227,7 @@ def detect_batch_effects(
         Maximum number of features to test (most variable).
     detection_threshold : float, default 0.0
         Value threshold for considering a value as detected.
-        random_state : int, default 42
+    random_state : int, default 42
         Random state for feature selection.
 
     Returns

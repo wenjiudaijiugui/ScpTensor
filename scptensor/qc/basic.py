@@ -1,5 +1,8 @@
 """Basic Quality Control operations for single-cell proteomics data."""
 
+import warnings
+from typing import Any
+
 import numpy as np
 import polars as pl
 import scipy.sparse as sp
@@ -31,7 +34,7 @@ def _get_layer(assay, layer_name: str | None = None):
     return assay.layers.get("raw") or next(iter(assay.layers.values()), None)
 
 
-def basic_qc(
+def qc_basic(
     container: ScpContainer,
     assay_name: str = "protein",
     min_features: int = 200,
@@ -45,28 +48,41 @@ def basic_qc(
     This function filters samples with too few detected features and
     features detected in too few samples.
 
-    Args:
-        container: The ScpContainer object.
-        assay_name: Name of the assay to perform QC on.
-        min_features: Minimum number of features required for a cell to be kept.
-        min_cells: Minimum number of cells a feature must be detected in.
-        detection_threshold: Threshold for a value to be considered detected.
-        new_layer_name: Unused parameter (kept for API compatibility).
+    Parameters
+    ----------
+    container : ScpContainer
+        The ScpContainer object.
+    assay_name : str, default "protein"
+        Name of the assay to perform QC on.
+    min_features : int, default 200
+        Minimum number of features required for a cell to be kept.
+    min_cells : int, default 3
+        Minimum number of cells a feature must be detected in.
+    detection_threshold : float, default 0.0
+        Threshold for a value to be considered detected.
+    new_layer_name : str | None, default None
+        Unused parameter (kept for API compatibility).
 
-    Returns:
+    Returns
+    -------
+    ScpContainer
         A new ScpContainer with filtered samples and features.
 
-    Raises:
-        AssayNotFoundError: If the specified assay does not exist.
-        ScpValueError: If min_features or min_cells parameters are invalid.
+    Raises
+    ------
+    AssayNotFoundError
+        If the specified assay does not exist.
+    ScpValueError
+        If min_features or min_cells parameters are invalid.
 
-    Examples:
-        >>> container = basic_qc(
-        ...     container,
-        ...     assay_name="protein",
-        ...     min_features=200,
-        ...     min_cells=3
-        ... )
+    Examples
+    --------
+    >>> container = qc_basic(
+    ...     container,
+    ...     assay_name="protein",
+    ...     min_features=200,
+    ...     min_cells=3
+    ... )
     """
     # Validate parameters
     if min_features < 0:
@@ -114,7 +130,7 @@ def basic_qc(
     n_features_removed = assay.n_features - container_final.assays[assay_name].n_features
 
     container_final.log_operation(
-        action="basic_qc",
+        action="qc_basic",
         params={"assay": assay_name, "min_features": min_features, "min_cells": min_cells},
         description=f"Removed {n_samples_removed} samples and {n_features_removed} features.",
     )
@@ -122,7 +138,7 @@ def basic_qc(
     return container_final
 
 
-def compute_quality_score(
+def qc_score(
     container: ScpContainer,
     assay_name: str = "protein",
     layer_name: str = "raw",
@@ -175,7 +191,7 @@ def compute_quality_score(
 
     Examples
     --------
-    >>> container = compute_quality_score(container, assay_name="protein")
+    >>> container = qc_score(container, assay_name="protein")
     >>> scores = container.obs['quality_score'].to_numpy()
     >>> # Filter low-quality samples
     >>> high_quality_mask = scores > 0.5
@@ -234,7 +250,7 @@ def compute_quality_score(
     X_detected[X_detected <= detection_threshold] = np.nan
 
     # 1. Detection rate: proportion of features detected per sample
-    n_detected_per_sample = np.sum(X > detection_threshold, axis=1)
+    n_detected_per_sample = np.sum(detection_threshold < X, axis=1)
     detection_rate = n_detected_per_sample / n_features
 
     # 2. Total intensity (normalized)
@@ -287,7 +303,7 @@ def compute_quality_score(
 
     mean_quality = float(np.mean(quality_score))
     new_container.log_operation(
-        action="compute_quality_score",
+        action="qc_score",
         params={"assay": assay_name, "layer_name": layer_name, "weights": weights},
         description=f"Computed quality scores (mean: {mean_quality:.3f}).",
     )
@@ -485,7 +501,7 @@ def compute_feature_missing_rate(
     if sp.issparse(X):
         n_detected = np.array(X.getnnz(axis=0)).flatten()
     else:
-        n_detected = np.sum(X > detection_threshold, axis=0)
+        n_detected = np.sum(detection_threshold < X, axis=0)
 
     # Compute metrics
     missing_rate = 1.0 - (n_detected / n_samples)
@@ -525,3 +541,34 @@ def compute_feature_missing_rate(
     )
 
     return new_container
+
+
+# Backward compatibility aliases
+def basic_qc(*args: Any, **kwargs: Any) -> ScpContainer:
+    """Deprecated: Use qc_basic instead.
+
+    This function is maintained for backward compatibility and will be
+    removed in version 1.0.0.
+    """
+    warnings.warn(
+        "'basic_qc' is deprecated, use 'qc_basic' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return qc_basic(*args, **kwargs)
+
+
+def compute_quality_score(*args: Any, **kwargs: Any) -> ScpContainer:
+    """Deprecated: Use qc_score instead.
+
+    This function is maintained for backward compatibility and will be
+    removed in version 1.0.0.
+    """
+    warnings.warn(
+        "'compute_quality_score' is deprecated, use 'qc_score' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return qc_score(*args, **kwargs)
