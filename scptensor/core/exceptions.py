@@ -3,6 +3,7 @@
 All exceptions inherit from ScpTensorError for consistent error handling.
 """
 
+from collections.abc import Collection
 from typing import Any
 
 
@@ -64,30 +65,69 @@ class ScpValueError(ScpTensorError):
 class AssayNotFoundError(ScpTensorError):
     """Error when requested assay does not exist in container."""
 
-    def __init__(self, assay_name: str, hint: str | None = None) -> None:
+    def __init__(
+        self,
+        assay_name: str,
+        hint: str | None = None,
+        available_assays: Collection[str] | None = None,
+    ) -> None:
         message = f"Assay '{assay_name}' not found in container"
-        if hint:
+
+        # Add fuzzy match suggestion if available assays provided
+        suggestion = None
+        if available_assays is not None:
+            from scptensor.core.utils import _find_closest_match
+
+            suggestion = _find_closest_match(assay_name, available_assays)
+
+        if suggestion:
+            message += f". Did you mean '{suggestion}'?"
+        elif hint:
             message += f". {hint}"
+        elif available_assays:
+            available_list = ", ".join(f"'{a}'" for a in sorted(available_assays))
+            message += f". Available assays: {available_list}"
+
         super().__init__(message)
         self.assay_name = assay_name
         self.hint = hint
+        self.suggestion = suggestion
 
 
 class LayerNotFoundError(ScpTensorError):
     """Error when requested layer does not exist in assay."""
 
     def __init__(
-        self, layer_name: str, assay_name: str | None = None, hint: str | None = None
+        self,
+        layer_name: str,
+        assay_name: str | None = None,
+        hint: str | None = None,
+        available_layers: Collection[str] | None = None,
     ) -> None:
         message = f"Layer '{layer_name}' not found"
         if assay_name:
             message += f" in assay '{assay_name}'"
-        if hint:
+
+        # Add fuzzy match suggestion if available layers provided
+        suggestion = None
+        if available_layers is not None:
+            from scptensor.core.utils import _find_closest_match
+
+            suggestion = _find_closest_match(layer_name, available_layers)
+
+        if suggestion:
+            message += f". Did you mean '{suggestion}'?"
+        elif hint:
             message += f". {hint}"
+        elif available_layers:
+            available_list = ", ".join(f"'{l}'" for l in sorted(available_layers))
+            message += f". Available layers: {available_list}"
+
         super().__init__(message)
         self.layer_name = layer_name
         self.assay_name = assay_name
         self.hint = hint
+        self.suggestion = suggestion
 
 
 class MissingDependencyError(ScpTensorError):

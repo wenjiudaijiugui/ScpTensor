@@ -995,6 +995,7 @@ class ScpContainer:
         ------
         KeyError
             If assay_name does not exist in the container.
+            Includes fuzzy matching suggestions for similar assay names.
 
         Examples
         --------
@@ -1002,12 +1003,20 @@ class ScpContainer:
         ['raw', 'log', 'normalized']
         """
         if assay_name not in self.assays:
-            available = ", ".join(f"'{k}'" for k in self.assays)
-            raise KeyError(
-                f"Assay '{assay_name}' not found. "
-                f"Available assays: {available}. "
-                f"Use list_assays() to see all available assays."
-            )
+            from scptensor.core.utils import _find_closest_match
+
+            available = list(self.assays.keys())
+            suggestion = _find_closest_match(assay_name, available)
+
+            error_parts = [f"Assay '{assay_name}' not found."]
+            if suggestion:
+                error_parts.append(f"Did you mean '{suggestion}'?")
+            else:
+                available_formatted = ", ".join(f"'{k}'" for k in available)
+                error_parts.append(f"Available assays: {available_formatted}.")
+                error_parts.append("Use list_assays() to see all available assays.")
+
+            raise KeyError(" ".join(error_parts))
         return list(self.assays[assay_name].layers.keys())
 
     def summary(self) -> str:
