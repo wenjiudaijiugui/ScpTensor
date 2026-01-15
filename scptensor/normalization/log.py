@@ -1,9 +1,11 @@
-"""
-Log normalization module for ScpTensor.
+"""Log normalization module for ScpTensor.
 
 Provides log transformation with configurable base and offset.
 Optimized for both dense and sparse matrices.
 """
+
+import warnings
+from typing import overload
 
 import numpy as np
 
@@ -20,14 +22,30 @@ from scptensor.core.sparse_utils import (
 from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
+@overload
 def log_normalize(
     container: ScpContainer,
     assay_name: str = "protein",
-    base_layer: str = "raw",
+    source_layer: str = "raw",
     new_layer_name: str = "log",
     base: float = 2.0,
     offset: float = 1.0,
     use_jit: bool = True,
+    base_layer: str | None = None,
+    new_layer: str | None = None,
+) -> ScpContainer: ...
+
+
+def log_normalize(
+    container: ScpContainer,
+    assay_name: str = "protein",
+    source_layer: str = "raw",
+    new_layer_name: str = "log",
+    base: float = 2.0,
+    offset: float = 1.0,
+    use_jit: bool = True,
+    base_layer: str | None = None,
+    new_layer: str | None = None,
 ) -> ScpContainer:
     """
     Apply log transformation with configurable base and offset.
@@ -52,7 +70,7 @@ def log_normalize(
         The ScpContainer object.
     assay_name : str, default="protein"
         Name of the assay to transform.
-    base_layer : str, default="raw"
+    source_layer : str, default="raw"
         Name of the layer to use as input.
     new_layer_name : str, default="log"
         Name of the new layer to create.
@@ -62,6 +80,12 @@ def log_normalize(
         Offset to add before logging to handle zeros.
     use_jit : bool, default=True
         Whether to use JIT acceleration for very large matrices.
+    base_layer : str, optional
+        .. deprecated:: 0.2.0
+            Use ``source_layer`` instead. Will be removed in version 1.0.0.
+    new_layer : str, optional
+        .. deprecated:: 0.2.0
+            Use ``new_layer_name`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
@@ -90,23 +114,59 @@ def log_normalize(
     >>> 'log' in result.assays['protein'].layers
     True
     """
+    # Handle deprecated parameter names
+    if base_layer is not None:
+        warnings.warn(
+            "'base_layer' is deprecated, use 'source_layer' instead. "
+            "This will be removed in version 1.0.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        source_layer = base_layer
+    if new_layer is not None:
+        warnings.warn(
+            "'new_layer' is deprecated, use 'new_layer_name' instead. "
+            "This will be removed in version 1.0.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        new_layer_name = new_layer
+
     # Validate parameters
     if base <= 0:
-        raise ScpValueError(f"Log base must be positive, got {base}.", parameter="base", value=base)
+        raise ScpValueError(
+            f"Log base must be positive, got {base}. "
+            "Use base=2.0 for log2, base=10.0 for log10, or base=np.e for natural log.",
+            parameter="base",
+            value=base,
+        )
     if offset < 0:
         raise ScpValueError(
-            f"Offset must be non-negative, got {offset}.", parameter="offset", value=offset
+            f"Offset must be non-negative, got {offset}. "
+            "Offset is added before taking the log to handle zero values.",
+            parameter="offset",
+            value=offset,
         )
 
     # Validate assay exists
     if assay_name not in container.assays:
-        raise AssayNotFoundError(assay_name)
+        available = ", ".join(f"'{k}'" for k in container.assays.keys())
+        raise AssayNotFoundError(
+            assay_name,
+            hint=f"Available assays: {available}. Use container.list_assays() to see all assays.",
+        )
 
     assay = container.assays[assay_name]
-    if base_layer not in assay.layers:
-        raise LayerNotFoundError(base_layer, assay_name)
+    if source_layer not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            source_layer,
+            assay_name,
+            hint=f"Available layers in assay '{assay_name}': {available}. "
+            f"Use assay.list_layers() to see all layers.",
+        )
 
-    input_matrix = assay.layers[base_layer]
+    input_matrix = assay.layers[source_layer]
     X = input_matrix.X
     M = input_matrix.M
 
@@ -135,14 +195,14 @@ def log_normalize(
         action="log_normalize",
         params={
             "assay": assay_name,
-            "base_layer": base_layer,
-            "new_layer": new_layer_name,
+            "source_layer": source_layer,
+            "new_layer_name": new_layer_name,
             "base": base,
             "offset": offset,
             "sparse_input": is_sparse_matrix(X),
             "use_jit": use_jit,
         },
-        description=f"Log{base} normalization applied to {assay_name}/{base_layer}.",
+        description=f"Log{base} normalization applied to {assay_name}/{source_layer}.",
     )
 
     return container

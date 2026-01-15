@@ -17,8 +17,7 @@ import polars as pl
 import pytest
 import scipy.sparse as sp
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
-from scptensor.core.exceptions import ValueError as ScpValueError
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
 # =============================================================================
@@ -376,7 +375,7 @@ class TestMedianScaling:
         container = create_normalization_test_container(seed=42)
 
         result = median_scaling(
-            container, assay_name="protein", base_layer_name="raw", new_layer_name="custom_scaled"
+            container, assay_name="protein", source_layer="raw", new_layer_name="custom_scaled"
         )
 
         assert "custom_scaled" in result.assays["protein"].layers

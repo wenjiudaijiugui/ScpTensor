@@ -64,21 +64,30 @@ class ScpValueError(ScpTensorError):
 class AssayNotFoundError(ScpTensorError):
     """Error when requested assay does not exist in container."""
 
-    def __init__(self, assay_name: str) -> None:
-        super().__init__(f"Assay '{assay_name}' not found in container")
+    def __init__(self, assay_name: str, hint: str | None = None) -> None:
+        message = f"Assay '{assay_name}' not found in container"
+        if hint:
+            message += f". {hint}"
+        super().__init__(message)
         self.assay_name = assay_name
+        self.hint = hint
 
 
 class LayerNotFoundError(ScpTensorError):
     """Error when requested layer does not exist in assay."""
 
-    def __init__(self, layer_name: str, assay_name: str | None = None) -> None:
+    def __init__(
+        self, layer_name: str, assay_name: str | None = None, hint: str | None = None
+    ) -> None:
         message = f"Layer '{layer_name}' not found"
         if assay_name:
             message += f" in assay '{assay_name}'"
+        if hint:
+            message += f". {hint}"
         super().__init__(message)
         self.layer_name = layer_name
         self.assay_name = assay_name
+        self.hint = hint
 
 
 class MissingDependencyError(ScpTensorError):
@@ -144,6 +153,14 @@ if __name__ == "__main__":
         assert "not found" in str(e)
         print("AssayNotFoundError: OK")
 
+    # Test: AssayNotFoundError with hint
+    try:
+        raise AssayNotFoundError("metabolites", hint="Available assays: proteins, rna")
+    except AssayNotFoundError as e:
+        assert e.assay_name == "metabolites"
+        assert "Available assays" in str(e)
+        print("AssayNotFoundError with hint: OK")
+
     # Test: LayerNotFoundError
     try:
         raise LayerNotFoundError("normalized", assay_name="proteins")
@@ -151,6 +168,14 @@ if __name__ == "__main__":
         assert e.layer_name == "normalized"
         assert e.assay_name == "proteins"
         print("LayerNotFoundError: OK")
+
+    # Test: LayerNotFoundError with hint
+    try:
+        raise LayerNotFoundError("normalized", assay_name="proteins", hint="Available layers: raw, log")
+    except LayerNotFoundError as e:
+        assert e.layer_name == "normalized"
+        assert "Available layers" in str(e)
+        print("LayerNotFoundError with hint: OK")
 
     # Test: MissingDependencyError
     try:
