@@ -779,7 +779,9 @@ class ScpContainer:
                     if copy:
                         if isinstance(new_X, np.ndarray) or sp.issparse(new_X):
                             new_X = new_X.copy()
-                        if new_M is not None and (isinstance(new_M, np.ndarray) or sp.issparse(new_M)):
+                        if new_M is not None and (
+                            isinstance(new_M, np.ndarray) or sp.issparse(new_M)
+                        ):
                             new_M = new_M.copy()
 
                     new_layers[layer_name] = ScpMatrix(X=new_X, M=new_M)
