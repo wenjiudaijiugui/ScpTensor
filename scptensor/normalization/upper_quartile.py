@@ -6,6 +6,8 @@ Reference:
     expression in mRNA-Seq experiments. BMC Bioinformatics, 11, 94.
 """
 
+import warnings
+
 from typing import overload
 
 import numpy as np
@@ -19,7 +21,7 @@ from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
 @overload
-def upper_quartile_normalization(
+def norm_quartile(
     container: ScpContainer,
     assay_name: str = "protein",
     source_layer: str = "raw",
@@ -28,7 +30,7 @@ def upper_quartile_normalization(
 ) -> ScpContainer: ...
 
 
-def upper_quartile_normalization(
+def norm_quartile(
     container: ScpContainer,
     assay_name: str = "protein",
     source_layer: str = "raw",
@@ -84,7 +86,7 @@ def upper_quartile_normalization(
     >>> assay = Assay(var=pl.DataFrame({'_index': ['p1', 'p2', 'p3', 'p3']}))
     >>> assay.add_layer('raw', ScpMatrix(X=np.array([[1, 2, 3, 4], [5, 6, 7, 8]])))
     >>> container.add_assay('protein', assay)
-    >>> result = upper_quartile_normalization(container)
+    >>> result = norm_quartile(container)
     >>> 'upper_quartile_norm' in result.assays['protein'].layers
     True
     """
@@ -150,3 +152,18 @@ def upper_quartile_normalization(
     )
 
     return container
+
+
+# Backward compatibility alias
+def upper_quartile_normalization(*args, **kwargs):
+    """Deprecated: Use norm_quartile instead.
+
+    This function will be removed in version 1.0.0.
+    """
+    warnings.warn(
+        "'upper_quartile_normalization' is deprecated, use 'norm_quartile' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return norm_quartile(*args, **kwargs)

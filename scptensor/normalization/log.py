@@ -4,6 +4,8 @@ Provides log transformation with configurable base and offset.
 Optimized for both dense and sparse matrices.
 """
 
+import warnings
+
 from typing import overload
 
 import numpy as np
@@ -22,7 +24,7 @@ from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
 @overload
-def log_normalize(
+def norm_log(
     container: ScpContainer,
     assay_name: str = "protein",
     source_layer: str = "raw",
@@ -33,7 +35,7 @@ def log_normalize(
 ) -> ScpContainer: ...
 
 
-def log_normalize(
+def norm_log(
     container: ScpContainer,
     assay_name: str = "protein",
     source_layer: str = "raw",
@@ -99,7 +101,7 @@ def log_normalize(
     >>> assay = Assay(var=pl.DataFrame({'_index': ['p1', 'p2']}))
     >>> assay.add_layer('raw', ScpMatrix(X=np.array([[1, 2], [3, 4]])))
     >>> container.add_assay('protein', assay)
-    >>> result = log_normalize(container, base=2.0)
+    >>> result = norm_log(container, base=2.0)
     >>> 'log' in result.assays['protein'].layers
     True
     """
@@ -177,3 +179,27 @@ def log_normalize(
     )
 
     return container
+
+
+# Backward compatibility alias
+def log_normalize(container, assay_name, base_layer=None, source_layer=None, new_layer_name="log",
+                  base=2.0, offset=1.0, use_jit=True):
+    """Deprecated: Use norm_log instead.
+
+    This function will be removed in version 1.0.0.
+
+    Notes
+    -----
+    For backward compatibility, accepts both 'base_layer' (deprecated) and
+    'source_layer' (new parameter name). If both are provided, 'source_layer' takes precedence.
+    """
+    warnings.warn(
+        "'log_normalize' is deprecated, use 'norm_log' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    # Handle parameter name change for backward compatibility
+    if source_layer is None:
+        source_layer = base_layer
+    return norm_log(container, assay_name, source_layer, new_layer_name, base, offset, use_jit)

@@ -1,5 +1,7 @@
 """Global median normalization for ScpTensor."""
 
+import warnings
+
 from typing import overload
 
 import numpy as np
@@ -12,7 +14,7 @@ from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
 @overload
-def global_median_normalization(
+def norm_global_median(
     container: ScpContainer,
     assay_name: str = "protein",
     source_layer: str = "raw",
@@ -20,7 +22,7 @@ def global_median_normalization(
 ) -> ScpContainer: ...
 
 
-def global_median_normalization(
+def norm_global_median(
     container: ScpContainer,
     assay_name: str = "protein",
     source_layer: str = "raw",
@@ -69,7 +71,7 @@ def global_median_normalization(
     >>> assay = Assay(var=pl.DataFrame({'_index': ['p1', 'p2']}))
     >>> assay.add_layer('raw', ScpMatrix(X=np.array([[1, 2], [3, 4]])))
     >>> container.add_assay('protein', assay)
-    >>> result = global_median_normalization(container)
+    >>> result = norm_global_median(container)
     >>> 'global_median_norm' in result.assays['protein'].layers
     True
     """
@@ -117,3 +119,27 @@ def global_median_normalization(
     )
 
     return container
+
+
+# Backward compatibility alias
+def global_median_normalization(container, assay_name="protein", base_layer_name=None,
+                                 source_layer="raw", new_layer_name="global_median_norm"):
+    """Deprecated: Use norm_global_median instead.
+
+    This function will be removed in version 1.0.0.
+
+    Notes
+    -----
+    For backward compatibility, accepts both 'base_layer_name' (deprecated) and
+    'source_layer' (new parameter name). If 'source_layer' is default, 'base_layer_name' takes precedence.
+    """
+    warnings.warn(
+        "'global_median_normalization' is deprecated, use 'norm_global_median' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    # Handle parameter name change for backward compatibility
+    if base_layer_name is not None and source_layer == "raw":
+        source_layer = base_layer_name
+    return norm_global_median(container, assay_name, source_layer, new_layer_name)
