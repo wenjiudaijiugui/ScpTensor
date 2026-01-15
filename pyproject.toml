@@ -160,10 +160,20 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = ["scptensor"]
 
+# ============================================================================
+# Ruff Per-File Ignores
+# ============================================================================
+# These exceptions follow the ScpTensor Coding Standards defined in
+# docs/SCPTENSOR_CODING_STANDARDS.md
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["N", "S"]  # Allow relaxed naming and security in tests
+# Tests: Allow relaxed naming (N) and security checks (S)
+"tests/**/*.py" = ["N", "S"]
 
-# Scientific computing naming conventions (X, M are standard for data/mask matrices)
+# Core structures: X and M are standard names for data/mask matrices in
+# scientific computing (consistent with NumPy, SciPy, pandas, scanpy)
+# N802: Function name 'X' should be lowercase (property name)
+# N803: Argument name 'M' should be lowercase
+# N806: Variable 'new_X' in function should be lowercase
 "scptensor/core/structures.py" = ["N802", "N803", "N806"]
 
 [tool.mypy]
