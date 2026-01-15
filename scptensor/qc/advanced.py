@@ -109,38 +109,51 @@ def _sparse_row_medians(data: np.ndarray, indptr: np.ndarray, n_rows: int) -> np
 def filter_features_by_missing_rate(
     container: ScpContainer,
     assay_name: str = "protein",
-    layer: str = "raw",
+    layer_name: str = "raw",
     max_missing_rate: float = 0.5,
     detection_threshold: float = 0.0,
     inplace: bool = False,
 ) -> ScpContainer:
-    """
-    Filter features with excessive missing values.
+    """Filter features with excessive missing values.
 
     Features missing in more than max_missing_rate proportion of samples are removed.
 
-    Args:
-        container: The ScpContainer object.
-        assay_name: Name of the assay to filter features in.
-        layer: Layer to use for filtering.
-        max_missing_rate: Maximum proportion of missing values allowed (0-1).
-        detection_threshold: Value threshold for considering a value as detected.
-        inplace: If True, return a new container with filtered features.
-                  If False, return the original container with filter results in obs.
+    Parameters
+    ----------
+    container : ScpContainer
+        Input container with data to filter.
+    assay_name : str, default "protein"
+        Name of assay containing the layer.
+    layer_name : str, default "raw"
+        Name of layer to use for filtering.
+    max_missing_rate : float, default 0.5
+        Maximum proportion of missing values allowed (0-1).
+    detection_threshold : float, default 0.0
+        Value threshold for considering a value as detected.
+    inplace : bool, default False
+        If True, return a new container with filtered features.
+        If False, return the original container with filter statistics in var.
 
-    Returns:
+    Returns
+    -------
+    ScpContainer
         A new ScpContainer with filtered features, or the original container
         with filter statistics added to assay var.
 
-    Raises:
-        AssayNotFoundError: If the specified assay does not exist.
-        LayerNotFoundError: If the specified layer does not exist.
-        ScpValueError: If max_missing_rate is not in [0, 1].
+    Raises
+    ------
+    AssayNotFoundError
+        If assay_name does not exist.
+    LayerNotFoundError
+        If layer_name does not exist in the assay.
+    ScpValueError
+        If max_missing_rate is not in [0, 1].
 
-    Examples:
-        >>> container = filter_features_by_missing_rate(
-        ...     container, assay_name="protein", max_missing_rate=0.3
-        ... )
+    Examples
+    --------
+    >>> container = filter_features_by_missing_rate(
+    ...     container, assay_name="protein", max_missing_rate=0.3
+    ... )
     """
     if not (0 <= max_missing_rate <= 1):
         raise ScpValueError(
@@ -153,10 +166,16 @@ def filter_features_by_missing_rate(
         raise AssayNotFoundError(assay_name)
 
     assay = container.assays[assay_name]
-    if layer not in assay.layers:
-        raise LayerNotFoundError(layer, assay_name)
+    if layer_name not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            layer_name,
+            assay_name,
+            hint=f"Layer '{layer_name}' not found in assay '{assay_name}'. "
+            f"Available layers: {available}.",
+        )
 
-    matrix = assay.layers[layer]
+    matrix = assay.layers[layer_name]
     X = matrix.X
 
     # Calculate missing rate for each feature
@@ -179,7 +198,7 @@ def filter_features_by_missing_rate(
             action="filter_features_by_missing_rate",
             params={
                 "assay": assay_name,
-                "layer": layer,
+                "layer_name": layer_name,
                 "max_missing_rate": max_missing_rate,
             },
             description=f"Removed {n_removed} features with high missing rate.",
@@ -198,44 +217,57 @@ def filter_features_by_missing_rate(
 def filter_features_by_variance(
     container: ScpContainer,
     assay_name: str = "protein",
-    layer: str = "raw",
+    layer_name: str = "raw",
     min_variance: float = 0.01,
     top_n: int | None = None,
     inplace: bool = False,
 ) -> ScpContainer:
-    """
-    Filter features with low variance.
+    """Filter features with low variance.
 
     Features with variance below min_variance are removed, or only top_n features
     with highest variance are kept.
 
-    Args:
-        container: The ScpContainer object.
-        assay_name: Name of the assay to filter features in.
-        layer: Layer to use for filtering.
-        min_variance: Minimum variance threshold. Features below this are removed.
-        top_n: If specified, keep only the top N features by variance.
-        inplace: If True, return a new container with filtered features.
-                  If False, return the original container with variance in var.
+    Parameters
+    ----------
+    container : ScpContainer
+        Input container with data to filter.
+    assay_name : str, default "protein"
+        Name of assay containing the layer.
+    layer_name : str, default "raw"
+        Name of layer to use for filtering.
+    min_variance : float, default 0.01
+        Minimum variance threshold. Features below this are removed.
+    top_n : int | None, default None
+        If specified, keep only the top N features by variance.
+    inplace : bool, default False
+        If True, return a new container with filtered features.
+        If False, return the original container with variance in var.
 
-    Returns:
+    Returns
+    -------
+    ScpContainer
         A new ScpContainer with filtered features, or the original container
         with variance statistics added to assay var.
 
-    Raises:
-        AssayNotFoundError: If the specified assay does not exist.
-        LayerNotFoundError: If the specified layer does not exist.
-        ScpValueError: If parameters are invalid.
+    Raises
+    ------
+    AssayNotFoundError
+        If assay_name does not exist.
+    LayerNotFoundError
+        If layer_name does not exist in the assay.
+    ScpValueError
+        If parameters are invalid.
 
-    Examples:
-        >>> # Keep features with variance > 0.1
-        >>> container = filter_features_by_variance(
-        ...     container, assay_name="protein", min_variance=0.1
-        ... )
-        >>> # Keep top 1000 most variable features
-        >>> container = filter_features_by_variance(
-        ...     container, assay_name="protein", top_n=1000
-        ... )
+    Examples
+    --------
+    >>> # Keep features with variance > 0.1
+    >>> container = filter_features_by_variance(
+    ...     container, assay_name="protein", min_variance=0.1
+    ... )
+    >>> # Keep top 1000 most variable features
+    >>> container = filter_features_by_variance(
+    ...     container, assay_name="protein", top_n=1000
+    ... )
     """
     if min_variance < 0:
         raise ScpValueError(
@@ -255,10 +287,16 @@ def filter_features_by_variance(
         raise AssayNotFoundError(assay_name)
 
     assay = container.assays[assay_name]
-    if layer not in assay.layers:
-        raise LayerNotFoundError(layer, assay_name)
+    if layer_name not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            layer_name,
+            assay_name,
+            hint=f"Layer '{layer_name}' not found in assay '{assay_name}'. "
+            f"Available layers: {available}.",
+        )
 
-    X = assay.layers[layer].X
+    X = assay.layers[layer_name].X
 
     # Calculate variance for each feature
     if sp.issparse(X):
@@ -289,7 +327,7 @@ def filter_features_by_variance(
             action="filter_features_by_variance",
             params={
                 "assay": assay_name,
-                "layer": layer,
+                "layer_name": layer_name,
                 "min_variance": min_variance,
                 "top_n": top_n,
             },
@@ -310,45 +348,59 @@ def filter_features_by_variance(
 def filter_features_by_prevalence(
     container: ScpContainer,
     assay_name: str = "protein",
-    layer: str = "raw",
+    layer_name: str = "raw",
     min_prevalence: int = 3,
     min_prevalence_ratio: float | None = None,
     detection_threshold: float = 0.0,
     inplace: bool = False,
 ) -> ScpContainer:
-    """
-    Filter features based on prevalence (number/ratio of samples where detected).
+    """Filter features based on prevalence (number/ratio of samples where detected).
 
     Features detected in fewer than min_prevalence samples or less than
     min_prevalence_ratio of samples are removed.
 
-    Args:
-        container: The ScpContainer object.
-        assay_name: Name of the assay to filter features in.
-        layer: Layer to use for filtering.
-        min_prevalence: Minimum number of samples where feature must be detected.
-        min_prevalence_ratio: Minimum ratio of samples (0-1). Overrides min_prevalence if set.
-        detection_threshold: Value threshold for considering a value as detected.
-        inplace: If True, return a new container with filtered features.
+    Parameters
+    ----------
+    container : ScpContainer
+        Input container with data to filter.
+    assay_name : str, default "protein"
+        Name of assay containing the layer.
+    layer_name : str, default "raw"
+        Name of layer to use for filtering.
+    min_prevalence : int, default 3
+        Minimum number of samples where feature must be detected.
+    min_prevalence_ratio : float | None, default None
+        Minimum ratio of samples (0-1). Overrides min_prevalence if set.
+    detection_threshold : float, default 0.0
+        Value threshold for considering a value as detected.
+    inplace : bool, default False
+        If True, return a new container with filtered features.
 
-    Returns:
+    Returns
+    -------
+    ScpContainer
         A new ScpContainer with filtered features, or the original container
         with prevalence statistics added to assay var.
 
-    Raises:
-        AssayNotFoundError: If the specified assay does not exist.
-        LayerNotFoundError: If the specified layer does not exist.
-        ScpValueError: If parameters are invalid.
+    Raises
+    ------
+    AssayNotFoundError
+        If assay_name does not exist.
+    LayerNotFoundError
+        If layer_name does not exist in the assay.
+    ScpValueError
+        If parameters are invalid.
 
-    Examples:
-        >>> # Keep features detected in at least 3 samples
-        >>> container = filter_features_by_prevalence(
-        ...     container, assay_name="protein", min_prevalence=3
-        ... )
-        >>> # Keep features detected in at least 10% of samples
-        >>> container = filter_features_by_prevalence(
-        ...     container, assay_name="protein", min_prevalence_ratio=0.1
-        ... )
+    Examples
+    --------
+    >>> # Keep features detected in at least 3 samples
+    >>> container = filter_features_by_prevalence(
+    ...     container, assay_name="protein", min_prevalence=3
+    ... )
+    >>> # Keep features detected in at least 10% of samples
+    >>> container = filter_features_by_prevalence(
+    ...     container, assay_name="protein", min_prevalence_ratio=0.1
+    ... )
     """
     if min_prevalence < 0:
         raise ScpValueError(
@@ -368,10 +420,16 @@ def filter_features_by_prevalence(
         raise AssayNotFoundError(assay_name)
 
     assay = container.assays[assay_name]
-    if layer not in assay.layers:
-        raise LayerNotFoundError(layer, assay_name)
+    if layer_name not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            layer_name,
+            assay_name,
+            hint=f"Layer '{layer_name}' not found in assay '{assay_name}'. "
+            f"Available layers: {available}.",
+        )
 
-    X = assay.layers[layer].X
+    X = assay.layers[layer_name].X
     n_samples = X.shape[0]
 
     # Calculate prevalence for each feature
@@ -396,7 +454,7 @@ def filter_features_by_prevalence(
             action="filter_features_by_prevalence",
             params={
                 "assay": assay_name,
-                "layer": layer,
+                "layer_name": layer_name,
                 "min_prevalence": threshold,
             },
             description=f"Removed {n_removed} features with low prevalence.",
@@ -414,40 +472,54 @@ def filter_features_by_prevalence(
 def filter_samples_by_total_count(
     container: ScpContainer,
     assay_name: str = "protein",
-    layer: str = "raw",
+    layer_name: str = "raw",
     min_total: float = 500.0,
     max_total: float | None = None,
     detection_threshold: float = 0.0,
     inplace: bool = False,
 ) -> ScpContainer:
-    """
-    Filter samples based on total protein count/intensity.
+    """Filter samples based on total protein count/intensity.
 
     Samples with total count below min_total or above max_total are removed.
 
-    Args:
-        container: The ScpContainer object.
-        assay_name: Name of the assay to use.
-        layer: Layer to use for filtering.
-        min_total: Minimum total count/intensity.
-        max_total: Maximum total count/intensity (optional).
-        detection_threshold: Minimum value to include in count.
-        inplace: If True, filter samples. If False, add statistics to obs.
+    Parameters
+    ----------
+    container : ScpContainer
+        Input container with data to filter.
+    assay_name : str, default "protein"
+        Name of assay containing the layer.
+    layer_name : str, default "raw"
+        Name of layer to use for filtering.
+    min_total : float, default 500.0
+        Minimum total count/intensity.
+    max_total : float | None, default None
+        Maximum total count/intensity (optional).
+    detection_threshold : float, default 0.0
+        Minimum value to include in count.
+    inplace : bool, default False
+        If True, filter samples. If False, add statistics to obs.
 
-    Returns:
+    Returns
+    -------
+    ScpContainer
         A new ScpContainer with filtered samples, or the original container
         with count statistics added to obs.
 
-    Raises:
-        AssayNotFoundError: If the specified assay does not exist.
-        LayerNotFoundError: If the specified layer does not exist.
-        ScpValueError: If parameters are invalid.
+    Raises
+    ------
+    AssayNotFoundError
+        If assay_name does not exist.
+    LayerNotFoundError
+        If layer_name does not exist in the assay.
+    ScpValueError
+        If parameters are invalid.
 
-    Examples:
-        >>> # Remove samples with total intensity < 1000
-        >>> container = filter_samples_by_total_count(
-        ...     container, assay_name="protein", min_total=1000, inplace=True
-        ... )
+    Examples
+    --------
+    >>> # Remove samples with total intensity < 1000
+    >>> container = filter_samples_by_total_count(
+    ...     container, assay_name="protein", min_total=1000, inplace=True
+    ... )
     """
     if min_total < 0:
         raise ScpValueError(
@@ -467,10 +539,16 @@ def filter_samples_by_total_count(
         raise AssayNotFoundError(assay_name)
 
     assay = container.assays[assay_name]
-    if layer not in assay.layers:
-        raise LayerNotFoundError(layer, assay_name)
+    if layer_name not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            layer_name,
+            assay_name,
+            hint=f"Layer '{layer_name}' not found in assay '{assay_name}'. "
+            f"Available layers: {available}.",
+        )
 
-    X = assay.layers[layer].X
+    X = assay.layers[layer_name].X
 
     # Calculate total count per sample
     if sp.issparse(X):
@@ -496,7 +574,7 @@ def filter_samples_by_total_count(
             action="filter_samples_by_total_count",
             params={
                 "assay": assay_name,
-                "layer": layer,
+                "layer_name": layer_name,
                 "min_total": min_total,
                 "max_total": max_total,
             },
@@ -526,38 +604,51 @@ def filter_samples_by_total_count(
 def filter_samples_by_missing_rate(
     container: ScpContainer,
     assay_name: str = "protein",
-    layer: str = "raw",
+    layer_name: str = "raw",
     max_missing_rate: float = 0.5,
     detection_threshold: float = 0.0,
     inplace: bool = False,
 ) -> ScpContainer:
-    """
-    Filter samples based on missing rate (proportion of missing values).
+    """Filter samples based on missing rate (proportion of missing values).
 
     Samples with missing rate above max_missing_rate are removed.
 
-    Args:
-        container: The ScpContainer object.
-        assay_name: Name of the assay to use.
-        layer: Layer to use for filtering.
-        max_missing_rate: Maximum proportion of missing values allowed (0-1).
-        detection_threshold: Value threshold for considering a value as detected.
-        inplace: If True, filter samples. If False, add statistics to obs.
+    Parameters
+    ----------
+    container : ScpContainer
+        Input container with data to filter.
+    assay_name : str, default "protein"
+        Name of assay containing the layer.
+    layer_name : str, default "raw"
+        Name of layer to use for filtering.
+    max_missing_rate : float, default 0.5
+        Maximum proportion of missing values allowed (0-1).
+    detection_threshold : float, default 0.0
+        Value threshold for considering a value as detected.
+    inplace : bool, default False
+        If True, filter samples. If False, add statistics to obs.
 
-    Returns:
+    Returns
+    -------
+    ScpContainer
         A new ScpContainer with filtered samples, or the original container
         with missing rate statistics added to obs.
 
-    Raises:
-        AssayNotFoundError: If the specified assay does not exist.
-        LayerNotFoundError: If the specified layer does not exist.
-        ScpValueError: If parameters are invalid.
+    Raises
+    ------
+    AssayNotFoundError
+        If assay_name does not exist.
+    LayerNotFoundError
+        If layer_name does not exist in the assay.
+    ScpValueError
+        If parameters are invalid.
 
-    Examples:
-        >>> # Remove samples with >50% missing values
-        >>> container = filter_samples_by_missing_rate(
-        ...     container, assay_name="protein", max_missing_rate=0.5, inplace=True
-        ... )
+    Examples
+    --------
+    >>> # Remove samples with >50% missing values
+    >>> container = filter_samples_by_missing_rate(
+    ...     container, assay_name="protein", max_missing_rate=0.5, inplace=True
+    ... )
     """
     if not (0 <= max_missing_rate <= 1):
         raise ScpValueError(
@@ -570,10 +661,16 @@ def filter_samples_by_missing_rate(
         raise AssayNotFoundError(assay_name)
 
     assay = container.assays[assay_name]
-    if layer not in assay.layers:
-        raise LayerNotFoundError(layer, assay_name)
+    if layer_name not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            layer_name,
+            assay_name,
+            hint=f"Layer '{layer_name}' not found in assay '{assay_name}'. "
+            f"Available layers: {available}.",
+        )
 
-    X = assay.layers[layer].X
+    X = assay.layers[layer_name].X
     n_features = X.shape[1]
 
     # Calculate missing rate per sample
@@ -596,7 +693,7 @@ def filter_samples_by_missing_rate(
             action="filter_samples_by_missing_rate",
             params={
                 "assay": assay_name,
-                "layer": layer,
+                "layer_name": layer_name,
                 "max_missing_rate": max_missing_rate,
             },
             description=f"Removed {n_removed} samples with high missing rate.",
@@ -625,13 +722,12 @@ def filter_samples_by_missing_rate(
 def detect_contaminant_proteins(
     container: ScpContainer,
     assay_name: str = "protein",
-    layer: str = "raw",
+    layer_name: str = "raw",
     contaminant_patterns: list[str] | None = None,
     min_prevalence: int = 3,
     detection_threshold: float = 0.0,
 ) -> ScpContainer:
-    """
-    Detect potential contaminant proteins based on naming patterns.
+    """Detect potential contaminant proteins based on naming patterns.
 
     For proteomics, common contaminants include:
     - Keratins (KRT_* proteins)
@@ -640,39 +736,58 @@ def detect_contaminant_proteins(
     - Immunoglobulins
     - Hemoglobin
 
-    Args:
-        container: The ScpContainer object.
-        assay_name: Name of the assay to use.
-        layer: Layer to use for detection.
-        contaminant_patterns: List of regex patterns for contaminant names.
-                             If None, uses default common proteomics contaminants.
-        min_prevalence: Minimum number of samples where protein must be detected.
-        detection_threshold: Value threshold for considering a value as detected.
+    Parameters
+    ----------
+    container : ScpContainer
+        Input container with data to analyze.
+    assay_name : str, default "protein"
+        Name of assay containing the layer.
+    layer_name : str, default "raw"
+        Name of layer to use for detection.
+    contaminant_patterns : list[str] | None, default None
+        List of regex patterns for contaminant names.
+        If None, uses default common proteomics contaminants.
+    min_prevalence : int, default 3
+        Minimum number of samples where protein must be detected.
+    detection_threshold : float, default 0.0
+        Value threshold for considering a value as detected.
 
-    Returns:
-        ScpContainer with contaminant detection results added to assay var.
+    Returns
+    -------
+    ScpContainer
+        Container with contaminant detection results added to assay var.
 
-    Raises:
-        AssayNotFoundError: If the specified assay does not exist.
-        LayerNotFoundError: If the specified layer does not exist.
+    Raises
+    ------
+    AssayNotFoundError
+        If assay_name does not exist.
+    LayerNotFoundError
+        If layer_name does not exist in the assay.
 
-    Examples:
-        >>> container = detect_contaminant_proteins(
-        ...     container, assay_name="protein"
-        ... )
-        >>> # Get list of detected contaminants
-        >>> contaminants = container.assays['protein'].var.filter(
-        ...     pl.col('is_contaminant') == True
-        ... )
+    Examples
+    --------
+    >>> container = detect_contaminant_proteins(
+    ...     container, assay_name="protein"
+    ... )
+    >>> # Get list of detected contaminants
+    >>> contaminants = container.assays['protein'].var.filter(
+    ...     pl.col('is_contaminant') == True
+    ... )
     """
     if assay_name not in container.assays:
         raise AssayNotFoundError(assay_name)
 
     assay = container.assays[assay_name]
-    if layer not in assay.layers:
-        raise LayerNotFoundError(layer, assay_name)
+    if layer_name not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            layer_name,
+            assay_name,
+            hint=f"Layer '{layer_name}' not found in assay '{assay_name}'. "
+            f"Available layers: {available}.",
+        )
 
-    X = assay.layers[layer].X
+    X = assay.layers[layer_name].X
     patterns = contaminant_patterns or _DEFAULT_CONTAMINANT_PATTERNS
 
     # Get feature IDs and check against patterns (vectorized regex matching)
@@ -730,7 +845,7 @@ def detect_contaminant_proteins(
         action="detect_contaminant_proteins",
         params={
             "assay": assay_name,
-            "layer": layer,
+            "layer_name": layer_name,
             "patterns": patterns,
             "min_prevalence": min_prevalence,
         },
@@ -743,14 +858,13 @@ def detect_contaminant_proteins(
 def detect_doublets(
     container: ScpContainer,
     assay_name: str = "protein",
-    layer: str = "raw",
+    layer_name: str = "raw",
     method: Literal["knn", "isolation", "hybrid"] = "knn",
     n_neighbors: int = 15,
     expected_doublet_rate: float = 0.1,
     random_state: int = 42,
 ) -> ScpContainer:
-    """
-    Detect potential doublets (multiplets) in single-cell proteomics data.
+    """Detect potential doublets (multiplets) in single-cell proteomics data.
 
     Doublets are samples that may contain material from multiple cells.
     This is a common issue in single-cell experiments.
@@ -761,34 +875,49 @@ def detect_doublets(
     - 'isolation': Uses Isolation Forest to detect anomalies.
     - 'hybrid': Combines both methods for more robust detection.
 
-    Args:
-        container: The ScpContainer object.
-        assay_name: Name of the assay to use.
-        layer: Layer to use for detection.
-        method: Detection method to use.
-        n_neighbors: Number of neighbors for KNN-based detection.
-        expected_doublet_rate: Expected proportion of doublets (0-1).
-        random_state: Random state for reproducibility.
+    Parameters
+    ----------
+    container : ScpContainer
+        Input container with data to analyze.
+    assay_name : str, default "protein"
+        Name of assay containing the layer.
+    layer_name : str, default "raw"
+        Name of layer to use for detection.
+    method : {"knn", "isolation", "hybrid"}, default "knn"
+        Detection method to use.
+    n_neighbors : int, default 15
+        Number of neighbors for KNN-based detection.
+    expected_doublet_rate : float, default 0.1
+        Expected proportion of doublets (0-1).
+    random_state : int, default 42
+        Random state for reproducibility.
 
-    Returns:
-        ScpContainer with doublet detection results added to obs:
+    Returns
+    -------
+    ScpContainer
+        Container with doublet detection results added to obs:
         - 'is_doublet': Boolean indicating if sample is a predicted doublet
         - 'doublet_score': Doublet probability/score
 
-    Raises:
-        AssayNotFoundError: If the specified assay does not exist.
-        LayerNotFoundError: If the specified layer does not exist.
-        ScpValueError: If parameters are invalid.
+    Raises
+    ------
+    AssayNotFoundError
+        If assay_name does not exist.
+    LayerNotFoundError
+        If layer_name does not exist in the assay.
+    ScpValueError
+        If parameters are invalid.
 
-    Examples:
-        >>> container = detect_doublets(
-        ...     container, assay_name="protein", method="knn"
-        ... )
-        >>> # Remove predicted doublets
-        >>> doublet_mask = container.obs['is_doublet'].to_numpy()
-        >>> container_clean = container.filter_samples(
-        ...     np.where(~doublet_mask)[0]
-        ... )
+    Examples
+    --------
+    >>> container = detect_doublets(
+    ...     container, assay_name="protein", method="knn"
+    ... )
+    >>> # Remove predicted doublets
+    >>> doublet_mask = container.obs['is_doublet'].to_numpy()
+    >>> container_clean = container.filter_samples(
+    ...     np.where(~doublet_mask)[0]
+    ... )
     """
     if not (0 < expected_doublet_rate < 0.5):
         raise ScpValueError(
@@ -801,10 +930,16 @@ def detect_doublets(
         raise AssayNotFoundError(assay_name)
 
     assay = container.assays[assay_name]
-    if layer not in assay.layers:
-        raise LayerNotFoundError(layer, assay_name)
+    if layer_name not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            layer_name,
+            assay_name,
+            hint=f"Layer '{layer_name}' not found in assay '{assay_name}'. "
+            f"Available layers: {available}.",
+        )
 
-    X = assay.layers[layer].X
+    X = assay.layers[layer_name].X
 
     # Handle sparse matrices
     if sp.issparse(X):
@@ -872,7 +1007,7 @@ def detect_doublets(
         action="detect_doublets",
         params={
             "assay": assay_name,
-            "layer": layer,
+            "layer_name": layer_name,
             "method": method,
             "expected_rate": expected_doublet_rate,
         },
@@ -885,11 +1020,10 @@ def detect_doublets(
 def calculate_qc_metrics(
     container: ScpContainer,
     assay_name: str = "protein",
-    layer: str = "raw",
+    layer_name: str = "raw",
     detection_threshold: float = 0.0,
 ) -> ScpContainer:
-    """
-    Calculate comprehensive QC metrics for samples and features.
+    """Calculate comprehensive QC metrics for samples and features.
 
     This function adds multiple QC metrics to the container:
     Sample metrics (in obs):
@@ -905,34 +1039,51 @@ def calculate_qc_metrics(
     - mean_intensity: Mean intensity across samples
     - variance: Variance across samples
 
-    Args:
-        container: The ScpContainer object.
-        assay_name: Name of the assay to calculate metrics for.
-        layer: Layer to use for calculation.
-        detection_threshold: Value threshold for considering a value as detected.
+    Parameters
+    ----------
+    container : ScpContainer
+        Input container with data to analyze.
+    assay_name : str, default "protein"
+        Name of assay containing the layer.
+    layer_name : str, default "raw"
+        Name of layer to use for calculation.
+    detection_threshold : float, default 0.0
+        Value threshold for considering a value as detected.
 
-    Returns:
-        ScpContainer with QC metrics added to obs and var.
+    Returns
+    -------
+    ScpContainer
+        Container with QC metrics added to obs and var.
 
-    Raises:
-        AssayNotFoundError: If the specified assay does not exist.
-        LayerNotFoundError: If the specified layer does not exist.
+    Raises
+    ------
+    AssayNotFoundError
+        If assay_name does not exist.
+    LayerNotFoundError
+        If layer_name does not exist in the assay.
 
-    Examples:
-        >>> container = calculate_qc_metrics(container, assay_name="protein")
-        >>> # Access sample metrics
-        >>> n_detected = container.obs['n_detected'].to_numpy()
-        >>> # Access feature metrics
-        >>> prevalence = container.assays['protein'].var['prevalence'].to_numpy()
+    Examples
+    --------
+    >>> container = calculate_qc_metrics(container, assay_name="protein")
+    >>> # Access sample metrics
+    >>> n_detected = container.obs['n_detected'].to_numpy()
+    >>> # Access feature metrics
+    >>> prevalence = container.assays['protein'].var['prevalence'].to_numpy()
     """
     if assay_name not in container.assays:
         raise AssayNotFoundError(assay_name)
 
     assay = container.assays[assay_name]
-    if layer not in assay.layers:
-        raise LayerNotFoundError(layer, assay_name)
+    if layer_name not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            layer_name,
+            assay_name,
+            hint=f"Layer '{layer_name}' not found in assay '{assay_name}'. "
+            f"Available layers: {available}.",
+        )
 
-    X = assay.layers[layer].X
+    X = assay.layers[layer_name].X
     n_samples, n_features = X.shape
 
     if sp.issparse(X):
@@ -1010,7 +1161,7 @@ def calculate_qc_metrics(
 
     new_container.log_operation(
         action="calculate_qc_metrics",
-        params={"assay": assay_name, "layer": layer},
+        params={"assay": assay_name, "layer_name": layer_name},
         description="Calculated comprehensive QC metrics.",
     )
 
