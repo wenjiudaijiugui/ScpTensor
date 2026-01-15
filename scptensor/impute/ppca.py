@@ -5,6 +5,9 @@ Reference:
     Journal of the Royal Statistical Society (1999).
 """
 
+import warnings
+from typing import overload
+
 import numpy as np
 import scipy.sparse as sp
 from scipy import linalg
@@ -20,15 +23,32 @@ from scptensor.core.structures import MaskCode, ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
 
 
+@overload
 def ppca(
     container: ScpContainer,
     assay_name: str,
-    base_layer: str,
-    new_layer_name: str | None = "imputed_ppca",
+    source_layer: str,
+    new_layer_name: str = "imputed_ppca",
     n_components: int = 10,
     max_iter: int = 100,
     tol: float = 1e-6,
     random_state: int | None = None,
+    base_layer: str | None = None,
+    layer: str | None = None,
+) -> ScpContainer: ...
+
+
+def ppca(
+    container: ScpContainer,
+    assay_name: str,
+    source_layer: str,
+    new_layer_name: str = "imputed_ppca",
+    n_components: int = 10,
+    max_iter: int = 100,
+    tol: float = 1e-6,
+    random_state: int | None = None,
+    base_layer: str | None = None,
+    layer: str | None = None,
 ) -> ScpContainer:
     """
     Impute missing values using Probabilistic PCA (PPCA).
@@ -39,37 +59,43 @@ def ppca(
     Parameters
     ----------
     container : ScpContainer
-        Input container with missing values
+        Input container with missing values.
     assay_name : str
-        Name of the assay to use
-    base_layer : str
-        Name of the layer containing data with missing values
-    new_layer_name : str, optional
-        Name for the new layer with imputed data (default: 'imputed_ppca')
-    n_components : int, optional
-        Number of principal components (default: 10)
-    max_iter : int, optional
-        Maximum EM iterations (default: 100)
-    tol : float, optional
-        Convergence tolerance (default: 1e-6)
+        Name of the assay to use.
+    source_layer : str, default "raw"
+        Name of the layer containing data with missing values.
+    new_layer_name : str, default "imputed_ppca"
+        Name for the new layer with imputed data.
+    n_components : int, default 10
+        Number of principal components.
+    max_iter : int, default 100
+        Maximum EM iterations.
+    tol : float, default 1e-6
+        Convergence tolerance.
     random_state : int, optional
-        Random seed for reproducibility (default: None)
+        Random seed for reproducibility.
+    base_layer : str, optional
+        .. deprecated:: 0.2.0
+            Use ``source_layer`` instead. Will be removed in version 1.0.0.
+    layer : str, optional
+        .. deprecated:: 0.2.0
+            Use ``source_layer`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
     ScpContainer
-        Container with imputed data in new layer
+        Container with imputed data in new layer.
 
     Raises
     ------
     AssayNotFoundError
-        If the assay does not exist
+        If the assay does not exist.
     LayerNotFoundError
-        If the layer does not exist
+        If the layer does not exist.
     ScpValueError
-        If parameters are invalid
+        If parameters are invalid.
     DimensionError
-        If n_components is too large
+        If n_components is too large.
 
     Notes
     -----
@@ -77,37 +103,75 @@ def ppca(
         1. E-step: Compute E[z] = Mx @ W.T @ (x - mu)
         2. M-step: Update W and sigma^2
         3. Impute: x_miss = W_miss @ E[z] + mu_miss
+
+    Examples
+    --------
+    >>> from scptensor import ppca
+    >>> result = ppca(container, "proteins", n_components=10)
+    >>> "imputed_ppca" in result.assays["proteins"].layers
+    True
     """
+    # Handle deprecated parameter names
+    if base_layer is not None:
+        warnings.warn(
+            "'base_layer' is deprecated, use 'source_layer' instead. "
+            "This will be removed in version 1.0.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        source_layer = base_layer
+    if layer is not None:
+        warnings.warn(
+            "'layer' is deprecated, use 'source_layer' instead. "
+            "This will be removed in version 1.0.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        source_layer = layer
     # Validate parameters
     if n_components <= 0:
         raise ScpValueError(
-            f"n_components must be positive, got {n_components}.",
+            f"n_components must be positive, got {n_components}. "
+            "Use n_components >= 1 for PPCA imputation.",
             parameter="n_components",
             value=n_components,
         )
     if max_iter <= 0:
         raise ScpValueError(
-            f"max_iter must be positive, got {max_iter}.",
+            f"max_iter must be positive, got {max_iter}. "
+            "Use max_iter >= 1 for EM algorithm iterations.",
             parameter="max_iter",
             value=max_iter,
         )
     if tol <= 0:
         raise ScpValueError(
-            f"tol must be positive, got {tol}.",
+            f"tol must be positive, got {tol}. "
+            "Use tol > 0 for convergence tolerance.",
             parameter="tol",
             value=tol,
         )
 
     # Validate assay and layer
     if assay_name not in container.assays:
-        raise AssayNotFoundError(assay_name)
+        available = ", ".join(f"'{k}'" for k in container.assays.keys())
+        raise AssayNotFoundError(
+            assay_name,
+            hint=f"Available assays: {available}. "
+            f"Use container.list_assays() to see all assays.",
+        )
 
     assay = container.assays[assay_name]
-    if base_layer not in assay.layers:
-        raise LayerNotFoundError(base_layer, assay_name)
+    if source_layer not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            source_layer,
+            assay_name,
+            hint=f"Available layers in assay '{assay_name}': {available}. "
+            f"Use assay.list_layers() to see all layers.",
+        )
 
     # Get data
-    input_matrix = assay.layers[base_layer]
+    input_matrix = assay.layers[source_layer]
     X_original = input_matrix.X.copy()
     n_samples, n_features = X_original.shape
 
@@ -132,8 +196,8 @@ def ppca(
             action="impute_ppca",
             params={
                 "assay": assay_name,
-                "base_layer": base_layer,
-                "new_layer": layer_name,
+                "source_layer": source_layer,
+                "new_layer_name": layer_name,
                 "n_components": n_components,
                 "n_iterations": 0,
             },
@@ -211,8 +275,8 @@ def ppca(
         action="impute_ppca",
         params={
             "assay": assay_name,
-            "base_layer": base_layer,
-            "new_layer": layer_name,
+            "source_layer": source_layer,
+            "new_layer_name": layer_name,
             "n_components": n_components,
             "n_iterations": iteration + 1,
             "final_sigma2": sigma2,
@@ -259,7 +323,7 @@ if __name__ == "__main__":
     result = ppca(
         container,
         assay_name="protein",
-        base_layer="raw",
+        source_layer="raw",
         n_components=5,
         max_iter=50,
         random_state=42,
@@ -306,7 +370,7 @@ if __name__ == "__main__":
     result2 = ppca(
         container2,
         assay_name="protein",
-        base_layer="raw",
+        source_layer="raw",
         n_components=5,
         max_iter=50,
         random_state=42,

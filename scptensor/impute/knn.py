@@ -1,5 +1,8 @@
 """KNN imputation for single-cell proteomics data."""
 
+import warnings
+from typing import overload
+
 import numpy as np
 from sklearn.metrics.pairwise import nan_euclidean_distances
 
@@ -12,15 +15,34 @@ from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
 
 
+@overload
 def knn(
     container: ScpContainer,
     assay_name: str,
-    base_layer: str,
-    new_layer_name: str | None = "imputed_knn",
+    source_layer: str,
+    new_layer_name: str = "imputed_knn",
     k: int = 5,
     weights: str = "uniform",
     batch_size: int = 500,
     oversample_factor: int = 3,
+    base_layer: str | None = None,
+    layer: str | None = None,
+    output_layer: str | None = None,
+) -> ScpContainer: ...
+
+
+def knn(
+    container: ScpContainer,
+    assay_name: str,
+    source_layer: str,
+    new_layer_name: str = "imputed_knn",
+    k: int = 5,
+    weights: str = "uniform",
+    batch_size: int = 500,
+    oversample_factor: int = 3,
+    base_layer: str | None = None,
+    layer: str | None = None,
+    output_layer: str | None = None,
 ) -> ScpContainer:
     """
     Impute missing values using k-Nearest Neighbors with over-sampling.
@@ -32,77 +54,133 @@ def knn(
     Parameters
     ----------
     container : ScpContainer
-        Input container with missing values
+        Input container with missing values.
     assay_name : str
-        Name of the assay to use
-    base_layer : str
-        Name of the layer containing data with missing values
-    new_layer_name : str, optional
-        Name for the new layer with imputed data (default: 'imputed_knn')
-    k : int, optional
-        Number of neighbors to use (default: 5)
-    weights : str, optional
-        Weight function: 'uniform' or 'distance' (default: 'uniform')
-    batch_size : int, optional
-        Number of rows to process at once (default: 500)
-    oversample_factor : int, optional
-        Multiplier for search range k_search = oversample_factor * k (default: 3)
+        Name of the assay to use.
+    source_layer : str, default "raw"
+        Name of the layer containing data with missing values.
+    new_layer_name : str, default "imputed_knn"
+        Name for the new layer with imputed data.
+    k : int, default 5
+        Number of neighbors to use.
+    weights : str, default "uniform"
+        Weight function: 'uniform' or 'distance'.
+    batch_size : int, default 500
+        Number of rows to process at once.
+    oversample_factor : int, default 3
+        Multiplier for search range k_search = oversample_factor * k.
+    base_layer : str, optional
+        .. deprecated:: 0.2.0
+            Use ``source_layer`` instead. Will be removed in version 1.0.0.
+    layer : str, optional
+        .. deprecated:: 0.2.0
+            Use ``source_layer`` instead. Will be removed in version 1.0.0.
+    output_layer : str, optional
+        .. deprecated:: 0.2.0
+            Use ``new_layer_name`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
     ScpContainer
-        Container with imputed data in new layer
+        Container with imputed data in new layer.
 
     Raises
     ------
     AssayNotFoundError
-        If the specified assay does not exist
+        If the specified assay does not exist.
     LayerNotFoundError
-        If the specified layer does not exist
+        If the specified layer does not exist.
     ScpValueError
-        If parameters are invalid
+        If parameters are invalid.
 
     Notes
     -----
     Time complexity: O(M * N * D) for distance calculation.
     Space complexity: O(batch_size * N) for batch processing.
+
+    Examples
+    --------
+    >>> from scptensor import knn
+    >>> result = knn(container, "proteins", k=5, weights="distance")
+    >>> "imputed_knn" in result.assays["proteins"].layers
+    True
     """
+    # Handle deprecated parameter names
+    if base_layer is not None:
+        warnings.warn(
+            "'base_layer' is deprecated, use 'source_layer' instead. "
+            "This will be removed in version 1.0.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        source_layer = base_layer
+    if layer is not None:
+        warnings.warn(
+            "'layer' is deprecated, use 'source_layer' instead. "
+            "This will be removed in version 1.0.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        source_layer = layer
+    if output_layer is not None:
+        warnings.warn(
+            "'output_layer' is deprecated, use 'new_layer_name' instead. "
+            "This will be removed in version 1.0.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        new_layer_name = output_layer
     # Parameter validation
     if k <= 0:
         raise ScpValueError(
-            f"Number of neighbors (k) must be positive, got {k}.",
+            f"Number of neighbors (k) must be positive, got {k}. "
+            "Use k >= 1 for nearest neighbor imputation.",
             parameter="k",
             value=k,
         )
     if weights not in ("uniform", "distance"):
         raise ScpValueError(
-            f"Weights must be 'uniform' or 'distance', got '{weights}'.",
+            f"Weights must be 'uniform' or 'distance', got '{weights}'. "
+            "Use 'uniform' for equal weighting or 'distance' for inverse distance weighting.",
             parameter="weights",
             value=weights,
         )
     if batch_size <= 0:
         raise ScpValueError(
-            f"Batch size must be positive, got {batch_size}.",
+            f"Batch size must be positive, got {batch_size}. "
+            "Use batch_size >= 1 to process samples in batches.",
             parameter="batch_size",
             value=batch_size,
         )
     if oversample_factor < 1:
         raise ScpValueError(
-            f"Oversample factor must be at least 1, got {oversample_factor}.",
+            f"Oversample factor must be at least 1, got {oversample_factor}. "
+            "Use oversample_factor >= 1 to control neighbor search range.",
             parameter="oversample_factor",
             value=oversample_factor,
         )
 
     # Validate assay and layer
     if assay_name not in container.assays:
-        raise AssayNotFoundError(assay_name)
+        available = ", ".join(f"'{k}'" for k in container.assays.keys())
+        raise AssayNotFoundError(
+            assay_name,
+            hint=f"Available assays: {available}. "
+            f"Use container.list_assays() to see all assays.",
+        )
 
     assay = container.assays[assay_name]
-    if base_layer not in assay.layers:
-        raise LayerNotFoundError(base_layer, assay_name)
+    if source_layer not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            source_layer,
+            assay_name,
+            hint=f"Available layers in assay '{assay_name}': {available}. "
+            f"Use assay.list_layers() to see all layers.",
+        )
 
     # Get data
-    matrix = assay.layers[base_layer]
+    matrix = assay.layers[source_layer]
     X = matrix.X.copy()
     n_samples, n_features = X.shape
 
@@ -197,8 +275,8 @@ def knn(
         action="knn",
         params={
             "assay": assay_name,
-            "base_layer": base_layer,
-            "new_layer": layer_name,
+            "source_layer": source_layer,
+            "new_layer_name": layer_name,
             "k": k,
             "weights": weights,
             "oversample_factor": oversample_factor,

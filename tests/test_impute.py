@@ -26,9 +26,7 @@ from scptensor.core.exceptions import (
     AssayNotFoundError,
     DimensionError,
     LayerNotFoundError,
-)
-from scptensor.core.exceptions import (
-    ValueError as ScpValueError,
+    ScpValueError,
 )
 from scptensor.impute import knn, missforest, ppca, svd_impute
 
@@ -168,7 +166,7 @@ class TestKNNImputation:
         """Test basic KNN imputation."""
         container, X_true, missing_mask = impute_container
 
-        result = knn(container, assay_name="protein", base_layer="raw", k=5)
+        result = knn(container, assay_name="protein", source_layer="raw", k=5)
 
         assert "imputed_knn" in result.assays["protein"].layers
         X_imputed = result.assays["protein"].layers["imputed_knn"].X
@@ -191,7 +189,7 @@ class TestKNNImputation:
                 n_samples=50, n_features=20, missing_rate=rate
             )
 
-            result = knn(container, assay_name="protein", base_layer="raw", k=5)
+            result = knn(container, assay_name="protein", source_layer="raw", k=5)
             X_imputed = result.assays["protein"].layers["imputed_knn"].X
 
             assert not np.any(np.isnan(X_imputed))
@@ -213,7 +211,7 @@ class TestKNNImputation:
             n_samples=50, n_features=20, missing_rate=0.2, use_sparse=True
         )
 
-        result = knn(container, assay_name="protein", base_layer="raw", k=5)
+        result = knn(container, assay_name="protein", source_layer="raw", k=5)
         X_imputed = result.assays["protein"].layers["imputed_knn"].X
 
         assert not np.any(np.isnan(X_imputed))
@@ -223,7 +221,7 @@ class TestKNNImputation:
         """Test KNN with uniform weights."""
         container, _, _ = impute_container
 
-        result = knn(container, assay_name="protein", base_layer="raw", k=5, weights="uniform")
+        result = knn(container, assay_name="protein", source_layer="raw", k=5, weights="uniform")
         X_imputed = result.assays["protein"].layers["imputed_knn"].X
 
         assert not np.any(np.isnan(X_imputed))
@@ -232,7 +230,7 @@ class TestKNNImputation:
         """Test KNN with distance weights."""
         container, _, _ = impute_container
 
-        result = knn(container, assay_name="protein", base_layer="raw", k=5, weights="distance")
+        result = knn(container, assay_name="protein", source_layer="raw", k=5, weights="distance")
         X_imputed = result.assays["protein"].layers["imputed_knn"].X
 
         assert not np.any(np.isnan(X_imputed))
@@ -242,7 +240,7 @@ class TestKNNImputation:
         container, _, _ = impute_container
 
         for k_val in [1, 3, 5, 10, 20]:
-            result = knn(container, assay_name="protein", base_layer="raw", k=k_val)
+            result = knn(container, assay_name="protein", source_layer="raw", k=k_val)
             X_imputed = result.assays["protein"].layers["imputed_knn"].X
 
             assert not np.any(np.isnan(X_imputed))
@@ -254,7 +252,7 @@ class TestKNNImputation:
         result = knn(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             new_layer_name="my_imputed",
         )
 
@@ -265,24 +263,27 @@ class TestKNNImputation:
         """Test KNN with no missing values."""
         container = container_no_missing()
 
-        result = knn(container, assay_name="protein", base_layer="raw", k=5)
+        result = knn(container, assay_name="protein", source_layer="raw", k=5)
 
         assert "imputed_knn" in result.assays["protein"].layers
 
     def test_knn_mask_preserved(self, create_impute_container):
-        """Test that KNN preserves mask matrix."""
+        """Test that KNN creates and updates mask matrix correctly."""
         container, X_true, missing_mask = create_impute_container(
             n_samples=50, n_features=20, missing_rate=0.2, with_mask=True
         )
 
         M_original = container.assays["protein"].layers["raw"].M
 
-        result = knn(container, assay_name="protein", base_layer="raw", k=5)
+        result = knn(container, assay_name="protein", source_layer="raw", k=5)
         M_result = result.assays["protein"].layers["imputed_knn"].M
 
-        # Mask should be copied
+        # Mask should be created with IMPUTED (5) codes for missing values
         assert M_result is not None
-        assert np.array_equal(M_result, M_original)
+        # All originally missing values should now have IMPUTED code
+        assert np.all(M_result[missing_mask] == 5)  # IMPUTED code
+        # Non-missing values should keep their original codes (VALID=0, MBR=1, LOD=2)
+        assert np.array_equal(M_result[~missing_mask], M_original[~missing_mask])
 
     def test_knn_parameter_validation(self, impute_container):
         """Test KNN parameter validation."""
@@ -290,42 +291,42 @@ class TestKNNImputation:
 
         # Invalid k
         with pytest.raises(ScpValueError, match="k.*must be positive"):
-            knn(container, assay_name="protein", base_layer="raw", k=0)
+            knn(container, assay_name="protein", source_layer="raw", k=0)
 
         with pytest.raises(ScpValueError, match="k.*must be positive"):
-            knn(container, assay_name="protein", base_layer="raw", k=-5)
+            knn(container, assay_name="protein", source_layer="raw", k=-5)
 
         # Invalid weights
         with pytest.raises(ScpValueError, match="Weights must be"):
-            knn(container, assay_name="protein", base_layer="raw", weights="invalid")
+            knn(container, assay_name="protein", source_layer="raw", weights="invalid")
 
         # Invalid batch_size
         with pytest.raises(ScpValueError, match="Batch size must be positive"):
-            knn(container, assay_name="protein", base_layer="raw", batch_size=0)
+            knn(container, assay_name="protein", source_layer="raw", batch_size=0)
 
         # Invalid oversample_factor
         with pytest.raises(ScpValueError, match="Oversample factor must be at least"):
-            knn(container, assay_name="protein", base_layer="raw", oversample_factor=0)
+            knn(container, assay_name="protein", source_layer="raw", oversample_factor=0)
 
     def test_knn_assay_not_found(self, impute_container):
         """Test KNN with non-existent assay."""
         container, _, _ = impute_container
 
         with pytest.raises(AssayNotFoundError):
-            knn(container, assay_name="nonexistent", base_layer="raw")
+            knn(container, assay_name="nonexistent", source_layer="raw")
 
     def test_knn_layer_not_found(self, impute_container):
         """Test KNN with non-existent layer."""
         container, _, _ = impute_container
 
         with pytest.raises(LayerNotFoundError):
-            knn(container, assay_name="protein", base_layer="nonexistent")
+            knn(container, assay_name="protein", source_layer="nonexistent")
 
     def test_knn_tiny_dataset(self, tiny_container):
         """Test KNN with very small dataset."""
         container = tiny_container(n_samples=3, n_features=3, missing_rate=0.3)
 
-        result = knn(container, assay_name="protein", base_layer="raw", k=2)
+        result = knn(container, assay_name="protein", source_layer="raw", k=2)
         X_imputed = result.assays["protein"].layers["imputed_knn"].X
 
         assert not np.any(np.isnan(X_imputed))
@@ -335,7 +336,7 @@ class TestKNNImputation:
         container, _, _ = impute_container
         initial_history_len = len(container.history)
 
-        result = knn(container, assay_name="protein", base_layer="raw", k=5)
+        result = knn(container, assay_name="protein", source_layer="raw", k=5)
 
         assert len(result.history) == initial_history_len + 1
         assert result.history[-1].action == "knn"
@@ -348,7 +349,7 @@ class TestKNNImputation:
             result = knn(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 k=5,
                 oversample_factor=factor,
             )
@@ -364,7 +365,7 @@ class TestKNNImputation:
             result = knn(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 k=5,
                 batch_size=batch_size,
             )
@@ -388,7 +389,7 @@ class TestMissForestImputation:
         result = missforest(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             max_iter=5,
             n_estimators=50,
         )
@@ -414,7 +415,7 @@ class TestMissForestImputation:
             result = missforest(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 max_iter=3,
                 n_estimators=30,
             )
@@ -430,7 +431,7 @@ class TestMissForestImputation:
             result = missforest(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 max_iter=3,
                 n_estimators=n_est,
             )
@@ -445,7 +446,7 @@ class TestMissForestImputation:
         result = missforest(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             max_iter=3,
             n_estimators=50,
             max_depth=5,
@@ -461,7 +462,7 @@ class TestMissForestImputation:
         result = missforest(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             max_iter=3,
             n_estimators=50,
             max_depth=None,
@@ -478,7 +479,7 @@ class TestMissForestImputation:
             result = missforest(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 max_iter=max_iter,
                 n_estimators=30,
             )
@@ -493,7 +494,7 @@ class TestMissForestImputation:
         result = missforest(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             new_layer_name="mf_imputed",
         )
 
@@ -507,7 +508,7 @@ class TestMissForestImputation:
         result = missforest(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             max_iter=3,
             n_estimators=30,
         )
@@ -515,7 +516,7 @@ class TestMissForestImputation:
         assert "imputed_missforest" in result.assays["protein"].layers
 
     def test_missforest_mask_preserved(self, create_impute_container):
-        """Test that MissForest preserves mask matrix."""
+        """Test that MissForest creates and updates mask matrix correctly."""
         container, X_true, missing_mask = create_impute_container(
             n_samples=50, n_features=20, missing_rate=0.2, with_mask=True
         )
@@ -525,15 +526,18 @@ class TestMissForestImputation:
         result = missforest(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             max_iter=3,
             n_estimators=30,
         )
         M_result = result.assays["protein"].layers["imputed_missforest"].M
 
-        # Mask should be copied
+        # Mask should be created with IMPUTED (5) codes for missing values
         assert M_result is not None
-        assert np.array_equal(M_result, M_original)
+        # All originally missing values should now have IMPUTED code
+        assert np.all(M_result[missing_mask] == 5)  # IMPUTED code
+        # Non-missing values should keep their original codes (VALID=0, MBR=1, LOD=2)
+        assert np.array_equal(M_result[~missing_mask], M_original[~missing_mask])
 
     def test_missforest_parameter_validation(self, impute_container):
         """Test MissForest parameter validation."""
@@ -544,7 +548,7 @@ class TestMissForestImputation:
             missforest(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 max_iter=0,
             )
 
@@ -552,7 +556,7 @@ class TestMissForestImputation:
             missforest(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 max_iter=-5,
             )
 
@@ -561,7 +565,7 @@ class TestMissForestImputation:
             missforest(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 n_estimators=0,
             )
 
@@ -570,7 +574,7 @@ class TestMissForestImputation:
             missforest(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 max_depth=0,
             )
 
@@ -579,7 +583,7 @@ class TestMissForestImputation:
             missforest(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 verbose=5,
             )
 
@@ -591,7 +595,7 @@ class TestMissForestImputation:
             missforest(
                 container,
                 assay_name="nonexistent",
-                base_layer="raw",
+                source_layer="raw",
             )
 
     def test_missforest_layer_not_found(self, impute_container):
@@ -602,7 +606,7 @@ class TestMissForestImputation:
             missforest(
                 container,
                 assay_name="protein",
-                base_layer="nonexistent",
+                source_layer="nonexistent",
             )
 
     def test_missforest_tiny_dataset(self, tiny_container):
@@ -612,7 +616,7 @@ class TestMissForestImputation:
         result = missforest(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             max_iter=2,
             n_estimators=10,
         )
@@ -627,7 +631,7 @@ class TestMissForestImputation:
         result1 = missforest(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             max_iter=3,
             n_estimators=30,
             random_state=42,
@@ -636,7 +640,7 @@ class TestMissForestImputation:
         result2 = missforest(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             max_iter=3,
             n_estimators=30,
             random_state=42,
@@ -655,7 +659,7 @@ class TestMissForestImputation:
         missforest(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             max_iter=2,
             n_estimators=30,
             verbose=1,
@@ -672,7 +676,7 @@ class TestMissForestImputation:
         result = missforest(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             max_iter=3,
             n_estimators=30,
         )
@@ -687,7 +691,7 @@ class TestMissForestImputation:
         result = missforest(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             max_iter=2,
             n_estimators=30,
             n_jobs=1,
@@ -712,7 +716,7 @@ class TestPPCAImputation:
         result = ppca(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
             max_iter=50,
         )
@@ -745,7 +749,7 @@ class TestPPCAImputation:
             result = ppca(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 n_components=5,
                 max_iter=50,
             )
@@ -762,7 +766,7 @@ class TestPPCAImputation:
         result = ppca(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
             max_iter=50,
         )
@@ -779,7 +783,7 @@ class TestPPCAImputation:
             result = ppca(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 n_components=n_comp,
                 max_iter=50,
             )
@@ -795,7 +799,7 @@ class TestPPCAImputation:
             result = ppca(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 n_components=5,
                 max_iter=max_iter,
             )
@@ -811,7 +815,7 @@ class TestPPCAImputation:
             result = ppca(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 n_components=5,
                 max_iter=50,
                 tol=tol,
@@ -827,7 +831,7 @@ class TestPPCAImputation:
         result = ppca(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             new_layer_name="ppca_result",
         )
 
@@ -841,7 +845,7 @@ class TestPPCAImputation:
         result = ppca(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
         )
 
@@ -856,7 +860,7 @@ class TestPPCAImputation:
         result = ppca(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
             max_iter=50,
         )
@@ -884,7 +888,7 @@ class TestPPCAImputation:
         result = ppca(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
             max_iter=50,
         )
@@ -903,7 +907,7 @@ class TestPPCAImputation:
             ppca(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 n_components=0,
             )
 
@@ -911,7 +915,7 @@ class TestPPCAImputation:
             ppca(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 n_components=-5,
             )
 
@@ -920,7 +924,7 @@ class TestPPCAImputation:
             ppca(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 max_iter=0,
             )
 
@@ -929,7 +933,7 @@ class TestPPCAImputation:
             ppca(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 tol=0,
             )
 
@@ -937,7 +941,7 @@ class TestPPCAImputation:
             ppca(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 tol=-1e-6,
             )
 
@@ -950,7 +954,7 @@ class TestPPCAImputation:
             ppca(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 n_components=25,
             )
 
@@ -962,7 +966,7 @@ class TestPPCAImputation:
             ppca(
                 container,
                 assay_name="nonexistent",
-                base_layer="raw",
+                source_layer="raw",
             )
 
     def test_ppca_layer_not_found(self, impute_container):
@@ -973,7 +977,7 @@ class TestPPCAImputation:
             ppca(
                 container,
                 assay_name="protein",
-                base_layer="nonexistent",
+                source_layer="nonexistent",
             )
 
     def test_ppca_tiny_dataset(self, tiny_container):
@@ -983,7 +987,7 @@ class TestPPCAImputation:
         result = ppca(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=2,
             max_iter=20,
         )
@@ -998,7 +1002,7 @@ class TestPPCAImputation:
         result1 = ppca(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
             random_state=42,
         )
@@ -1006,7 +1010,7 @@ class TestPPCAImputation:
         result2 = ppca(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
             random_state=42,
         )
@@ -1025,7 +1029,7 @@ class TestPPCAImputation:
         result = ppca(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
         )
 
@@ -1039,7 +1043,7 @@ class TestPPCAImputation:
         result = ppca(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
             max_iter=100,
             tol=1e-6,
@@ -1064,7 +1068,7 @@ class TestSVDImputation:
         result = svd_impute(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
             max_iter=50,
         )
@@ -1097,7 +1101,7 @@ class TestSVDImputation:
             result = svd_impute(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 n_components=5,
                 max_iter=50,
             )
@@ -1114,7 +1118,7 @@ class TestSVDImputation:
         result = svd_impute(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
             max_iter=50,
         )
@@ -1131,7 +1135,7 @@ class TestSVDImputation:
             result = svd_impute(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 n_components=n_comp,
                 max_iter=50,
             )
@@ -1147,7 +1151,7 @@ class TestSVDImputation:
             result = svd_impute(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 n_components=5,
                 max_iter=max_iter,
             )
@@ -1163,7 +1167,7 @@ class TestSVDImputation:
             result = svd_impute(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 n_components=5,
                 max_iter=50,
                 tol=tol,
@@ -1179,7 +1183,7 @@ class TestSVDImputation:
         result = svd_impute(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
             init_method="mean",
         )
@@ -1194,7 +1198,7 @@ class TestSVDImputation:
         result = svd_impute(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
             init_method="median",
         )
@@ -1209,7 +1213,7 @@ class TestSVDImputation:
         result = svd_impute(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             new_layer_name="svd_result",
         )
 
@@ -1223,7 +1227,7 @@ class TestSVDImputation:
         result = svd_impute(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
         )
 
@@ -1238,7 +1242,7 @@ class TestSVDImputation:
         result = svd_impute(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
             max_iter=50,
         )
@@ -1266,7 +1270,7 @@ class TestSVDImputation:
         result = svd_impute(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
             max_iter=50,
         )
@@ -1285,7 +1289,7 @@ class TestSVDImputation:
             svd_impute(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 n_components=0,
             )
 
@@ -1293,7 +1297,7 @@ class TestSVDImputation:
             svd_impute(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 n_components=-5,
             )
 
@@ -1302,7 +1306,7 @@ class TestSVDImputation:
             svd_impute(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 max_iter=0,
             )
 
@@ -1311,7 +1315,7 @@ class TestSVDImputation:
             svd_impute(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 tol=0,
             )
 
@@ -1319,7 +1323,7 @@ class TestSVDImputation:
             svd_impute(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 tol=-1e-6,
             )
 
@@ -1328,7 +1332,7 @@ class TestSVDImputation:
             svd_impute(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 init_method="invalid",
             )
 
@@ -1341,7 +1345,7 @@ class TestSVDImputation:
             svd_impute(
                 container,
                 assay_name="protein",
-                base_layer="raw",
+                source_layer="raw",
                 n_components=25,
             )
 
@@ -1353,7 +1357,7 @@ class TestSVDImputation:
             svd_impute(
                 container,
                 assay_name="nonexistent",
-                base_layer="raw",
+                source_layer="raw",
             )
 
     def test_svd_layer_not_found(self, impute_container):
@@ -1364,7 +1368,7 @@ class TestSVDImputation:
             svd_impute(
                 container,
                 assay_name="protein",
-                base_layer="nonexistent",
+                source_layer="nonexistent",
             )
 
     def test_svd_tiny_dataset(self, tiny_container):
@@ -1374,7 +1378,7 @@ class TestSVDImputation:
         result = svd_impute(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=2,
             max_iter=20,
         )
@@ -1390,7 +1394,7 @@ class TestSVDImputation:
         result = svd_impute(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
         )
 
@@ -1404,7 +1408,7 @@ class TestSVDImputation:
         result = svd_impute(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
             max_iter=100,
             tol=1e-6,
@@ -1426,7 +1430,7 @@ class TestImputationEdgeCases:
         """Test KNN with all values missing."""
         container = container_all_missing()
 
-        result = knn(container, assay_name="protein", base_layer="raw", k=2)
+        result = knn(container, assay_name="protein", source_layer="raw", k=2)
         X_imputed = result.assays["protein"].layers["imputed_knn"].X
 
         # Should fill with column means (zeros since all NaN)
@@ -1439,7 +1443,7 @@ class TestImputationEdgeCases:
         result = missforest(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             max_iter=2,
             n_estimators=10,
         )
@@ -1456,7 +1460,7 @@ class TestImputationEdgeCases:
         result = ppca(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=2,
             max_iter=10,
         )
@@ -1473,7 +1477,7 @@ class TestImputationEdgeCases:
         result = svd_impute(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=2,
             max_iter=10,
         )
@@ -1495,7 +1499,7 @@ class TestImputationEdgeCases:
         container = ScpContainer(obs=obs, assays={"protein": assay})
 
         # KNN should handle single row gracefully
-        result = knn(container, assay_name="protein", base_layer="raw", k=1)
+        result = knn(container, assay_name="protein", source_layer="raw", k=1)
         X_imputed = result.assays["protein"].layers["imputed_knn"].X
 
         assert X_imputed.shape == (1, 5)
@@ -1510,7 +1514,7 @@ class TestImputationEdgeCases:
             original_X = original_X.toarray()
 
         # Run imputation
-        knn(container, assay_name="protein", base_layer="raw", k=5)
+        knn(container, assay_name="protein", source_layer="raw", k=5)
 
         # Original should be unchanged
         X_after = container.assays["protein"].layers["raw"].X
@@ -1537,7 +1541,7 @@ class TestImputationEdgeCases:
         result = svd_impute(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=5,
             max_iter=10,
         )

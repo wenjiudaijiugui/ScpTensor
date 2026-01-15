@@ -5,6 +5,9 @@ Reference:
     Bioinformatics (2001).
 """
 
+import warnings
+from typing import overload
+
 import numpy as np
 import scipy.sparse as sp
 from scipy import linalg
@@ -20,15 +23,32 @@ from scptensor.core.structures import MaskCode, ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
 
 
+@overload
 def svd_impute(
     container: ScpContainer,
     assay_name: str,
-    base_layer: str,
-    new_layer_name: str | None = "imputed_svd",
+    source_layer: str,
+    new_layer_name: str = "imputed_svd",
     n_components: int = 10,
     max_iter: int = 100,
     tol: float = 1e-6,
     init_method: str = "mean",
+    base_layer: str | None = None,
+    layer: str | None = None,
+) -> ScpContainer: ...
+
+
+def svd_impute(
+    container: ScpContainer,
+    assay_name: str,
+    source_layer: str,
+    new_layer_name: str = "imputed_svd",
+    n_components: int = 10,
+    max_iter: int = 100,
+    tol: float = 1e-6,
+    init_method: str = "mean",
+    base_layer: str | None = None,
+    layer: str | None = None,
 ) -> ScpContainer:
     """
     Impute missing values using iterative SVD.
@@ -39,37 +59,43 @@ def svd_impute(
     Parameters
     ----------
     container : ScpContainer
-        Input container with missing values
+        Input container with missing values.
     assay_name : str
-        Name of the assay to use
-    base_layer : str
-        Name of the layer containing data with missing values
-    new_layer_name : str, optional
-        Name for the new layer with imputed data (default: 'imputed_svd')
-    n_components : int, optional
-        Number of singular components (default: 10)
-    max_iter : int, optional
-        Maximum iterations (default: 100)
-    tol : float, optional
-        Convergence tolerance (default: 1e-6)
-    init_method : str, optional
-        Initialization: 'mean' or 'median' (default: 'mean')
+        Name of the assay to use.
+    source_layer : str, default "raw"
+        Name of the layer containing data with missing values.
+    new_layer_name : str, default "imputed_svd"
+        Name for the new layer with imputed data.
+    n_components : int, default 10
+        Number of singular components.
+    max_iter : int, default 100
+        Maximum iterations.
+    tol : float, default 1e-6
+        Convergence tolerance.
+    init_method : str, default "mean"
+        Initialization: 'mean' or 'median'.
+    base_layer : str, optional
+        .. deprecated:: 0.2.0
+            Use ``source_layer`` instead. Will be removed in version 1.0.0.
+    layer : str, optional
+        .. deprecated:: 0.2.0
+            Use ``source_layer`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
     ScpContainer
-        Container with imputed data in new layer
+        Container with imputed data in new layer.
 
     Raises
     ------
     AssayNotFoundError
-        If the assay does not exist
+        If the assay does not exist.
     LayerNotFoundError
-        If the layer does not exist
+        If the layer does not exist.
     ScpValueError
-        If parameters are invalid
+        If parameters are invalid.
     DimensionError
-        If n_components is too large
+        If n_components is too large.
 
     Notes
     -----
@@ -77,43 +103,82 @@ def svd_impute(
         1. Initialize missing values (mean/median)
         2. Repeat: SVD -> low-rank reconstruction -> fill missing
         3. Stop when convergence or max_iter reached
+
+    Examples
+    --------
+    >>> from scptensor import svd_impute
+    >>> result = svd_impute(container, "proteins", n_components=10)
+    >>> "imputed_svd" in result.assays["proteins"].layers
+    True
     """
+    # Handle deprecated parameter names
+    if base_layer is not None:
+        warnings.warn(
+            "'base_layer' is deprecated, use 'source_layer' instead. "
+            "This will be removed in version 1.0.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        source_layer = base_layer
+    if layer is not None:
+        warnings.warn(
+            "'layer' is deprecated, use 'source_layer' instead. "
+            "This will be removed in version 1.0.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        source_layer = layer
     # Validate parameters
     if n_components <= 0:
         raise ScpValueError(
-            f"n_components must be positive, got {n_components}.",
+            f"n_components must be positive, got {n_components}. "
+            "Use n_components >= 1 for SVD imputation.",
             parameter="n_components",
             value=n_components,
         )
     if max_iter <= 0:
         raise ScpValueError(
-            f"max_iter must be positive, got {max_iter}.",
+            f"max_iter must be positive, got {max_iter}. "
+            "Use max_iter >= 1 for SVD iterations.",
             parameter="max_iter",
             value=max_iter,
         )
     if tol <= 0:
         raise ScpValueError(
-            f"tol must be positive, got {tol}.",
+            f"tol must be positive, got {tol}. "
+            "Use tol > 0 for convergence tolerance.",
             parameter="tol",
             value=tol,
         )
     if init_method not in ("mean", "median"):
         raise ScpValueError(
-            f"init_method must be 'mean' or 'median', got '{init_method}'.",
+            f"init_method must be 'mean' or 'median', got '{init_method}'. "
+            "Use 'mean' for mean initialization or 'median' for median initialization.",
             parameter="init_method",
             value=init_method,
         )
 
     # Validate assay and layer
     if assay_name not in container.assays:
-        raise AssayNotFoundError(assay_name)
+        available = ", ".join(f"'{k}'" for k in container.assays.keys())
+        raise AssayNotFoundError(
+            assay_name,
+            hint=f"Available assays: {available}. "
+            f"Use container.list_assays() to see all assays.",
+        )
 
     assay = container.assays[assay_name]
-    if base_layer not in assay.layers:
-        raise LayerNotFoundError(base_layer, assay_name)
+    if source_layer not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            source_layer,
+            assay_name,
+            hint=f"Available layers in assay '{assay_name}': {available}. "
+            f"Use assay.list_layers() to see all layers.",
+        )
 
     # Get data
-    input_matrix = assay.layers[base_layer]
+    input_matrix = assay.layers[source_layer]
     X_original = input_matrix.X.copy()
     n_samples, n_features = X_original.shape
 
@@ -138,8 +203,8 @@ def svd_impute(
             action="impute_svd",
             params={
                 "assay": assay_name,
-                "base_layer": base_layer,
-                "new_layer": layer_name,
+                "source_layer": source_layer,
+                "new_layer_name": layer_name,
                 "n_components": n_components,
                 "n_iterations": 0,
             },
@@ -193,8 +258,8 @@ def svd_impute(
         action="impute_svd",
         params={
             "assay": assay_name,
-            "base_layer": base_layer,
-            "new_layer": layer_name,
+            "source_layer": source_layer,
+            "new_layer_name": layer_name,
             "n_components": n_components,
             "n_iterations": iteration + 1,
             "init_method": init_method,
@@ -239,7 +304,7 @@ if __name__ == "__main__":
 
     # Test SVD imputation
     result = svd_impute(
-        container, assay_name="protein", base_layer="raw", n_components=5, max_iter=50
+        container, assay_name="protein", source_layer="raw", n_components=5, max_iter=50
     )
 
     # Check results
@@ -283,7 +348,7 @@ if __name__ == "__main__":
     container2 = ScpContainer(obs=obs, assays={"protein": assay2})
 
     result2 = svd_impute(
-        container2, assay_name="protein", base_layer="raw", n_components=5, max_iter=50
+        container2, assay_name="protein", source_layer="raw", n_components=5, max_iter=50
     )
 
     result_matrix2 = result2.assays["protein"].layers["imputed_svd"]
@@ -308,7 +373,7 @@ if __name__ == "__main__":
     result3 = svd_impute(
         container3,
         assay_name="protein",
-        base_layer="raw",
+        source_layer="raw",
         new_layer_name="imputed_median",
         n_components=5,
         init_method="median",
@@ -334,7 +399,7 @@ if __name__ == "__main__":
     result4 = svd_impute(
         container4,
         assay_name="protein",
-        base_layer="raw",
+        source_layer="raw",
         new_layer_name="imputed_from_sparse",
         n_components=5,
     )
@@ -350,7 +415,7 @@ if __name__ == "__main__":
 
     try:
         # Invalid assay
-        svd_impute(container, assay_name="nonexistent", base_layer="raw")
+        svd_impute(container, assay_name="nonexistent", source_layer="raw")
         raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         assert "not found" in str(e)
@@ -358,7 +423,7 @@ if __name__ == "__main__":
 
     try:
         # Invalid layer
-        svd_impute(container, assay_name="protein", base_layer="nonexistent")
+        svd_impute(container, assay_name="protein", source_layer="nonexistent")
         raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         assert "not found" in str(e)
@@ -369,7 +434,7 @@ if __name__ == "__main__":
         svd_impute(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             n_components=1000,  # Too large
         )
         raise AssertionError("Should have raised ValueError")
@@ -379,7 +444,7 @@ if __name__ == "__main__":
 
     try:
         # Invalid init_method
-        svd_impute(container, assay_name="protein", base_layer="raw", init_method="invalid")
+        svd_impute(container, assay_name="protein", source_layer="raw", init_method="invalid")
         raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         assert "init_method" in str(e)
