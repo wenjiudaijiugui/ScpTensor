@@ -12,36 +12,48 @@ from scptensor.core.structures import ScpContainer
 def detect_outliers(
     container: ScpContainer,
     assay_name: str = "protein",
-    layer: str = "raw",
+    layer_name: str = "raw",
     contamination: float = 0.05,
     random_state: int = 42,
 ) -> ScpContainer:
-    """
-    Detect outlier samples using Isolation Forest.
+    """Detect outlier samples using Isolation Forest.
 
-    Args:
-        container: The ScpContainer object.
-        assay_name: Name of the assay to use.
-        layer: Layer to use for detection.
-        contamination: Proportion of outliers in the data set (0, 0.5).
-        random_state: Random state for reproducibility.
+    Parameters
+    ----------
+    container : ScpContainer
+        Input container with data to analyze.
+    assay_name : str, default "protein"
+        Name of assay containing the layer.
+    layer_name : str, default "raw"
+        Name of layer to use for detection.
+    contamination : float, default 0.05
+        Proportion of outliers in the data set (0, 0.5).
+    random_state : int, default 42
+        Random state for reproducibility.
 
-    Returns:
-        ScpContainer with an added column 'is_outlier' in obs.
+    Returns
+    -------
+    ScpContainer
+        Container with an added column 'is_outlier' in obs.
 
-    Raises:
-        AssayNotFoundError: If the specified assay does not exist.
-        LayerNotFoundError: If the specified layer does not exist in the assay.
-        ScpValueError: If contamination parameter is invalid.
+    Raises
+    ------
+    AssayNotFoundError
+        If assay_name does not exist.
+    LayerNotFoundError
+        If layer_name does not exist in the assay.
+    ScpValueError
+        If contamination parameter is invalid.
 
-    Examples:
-        >>> container = detect_outliers(
-        ...     container,
-        ...     assay_name="protein",
-        ...     contamination=0.05
-        ... )
-        >>> outlier_mask = container.obs['is_outlier'].to_numpy()
-        >>> n_outliers = outlier_mask.sum()
+    Examples
+    --------
+    >>> container = detect_outliers(
+    ...     container,
+    ...     assay_name="protein",
+    ...     contamination=0.05
+    ... )
+    >>> outlier_mask = container.obs['is_outlier'].to_numpy()
+    >>> n_outliers = outlier_mask.sum()
     """
     # Validate parameters
     if not (0 < contamination < 0.5):
@@ -55,10 +67,16 @@ def detect_outliers(
         raise AssayNotFoundError(assay_name)
 
     assay = container.assays[assay_name]
-    if layer not in assay.layers:
-        raise LayerNotFoundError(layer, assay_name)
+    if layer_name not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            layer_name,
+            assay_name,
+            hint=f"Layer '{layer_name}' not found in assay '{assay_name}'. "
+            f"Available layers: {available}.",
+        )
 
-    X = assay.layers[layer].X
+    X = assay.layers[layer_name].X
 
     # Convert sparse to dense for IsolationForest
     if sp.issparse(X):
