@@ -235,6 +235,53 @@ All planned v0.2.0 tasks have been successfully completed:
 
 ---
 
+## I/O Export Implementation (2026-01-15)
+
+**Status:** ✅ **COMPLETED** (2026-01-15)
+
+### Completed Tasks
+
+| ID | Task Description | Status | Key Deliverables |
+|----|------------------|--------|------------------|
+| IO-1 | Create IO module structure and exception classes | ✅ Complete | exceptions.py with IOFormatError, IOPasswordError, IOWriteError |
+| IO-2 | Implement DataFrame serialization (obs/var) | ✅ Complete | serialize_dataframe(), deserialize_dataframe() |
+| IO-3 | Implement ProvenanceLog serialization | ✅ Complete | serialize_provenance(), deserialize_provenance() |
+| IO-4 | Implement save_hdf5() function | ✅ Complete | Full HDF5 export with assays, layers, masks |
+| IO-5 | Implement load_hdf5() function | ✅ Complete | Full HDF5 import with format validation |
+| IO-6 | Add ScpContainer.save() and .load() methods | ✅ Complete | Convenience methods on ScpContainer |
+| IO-7 | Export to package namespace | ✅ Complete | save_hdf5, load_hdf5 in scptensor exports |
+| IO-8 | Integration and edge case tests | ✅ Complete | 12 integration tests, all passing |
+| IO-9 | Update documentation | ✅ Complete | Module docstrings, ROADMAP updated |
+
+### New Modules Added
+
+- `scptensor/io/__init__.py` - Public API exports
+- `scptensor/io/exceptions.py` - Exception hierarchy for I/O operations
+- `scptensor/io/exporters.py` - HDF5 export functionality
+- `scptensor/io/importers.py` - HDF5 import functionality
+- `scptensor/io/serializers.py` - Data serialization utilities
+
+### Enhanced Modules
+
+- `scptensor/__init__.py` - Added save_hdf5, load_hdf5 to package exports
+- `scptensor/core/structures.py` - Added save() and load() methods to ScpContainer
+
+### Test Coverage
+
+- 27 I/O tests passing (15 unit tests + 12 integration tests)
+- Tests cover: masks, multi-assay, selective export, history preservation, edge cases
+
+### Key Features
+
+- HDF5 format with complete data fidelity (round-trip preservation)
+- Support for sparse and dense matrices with mask matrices
+- Operation history (ProvenanceLog) preservation
+- Selective export (specific assays and layers)
+- Configurable compression levels
+- Format version validation
+
+---
+
 ## v0.2.0 Planning (Archived)
 
 *The following section is kept for historical reference.*
