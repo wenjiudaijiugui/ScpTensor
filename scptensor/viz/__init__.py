@@ -2,9 +2,11 @@ from .base import heatmap, violin
 from .base import scatter as base_scatter
 from .recipes import (
     embedding,
+    generate_analysis_report,
     pca,
     qc_completeness,
     qc_matrix_spy,
+    ReportTheme,
     scatter,
     tsne,
     umap,
@@ -25,4 +27,7 @@ __all__ = [
     "qc_completeness",
     "qc_matrix_spy",
     "volcano",
+    # Report
+    "generate_analysis_report",
+    "ReportTheme",
 ]
