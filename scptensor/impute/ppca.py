@@ -23,7 +23,7 @@ from scptensor.impute._utils import _update_imputed_mask
 
 
 @overload
-def ppca(
+def impute_ppca(
     container: ScpContainer,
     assay_name: str,
     source_layer: str,
@@ -35,7 +35,7 @@ def ppca(
 ) -> ScpContainer: ...
 
 
-def ppca(
+def impute_ppca(
     container: ScpContainer,
     assay_name: str,
     source_layer: str,
@@ -95,8 +95,8 @@ def ppca(
 
     Examples
     --------
-    >>> from scptensor import ppca
-    >>> result = ppca(container, "proteins", n_components=10)
+    >>> from scptensor import impute_ppca
+    >>> result = impute_ppca(container, "proteins", n_components=10)
     >>> "imputed_ppca" in result.assays["proteins"].layers
     True
     """
@@ -259,6 +259,24 @@ def ppca(
     return container
 
 
+# Backward compatibility alias
+def ppca(*args, **kwargs):
+    """Deprecated: Use impute_ppca instead.
+
+    This function is maintained for backward compatibility and will be
+    removed in version 1.0.0.
+    """
+    import warnings
+
+    warnings.warn(
+        "'ppca' is deprecated, use 'impute_ppca' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return impute_ppca(*args, **kwargs)
+
+
 if __name__ == "__main__":
     # Test: Basic functionality
     print("Testing PPCA imputation...")
@@ -292,7 +310,7 @@ if __name__ == "__main__":
     container = ScpContainer(obs=obs, assays={"protein": assay})
 
     # Test PPCA imputation
-    result = ppca(
+    result = impute_ppca(
         container,
         assay_name="protein",
         source_layer="raw",
@@ -339,7 +357,7 @@ if __name__ == "__main__":
     assay2.add_layer("raw", ScpMatrix(X=X_missing, M=M_initial))
     container2 = ScpContainer(obs=obs, assays={"protein": assay2})
 
-    result2 = ppca(
+    result2 = impute_ppca(
         container2,
         assay_name="protein",
         source_layer="raw",

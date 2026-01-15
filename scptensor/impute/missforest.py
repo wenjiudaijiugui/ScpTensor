@@ -16,7 +16,7 @@ from scptensor.impute._utils import _update_imputed_mask
 
 
 @overload
-def missforest(
+def impute_mf(
     container: ScpContainer,
     assay_name: str,
     source_layer: str,
@@ -30,7 +30,7 @@ def missforest(
 ) -> ScpContainer: ...
 
 
-def missforest(
+def impute_mf(
     container: ScpContainer,
     assay_name: str,
     source_layer: str,
@@ -87,8 +87,8 @@ def missforest(
 
     Examples
     --------
-    >>> from scptensor import missforest
-    >>> result = missforest(container, "proteins", n_estimators=50)
+    >>> from scptensor import impute_mf
+    >>> result = impute_mf(container, "proteins", n_estimators=50)
     >>> "imputed_missforest" in result.assays["proteins"].layers
     True
     """
@@ -231,6 +231,24 @@ def missforest(
     return container
 
 
+# Backward compatibility alias
+def missforest(*args, **kwargs):
+    """Deprecated: Use impute_mf instead.
+
+    This function is maintained for backward compatibility and will be
+    removed in version 1.0.0.
+    """
+    import warnings
+
+    warnings.warn(
+        "'missforest' is deprecated, use 'impute_mf' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return impute_mf(*args, **kwargs)
+
+
 if __name__ == "__main__":
     # Test: Basic functionality
     print("Testing MissForest imputation...")
@@ -262,7 +280,7 @@ if __name__ == "__main__":
     container = ScpContainer(obs=obs, assays={"protein": assay})
 
     # Test MissForest imputation
-    result = missforest(
+    result = impute_mf(
         container, assay_name="protein", source_layer="raw", max_iter=5, n_estimators=50, verbose=1
     )
 
