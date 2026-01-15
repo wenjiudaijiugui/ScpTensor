@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 import h5py
@@ -10,7 +11,7 @@ import polars as pl
 import scipy as sp
 
 if TYPE_CHECKING:
-    pass
+    from scptensor.core.structures import ProvenanceLog
 
 
 def serialize_dataframe(df: pl.DataFrame, group: h5py.Group) -> None:
@@ -127,3 +128,89 @@ def serialize_sparse_matrix(
     group.create_dataset(f"{name}_indptr", data=csr.indptr)
     group.attrs[f"{name}_format"] = "csr"
     group.attrs[f"{name}_shape"] = csr.shape
+
+
+def serialize_provenance(
+    history: list[ProvenanceLog],
+    group: h5py.Group,
+) -> None:
+    """Serialize operation history to HDF5 group.
+
+    Parameters
+    ----------
+    history : list[ProvenanceLog]
+        List of provenance logs
+    group : h5py.Group
+        Target HDF5 group
+    """
+    if not history:
+        return
+
+    actions = [log.action for log in history]
+    timestamps = [log.timestamp for log in history]
+    params_json = [json.dumps(log.params) for log in history]
+    versions = [log.software_version or "" for log in history]
+    descriptions = [log.description or "" for log in history]
+
+    string_dtype = h5py.string_dtype(encoding="utf-8")
+
+    group.create_dataset("action", data=actions, dtype=string_dtype)
+    group.create_dataset("timestamp", data=timestamps, dtype=string_dtype)
+    group.create_dataset("params", data=params_json, dtype=string_dtype)
+    group.create_dataset("software_version", data=versions, dtype=string_dtype)
+    group.create_dataset("description", data=descriptions, dtype=string_dtype)
+
+
+def deserialize_provenance(group: h5py.Group) -> list[ProvenanceLog]:
+    """Deserialize operation history from HDF5 group.
+
+    Parameters
+    ----------
+    group : h5py.Group
+        Source HDF5 group
+
+    Returns
+    -------
+    list[ProvenanceLog]
+        Reconstructed history
+    """
+    from scptensor.core.structures import ProvenanceLog
+
+    if "action" not in group:
+        return []
+
+    n = len(group["action"])
+    history = []
+
+    for i in range(n):
+        # Decode bytes to strings if necessary
+        timestamp = group["timestamp"][i]
+        if isinstance(timestamp, bytes):
+            timestamp = timestamp.decode("utf-8")
+
+        action = group["action"][i]
+        if isinstance(action, bytes):
+            action = action.decode("utf-8")
+
+        params_bytes = group["params"][i]
+        if isinstance(params_bytes, bytes):
+            params_bytes = params_bytes.decode("utf-8")
+
+        software_version = group["software_version"][i]
+        if isinstance(software_version, bytes):
+            software_version = software_version.decode("utf-8")
+
+        description = group["description"][i]
+        if isinstance(description, bytes):
+            description = description.decode("utf-8")
+
+        log = ProvenanceLog(
+            timestamp=timestamp,
+            action=action,
+            params=json.loads(params_bytes),
+            software_version=software_version or None,
+            description=description or None,
+        )
+        history.append(log)
+
+    return history
