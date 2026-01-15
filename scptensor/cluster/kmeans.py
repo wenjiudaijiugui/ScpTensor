@@ -7,12 +7,47 @@ immutable pattern design.
 
 from __future__ import annotations
 
+import warnings
+from functools import wraps
+
 import numpy as np
 import polars as pl
 from sklearn.cluster import KMeans as SKLearnKMeans
 
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
+
+
+def _deprecated_cluster_alias(old_name: str, new_name: str):
+    """Create a deprecated alias wrapper for cluster functions.
+
+    Parameters
+    ----------
+    old_name : str
+        Original function name being deprecated.
+    new_name : str
+        New function name with cluster_ prefix.
+
+    Returns
+    -------
+    callable
+        Decorator function that wraps the original with deprecation warning.
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            warnings.warn(
+                f"{old_name}() is deprecated and will be removed in v0.2.0. "
+                f"Use {new_name}() instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 def _validate_params(n_clusters: int) -> None:
@@ -100,7 +135,7 @@ def _create_one_hot_encoding(
     return one_hot, mask
 
 
-def run_kmeans(
+def cluster_kmeans(
     container: ScpContainer,
     assay_name: str = "pca",
     base_layer: str = "X",
@@ -190,7 +225,7 @@ def run_kmeans(
     )
 
     new_container.log_operation(
-        action="run_kmeans",
+        action="cluster_kmeans",
         params={
             "source_assay": assay_name,
             "source_layer": base_layer,
@@ -221,7 +256,7 @@ if __name__ == "__main__":
 
     test_container = ScpContainer(obs=obs_test, assays={"pca": test_assay})
 
-    result = run_kmeans(test_container, n_clusters=3, key_added="kmeans")
+    result = cluster_kmeans(test_container, n_clusters=3, key_added="kmeans")
 
     assert "cluster_kmeans" in result.assays
     assert "kmeans" in result.obs.columns
@@ -229,3 +264,7 @@ if __name__ == "__main__":
     assert len(result.history) == 1
 
     print("All tests passed.")
+
+
+# Deprecated alias for backward compatibility
+run_kmeans = _deprecated_cluster_alias("run_kmeans", "cluster_kmeans")(cluster_kmeans)

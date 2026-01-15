@@ -44,12 +44,13 @@ References
 
 from scptensor.integration.combat import combat
 from scptensor.integration.harmony import harmony
-from scptensor.integration.mnn import mnn_correct
-from scptensor.integration.scanorama import scanorama_integrate
+from scptensor.integration.mnn import integrate_mnn, mnn_correct
+from scptensor.integration.scanorama import integrate_scanorama as scanorama_integrate
 
 __all__ = [
     "combat",
     "harmony",
-    "mnn_correct",
+    "integrate_mnn",
+    "mnn_correct",  # Deprecated: use integrate_mnn
     "scanorama_integrate",
 ]

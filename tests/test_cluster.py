@@ -2,7 +2,7 @@
 Comprehensive tests for clustering modules.
 
 Tests cover:
-- run_kmeans (kmeans.py)
+- cluster_kmeans_assay (kmeans.py)
 - kmeans (basic.py)
 - leiden (graph.py) with skip for optional dependencies
 """
@@ -14,12 +14,17 @@ import polars as pl
 import pytest
 from scipy import sparse
 
-from scptensor.cluster import run_kmeans
-from scptensor.cluster.basic import kmeans as basic_kmeans
-from scptensor.cluster.graph import leiden
+from scptensor.cluster import (
+    cluster_kmeans,
+    cluster_kmeans_assay,
+    cluster_leiden,
+    # Deprecated aliases
+    kmeans as basic_kmeans,
+    leiden,
+    cluster_kmeans_assay,
+)
 from scptensor.core import Assay, ScpContainer, ScpMatrix
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
-from scptensor.core.exceptions import ValueError as ScpValueError
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 
 # =============================================================================
 # Fixtures for clustering tests
@@ -110,16 +115,16 @@ def multi_layer_container(sample_obs):
 
 
 # =============================================================================
-# run_kmeans tests (kmeans.py) - 93% coverage already, add edge cases
+# cluster_kmeans_assay tests (kmeans.py) - 93% coverage already, add edge cases
 # =============================================================================
 
 
 class TestRunKmeans:
-    """Tests for run_kmeans function."""
+    """Tests for cluster_kmeans_assay function."""
 
-    def test_run_kmeans_basic(self, pca_container):
+    def test_cluster_kmeans_assay_basic(self, pca_container):
         """Test basic K-means clustering functionality."""
-        result = run_kmeans(pca_container, n_clusters=3)
+        result = cluster_kmeans_assay(pca_container, n_clusters=3)
 
         # Check new assay was created
         assert "cluster_kmeans" in result.assays
@@ -137,17 +142,17 @@ class TestRunKmeans:
         row_sums = binary_layer.X.sum(axis=1)
         assert np.allclose(row_sums, 1.0)
 
-    def test_run_kmeans_different_k(self, pca_container):
+    def test_cluster_kmeans_assay_different_k(self, pca_container):
         """Test K-means with different number of clusters."""
         for k in [2, 3, 4, 5]:
-            # Use fresh container each time since run_kmeans modifies in place
-            result = run_kmeans(pca_container, n_clusters=k, new_assay_name=f"cluster_kmeans_{k}")
+            # Use fresh container each time since cluster_kmeans_assay modifies in place
+            result = cluster_kmeans_assay(pca_container, n_clusters=k, new_assay_name=f"cluster_kmeans_{k}")
             assert result.assays[f"cluster_kmeans_{k}"].n_features == k
             assert result.assays[f"cluster_kmeans_{k}"].layers["binary"].X.shape[1] == k
 
-    def test_run_kmeans_with_key_added(self, pca_container):
+    def test_cluster_kmeans_assay_with_key_added(self, pca_container):
         """Test K-means with key_added parameter to add labels to obs."""
-        result = run_kmeans(pca_container, n_clusters=3, key_added="kmeans_labels")
+        result = cluster_kmeans_assay(pca_container, n_clusters=3, key_added="kmeans_labels")
 
         # Check column was added to obs
         assert "kmeans_labels" in result.obs.columns
@@ -156,9 +161,9 @@ class TestRunKmeans:
         labels = result.obs["kmeans_labels"].to_list()
         assert all(label in ["0", "1", "2"] for label in labels)
 
-    def test_run_kmeans_custom_assay_name(self, pca_container):
+    def test_cluster_kmeans_assay_custom_assay_name(self, pca_container):
         """Test K-means with custom assay name."""
-        result = run_kmeans(
+        result = cluster_kmeans_assay(
             pca_container,
             n_clusters=3,
             new_assay_name="my_clusters",
@@ -167,9 +172,9 @@ class TestRunKmeans:
         assert "my_clusters" in result.assays
         assert result.assays["my_clusters"].n_features == 3
 
-    def test_run_kmeans_custom_assay_and_layer(self, multi_assay_container):
+    def test_cluster_kmeans_assay_custom_assay_and_layer(self, multi_assay_container):
         """Test K-means on custom assay and layer."""
-        result = run_kmeans(
+        result = cluster_kmeans_assay(
             multi_assay_container,
             assay_name="umap",
             base_layer="X",
@@ -180,12 +185,12 @@ class TestRunKmeans:
         # Check history references correct source
         assert result.history[-1].params["source_assay"] == "umap"
 
-    def test_run_kmeans_random_state(self, pca_container):
+    def test_cluster_kmeans_assay_random_state(self, pca_container):
         """Test K-means reproducibility with random_state."""
-        result1 = run_kmeans(
+        result1 = cluster_kmeans_assay(
             pca_container, n_clusters=3, random_state=42, new_assay_name="cluster_kmeans_1"
         )
-        result2 = run_kmeans(
+        result2 = cluster_kmeans_assay(
             pca_container, n_clusters=3, random_state=42, new_assay_name="cluster_kmeans_2"
         )
 
@@ -195,65 +200,65 @@ class TestRunKmeans:
         # Results should be identical
         assert np.array_equal(labels1, labels2)
 
-    def test_run_kmeans_sparse_matrix(self, sparse_pca_container):
+    def test_cluster_kmeans_assay_sparse_matrix(self, sparse_pca_container):
         """Test K-means with sparse input matrix."""
-        result = run_kmeans(sparse_pca_container, n_clusters=3)
+        result = cluster_kmeans_assay(sparse_pca_container, n_clusters=3)
 
         assert "cluster_kmeans" in result.assays
         cluster_assay = result.assays["cluster_kmeans"]
         assert cluster_assay.n_features == 3
 
-    def test_run_kmeans_history_logging(self, pca_container):
+    def test_cluster_kmeans_assay_history_logging(self, pca_container):
         """Test that K-means operation is logged in history."""
         initial_history_len = len(pca_container.history)
-        result = run_kmeans(pca_container, n_clusters=3)
+        result = cluster_kmeans_assay(pca_container, n_clusters=3)
 
         assert len(result.history) == initial_history_len + 1
         log_entry = result.history[-1]
-        assert log_entry.action == "run_kmeans"
+        assert log_entry.action == "cluster_kmeans"
         assert log_entry.params["n_clusters"] == 3
         assert "K-Means" in log_entry.description
 
-    def test_run_kmeans_invalid_n_clusters_zero(self, pca_container):
+    def test_cluster_kmeans_assay_invalid_n_clusters_zero(self, pca_container):
         """Test K-means with n_clusters=0 raises error."""
         with pytest.raises(ScpValueError) as exc_info:
-            run_kmeans(pca_container, n_clusters=0)
+            cluster_kmeans_assay(pca_container, n_clusters=0)
 
         assert "n_clusters must be positive" in str(exc_info.value)
         assert exc_info.value.parameter == "n_clusters"
 
-    def test_run_kmeans_invalid_n_clusters_negative(self, pca_container):
+    def test_cluster_kmeans_assay_invalid_n_clusters_negative(self, pca_container):
         """Test K-means with negative n_clusters raises error."""
         with pytest.raises(ScpValueError) as exc_info:
-            run_kmeans(pca_container, n_clusters=-1)
+            cluster_kmeans_assay(pca_container, n_clusters=-1)
 
         assert "n_clusters must be positive" in str(exc_info.value)
 
-    def test_run_kmeans_assay_not_found(self, pca_container):
+    def test_cluster_kmeans_assay_assay_not_found(self, pca_container):
         """Test K-means with non-existent assay raises error."""
         with pytest.raises(AssayNotFoundError) as exc_info:
-            run_kmeans(pca_container, assay_name="nonexistent")
+            cluster_kmeans_assay(pca_container, assay_name="nonexistent")
 
         assert "nonexistent" in str(exc_info.value)
 
-    def test_run_kmeans_layer_not_found(self, pca_container):
+    def test_cluster_kmeans_assay_layer_not_found(self, pca_container):
         """Test K-means with non-existent layer raises error."""
         with pytest.raises(LayerNotFoundError) as exc_info:
-            run_kmeans(pca_container, base_layer="nonexistent")
+            cluster_kmeans_assay(pca_container, base_layer="nonexistent")
 
         assert "nonexistent" in str(exc_info.value)
 
-    def test_run_kmeans_n_clusters_larger_than_samples(self, pca_container):
+    def test_cluster_kmeans_assay_n_clusters_larger_than_samples(self, pca_container):
         """Test K-means with n_clusters > n_samples."""
         # sklearn requires n_clusters <= n_samples
         with pytest.raises(ValueError) as exc_info:
-            run_kmeans(pca_container, n_clusters=10)
+            cluster_kmeans_assay(pca_container, n_clusters=10)
 
         assert "n_samples" in str(exc_info.value) or "n_clusters" in str(exc_info.value)
 
-    def test_run_kmeans_multi_layer_container(self, multi_layer_container):
+    def test_cluster_kmeans_assay_multi_layer_container(self, multi_layer_container):
         """Test K-means with different layers."""
-        result = run_kmeans(
+        result = cluster_kmeans_assay(
             multi_layer_container,
             base_layer="normalized",
             n_clusters=3,
@@ -356,7 +361,7 @@ class TestBasicKmeans:
         log_entry = result.history[-1]
         assert log_entry.action == "cluster_kmeans"
         assert log_entry.params["n_clusters"] == 3
-        assert "KMeans clustering" in log_entry.description
+        assert "K-Means clustering" in log_entry.description
 
     def test_kmeans_invalid_n_clusters_zero(self, pca_container):
         """Test K-means with n_clusters=0 raises error."""
@@ -599,26 +604,26 @@ class TestClusteringIntegration:
 
     def test_kmeans_after_kmeans_different_k(self, pca_container):
         """Test running K-means multiple times with different k."""
-        result1 = run_kmeans(pca_container, n_clusters=3)
-        result2 = run_kmeans(result1, n_clusters=4, new_assay_name="cluster_kmeans_4")
+        result1 = cluster_kmeans_assay(pca_container, n_clusters=3)
+        result2 = cluster_kmeans_assay(result1, n_clusters=4, new_assay_name="cluster_kmeans_4")
 
         assert "cluster_kmeans" in result2.assays
         assert "cluster_kmeans_4" in result2.assays
         assert result2.assays["cluster_kmeans"].n_features == 3
         assert result2.assays["cluster_kmeans_4"].n_features == 4
 
-    def test_basic_kmeans_after_run_kmeans(self, pca_container):
-        """Test running basic kmeans after run_kmeans."""
-        result1 = run_kmeans(pca_container, n_clusters=3)
+    def test_basic_kmeans_after_cluster_kmeans_assay(self, pca_container):
+        """Test running basic kmeans after cluster_kmeans_assay."""
+        result1 = cluster_kmeans_assay(pca_container, n_clusters=3)
         result2 = basic_kmeans(result1, n_clusters=2)
 
-        # run_kmeans creates new assay, basic_kmeans adds to obs
+        # cluster_kmeans_assay creates new assay, basic_kmeans adds to obs
         assert "cluster_kmeans" in result2.assays
         assert "kmeans_k2" in result2.obs.columns
 
     def test_clustering_with_key_added_and_assay(self, pca_container):
         """Test K-means with both key_added and assay creation."""
-        result = run_kmeans(
+        result = cluster_kmeans_assay(
             pca_container,
             n_clusters=3,
             key_added="cluster_labels",
@@ -636,13 +641,13 @@ class TestClusteringIntegration:
 
     def test_clustering_history_multiple_operations(self, pca_container):
         """Test that multiple clustering operations are logged."""
-        result = run_kmeans(pca_container, n_clusters=3)
-        result = run_kmeans(result, n_clusters=4, new_assay_name="cluster_kmeans_4")
+        result = cluster_kmeans_assay(pca_container, n_clusters=3)
+        result = cluster_kmeans_assay(result, n_clusters=4, new_assay_name="cluster_kmeans_4")
         result = basic_kmeans(result, n_clusters=2)
 
         assert len(result.history) == 3
-        assert result.history[0].action == "run_kmeans"
-        assert result.history[1].action == "run_kmeans"
+        assert result.history[0].action == "cluster_kmeans"
+        assert result.history[1].action == "cluster_kmeans"
         assert result.history[2].action == "cluster_kmeans"
 
 
@@ -681,15 +686,15 @@ class TestClusteringEdgeCases:
         # With 2 samples and 2 clusters, each should be in its own cluster
         assert len(set(labels)) <= 2
 
-    def test_run_kmeans_single_sample(self):
-        """Test run_kmeans with single sample."""
+    def test_cluster_kmeans_assay_single_sample(self):
+        """Test cluster_kmeans_assay with single sample."""
         obs = pl.DataFrame({"_index": ["S1"]})
         X = np.array([[1.0, 2.0]])
         var = pl.DataFrame({"_index": ["PC1", "PC2"]})
         assay = Assay(var=var, layers={"X": ScpMatrix(X=X)})
         container = ScpContainer(obs=obs, assays={"pca": assay})
 
-        result = run_kmeans(container, n_clusters=1)
+        result = cluster_kmeans_assay(container, n_clusters=1)
         assert "cluster_kmeans" in result.assays
         assert result.assays["cluster_kmeans"].n_features == 1
 

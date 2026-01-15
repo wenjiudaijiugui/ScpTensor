@@ -82,7 +82,7 @@ def _check_valid_data(X: np.ndarray) -> None:
         )
 
 
-def umap(
+def reduce_umap(
     container: ScpContainer,
     assay_name: str,
     base_layer: str,
@@ -144,9 +144,10 @@ def umap(
     Examples
     --------
     >>> from scptensor import create_test_container
+    >>> from scptensor.dim_reduction import reduce_umap
     >>> container = create_test_container()
-    >>> result = umap(container, "proteins", "imputed", n_components=2)
-    >>> result = umap(
+    >>> result = reduce_umap(container, "proteins", "imputed", n_components=2)
+    >>> result = reduce_umap(
     ...     container, "proteins", "imputed",
     ...     n_neighbors=30, min_dist=0.2
     ... )
@@ -201,7 +202,7 @@ def umap(
     # Log operation for provenance tracking
     random_state_str = str(random_state) if isinstance(random_state, int) else "RandomState"
     new_container.log_operation(
-        action="umap",
+        action="reduce_umap",
         params={
             "assay_name": assay_name,
             "base_layer": base_layer,
@@ -219,4 +220,76 @@ def umap(
     return new_container
 
 
-__all__ = ["umap"]
+__all__ = ["reduce_umap", "umap"]
+
+
+# =============================================================================
+# BACKWARD COMPATIBILITY
+# =============================================================================
+
+
+def umap(
+    container: ScpContainer,
+    assay_name: str,
+    base_layer: str,
+    new_assay_name: str = "umap",
+    n_components: int = 2,
+    n_neighbors: int = 15,
+    min_dist: float = 0.1,
+    metric: str = "euclidean",
+    random_state: int | np.random.RandomState | None = 42,
+    dtype: DTypeLike = np.float64,
+) -> ScpContainer:
+    """Perform UMAP dimensionality reduction on a specific assay layer.
+
+    .. deprecated:: 0.1.0
+        Use :func:`reduce_umap` instead. This function will be removed in a future version.
+
+    Parameters
+    ----------
+    container : ScpContainer
+        The data container containing the input assay.
+    assay_name : str
+        Name of the assay to transform.
+    base_layer : str
+        Name of the layer within the assay to use as input.
+    new_assay_name : str, optional
+        Name for the new assay storing UMAP results. Default is "umap".
+    n_components : int, optional
+        Number of UMAP dimensions to compute. Default is 2.
+    n_neighbors : int, optional
+        Size of the local neighborhood for UMAP. Default is 15.
+    min_dist : float, optional
+        Effective minimum distance between embedded points. Default is 0.1.
+    metric : str, optional
+        Distance metric to use. Default is "euclidean".
+    random_state : int or RandomState or None, optional
+        Random seed for reproducibility. Default is 42.
+    dtype : type or dtype, optional
+        Data type for computation. Default is np.float64.
+
+    Returns
+    -------
+    ScpContainer
+        A new container with the UMAP results added as a new assay.
+    """
+    import warnings
+
+    warnings.warn(
+        "The 'umap' function is deprecated. Use 'reduce_umap' instead. "
+        "'umap' will be removed in a future version.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return reduce_umap(
+        container=container,
+        assay_name=assay_name,
+        base_layer=base_layer,
+        new_assay_name=new_assay_name,
+        n_components=n_components,
+        n_neighbors=n_neighbors,
+        min_dist=min_dist,
+        metric=metric,
+        random_state=random_state,
+        dtype=dtype,
+    )

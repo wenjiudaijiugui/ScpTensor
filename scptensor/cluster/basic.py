@@ -6,11 +6,46 @@ proteomics data, including K-Means clustering.
 
 from __future__ import annotations
 
+import warnings
+from functools import wraps
+
 import polars as pl
 from sklearn.cluster import KMeans as SKLearnKMeans
 
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.core.structures import ScpContainer
+
+
+def _deprecated_cluster_alias(old_name: str, new_name: str):
+    """Create a deprecated alias wrapper for cluster functions.
+
+    Parameters
+    ----------
+    old_name : str
+        Original function name being deprecated.
+    new_name : str
+        New function name with cluster_ prefix.
+
+    Returns
+    -------
+    callable
+        Decorator function that wraps the original with deprecation warning.
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            warnings.warn(
+                f"{old_name}() is deprecated and will be removed in v0.2.0. "
+                f"Use {new_name}() instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 def _validate_clustering_params(n_clusters: int) -> None:
@@ -72,7 +107,7 @@ def _get_input_matrix(
     return assay.layers[base_layer].X, assay_name, base_layer
 
 
-def kmeans(
+def cluster_kmeans(
     container: ScpContainer,
     assay_name: str = "pca",
     base_layer: str = "X",
@@ -162,7 +197,7 @@ if __name__ == "__main__":
 
     test_container = ScpContainer(obs=obs_test, assays={"pca": test_assay})
 
-    result = kmeans(test_container, n_clusters=3)
+    result = cluster_kmeans(test_container, n_clusters=3)
 
     assert "kmeans_k3" in result.obs.columns
     assert result.obs["kmeans_k3"].n_unique() <= 3
@@ -170,3 +205,8 @@ if __name__ == "__main__":
     assert result.n_samples == test_container.n_samples
 
     print("All tests passed.")
+
+
+# Deprecated aliases for backward compatibility
+kmeans = _deprecated_cluster_alias("kmeans", "cluster_kmeans")(cluster_kmeans)
+run_kmeans = _deprecated_cluster_alias("run_kmeans", "cluster_kmeans")(cluster_kmeans)
