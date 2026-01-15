@@ -11,7 +11,6 @@ References:
     proteomics data. Expert Review of Proteomics.
 """
 
-import warnings
 from typing import overload
 
 import numpy as np
@@ -33,7 +32,6 @@ def zscore(
     new_layer_name: str | None = "zscore",
     axis: int = 0,
     ddof: int = 1,
-    base_layer_name: str | None = None,
 ) -> ScpContainer: ...
 
 
@@ -44,7 +42,6 @@ def zscore(
     new_layer_name: str | None = "zscore",
     axis: int = 0,
     ddof: int = 1,
-    base_layer_name: str | None = None,
 ) -> ScpContainer:
     """
     Z-score normalization (standardization).
@@ -71,9 +68,6 @@ def zscore(
     ddof : int, default=1
         Delta degrees of freedom. 1 for unbiased estimator (sample std),
         0 for population std. R's scale() uses ddof=1.
-    base_layer_name : str, optional
-        .. deprecated:: 0.2.0
-            Use ``source_layer`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
@@ -104,16 +98,6 @@ def zscore(
     >>> 'zscore' in result.assays['protein'].layers
     True
     """
-    # Handle deprecated parameter name
-    if base_layer_name is not None:
-        warnings.warn(
-            "'base_layer_name' is deprecated, use 'source_layer' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        source_layer = base_layer_name
-
     # Validate parameters early (guard clause pattern)
     if axis not in (0, 1):
         raise ScpValueError(

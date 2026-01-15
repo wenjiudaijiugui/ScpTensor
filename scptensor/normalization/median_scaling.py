@@ -1,6 +1,5 @@
 """Median scaling normalization for ScpTensor."""
 
-import warnings
 from typing import overload
 
 import numpy as np
@@ -18,7 +17,6 @@ def median_scaling(
     assay_name: str,
     source_layer: str,
     new_layer_name: str = "median_scaling",
-    base_layer_name: str | None = None,
 ) -> ScpContainer: ...
 
 
@@ -27,7 +25,6 @@ def median_scaling(
     assay_name: str,
     source_layer: str,
     new_layer_name: str = "median_scaling",
-    base_layer_name: str | None = None,
 ) -> ScpContainer:
     """
     Apply median scaling normalization to align samples.
@@ -49,9 +46,6 @@ def median_scaling(
         Name of the layer to normalize.
     new_layer_name : str, default="median_scaling"
         Name for the new normalized layer.
-    base_layer_name : str, optional
-        .. deprecated:: 0.2.0
-            Use ``source_layer`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
@@ -78,16 +72,6 @@ def median_scaling(
     >>> 'median_scaling' in result.assays['protein'].layers
     True
     """
-    # Handle deprecated parameter name
-    if base_layer_name is not None:
-        warnings.warn(
-            "'base_layer_name' is deprecated, use 'source_layer' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        source_layer = base_layer_name
-
     # Validate assay and layer existence
     if assay_name not in container.assays:
         available = ", ".join(f"'{k}'" for k in container.assays.keys())

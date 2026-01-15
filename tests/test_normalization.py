@@ -180,7 +180,7 @@ class TestMedianCentering:
         container = create_normalization_test_container(seed=42)
 
         result = median_centering(
-            container, assay_name="protein", base_layer_name="raw", new_layer_name="custom_centered"
+            container, assay_name="protein", source_layer="raw", new_layer_name="custom_centered"
         )
 
         assert "custom_centered" in result.assays["protein"].layers
@@ -231,7 +231,7 @@ class TestMedianCentering:
         container = create_normalization_test_container(seed=42)
 
         with pytest.raises(LayerNotFoundError):
-            median_centering(container, base_layer_name="nonexistent")
+            median_centering(container, source_layer="nonexistent")
 
     def test_median_centering_immutability(self):
         """Test that original container is not modified."""
@@ -515,7 +515,7 @@ class TestGlobalMedianNormalization:
         result = global_median_normalization(
             container,
             assay_name="protein",
-            base_layer_name="raw",
+            source_layer="raw",
             new_layer_name="custom_global_norm",
         )
 
@@ -556,7 +556,7 @@ class TestGlobalMedianNormalization:
         container = create_normalization_test_container(seed=42)
 
         with pytest.raises(LayerNotFoundError):
-            global_median_normalization(container, base_layer_name="nonexistent")
+            global_median_normalization(container, source_layer="nonexistent")
 
     def test_global_median_immutability(self):
         """Test that original container is not modified."""
@@ -686,7 +686,7 @@ class TestSampleMeanNormalization:
         result = sample_mean_normalization(
             container,
             assay_name="protein",
-            base_layer_name="raw",
+            source_layer="raw",
             new_layer_name="custom_mean_norm",
         )
 
@@ -728,7 +728,7 @@ class TestSampleMeanNormalization:
         container = create_normalization_test_container(seed=42)
 
         with pytest.raises(LayerNotFoundError):
-            sample_mean_normalization(container, base_layer_name="nonexistent")
+            sample_mean_normalization(container, source_layer="nonexistent")
 
     def test_sample_mean_immutability(self):
         """Test that original container is not modified."""
@@ -845,7 +845,7 @@ class TestSampleMedianNormalization:
         result = sample_median_normalization(
             container,
             assay_name="protein",
-            base_layer_name="raw",
+            source_layer="raw",
             new_layer_name="custom_median_norm",
         )
 
@@ -896,7 +896,7 @@ class TestSampleMedianNormalization:
         container = create_normalization_test_container(seed=42)
 
         with pytest.raises(LayerNotFoundError):
-            sample_median_normalization(container, base_layer_name="nonexistent")
+            sample_median_normalization(container, source_layer="nonexistent")
 
     def test_sample_median_immutability(self):
         """Test that original container is not modified."""
@@ -1028,7 +1028,7 @@ class TestUpperQuartileNormalization:
         container = create_normalization_test_container(seed=42)
 
         result = upper_quartile_normalization(
-            container, assay_name="protein", base_layer_name="raw", new_layer_name="custom_uq_norm"
+            container, assay_name="protein", source_layer="raw", new_layer_name="custom_uq_norm"
         )
 
         assert "custom_uq_norm" in result.assays["protein"].layers
@@ -1085,7 +1085,7 @@ class TestUpperQuartileNormalization:
         container = create_normalization_test_container(seed=42)
 
         with pytest.raises(LayerNotFoundError):
-            upper_quartile_normalization(container, base_layer_name="nonexistent")
+            upper_quartile_normalization(container, source_layer="nonexistent")
 
     def test_upper_quartile_immutability(self):
         """Test that original container is not modified."""
@@ -1214,7 +1214,7 @@ class TestTMMNormalization:
         container = create_normalization_test_container(seed=42)
 
         result = tmm_normalization(
-            container, assay_name="protein", base_layer_name="raw", new_layer_name="custom_tmm"
+            container, assay_name="protein", source_layer="raw", new_layer_name="custom_tmm"
         )
 
         assert "custom_tmm" in result.assays["protein"].layers
@@ -1270,7 +1270,7 @@ class TestTMMNormalization:
         container = create_normalization_test_container(seed=42)
 
         with pytest.raises(LayerNotFoundError):
-            tmm_normalization(container, base_layer_name="nonexistent")
+            tmm_normalization(container, source_layer="nonexistent")
 
     def test_tmm_immutability(self):
         """Test that original container is not modified."""

@@ -6,7 +6,6 @@ Reference:
     expression in mRNA-Seq experiments. BMC Bioinformatics, 11, 94.
 """
 
-import warnings
 from typing import overload
 
 import numpy as np
@@ -26,7 +25,6 @@ def upper_quartile_normalization(
     source_layer: str = "raw",
     new_layer_name: str = "upper_quartile_norm",
     percentile: float = 0.75,
-    base_layer_name: str | None = None,
 ) -> ScpContainer: ...
 
 
@@ -36,7 +34,6 @@ def upper_quartile_normalization(
     source_layer: str = "raw",
     new_layer_name: str = "upper_quartile_norm",
     percentile: float = 0.75,
-    base_layer_name: str | None = None,
 ) -> ScpContainer:
     """
     Upper quartile normalization to align samples based on their 75th percentile values.
@@ -63,9 +60,6 @@ def upper_quartile_normalization(
         Name for the new normalized layer.
     percentile : float, default=0.75
         Percentile to use. Must be in (0, 1). Default is 0.75 for upper quartile.
-    base_layer_name : str, optional
-        .. deprecated:: 0.2.0
-            Use ``source_layer`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
@@ -94,16 +88,6 @@ def upper_quartile_normalization(
     >>> 'upper_quartile_norm' in result.assays['protein'].layers
     True
     """
-    # Handle deprecated parameter name
-    if base_layer_name is not None:
-        warnings.warn(
-            "'base_layer_name' is deprecated, use 'source_layer' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        source_layer = base_layer_name
-
     # Validate parameters (guard clause pattern)
     if not (0 < percentile < 1):
         raise ScpValueError(

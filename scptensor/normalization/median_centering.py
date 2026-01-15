@@ -1,6 +1,5 @@
 """Median centering normalization for ScpTensor."""
 
-import warnings
 from typing import overload
 
 import numpy as np
@@ -18,7 +17,6 @@ def median_centering(
     assay_name: str = "protein",
     source_layer: str = "raw",
     new_layer_name: str | None = "median_centered",
-    base_layer_name: str | None = None,
 ) -> ScpContainer: ...
 
 
@@ -27,7 +25,6 @@ def median_centering(
     assay_name: str = "protein",
     source_layer: str = "raw",
     new_layer_name: str | None = "median_centered",
-    base_layer_name: str | None = None,
 ) -> ScpContainer:
     """
     Subtract the median of each sample.
@@ -48,9 +45,6 @@ def median_centering(
         Name of the layer to normalize.
     new_layer_name : Optional[str], default="median_centered"
         Name for the new normalized layer.
-    base_layer_name : str, optional
-        .. deprecated:: 0.2.0
-            Use ``source_layer`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
@@ -77,16 +71,6 @@ def median_centering(
     >>> 'median_centered' in result.assays['protein'].layers
     True
     """
-    # Handle deprecated parameter name
-    if base_layer_name is not None:
-        warnings.warn(
-            "'base_layer_name' is deprecated, use 'source_layer' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        source_layer = base_layer_name
-
     # Validate assay and layer existence
     if assay_name not in container.assays:
         available = ", ".join(f"'{k}'" for k in container.assays.keys())

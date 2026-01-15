@@ -5,7 +5,6 @@ Reference:
     for differential expression analysis of RNA-seq data. Genome Biology, 11(3), R25.
 """
 
-import warnings
 from typing import overload
 
 import numpy as np
@@ -26,7 +25,6 @@ def tmm_normalization(
     new_layer_name: str = "tmm_norm",
     reference_sample: int | None = None,
     trim_ratio: float = 0.3,
-    base_layer_name: str | None = None,
 ) -> ScpContainer: ...
 
 
@@ -37,7 +35,6 @@ def tmm_normalization(
     new_layer_name: str = "tmm_norm",
     reference_sample: int | None = None,
     trim_ratio: float = 0.3,
-    base_layer_name: str | None = None,
 ) -> ScpContainer:
     """
     Trimmed Mean of M-values (TMM) normalization.
@@ -67,9 +64,6 @@ def tmm_normalization(
         Index of reference sample. If None, uses sample with median total intensity.
     trim_ratio : float, default=0.3
         Proportion of extreme M values to trim. Must be in [0, 0.5).
-    base_layer_name : str, optional
-        .. deprecated:: 0.2.0
-            Use ``source_layer`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
@@ -98,16 +92,6 @@ def tmm_normalization(
     >>> 'tmm_norm' in result.assays['protein'].layers
     True
     """
-    # Handle deprecated parameter name
-    if base_layer_name is not None:
-        warnings.warn(
-            "'base_layer_name' is deprecated, use 'source_layer' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        source_layer = base_layer_name
-
     # Validate parameters (guard clause pattern)
     if not (0 <= trim_ratio < 0.5):
         raise ScpValueError(

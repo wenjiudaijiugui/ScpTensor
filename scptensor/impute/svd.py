@@ -5,7 +5,6 @@ Reference:
     Bioinformatics (2001).
 """
 
-import warnings
 from typing import overload
 
 import numpy as np
@@ -33,8 +32,6 @@ def svd_impute(
     max_iter: int = 100,
     tol: float = 1e-6,
     init_method: str = "mean",
-    base_layer: str | None = None,
-    layer: str | None = None,
 ) -> ScpContainer: ...
 
 
@@ -47,8 +44,6 @@ def svd_impute(
     max_iter: int = 100,
     tol: float = 1e-6,
     init_method: str = "mean",
-    base_layer: str | None = None,
-    layer: str | None = None,
 ) -> ScpContainer:
     """
     Impute missing values using iterative SVD.
@@ -74,12 +69,6 @@ def svd_impute(
         Convergence tolerance.
     init_method : str, default "mean"
         Initialization: 'mean' or 'median'.
-    base_layer : str, optional
-        .. deprecated:: 0.2.0
-            Use ``source_layer`` instead. Will be removed in version 1.0.0.
-    layer : str, optional
-        .. deprecated:: 0.2.0
-            Use ``source_layer`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
@@ -111,23 +100,6 @@ def svd_impute(
     >>> "imputed_svd" in result.assays["proteins"].layers
     True
     """
-    # Handle deprecated parameter names
-    if base_layer is not None:
-        warnings.warn(
-            "'base_layer' is deprecated, use 'source_layer' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        source_layer = base_layer
-    if layer is not None:
-        warnings.warn(
-            "'layer' is deprecated, use 'source_layer' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        source_layer = layer
     # Validate parameters
     if n_components <= 0:
         raise ScpValueError(

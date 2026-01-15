@@ -4,7 +4,6 @@ Provides log transformation with configurable base and offset.
 Optimized for both dense and sparse matrices.
 """
 
-import warnings
 from typing import overload
 
 import numpy as np
@@ -31,8 +30,6 @@ def log_normalize(
     base: float = 2.0,
     offset: float = 1.0,
     use_jit: bool = True,
-    base_layer: str | None = None,
-    new_layer: str | None = None,
 ) -> ScpContainer: ...
 
 
@@ -44,8 +41,6 @@ def log_normalize(
     base: float = 2.0,
     offset: float = 1.0,
     use_jit: bool = True,
-    base_layer: str | None = None,
-    new_layer: str | None = None,
 ) -> ScpContainer:
     """
     Apply log transformation with configurable base and offset.
@@ -80,12 +75,6 @@ def log_normalize(
         Offset to add before logging to handle zeros.
     use_jit : bool, default=True
         Whether to use JIT acceleration for very large matrices.
-    base_layer : str, optional
-        .. deprecated:: 0.2.0
-            Use ``source_layer`` instead. Will be removed in version 1.0.0.
-    new_layer : str, optional
-        .. deprecated:: 0.2.0
-            Use ``new_layer_name`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
@@ -114,24 +103,6 @@ def log_normalize(
     >>> 'log' in result.assays['protein'].layers
     True
     """
-    # Handle deprecated parameter names
-    if base_layer is not None:
-        warnings.warn(
-            "'base_layer' is deprecated, use 'source_layer' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        source_layer = base_layer
-    if new_layer is not None:
-        warnings.warn(
-            "'new_layer' is deprecated, use 'new_layer_name' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        new_layer_name = new_layer
-
     # Validate parameters
     if base <= 0:
         raise ScpValueError(
