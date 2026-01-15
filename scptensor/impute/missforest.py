@@ -1,5 +1,8 @@
 """MissForest imputation for single-cell proteomics data."""
 
+import warnings
+from typing import overload
+
 import numpy as np
 import sklearn.ensemble
 
@@ -13,17 +16,36 @@ from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
 
 
+@overload
 def missforest(
     container: ScpContainer,
     assay_name: str,
-    base_layer: str,
-    new_layer_name: str | None = "imputed_missforest",
+    source_layer: str,
+    new_layer_name: str = "imputed_missforest",
     max_iter: int = 10,
     n_estimators: int = 100,
     max_depth: int | None = None,
     n_jobs: int = -1,
     random_state: int = 42,
     verbose: int = 0,
+    base_layer: str | None = None,
+    layer: str | None = None,
+) -> ScpContainer: ...
+
+
+def missforest(
+    container: ScpContainer,
+    assay_name: str,
+    source_layer: str,
+    new_layer_name: str = "imputed_missforest",
+    max_iter: int = 10,
+    n_estimators: int = 100,
+    max_depth: int | None = None,
+    n_jobs: int = -1,
+    random_state: int = 42,
+    verbose: int = 0,
+    base_layer: str | None = None,
+    layer: str | None = None,
 ) -> ScpContainer:
     """
     Impute missing values using MissForest (Random Forest imputation).
@@ -34,75 +56,120 @@ def missforest(
     Parameters
     ----------
     container : ScpContainer
-        Input container with missing values
+        Input container with missing values.
     assay_name : str
-        Name of the assay to use
-    base_layer : str
-        Name of the layer containing data with missing values
-    new_layer_name : str, optional
-        Name for the new layer with imputed data (default: 'imputed_missforest')
-    max_iter : int, optional
-        Maximum iterations (default: 10)
-    n_estimators : int, optional
-        Number of trees in forest (default: 100)
+        Name of the assay to use.
+    source_layer : str, default "raw"
+        Name of the layer containing data with missing values.
+    new_layer_name : str, default "imputed_missforest"
+        Name for the new layer with imputed data.
+    max_iter : int, default 10
+        Maximum iterations.
+    n_estimators : int, default 100
+        Number of trees in forest.
     max_depth : int, optional
-        Maximum tree depth (default: None)
-    n_jobs : int, optional
-        Parallel jobs (default: -1)
-    random_state : int, optional
-        Random seed (default: 42)
-    verbose : int, optional
-        Verbosity level (default: 0)
+        Maximum tree depth.
+    n_jobs : int, default -1
+        Parallel jobs.
+    random_state : int, default 42
+        Random seed.
+    verbose : int, default 0
+        Verbosity level.
+    base_layer : str, optional
+        .. deprecated:: 0.2.0
+            Use ``source_layer`` instead. Will be removed in version 1.0.0.
+    layer : str, optional
+        .. deprecated:: 0.2.0
+            Use ``source_layer`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
     ScpContainer
-        Container with imputed data in new layer
+        Container with imputed data in new layer.
 
     Raises
     ------
     AssayNotFoundError
-        If the assay does not exist
+        If the assay does not exist.
     LayerNotFoundError
-        If the layer does not exist
+        If the layer does not exist.
     ScpValueError
-        If parameters are invalid
+        If parameters are invalid.
+
+    Examples
+    --------
+    >>> from scptensor import missforest
+    >>> result = missforest(container, "proteins", n_estimators=50)
+    >>> "imputed_missforest" in result.assays["proteins"].layers
+    True
     """
+    # Handle deprecated parameter names
+    if base_layer is not None:
+        warnings.warn(
+            "'base_layer' is deprecated, use 'source_layer' instead. "
+            "This will be removed in version 1.0.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        source_layer = base_layer
+    if layer is not None:
+        warnings.warn(
+            "'layer' is deprecated, use 'source_layer' instead. "
+            "This will be removed in version 1.0.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        source_layer = layer
     # Validate parameters
     if max_iter <= 0:
         raise ScpValueError(
-            f"max_iter must be positive, got {max_iter}.",
+            f"max_iter must be positive, got {max_iter}. "
+            "Use max_iter >= 1 for MissForest iterations.",
             parameter="max_iter",
             value=max_iter,
         )
     if n_estimators <= 0:
         raise ScpValueError(
-            f"n_estimators must be positive, got {n_estimators}.",
+            f"n_estimators must be positive, got {n_estimators}. "
+            "Use n_estimators >= 1 for number of trees in the forest.",
             parameter="n_estimators",
             value=n_estimators,
         )
     if max_depth is not None and max_depth <= 0:
         raise ScpValueError(
-            f"max_depth must be positive or None, got {max_depth}.",
+            f"max_depth must be positive or None, got {max_depth}. "
+            "Use max_depth >= 1 or None for unlimited tree depth.",
             parameter="max_depth",
             value=max_depth,
         )
     if verbose not in (0, 1, 2):
         raise ScpValueError(
-            f"verbose must be 0, 1, or 2, got {verbose}.",
+            f"verbose must be 0, 1, or 2, got {verbose}. "
+            "Use verbose=0 for silent, verbose=1 for progress updates, verbose=2 for detailed output.",
             parameter="verbose",
             value=verbose,
         )
 
     # Validate assay and layer
     if assay_name not in container.assays:
-        raise AssayNotFoundError(assay_name)
+        available = ", ".join(f"'{k}'" for k in container.assays.keys())
+        raise AssayNotFoundError(
+            assay_name,
+            hint=f"Available assays: {available}. "
+            f"Use container.list_assays() to see all assays.",
+        )
 
     assay = container.assays[assay_name]
-    if base_layer not in assay.layers:
-        raise LayerNotFoundError(base_layer, assay_name)
+    if source_layer not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            source_layer,
+            assay_name,
+            hint=f"Available layers in assay '{assay_name}': {available}. "
+            f"Use assay.list_layers() to see all layers.",
+        )
 
-    input_matrix = assay.layers[base_layer]
+    input_matrix = assay.layers[source_layer]
     X_original = input_matrix.X
 
     # Check for missing values
@@ -180,8 +247,8 @@ def missforest(
         action="impute_missforest",
         params={
             "assay": assay_name,
-            "base_layer": base_layer,
-            "new_layer": layer_name,
+            "source_layer": source_layer,
+            "new_layer_name": layer_name,
             "max_iter": max_iter,
             "n_estimators": n_estimators,
             "gamma": gamma,
@@ -224,7 +291,7 @@ if __name__ == "__main__":
 
     # Test MissForest imputation
     result = missforest(
-        container, assay_name="protein", base_layer="raw", max_iter=5, n_estimators=50, verbose=1
+        container, assay_name="protein", source_layer="raw", max_iter=5, n_estimators=50, verbose=1
     )
 
     # Check results
