@@ -9,9 +9,7 @@ from __future__ import annotations
 import polars as pl
 from sklearn.cluster import KMeans as SKLearnKMeans
 
-from scptensor.core.exceptions import AssayNotFoundError
-from scptensor.core.exceptions import LayerNotFoundError
-from scptensor.core.exceptions import ScpValueError
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.core.structures import ScpContainer
 
 
@@ -129,9 +127,7 @@ def kmeans(
     labels = model.fit_predict(X)
 
     col_name = f"kmeans_k{n_clusters}"
-    new_obs = container.obs.with_columns(
-        pl.Series(col_name, labels).cast(pl.String)
-    )
+    new_obs = container.obs.with_columns(pl.Series(col_name, labels).cast(pl.String))
 
     new_container = ScpContainer(
         obs=new_obs,

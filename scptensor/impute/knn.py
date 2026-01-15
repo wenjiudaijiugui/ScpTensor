@@ -182,9 +182,7 @@ def knn(
                         w[~inf_mask] = 0.0
 
                     w_sum = np.sum(w)
-                    imputed_val = (
-                        np.dot(vals, w / w_sum) if w_sum > 1e-10 else np.mean(vals)
-                    )
+                    imputed_val = np.dot(vals, w / w_sum) if w_sum > 1e-10 else np.mean(vals)
                 else:
                     imputed_val = np.mean(vals)
 

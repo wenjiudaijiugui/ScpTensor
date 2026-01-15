@@ -259,6 +259,7 @@ def cosine_similarity(
     >>> sim.shape
     (2, 2)
     """
+
     def _compute_norm(matrix: NDArray[np.float64] | sp.spmatrix) -> NDArray[np.float64]:
         """Compute L2 norm for each row."""
         if sp.issparse(matrix):
@@ -308,11 +309,13 @@ if __name__ == "__main__":
     np.random.seed(42)
     X_dense = np.random.randn(50, 10)
     X_sparse = sp.csr_matrix(X_dense)
-    X_correlated = np.column_stack([
-        X_dense[:, 0],
-        X_dense[:, 0] * 2 + np.random.randn(50) * 0.1,
-        X_dense[:, 1],
-    ])
+    X_correlated = np.column_stack(
+        [
+            X_dense[:, 0],
+            X_dense[:, 0] * 2 + np.random.randn(50) * 0.1,
+            X_dense[:, 1],
+        ]
+    )
 
     # Test 1: correlation_matrix with dense data
     print("\n1. Testing correlation_matrix (dense)...")
@@ -382,7 +385,7 @@ if __name__ == "__main__":
     print("\n11. Testing error handling...")
     try:
         correlation_matrix(X_dense, method="invalid")
-        assert False, "Should have raised ValueError"
+        raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         print(f"   Correct error raised: {e}")
 

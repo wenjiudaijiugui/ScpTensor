@@ -203,9 +203,7 @@ class PanelLayout:
         --------
         >>> layout.add_legend(labels=["Control", "Treatment"], position="right")
         """
-        self._legend_elements.append(
-            {"position": position, "labels": labels, "kwargs": kwargs}
-        )
+        self._legend_elements.append({"position": position, "labels": labels, "kwargs": kwargs})
 
     def add_colorbar(self, position: str = "right", label: str = "") -> None:
         """

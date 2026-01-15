@@ -10,39 +10,41 @@ Tests cover:
                filter_samples_by_missing_rate
 """
 
-import pytest
 import numpy as np
 import polars as pl
+import pytest
 from scipy import sparse
 
-from scptensor.core import ScpContainer, Assay, ScpMatrix
+from scptensor.core import Assay, ScpContainer, ScpMatrix
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
 from scptensor.core.exceptions import ValueError as ScpValueError
-from scptensor.qc.basic import basic_qc
-from scptensor.qc.outlier import detect_outliers
 from scptensor.qc.advanced import (
     calculate_qc_metrics,
     detect_contaminant_proteins,
     detect_doublets,
     filter_features_by_missing_rate,
-    filter_features_by_variance,
     filter_features_by_prevalence,
-    filter_samples_by_total_count,
+    filter_features_by_variance,
     filter_samples_by_missing_rate,
+    filter_samples_by_total_count,
 )
-
+from scptensor.qc.basic import basic_qc
+from scptensor.qc.outlier import detect_outliers
 
 # =============================================================================
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def qc_obs():
     """Create obs DataFrame for QC testing."""
-    return pl.DataFrame({
-        "_index": [str(i) for i in range(20)],  # Use integer strings as IDs
-        "batch": ["A"] * 10 + ["B"] * 10,
-    })
+    return pl.DataFrame(
+        {
+            "_index": [str(i) for i in range(20)],  # Use integer strings as IDs
+            "batch": ["A"] * 10 + ["B"] * 10,
+        }
+    )
 
 
 @pytest.fixture
@@ -50,30 +52,40 @@ def qc_var():
     """Create var DataFrame for QC testing."""
     # Include some contaminant proteins for testing
     protein_names = [
-        "KRT1", "KRT2",  # Keratins (contaminants)
+        "KRT1",
+        "KRT2",  # Keratins (contaminants)
         "ALB001",  # Albumin (contaminant)
         "IGG1",  # Immunoglobulin (contaminant)
     ] + [f"PROT{i}" for i in range(4, 20)]
-    return pl.DataFrame({
-        "_index": [str(i) for i in range(20)],  # Use integer strings as IDs (matches positional indices)
-        "name": protein_names,
-    })
+    return pl.DataFrame(
+        {
+            "_index": [
+                str(i) for i in range(20)
+            ],  # Use integer strings as IDs (matches positional indices)
+            "name": protein_names,
+        }
+    )
 
 
 @pytest.fixture
 def qc_var_with_contaminants():
     """Create var DataFrame with known contaminants."""
     protein_names = [
-        "KRT1", "KRT2", "KRT8",  # Keratins
+        "KRT1",
+        "KRT2",
+        "KRT8",  # Keratins
         "Trypsin",  # Trypsin
         "Albumin",  # Albumin
-        "IGHG1", "IGKC",  # Immunoglobulins
+        "IGHG1",
+        "IGKC",  # Immunoglobulins
     ] + [f"PROT{i}" for i in range(7, 20)]
     # Use integer strings as IDs for compatibility with filter_features
-    return pl.DataFrame({
-        "_index": [str(i) for i in range(20)],
-        "name": protein_names,
-    })
+    return pl.DataFrame(
+        {
+            "_index": [str(i) for i in range(20)],
+            "name": protein_names,
+        }
+    )
 
 
 @pytest.fixture
@@ -124,10 +136,7 @@ def qc_container_multi_layer(qc_obs, qc_var, qc_dense_X):
     """Create a ScpContainer with multiple layers."""
     matrix_raw = ScpMatrix(X=qc_dense_X, M=None)
     matrix_norm = ScpMatrix(X=qc_dense_X * 2, M=None)
-    assay = Assay(
-        var=qc_var,
-        layers={"raw": matrix_raw, "normalized": matrix_norm}
-    )
+    assay = Assay(var=qc_var, layers={"raw": matrix_raw, "normalized": matrix_norm})
     return ScpContainer(obs=qc_obs, assays={"protein": assay})
 
 
@@ -142,6 +151,7 @@ def qc_container_with_contaminants(qc_obs, qc_var_with_contaminants, qc_dense_X)
 # =============================================================================
 # basic_qc tests (6 tests)
 # =============================================================================
+
 
 class TestBasicQC:
     """Tests for basic_qc function."""
@@ -192,6 +202,7 @@ class TestBasicQC:
 # =============================================================================
 # detect_outliers tests (7 tests)
 # =============================================================================
+
 
 class TestDetectOutliers:
     """Tests for detect_outliers function."""
@@ -245,6 +256,7 @@ class TestDetectOutliers:
 # calculate_qc_metrics tests (8 tests)
 # =============================================================================
 
+
 class TestCalculateQCMetrics:
     """Tests for calculate_qc_metrics function."""
 
@@ -254,8 +266,13 @@ class TestCalculateQCMetrics:
         assert isinstance(result, ScpContainer)
 
         # Check sample metrics in obs
-        for col in ["n_detected", "total_intensity", "missing_rate",
-                    "mean_intensity", "median_intensity"]:
+        for col in [
+            "n_detected",
+            "total_intensity",
+            "missing_rate",
+            "mean_intensity",
+            "median_intensity",
+        ]:
             assert col in result.obs.columns
 
         # Check feature metrics in var
@@ -328,37 +345,32 @@ class TestCalculateQCMetrics:
 # filter_features_by_missing_rate tests (7 tests)
 # =============================================================================
 
+
 class TestFilterFeaturesByMissingRate:
     """Tests for filter_features_by_missing_rate function."""
 
     def test_filter_features_by_missing_rate_non_inplace(self, qc_container):
         """Test non-inplace filtering adds statistics."""
-        result = filter_features_by_missing_rate(
-            qc_container, max_missing_rate=0.5, inplace=False
-        )
+        result = filter_features_by_missing_rate(qc_container, max_missing_rate=0.5, inplace=False)
         assert isinstance(result, ScpContainer)
         assert result.n_samples == qc_container.n_samples
         assert result.assays["protein"].n_features == qc_container.assays["protein"].n_features
         # Check that statistics were added
         var = result.assays["protein"].var
         assert "missing_rate" in var.columns
-        assert f"keep_missing_rate_0.5" in var.columns
+        assert "keep_missing_rate_0.5" in var.columns
 
     def test_filter_features_by_missing_rate_inplace(self, qc_container):
         """Test inplace filtering actually filters."""
         original_n_features = qc_container.assays["protein"].n_features
-        result = filter_features_by_missing_rate(
-            qc_container, max_missing_rate=0.3, inplace=True
-        )
+        result = filter_features_by_missing_rate(qc_container, max_missing_rate=0.3, inplace=True)
         assert isinstance(result, ScpContainer)
         # Should have filtered some features
         assert result.assays["protein"].n_features <= original_n_features
 
     def test_filter_features_by_missing_rate_permissive(self, qc_container):
         """Test with very permissive threshold."""
-        result = filter_features_by_missing_rate(
-            qc_container, max_missing_rate=1.0, inplace=True
-        )
+        result = filter_features_by_missing_rate(qc_container, max_missing_rate=1.0, inplace=True)
         # Should keep all features
         assert result.assays["protein"].n_features == qc_container.assays["protein"].n_features
 
@@ -367,9 +379,7 @@ class TestFilterFeaturesByMissingRate:
         # With strict threshold, may filter to zero features which is expected behavior
         # Using pytest.raises to handle the ValidationError
         with pytest.raises(Exception):  # ValidationError when filtering to zero features
-            filter_features_by_missing_rate(
-                qc_container, max_missing_rate=0.0, inplace=True
-            )
+            filter_features_by_missing_rate(qc_container, max_missing_rate=0.0, inplace=True)
 
     def test_filter_features_by_missing_rate_sparse(self, qc_container_sparse):
         """Test with sparse matrix."""
@@ -395,56 +405,45 @@ class TestFilterFeaturesByMissingRate:
 # filter_features_by_variance tests (8 tests)
 # =============================================================================
 
+
 class TestFilterFeaturesByVariance:
     """Tests for filter_features_by_variance function."""
 
     def test_filter_features_by_variance_non_inplace(self, qc_container):
         """Test non-inplace filtering adds statistics."""
-        result = filter_features_by_variance(
-            qc_container, min_variance=0.01, inplace=False
-        )
+        result = filter_features_by_variance(qc_container, min_variance=0.01, inplace=False)
         assert isinstance(result, ScpContainer)
         var = result.assays["protein"].var
         assert "feature_variance" in var.columns
-        assert f"keep_variance_0.01" in var.columns
+        assert "keep_variance_0.01" in var.columns
 
     def test_filter_features_by_variance_inplace(self, qc_container):
         """Test inplace filtering actually filters."""
         original_n_features = qc_container.assays["protein"].n_features
-        result = filter_features_by_variance(
-            qc_container, min_variance=0.1, inplace=True
-        )
+        result = filter_features_by_variance(qc_container, min_variance=0.1, inplace=True)
         assert result.assays["protein"].n_features <= original_n_features
 
     def test_filter_features_by_variance_top_n(self, qc_container):
         """Test filtering by top N features."""
-        result = filter_features_by_variance(
-            qc_container, top_n=10, inplace=True
-        )
+        result = filter_features_by_variance(qc_container, top_n=10, inplace=True)
         assert result.assays["protein"].n_features == 10
 
     def test_filter_features_by_variance_top_n_all(self, qc_container):
         """Test top_n greater than total features."""
         total_features = qc_container.assays["protein"].n_features
-        result = filter_features_by_variance(
-            qc_container, top_n=total_features + 10, inplace=True
-        )
+        result = filter_features_by_variance(qc_container, top_n=total_features + 10, inplace=True)
         # Should keep at most total features
         assert result.assays["protein"].n_features <= total_features
 
     def test_filter_features_by_variance_zero_threshold(self, qc_container):
         """Test with zero variance threshold."""
-        result = filter_features_by_variance(
-            qc_container, min_variance=0.0, inplace=True
-        )
+        result = filter_features_by_variance(qc_container, min_variance=0.0, inplace=True)
         # Should keep all features with non-negative variance (all)
         assert result.assays["protein"].n_features == qc_container.assays["protein"].n_features
 
     def test_filter_features_by_variance_sparse(self, qc_container_sparse):
         """Test with sparse matrix."""
-        result = filter_features_by_variance(
-            qc_container_sparse, min_variance=0.01, inplace=False
-        )
+        result = filter_features_by_variance(qc_container_sparse, min_variance=0.01, inplace=False)
         assert "feature_variance" in result.assays["protein"].var.columns
 
     def test_filter_features_by_variance_invalid_variance(self, qc_container):
@@ -464,25 +463,22 @@ class TestFilterFeaturesByVariance:
 # filter_features_by_prevalence tests (8 tests)
 # =============================================================================
 
+
 class TestFilterFeaturesByPrevalence:
     """Tests for filter_features_by_prevalence function."""
 
     def test_filter_features_by_prevalence_non_inplace(self, qc_container):
         """Test non-inplace filtering adds statistics."""
-        result = filter_features_by_prevalence(
-            qc_container, min_prevalence=5, inplace=False
-        )
+        result = filter_features_by_prevalence(qc_container, min_prevalence=5, inplace=False)
         assert isinstance(result, ScpContainer)
         var = result.assays["protein"].var
         assert "prevalence" in var.columns
-        assert f"keep_prevalence_5" in var.columns
+        assert "keep_prevalence_5" in var.columns
 
     def test_filter_features_by_prevalence_inplace(self, qc_container):
         """Test inplace filtering actually filters."""
         original_n_features = qc_container.assays["protein"].n_features
-        result = filter_features_by_prevalence(
-            qc_container, min_prevalence=10, inplace=True
-        )
+        result = filter_features_by_prevalence(qc_container, min_prevalence=10, inplace=True)
         assert result.assays["protein"].n_features <= original_n_features
 
     def test_filter_features_by_prevalence_ratio(self, qc_container):
@@ -494,17 +490,13 @@ class TestFilterFeaturesByPrevalence:
 
     def test_filter_features_by_prevalence_zero_threshold(self, qc_container):
         """Test with zero prevalence threshold."""
-        result = filter_features_by_prevalence(
-            qc_container, min_prevalence=0, inplace=True
-        )
+        result = filter_features_by_prevalence(qc_container, min_prevalence=0, inplace=True)
         # Should keep all features
         assert result.assays["protein"].n_features == qc_container.assays["protein"].n_features
 
     def test_filter_features_by_prevalence_sparse(self, qc_container_sparse):
         """Test with sparse matrix."""
-        result = filter_features_by_prevalence(
-            qc_container_sparse, min_prevalence=5, inplace=False
-        )
+        result = filter_features_by_prevalence(qc_container_sparse, min_prevalence=5, inplace=False)
         assert "prevalence" in result.assays["protein"].var.columns
 
     def test_filter_features_by_prevalence_invalid_prevalence(self, qc_container):
@@ -530,25 +522,22 @@ class TestFilterFeaturesByPrevalence:
 # filter_samples_by_total_count tests (7 tests)
 # =============================================================================
 
+
 class TestFilterSamplesByTotalCount:
     """Tests for filter_samples_by_total_count function."""
 
     def test_filter_samples_by_total_count_non_inplace(self, qc_container):
         """Test non-inplace filtering adds statistics."""
-        result = filter_samples_by_total_count(
-            qc_container, min_total=10.0, inplace=False
-        )
+        result = filter_samples_by_total_count(qc_container, min_total=10.0, inplace=False)
         assert isinstance(result, ScpContainer)
         assert result.n_samples == qc_container.n_samples
         assert "total_count" in result.obs.columns
-        assert f"keep_total_min_10.0" in result.obs.columns
+        assert "keep_total_min_10.0" in result.obs.columns
 
     def test_filter_samples_by_total_count_inplace(self, qc_container):
         """Test inplace filtering actually filters."""
         original_n_samples = qc_container.n_samples
-        result = filter_samples_by_total_count(
-            qc_container, min_total=5.0, inplace=True
-        )
+        result = filter_samples_by_total_count(qc_container, min_total=5.0, inplace=True)
         assert result.n_samples <= original_n_samples
 
     def test_filter_samples_by_total_count_with_max(self, qc_container):
@@ -560,17 +549,13 @@ class TestFilterSamplesByTotalCount:
 
     def test_filter_samples_by_total_count_permissive(self, qc_container):
         """Test with permissive threshold."""
-        result = filter_samples_by_total_count(
-            qc_container, min_total=0.0, inplace=True
-        )
+        result = filter_samples_by_total_count(qc_container, min_total=0.0, inplace=True)
         # Should keep all samples
         assert result.n_samples == qc_container.n_samples
 
     def test_filter_samples_by_total_count_sparse(self, qc_container_sparse):
         """Test with sparse matrix."""
-        result = filter_samples_by_total_count(
-            qc_container_sparse, min_total=10.0, inplace=False
-        )
+        result = filter_samples_by_total_count(qc_container_sparse, min_total=10.0, inplace=False)
         assert "total_count" in result.obs.columns
 
     def test_filter_samples_by_total_count_invalid_min(self, qc_container):
@@ -590,32 +575,27 @@ class TestFilterSamplesByTotalCount:
 # filter_samples_by_missing_rate tests (7 tests)
 # =============================================================================
 
+
 class TestFilterSamplesByMissingRate:
     """Tests for filter_samples_by_missing_rate function."""
 
     def test_filter_samples_by_missing_rate_non_inplace(self, qc_container):
         """Test non-inplace filtering adds statistics."""
-        result = filter_samples_by_missing_rate(
-            qc_container, max_missing_rate=0.5, inplace=False
-        )
+        result = filter_samples_by_missing_rate(qc_container, max_missing_rate=0.5, inplace=False)
         assert isinstance(result, ScpContainer)
         assert result.n_samples == qc_container.n_samples
         assert "missing_rate" in result.obs.columns
-        assert f"keep_missing_rate_0.5" in result.obs.columns
+        assert "keep_missing_rate_0.5" in result.obs.columns
 
     def test_filter_samples_by_missing_rate_inplace(self, qc_container):
         """Test inplace filtering actually filters."""
         original_n_samples = qc_container.n_samples
-        result = filter_samples_by_missing_rate(
-            qc_container, max_missing_rate=0.3, inplace=True
-        )
+        result = filter_samples_by_missing_rate(qc_container, max_missing_rate=0.3, inplace=True)
         assert result.n_samples <= original_n_samples
 
     def test_filter_samples_by_missing_rate_permissive(self, qc_container):
         """Test with permissive threshold."""
-        result = filter_samples_by_missing_rate(
-            qc_container, max_missing_rate=1.0, inplace=True
-        )
+        result = filter_samples_by_missing_rate(qc_container, max_missing_rate=1.0, inplace=True)
         # Should keep all samples
         assert result.n_samples == qc_container.n_samples
 
@@ -623,9 +603,7 @@ class TestFilterSamplesByMissingRate:
         """Test with strict threshold that might filter to zero."""
         # With strict threshold, may filter to zero samples which is expected behavior
         with pytest.raises(Exception):  # ValidationError when filtering to zero samples
-            filter_samples_by_missing_rate(
-                qc_container, max_missing_rate=0.0, inplace=True
-            )
+            filter_samples_by_missing_rate(qc_container, max_missing_rate=0.0, inplace=True)
 
     def test_filter_samples_by_missing_rate_sparse(self, qc_container_sparse):
         """Test with sparse matrix."""
@@ -651,6 +629,7 @@ class TestFilterSamplesByMissingRate:
 # detect_contaminant_proteins tests (7 tests)
 # =============================================================================
 
+
 class TestDetectContaminantProteins:
     """Tests for detect_contaminant_proteins function."""
 
@@ -671,8 +650,7 @@ class TestDetectContaminantProteins:
     def test_detect_contaminant_custom_patterns(self, qc_container):
         """Test with custom contaminant patterns."""
         result = detect_contaminant_proteins(
-            qc_container,
-            contaminant_patterns=[r"PROT1", r"PROT2"]
+            qc_container, contaminant_patterns=[r"PROT1", r"PROT2"]
         )
         var = result.assays["protein"].var
         assert "is_contaminant" in var.columns
@@ -681,7 +659,7 @@ class TestDetectContaminantProteins:
         """Test with minimum prevalence threshold."""
         result = detect_contaminant_proteins(
             qc_container_with_contaminants,
-            min_prevalence=15  # High threshold
+            min_prevalence=15,  # High threshold
         )
         var = result.assays["protein"].var
         # With high prevalence, should detect fewer contaminants
@@ -716,6 +694,7 @@ class TestDetectContaminantProteins:
 # =============================================================================
 # detect_doublets tests (8 tests)
 # =============================================================================
+
 
 class TestDetectDoublets:
     """Tests for detect_doublets function."""
@@ -777,6 +756,7 @@ class TestDetectDoublets:
 # Integration tests
 # =============================================================================
 
+
 class TestQCIntegration:
     """Integration tests for QC workflows."""
 
@@ -791,14 +771,10 @@ class TestQCIntegration:
         assert "is_outlier" in container.obs.columns
 
         # Step 3: Filter samples
-        container = filter_samples_by_missing_rate(
-            container, max_missing_rate=0.5, inplace=True
-        )
+        container = filter_samples_by_missing_rate(container, max_missing_rate=0.5, inplace=True)
 
         # Step 4: Filter features
-        container = filter_features_by_variance(
-            container, min_variance=0.01, inplace=True
-        )
+        container = filter_features_by_variance(container, min_variance=0.01, inplace=True)
 
         assert isinstance(container, ScpContainer)
 
@@ -806,9 +782,7 @@ class TestQCIntegration:
         """Test QC pipeline with sparse matrices."""
         container = calculate_qc_metrics(qc_container_sparse)
         container = detect_outliers(container)
-        container = filter_features_by_missing_rate(
-            container, max_missing_rate=0.5, inplace=True
-        )
+        container = filter_features_by_missing_rate(container, max_missing_rate=0.5, inplace=True)
         assert isinstance(container, ScpContainer)
 
     def test_basic_qc_followed_by_advanced(self, qc_container):
@@ -822,11 +796,7 @@ class TestQCIntegration:
         container = filter_features_by_missing_rate(
             qc_container, max_missing_rate=0.5, inplace=True
         )
-        container = filter_features_by_variance(
-            container, min_variance=0.01, inplace=True
-        )
-        container = filter_features_by_prevalence(
-            container, min_prevalence=5, inplace=True
-        )
+        container = filter_features_by_variance(container, min_variance=0.01, inplace=True)
+        container = filter_features_by_prevalence(container, min_prevalence=5, inplace=True)
         # Should still be a valid container
         assert isinstance(container, ScpContainer)

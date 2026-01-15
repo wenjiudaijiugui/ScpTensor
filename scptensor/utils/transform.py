@@ -147,7 +147,7 @@ def logicle_transform(
         raise ValueError(f"M must be positive, got {M}")
 
     # Use asinh-based approximation for efficiency
-    cofactor = T / (10 ** M)
+    cofactor = T / (10**M)
     result = asinh_transform(X, cofactor=cofactor, copy=copy)
 
     # Apply Logicle scaling
@@ -392,19 +392,19 @@ if __name__ == "__main__":
     scale = q75 - q25
     scale[scale == 0] = 1.0
     X_robust2 = robust_scale(X_dense, center=center, scale=scale)
-    print(f"   Applied pre-computed statistics")
+    print("   Applied pre-computed statistics")
 
     # Test 10: Error handling
     print("\n10. Testing error handling...")
     try:
         asinh_transform(X_dense, cofactor=-1)
-        assert False, "Should have raised ValueError"
+        raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         print(f"   Correct error raised: {e}")
 
     try:
         quantile_normalize(X_dense, axis=2)
-        assert False, "Should have raised ValueError"
+        raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         print(f"   Correct error raised: {e}")
 

@@ -5,10 +5,11 @@ This script measures the speedup provided by Numba JIT compilation
 for various operations in ScpTensor.
 """
 
-import time
-import numpy as np
 import sys
+import time
 from pathlib import Path
+
+import numpy as np
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -42,18 +43,20 @@ def benchmark_function(func, *args, warmup=3, runs=10, **kwargs):
         "std": np.std(times),
         "min": np.min(times),
         "max": np.max(times),
-        "result": result
+        "result": result,
     }
 
 
 def print_benchmark(name: str, jit_result: dict, fallback_result: dict = None):
     """Print benchmark results in a formatted way."""
     print(f"\n{name}:")
-    print(f"  JIT:      {jit_result['mean']*1000:.4f} ms (std: {jit_result['std']*1000:.4f})")
+    print(f"  JIT:      {jit_result['mean'] * 1000:.4f} ms (std: {jit_result['std'] * 1000:.4f})")
 
     if fallback_result:
-        speedup = fallback_result['mean'] / jit_result['mean']
-        print(f"  Fallback: {fallback_result['mean']*1000:.4f} ms (std: {fallback_result['std']*1000:.4f})")
+        speedup = fallback_result["mean"] / jit_result["mean"]
+        print(
+            f"  Fallback: {fallback_result['mean'] * 1000:.4f} ms (std: {fallback_result['std'] * 1000:.4f})"
+        )
         print(f"  Speedup:  {speedup:.2f}x")
     else:
         print("  (No fallback comparison available)")
@@ -61,9 +64,9 @@ def print_benchmark(name: str, jit_result: dict, fallback_result: dict = None):
 
 def benchmark_distance_functions():
     """Benchmark distance calculation functions."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("DISTANCE CALCULATION BENCHMARKS")
-    print("="*60)
+    print("=" * 60)
 
     # Generate test data
     np.random.seed(42)
@@ -92,21 +95,16 @@ def benchmark_distance_functions():
     if jit_ops.NUMBA_AVAILABLE:
         # JIT version
         jit_result = benchmark_function(
-            jit_ops.nan_euclidean_distance_matrix_to_matrix,
-            X_small, Y_small,
-            warmup=2, runs=5
+            jit_ops.nan_euclidean_distance_matrix_to_matrix, X_small, Y_small, warmup=2, runs=5
         )
 
         # Fallback version (sklearn)
         fallback_result = benchmark_function(
-            nan_euclidean_distance_matrix_to_matrix_fallback,
-            X_small, Y_small,
-            warmup=0, runs=5
+            nan_euclidean_distance_matrix_to_matrix_fallback, X_small, Y_small, warmup=0, runs=5
         )
 
         print_benchmark(
-            "nan_euclidean_distance_matrix_to_matrix (100x100)",
-            jit_result, fallback_result
+            "nan_euclidean_distance_matrix_to_matrix (100x100)", jit_result, fallback_result
         )
     else:
         print("  Numba not available, skipping JIT benchmarks")
@@ -117,9 +115,7 @@ def benchmark_distance_functions():
 
     if jit_ops.NUMBA_AVAILABLE:
         jit_result = benchmark_function(
-            jit_ops.euclidean_distance_no_nan,
-            x, y,
-            warmup=2, runs=1000
+            jit_ops.euclidean_distance_no_nan, x, y, warmup=2, runs=1000
         )
 
         # Pure NumPy fallback
@@ -130,28 +126,24 @@ def benchmark_distance_functions():
             return np.sqrt(np.sum((x[valid_mask] - y[valid_mask]) ** 2) / np.sum(valid_mask))
 
         fallback_result = benchmark_function(
-            numpy_euclidean_distance_no_nan,
-            x, y,
-            warmup=0, runs=1000
+            numpy_euclidean_distance_no_nan, x, y, warmup=0, runs=1000
         )
 
-        print_benchmark(
-            "euclidean_distance_no_nan (vector)",
-            jit_result, fallback_result
-        )
+        print_benchmark("euclidean_distance_no_nan (vector)", jit_result, fallback_result)
 
 
 def nan_euclidean_distance_matrix_to_matrix_fallback(X, Y):
     """Pure NumPy fallback for distance matrix calculation."""
     from sklearn.metrics.pairwise import nan_euclidean_distances
+
     return nan_euclidean_distances(X, Y)
 
 
 def benchmark_statistical_functions():
     """Benchmark statistical functions."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("STATISTICAL FUNCTION BENCHMARKS")
-    print("="*60)
+    print("=" * 60)
 
     # Generate test data
     np.random.seed(42)
@@ -167,44 +159,32 @@ def benchmark_statistical_functions():
     if jit_ops.NUMBA_AVAILABLE:
         jit_result = benchmark_function(
             jit_ops.mean_axis_no_nan,
-            X, 0,  # axis=0 for column means
-            warmup=2, runs=20
+            X,
+            0,  # axis=0 for column means
+            warmup=2,
+            runs=20,
         )
 
-        fallback_result = benchmark_function(
-            np.nanmean, X, 0,
-            warmup=0, runs=20
-        )
+        fallback_result = benchmark_function(np.nanmean, X, 0, warmup=0, runs=20)
 
         print_benchmark(
-            f"mean_axis_no_nan (axis=0, {n_rows}x{n_cols})",
-            jit_result, fallback_result
+            f"mean_axis_no_nan (axis=0, {n_rows}x{n_cols})", jit_result, fallback_result
         )
 
     # Benchmark: var_axis_no_nan
     if jit_ops.NUMBA_AVAILABLE:
-        jit_result = benchmark_function(
-            jit_ops.var_axis_no_nan,
-            X, 0,
-            warmup=2, runs=20
-        )
+        jit_result = benchmark_function(jit_ops.var_axis_no_nan, X, 0, warmup=2, runs=20)
 
-        fallback_result = benchmark_function(
-            np.nanvar, X, 0, ddof=1,
-            warmup=0, runs=20
-        )
+        fallback_result = benchmark_function(np.nanvar, X, 0, ddof=1, warmup=0, runs=20)
 
-        print_benchmark(
-            f"var_axis_no_nan (axis=0, {n_rows}x{n_cols})",
-            jit_result, fallback_result
-        )
+        print_benchmark(f"var_axis_no_nan (axis=0, {n_rows}x{n_cols})", jit_result, fallback_result)
 
 
 def benchmark_threshold_functions():
     """Benchmark threshold and filtering functions."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("THRESHOLD/FILTERING BENCHMARKS")
-    print("="*60)
+    print("=" * 60)
 
     # Generate test data
     np.random.seed(42)
@@ -218,23 +198,23 @@ def benchmark_threshold_functions():
     if jit_ops.NUMBA_AVAILABLE:
         jit_result = benchmark_function(
             jit_ops.count_above_threshold,
-            X, threshold, 1,  # axis=1 for row-wise counts
-            warmup=2, runs=50
+            X,
+            threshold,
+            1,  # axis=1 for row-wise counts
+            warmup=2,
+            runs=50,
         )
 
         # NumPy fallback
         def numpy_count_above_threshold(X, threshold, axis):
-            return np.sum(X > threshold, axis=axis)
+            return np.sum(threshold < X, axis=axis)
 
         fallback_result = benchmark_function(
-            numpy_count_above_threshold,
-            X, threshold, 1,
-            warmup=0, runs=50
+            numpy_count_above_threshold, X, threshold, 1, warmup=0, runs=50
         )
 
         print_benchmark(
-            f"count_above_threshold (axis=1, {n_rows}x{n_cols})",
-            jit_result, fallback_result
+            f"count_above_threshold (axis=1, {n_rows}x{n_cols})", jit_result, fallback_result
         )
 
     # Benchmark: filter_by_threshold_count
@@ -242,33 +222,28 @@ def benchmark_threshold_functions():
 
     if jit_ops.NUMBA_AVAILABLE:
         jit_result = benchmark_function(
-            jit_ops.filter_by_threshold_count,
-            X, threshold, min_count, 1,
-            warmup=2, runs=50
+            jit_ops.filter_by_threshold_count, X, threshold, min_count, 1, warmup=2, runs=50
         )
 
         # NumPy fallback
         def numpy_filter_by_threshold_count(X, threshold, min_count, axis):
-            counts = np.sum(X > threshold, axis=axis)
+            counts = np.sum(threshold < X, axis=axis)
             return counts >= min_count
 
         fallback_result = benchmark_function(
-            numpy_filter_by_threshold_count,
-            X, threshold, min_count, 1,
-            warmup=0, runs=50
+            numpy_filter_by_threshold_count, X, threshold, min_count, 1, warmup=0, runs=50
         )
 
         print_benchmark(
-            f"filter_by_threshold_count (axis=1, {n_rows}x{n_cols})",
-            jit_result, fallback_result
+            f"filter_by_threshold_count (axis=1, {n_rows}x{n_cols})", jit_result, fallback_result
         )
 
 
 def benchmark_imputation_functions():
     """Benchmark imputation functions."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("IMPUTATION BENCHMARKS")
-    print("="*60)
+    print("=" * 60)
 
     # Generate test data
     np.random.seed(42)
@@ -288,10 +263,7 @@ def benchmark_imputation_functions():
             jit_ops.impute_nan_with_col_means(X_copy)
             return X_copy
 
-        jit_result = benchmark_function(
-            jit_impute_col,
-            warmup=2, runs=20
-        )
+        jit_result = benchmark_function(jit_impute_col, warmup=2, runs=20)
 
         # NumPy fallback
         def numpy_impute_col():
@@ -300,27 +272,23 @@ def benchmark_imputation_functions():
             np.copyto(X_copy, col_means, where=np.isnan(X_copy))
             return X_copy
 
-        fallback_result = benchmark_function(
-            numpy_impute_col,
-            warmup=0, runs=20
-        )
+        fallback_result = benchmark_function(numpy_impute_col, warmup=0, runs=20)
 
         print_benchmark(
-            f"impute_nan_with_col_means ({n_rows}x{n_cols}, {missing_rate*100:.0f}% NaN)",
-            jit_result, fallback_result
+            f"impute_nan_with_col_means ({n_rows}x{n_cols}, {missing_rate * 100:.0f}% NaN)",
+            jit_result,
+            fallback_result,
         )
 
     # Benchmark: impute_nan_with_row_means
     if jit_ops.NUMBA_AVAILABLE:
+
         def jit_impute_row():
             X_copy = X.copy()
             jit_ops.impute_nan_with_row_means(X_copy)
             return X_copy
 
-        jit_result = benchmark_function(
-            jit_impute_row,
-            warmup=2, runs=20
-        )
+        jit_result = benchmark_function(jit_impute_row, warmup=2, runs=20)
 
         # NumPy fallback
         def numpy_impute_row():
@@ -329,22 +297,20 @@ def benchmark_imputation_functions():
             np.copyto(X_copy, row_means, where=np.isnan(X_copy))
             return X_copy
 
-        fallback_result = benchmark_function(
-            numpy_impute_row,
-            warmup=0, runs=20
-        )
+        fallback_result = benchmark_function(numpy_impute_row, warmup=0, runs=20)
 
         print_benchmark(
-            f"impute_nan_with_row_means ({n_rows}x{n_cols}, {missing_rate*100:.0f}% NaN)",
-            jit_result, fallback_result
+            f"impute_nan_with_row_means ({n_rows}x{n_cols}, {missing_rate * 100:.0f}% NaN)",
+            jit_result,
+            fallback_result,
         )
 
 
 def benchmark_mask_functions():
     """Benchmark mask code functions."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("MASK CODE BENCHMARKS")
-    print("="*60)
+    print("=" * 60)
 
     # Generate test data
     np.random.seed(42)
@@ -355,11 +321,7 @@ def benchmark_mask_functions():
 
     # Benchmark: count_mask_codes
     if jit_ops.NUMBA_AVAILABLE:
-        jit_result = benchmark_function(
-            jit_ops.count_mask_codes,
-            M,
-            warmup=2, runs=100
-        )
+        jit_result = benchmark_function(jit_ops.count_mask_codes, M, warmup=2, runs=100)
 
         # NumPy fallback
         def numpy_count_mask_codes(M):
@@ -369,25 +331,16 @@ def benchmark_mask_functions():
                     counts[code] += 1
             return counts
 
-        fallback_result = benchmark_function(
-            numpy_count_mask_codes,
-            M,
-            warmup=0, runs=100
-        )
+        fallback_result = benchmark_function(numpy_count_mask_codes, M, warmup=0, runs=100)
 
-        print_benchmark(
-            f"count_mask_codes ({n_rows}x{n_cols})",
-            jit_result, fallback_result
-        )
+        print_benchmark(f"count_mask_codes ({n_rows}x{n_cols})", jit_result, fallback_result)
 
     # Benchmark: find_missing_indices
     mask_codes = (1, 2)  # MBR and LOD
 
     if jit_ops.NUMBA_AVAILABLE:
         jit_result = benchmark_function(
-            jit_ops.find_missing_indices,
-            M, mask_codes,
-            warmup=2, runs=100
+            jit_ops.find_missing_indices, M, mask_codes, warmup=2, runs=100
         )
 
         # NumPy fallback
@@ -396,22 +349,17 @@ def benchmark_mask_functions():
             return np.where(mask)
 
         fallback_result = benchmark_function(
-            numpy_find_missing_indices,
-            M, mask_codes,
-            warmup=0, runs=100
+            numpy_find_missing_indices, M, mask_codes, warmup=0, runs=100
         )
 
-        print_benchmark(
-            f"find_missing_indices ({n_rows}x{n_cols})",
-            jit_result, fallback_result
-        )
+        print_benchmark(f"find_missing_indices ({n_rows}x{n_cols})", jit_result, fallback_result)
 
 
 def main():
     """Run all benchmarks."""
-    print("="*60)
+    print("=" * 60)
     print("ScpTensor JIT Performance Benchmark")
-    print("="*60)
+    print("=" * 60)
     print(f"\nNumba available: {jit_ops.NUMBA_AVAILABLE}")
 
     if not jit_ops.NUMBA_AVAILABLE:
@@ -431,9 +379,9 @@ def main():
     benchmark_imputation_functions()
     benchmark_distance_functions()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Benchmark complete!")
-    print("="*60)
+    print("=" * 60)
 
 
 if __name__ == "__main__":

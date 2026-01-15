@@ -15,8 +15,7 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
-from scptensor.core.exceptions import ScpValueError
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import ScpContainer, ScpMatrix
 
@@ -97,8 +96,7 @@ def combat(
     obs_df = container.obs
     if batch_key not in obs_df.columns:
         raise ScpValueError(
-            f"Batch key '{batch_key}' not found in obs. "
-            f"Available columns: {list(obs_df.columns)}",
+            f"Batch key '{batch_key}' not found in obs. Available columns: {list(obs_df.columns)}",
             parameter="batch_key",
             value=batch_key,
         )
@@ -144,7 +142,7 @@ def combat(
 
     # Fit model and extract coefficients
     B_hat = np.linalg.lstsq(X_design, dat.T, rcond=None)[0].T
-    B_batch, B_covar = B_hat[:, :n_batch], B_hat[:, n_batch:]
+    _B_batch, B_covar = B_hat[:, :n_batch], B_hat[:, n_batch:]
     X_covar = X_design[:, n_batch:]
 
     # Compute grand mean and standardize
@@ -162,8 +160,14 @@ def combat(
     gamma_hat, delta_hat = _compute_batch_moments(Z, batch.to_numpy(), batch_items, n_batch)
     gamma_bar, t2, a_prior, b_prior = _compute_eb_priors(gamma_hat, delta_hat)
     gamma_star, delta_star = _solve_eb_for_batches(
-        gamma_hat, delta_hat, batch.to_numpy(), batch_items,
-        gamma_bar, t2, a_prior, b_prior,
+        gamma_hat,
+        delta_hat,
+        batch.to_numpy(),
+        batch_items,
+        gamma_bar,
+        t2,
+        a_prior,
+        b_prior,
     )
 
     # Apply correction
@@ -203,7 +207,7 @@ def _impute_nans_batchwise(X: np.ndarray, batches: np.ndarray) -> np.ndarray:
 
         nan_mask = np.isnan(batch_data)
         if nan_mask.any():
-            global_rows = batch_idx[nan_mask[:, 0]]  # Get affected global rows
+            batch_idx[nan_mask[:, 0]]  # Get affected global rows
             for col in range(X.shape[1]):
                 col_nans = np.where(nan_mask[:, col])[0]
                 if col_nans.size > 0:
@@ -229,8 +233,7 @@ def _build_covariate_design(
 
     covar_df = obs_df.select(covariates)
     cat_cols = [
-        c for c, t in covar_df.schema.items()
-        if t in (pl.String, pl.Categorical, pl.Object)
+        c for c, t in covar_df.schema.items() if t in (pl.String, pl.Categorical, pl.Object)
     ]
 
     mod = covar_df.to_dummies(columns=cat_cols, drop_first=True) if cat_cols else covar_df
@@ -321,9 +324,8 @@ def _solve_eb(
         sum2 = (n - 1) * d_hat + n * (g_hat - g_new) ** 2
         d_new = (b + 0.5 * sum2) / (a + n / 2)
 
-        change = (
-            np.max(np.abs(g_new - g_old) / (np.abs(g_old) + 1e-8)) +
-            np.max(np.abs(d_new - d_old) / (np.abs(d_old) + 1e-8))
+        change = np.max(np.abs(g_new - g_old) / (np.abs(g_old) + 1e-8)) + np.max(
+            np.abs(d_new - d_old) / (np.abs(d_old) + 1e-8)
         )
 
         g_old, d_old = g_new, d_new

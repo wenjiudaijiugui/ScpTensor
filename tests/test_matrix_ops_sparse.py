@@ -12,8 +12,9 @@ sys.path.insert(0, str(project_root))
 
 import numpy as np
 import scipy.sparse as sp
-from scptensor.core.structures import ScpMatrix, MaskCode
+
 from scptensor.core.matrix_ops import MatrixOps
+from scptensor.core.structures import MaskCode, ScpMatrix
 
 
 def create_test_matrix(sparse=True, missing_rate=0.5):
@@ -82,7 +83,7 @@ def test_apply_mask_to_values_sparse():
     matrix = create_test_matrix(sparse=True, missing_rate=0.6)
 
     # Test 'zero' operation
-    result_zero = MatrixOps.apply_mask_to_values(matrix, operation='zero')
+    result_zero = MatrixOps.apply_mask_to_values(matrix, operation="zero")
     assert sp.issparse(result_zero.X), "Result should preserve sparsity for 'zero' operation"
 
     # Verify invalid values are zero
@@ -100,6 +101,7 @@ def test_no_densification():
 
     # Track memory before
     from scptensor.core.sparse_utils import get_memory_usage
+
     mem_before = get_memory_usage(matrix.X)
 
     # Apply operations
@@ -107,7 +109,7 @@ def test_no_densification():
     mem_after = get_memory_usage(result.X)
 
     # Memory usage should be similar (within 20% tolerance)
-    ratio = mem_after['nbytes'] / mem_before['nbytes']
+    ratio = mem_after["nbytes"] / mem_before["nbytes"]
     assert ratio < 1.2, f"Memory usage increased too much: {ratio:.2f}x (indicates densification)"
 
     print(f"✓ No densification test passed (memory ratio: {ratio:.2f}x)")
@@ -150,10 +152,10 @@ def test_performance_comparison():
         _ = MatrixOps.mark_values(matrix_dense, (rows_idx, cols_idx), MaskCode.IMPUTED)
     time_dense = time.time() - start
 
-    print(f"\nPerformance comparison (1000x500 matrix, 80% sparse):")
-    print(f"  Sparse operations: {time_sparse*1000:.2f} ms")
-    print(f"  Dense operations:  {time_dense*1000:.2f} ms")
-    print(f"  Speedup: {time_dense/time_sparse:.2f}x")
+    print("\nPerformance comparison (1000x500 matrix, 80% sparse):")
+    print(f"  Sparse operations: {time_sparse * 1000:.2f} ms")
+    print(f"  Dense operations:  {time_dense * 1000:.2f} ms")
+    print(f"  Speedup: {time_dense / time_sparse:.2f}x")
 
     print("✓ Performance comparison completed")
 
@@ -167,6 +169,6 @@ if __name__ == "__main__":
     test_no_densification()
     test_performance_comparison()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("✅ All matrix_ops sparse optimization tests passed!")
-    print("="*60)
+    print("=" * 60)

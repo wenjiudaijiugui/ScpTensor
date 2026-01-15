@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 from scptensor.core.exceptions import (
     AssayNotFoundError,
     DimensionError,
-    ScpTensorError,
     ValidationError,
 )
 
@@ -110,7 +109,9 @@ def _validate_mask_matrix(M: np.ndarray | sp.spmatrix, X_shape: tuple[int, int])
     if isinstance(M, np.ndarray):
         invalid_values = np.setdiff1d(np.unique(M), list(_VALID_MASK_CODES))
         if invalid_values.size > 0:
-            raise ValueError(f"Invalid mask codes: {invalid_values}. Valid: {sorted(_VALID_MASK_CODES)}")
+            raise ValueError(
+                f"Invalid mask codes: {invalid_values}. Valid: {sorted(_VALID_MASK_CODES)}"
+            )
 
 
 @dataclass
@@ -252,9 +253,7 @@ class Assay:
             ValueError: If feature dimensions don't match
         """
         if matrix.X.shape[1] != self.n_features:
-            raise ValueError(
-                f"Layer has {matrix.X.shape[1]} features, Assay has {self.n_features}"
-            )
+            raise ValueError(f"Layer has {matrix.X.shape[1]} features, Assay has {self.n_features}")
         self.layers[name] = matrix
 
     def __repr__(self) -> str:
@@ -485,12 +484,7 @@ class ScpContainer:
     def filter_samples(
         self,
         sample_ids: (
-            Sequence[str]
-            | np.ndarray
-            | pl.Expr
-            | pl.Series
-            | Sequence[int]
-            | None
+            Sequence[str] | np.ndarray | pl.Expr | pl.Series | Sequence[int] | None
         ) = None,
         *,
         sample_indices: Sequence[int] | np.ndarray | None = None,
@@ -531,11 +525,15 @@ class ScpContainer:
 
         new_obs = self.obs[indices, :]
         new_assays = self._filter_assays_samples(indices, copy)
-        new_history = self._updated_history("filter_samples", {
-            "n_samples_kept": len(indices),
-            "n_samples_original": self.n_samples,
-            "kept_sample_ids": self.sample_ids[indices].to_list(),
-        }, f"Filtered to {len(indices)}/{self.n_samples} samples")
+        new_history = self._updated_history(
+            "filter_samples",
+            {
+                "n_samples_kept": len(indices),
+                "n_samples_original": self.n_samples,
+                "kept_sample_ids": self.sample_ids[indices].to_list(),
+            },
+            f"Filtered to {len(indices)}/{self.n_samples} samples",
+        )
 
         return ScpContainer(
             obs=new_obs,
@@ -589,12 +587,16 @@ class ScpContainer:
         )
 
         new_assays = self._filter_assay_features(assay_name, assay, indices, copy)
-        new_history = self._updated_history("filter_features", {
-            "assay_name": assay_name,
-            "n_features_kept": len(indices),
-            "n_features_original": assay.n_features,
-            "kept_feature_ids": assay.feature_ids[indices].to_list(),
-        }, f"Filtered assay '{assay_name}' to {len(indices)}/{assay.n_features} features")
+        new_history = self._updated_history(
+            "filter_features",
+            {
+                "assay_name": assay_name,
+                "n_features_kept": len(indices),
+                "n_features_original": assay.n_features,
+                "kept_feature_ids": assay.feature_ids[indices].to_list(),
+            },
+            f"Filtered assay '{assay_name}' to {len(indices)}/{assay.n_features} features",
+        )
 
         return ScpContainer(
             obs=self.obs,
@@ -633,11 +635,13 @@ class ScpContainer:
 
         # Boolean mask
         if boolean_mask is not None:
-            mask_arr = boolean_mask.to_numpy() if isinstance(boolean_mask, pl.Series) else np.asarray(boolean_mask)
+            mask_arr = (
+                boolean_mask.to_numpy()
+                if isinstance(boolean_mask, pl.Series)
+                else np.asarray(boolean_mask)
+            )
             if mask_arr.shape[0] != self.n_samples:
-                raise DimensionError(
-                    f"Mask length {mask_arr.shape[0]} != samples {self.n_samples}"
-                )
+                raise DimensionError(f"Mask length {mask_arr.shape[0]} != samples {self.n_samples}")
             if mask_arr.dtype != bool:
                 raise ValueError(f"Mask must be boolean, got {mask_arr.dtype}")
             return np.where(mask_arr)[0]
@@ -693,7 +697,11 @@ class ScpContainer:
 
         # Boolean mask
         if boolean_mask is not None:
-            mask_arr = boolean_mask.to_numpy() if isinstance(boolean_mask, pl.Series) else np.asarray(boolean_mask)
+            mask_arr = (
+                boolean_mask.to_numpy()
+                if isinstance(boolean_mask, pl.Series)
+                else np.asarray(boolean_mask)
+            )
             if mask_arr.shape[0] != assay.n_features:
                 raise DimensionError(
                     f"Mask length {mask_arr.shape[0]} != features {assay.n_features}"
@@ -739,15 +747,10 @@ class ScpContainer:
                 new_M = matrix.M[indices, :] if matrix.M is not None else None
 
                 if copy:
-                    if isinstance(new_X, np.ndarray):
+                    if isinstance(new_X, np.ndarray) or sp.issparse(new_X):
                         new_X = new_X.copy()
-                    elif sp.issparse(new_X):
-                        new_X = new_X.copy()
-                    if new_M is not None:
-                        if isinstance(new_M, np.ndarray):
-                            new_M = new_M.copy()
-                        elif sp.issparse(new_M):
-                            new_M = new_M.copy()
+                    if new_M is not None and (isinstance(new_M, np.ndarray) or sp.issparse(new_M)):
+                        new_M = new_M.copy()
 
                 new_layers[layer_name] = ScpMatrix(X=new_X, M=new_M)
 
@@ -774,15 +777,10 @@ class ScpContainer:
                     new_M = matrix.M[:, indices] if matrix.M is not None else None
 
                     if copy:
-                        if isinstance(new_X, np.ndarray):
+                        if isinstance(new_X, np.ndarray) or sp.issparse(new_X):
                             new_X = new_X.copy()
-                        elif sp.issparse(new_X):
-                            new_X = new_X.copy()
-                        if new_M is not None:
-                            if isinstance(new_M, np.ndarray):
-                                new_M = new_M.copy()
-                            elif sp.issparse(new_M):
-                                new_M = new_M.copy()
+                        if new_M is not None and (isinstance(new_M, np.ndarray) or sp.issparse(new_M)):
+                            new_M = new_M.copy()
 
                     new_layers[layer_name] = ScpMatrix(X=new_X, M=new_M)
 

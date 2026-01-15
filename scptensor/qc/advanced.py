@@ -19,21 +19,19 @@ import polars as pl
 import scipy.sparse as sp
 from sklearn.neighbors import NearestNeighbors
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
-from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import MaskCode, ScpContainer, ScpMatrix
-
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
+from scptensor.core.structures import ScpContainer, ScpMatrix
 
 # Default contaminant patterns for proteomics
 _DEFAULT_CONTAMINANT_PATTERNS = [
-    r"^KRT\d+",   # Keratins
+    r"^KRT\d+",  # Keratins
     r"Keratin",
     r"Trypsin",
     r"Albumin",
-    r"ALB_",      # Albumin
-    r"IG[HKL]",   # Immunoglobulins
+    r"ALB_",  # Albumin
+    r"IG[HKL]",  # Immunoglobulins
     r"^HBA[12]",  # Hemoglobin alpha
-    r"^HBB",      # Hemoglobin beta
+    r"^HBB",  # Hemoglobin beta
     r"Hemoglobin",
 ]
 
@@ -58,8 +56,7 @@ def _create_container_with_updated_var(
     new_assay.var = new_var
 
     new_assays = {
-        name: new_assay if name == assay_name else a
-        for name, a in container.assays.items()
+        name: new_assay if name == assay_name else a for name, a in container.assays.items()
     }
 
     return ScpContainer(
@@ -164,10 +161,10 @@ def filter_features_by_missing_rate(
 
     # Calculate missing rate for each feature
     if sp.issparse(X):
-        n_samples = X.shape[0]
+        X.shape[0]
         n_detected = X.getnnz(axis=0)  # Number of non-zero entries per column
     else:
-        n_detected = np.sum(X > detection_threshold, axis=0)
+        n_detected = np.sum(detection_threshold < X, axis=0)
 
     missing_rate = 1.0 - (n_detected / X.shape[0])
 
@@ -381,7 +378,7 @@ def filter_features_by_prevalence(
     if sp.issparse(X):
         prevalence = np.array(X.getnnz(axis=0)).flatten()
     else:
-        prevalence = np.sum(X > detection_threshold, axis=0)
+        prevalence = np.sum(detection_threshold < X, axis=0)
 
     # Determine threshold
     if min_prevalence_ratio is not None:
@@ -480,7 +477,7 @@ def filter_samples_by_total_count(
         total_counts = np.array(X.sum(axis=1)).flatten()
     else:
         # Only count values above threshold
-        X_masked = np.where(X > detection_threshold, X, 0)
+        X_masked = np.where(detection_threshold < X, X, 0)
         total_counts = np.sum(X_masked, axis=1)
 
     # Determine samples to keep
@@ -583,7 +580,7 @@ def filter_samples_by_missing_rate(
     if sp.issparse(X):
         n_detected = np.array(X.getnnz(axis=1)).flatten()
     else:
-        n_detected = np.sum(X > detection_threshold, axis=1)
+        n_detected = np.sum(detection_threshold < X, axis=1)
 
     missing_rate = 1.0 - (n_detected / n_features)
 
@@ -693,7 +690,7 @@ def detect_contaminant_proteins(
     if sp.issparse(X):
         prevalence = np.array(X.getnnz(axis=0)).flatten()
     else:
-        prevalence = np.sum(X > detection_threshold, axis=0)
+        prevalence = np.sum(detection_threshold < X, axis=0)
 
     # Only mark as contaminant if also prevalent enough
     is_detected_contaminant = is_contaminant & (prevalence >= min_prevalence)
@@ -843,7 +840,7 @@ def detect_doublets(
             random_state=random_state,
             n_jobs=-1,
         )
-        iso_pred = iso_forest.fit_predict(X_clean)
+        iso_forest.fit_predict(X_clean)
         iso_score = -iso_forest.score_samples(X_clean)  # Negative because lower is abnormal
         iso_score = (iso_score - iso_score.min()) / (iso_score.max() - iso_score.min() + 1e-10)
 
@@ -947,17 +944,13 @@ def calculate_qc_metrics(
         total_intensity_samples = np.array(X_csr.sum(axis=1)).flatten()
         missing_rate_samples = 1.0 - (n_detected_samples / n_features)
 
-        mean_intensity_samples = _sparse_row_means(
-            X_csr.data, X_csr.indptr, n_samples
-        )
-        median_intensity_samples = _sparse_row_medians(
-            X_csr.data, X_csr.indptr, n_samples
-        )
+        mean_intensity_samples = _sparse_row_means(X_csr.data, X_csr.indptr, n_samples)
+        median_intensity_samples = _sparse_row_medians(X_csr.data, X_csr.indptr, n_samples)
 
         # Feature metrics - vectorized where possible
         n_detected_features = np.diff(X_csc.indptr)
         prevalence_features = n_detected_features / n_samples
-        total_intensity_features = np.array(X_csc.sum(axis=0)).flatten()
+        np.array(X_csc.sum(axis=0)).flatten()
 
         mean_intensity_features = np.zeros(n_features)
         variance_features = np.zeros(n_features)
@@ -969,7 +962,7 @@ def calculate_qc_metrics(
                 variance_features[j] = np.var(col_data)
     else:
         # Dense matrix operations - fully vectorized
-        detected_mask = X > detection_threshold
+        detected_mask = detection_threshold < X
 
         # Sample metrics
         n_detected_samples = detected_mask.sum(axis=1)
@@ -986,7 +979,7 @@ def calculate_qc_metrics(
         # Feature metrics - fully vectorized
         n_detected_features = detected_mask.sum(axis=0)
         prevalence_features = n_detected_features / n_samples
-        total_intensity_features = X.sum(axis=0)
+        X.sum(axis=0)
 
         # Transpose mask for column-wise operations
         X_masked_t = np.where(detected_mask.T, X.T, np.nan)
@@ -1046,14 +1039,18 @@ if __name__ == "__main__":
     # Create container
     import polars as pl
 
-    obs = pl.DataFrame({
-        "_index": [f"sample_{i}" for i in range(n_samples)],
-    })
+    obs = pl.DataFrame(
+        {
+            "_index": [f"sample_{i}" for i in range(n_samples)],
+        }
+    )
 
-    var = pl.DataFrame({
-        "_index": [f"protein_{i}" for i in range(n_features)],
-        "name": [f"KRT{i}" if i < 5 else f"PROT{i}" for i in range(n_features)],
-    })
+    var = pl.DataFrame(
+        {
+            "_index": [f"protein_{i}" for i in range(n_features)],
+            "name": [f"KRT{i}" if i < 5 else f"PROT{i}" for i in range(n_features)],
+        }
+    )
 
     from scptensor.core.structures import Assay, ScpMatrix
 
@@ -1133,7 +1130,9 @@ if __name__ == "__main__":
         container, assay_name="protein", max_missing_rate=0.2, inplace=True
     )
     assert container_filtered.assays["protein"].n_features < original_n_features
-    print(f"  Features reduced from {original_n_features} to {container_filtered.assays['protein'].n_features}")
+    print(
+        f"  Features reduced from {original_n_features} to {container_filtered.assays['protein'].n_features}"
+    )
 
     # Test 10: Inplace sample filtering
     print("Test 10: Inplace sample filtering")
@@ -1150,7 +1149,7 @@ if __name__ == "__main__":
         container, assay_name="protein", top_n=20, inplace=True
     )
     assert container_top_n.assays["protein"].n_features == 20
-    print(f"  Kept top 20 features by variance")
+    print("  Kept top 20 features by variance")
 
     # Test 12: Sparse matrix support
     print("Test 12: Sparse matrix support")

@@ -20,12 +20,11 @@ import scipy.sparse as sp
 from scptensor.core.exceptions import (
     AssayNotFoundError,
     MissingDependencyError,
-    ScpTensorError,
     ValidationError,
 )
 from scptensor.core.structures import (
-    Assay,
     AggregationLink,
+    Assay,
     MaskCode,
     MatrixMetadata,
     ProvenanceLog,
@@ -228,9 +227,7 @@ def save_csv(
 
         # Check if layer exists
         if layer_name not in assay.layers:
-            raise ValidationError(
-                f"Layer '{layer_name}' not found in assay '{assay_name}'"
-            )
+            raise ValidationError(f"Layer '{layer_name}' not found in assay '{assay_name}'")
 
         matrix = assay.layers[layer_name]
 
@@ -309,7 +306,7 @@ def load_csv(
     if not metadata_path.exists():
         raise ValidationError(f"metadata.json not found in {path}")
 
-    with open(metadata_path, "r") as f:
+    with open(metadata_path) as f:
         metadata = json.load(f)
 
     # Load obs
@@ -352,11 +349,11 @@ def load_csv(
 
         # Extract feature IDs from var
         feature_id_col = "_index" if "_index" in var.columns else var.columns[0]
-        feature_ids = var[feature_id_col].to_list()
+        var[feature_id_col].to_list()
 
         # Build data matrix
         # First column is sample IDs, rest are features
-        sample_col = data_df.columns[0]
+        data_df.columns[0]
         X_data = data_df.select(data_df.columns[1:]).to_numpy().astype(np.float64)
 
         # Load mask if present
@@ -445,9 +442,7 @@ def save_h5ad(
 
     # Check if layer exists
     if layer_name not in assay.layers:
-        raise ValidationError(
-            f"Layer '{layer_name}' not found in assay '{assay_name}'"
-        )
+        raise ValidationError(f"Layer '{layer_name}' not found in assay '{assay_name}'")
 
     matrix = assay.layers[layer_name]
 
@@ -489,6 +484,7 @@ def save_h5ad(
             for log in container.history
         ]
         import json as _json
+
         adata.uns["scptensor_history_json"] = _json.dumps(history_dicts)
         adata.uns["scptensor_assay_name"] = assay_name
         adata.uns["scptensor_layer_name"] = layer_name
@@ -581,6 +577,7 @@ def load_h5ad(path: str | Path, *, assay_name: str = "imported") -> ScpContainer
     history = []
     if "scptensor_history_json" in adata.uns:
         import json as _json
+
         history_list = _json.loads(adata.uns["scptensor_history_json"])
         for log_entry in history_list:
             history.append(
@@ -670,7 +667,9 @@ def save_npz(
                 layer_info["X"] = _sparse_to_dict(matrix.X)
                 layer_info["X_is_sparse"] = True
             else:
-                layer_info["X"] = matrix.X.tolist() if isinstance(matrix.X, np.ndarray) else matrix.X
+                layer_info["X"] = (
+                    matrix.X.tolist() if isinstance(matrix.X, np.ndarray) else matrix.X
+                )
                 layer_info["X_is_sparse"] = False
 
             # Handle M
@@ -679,7 +678,9 @@ def save_npz(
                     layer_info["M"] = _sparse_to_dict(matrix.M)
                     layer_info["M_is_sparse"] = True
                 else:
-                    layer_info["M"] = matrix.M.tolist() if isinstance(matrix.M, np.ndarray) else matrix.M
+                    layer_info["M"] = (
+                        matrix.M.tolist() if isinstance(matrix.M, np.ndarray) else matrix.M
+                    )
                     layer_info["M_is_sparse"] = False
             else:
                 layer_info["M"] = None
@@ -774,7 +775,9 @@ def save_npz(
         save_dict["links"] = links_list
 
     # Save as NPZ
-    metadata_json = json.dumps(save_dict, default=lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+    metadata_json = json.dumps(
+        save_dict, default=lambda x: x.tolist() if isinstance(x, np.ndarray) else x
+    )
 
     npz_dict: dict[str, Any] = {
         _NPZ_METADATA_KEY: np.array(metadata_json, dtype=object),
@@ -821,7 +824,7 @@ def load_npz(path: str | Path) -> ScpContainer:
     data: dict[str, Any] = json.loads(metadata_json)
 
     # Check version
-    version = data.get(_NPZ_VERSION_KEY, "0.0.0")
+    data.get(_NPZ_VERSION_KEY, "0.0.0")
 
     # Deserialize obs
     obs_json = data[_NPZ_OBS_KEY]
@@ -846,13 +849,11 @@ def load_npz(path: str | Path) -> ScpContainer:
     for key, value in data.items():
         if key.startswith(_NPZ_ASSAYS_PREFIX) and key.endswith("_var"):
             # Extract assay name
-            assay_name = key[len(_NPZ_ASSAYS_PREFIX): -len("_var")]
+            assay_name = key[len(_NPZ_ASSAYS_PREFIX) : -len("_var")]
 
             # Get var
             var = _deserialize_dataframe(value)
-            feature_id_col = data.get(
-                f"{_NPZ_ASSAYS_PREFIX}{assay_name}_feature_id_col", "_index"
-            )
+            feature_id_col = data.get(f"{_NPZ_ASSAYS_PREFIX}{assay_name}_feature_id_col", "_index")
 
             # Get layers
             layers_dict = data.get(f"{_NPZ_ASSAYS_PREFIX}{assay_name}_layers", {})
@@ -1004,7 +1005,7 @@ def _create_test_container() -> ScpContainer:
 
 
 def from_scanpy(
-    adata: "ad.AnnData",
+    adata: ad.AnnData,
     assay_name: str = "proteins",
     layer_name: str = "X",
     copy: bool = True,
@@ -1154,7 +1155,7 @@ def to_scanpy(
     container: ScpContainer,
     assay_name: str | None = None,
     layer_name: str = "X",
-) -> "ad.AnnData":
+) -> ad.AnnData:
     """Convert ScpTensor ScpContainer to Scanpy AnnData.
 
     This function converts a ScpContainer to AnnData format for
@@ -1358,8 +1359,8 @@ def write_h5ad(
 
 
 if __name__ == "__main__":
-    import tempfile
     import sys
+    import tempfile
 
     print("Testing ScpTensor I/O functions...")
     print()
@@ -1383,9 +1384,7 @@ if __name__ == "__main__":
 
         # Verify
         assert loaded.n_samples == container.n_samples
-        assert loaded.assays["proteins"].n_features == container.assays[
-            "proteins"
-        ].n_features
+        assert loaded.assays["proteins"].n_features == container.assays["proteins"].n_features
         assert len(loaded.history) == len(container.history)
         print("  CSV round-trip verified")
     print()
@@ -1405,9 +1404,7 @@ if __name__ == "__main__":
 
         # Verify
         assert loaded.n_samples == container.n_samples
-        assert loaded.assays["proteins"].n_features == container.assays[
-            "proteins"
-        ].n_features
+        assert loaded.assays["proteins"].n_features == container.assays["proteins"].n_features
         assert len(loaded.history) == len(container.history)
         print("  NPZ round-trip verified")
     print()
@@ -1430,9 +1427,10 @@ if __name__ == "__main__":
             assert loaded.n_samples == container.n_samples
             # Get the first (and only) assay from loaded
             loaded_assay_name = list(loaded.assays.keys())[0]
-            assert loaded.assays[loaded_assay_name].n_features == container.assays[
-                "proteins"
-            ].n_features
+            assert (
+                loaded.assays[loaded_assay_name].n_features
+                == container.assays["proteins"].n_features
+            )
             print("  h5ad round-trip verified")
     except MissingDependencyError:
         print("  Skipped (anndata not installed)")
@@ -1466,9 +1464,7 @@ if __name__ == "__main__":
         container_sparse = ScpContainer(
             obs=obs_sparse,
             assays={
-                "proteins": Assay(
-                    var=var_sparse, layers={"X": ScpMatrix(X=X_sparse, M=M_sparse)}
-                )
+                "proteins": Assay(var=var_sparse, layers={"X": ScpMatrix(X=X_sparse, M=M_sparse)})
             },
         )
 
@@ -1635,9 +1631,10 @@ if __name__ == "__main__":
             print("  Testing round-trip conversion...")
             container_back = from_scanpy(adata_converted, assay_name="round_trip")
             assert container_back.n_samples == container.n_samples
-            assert container_back.assays["round_trip"].n_features == container.assays[
-                "test_proteins"
-            ].n_features
+            assert (
+                container_back.assays["round_trip"].n_features
+                == container.assays["test_proteins"].n_features
+            )
             print("    Round-trip conversion successful")
 
             # Test read_h5ad and write_h5ad

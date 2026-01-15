@@ -4,7 +4,6 @@ Metrics computation for benchmark evaluation.
 
 import time
 from contextlib import contextmanager
-from functools import lru_cache
 from typing import Any
 
 import numpy as np
@@ -16,7 +15,6 @@ from sklearn.metrics import adjusted_rand_score, silhouette_score
 from scptensor.core import MatrixOps, ScpContainer
 
 from .core import BiologicalMetrics, ComputationalMetrics, TechnicalMetrics
-
 
 # Constants for default values
 _DEFAULT_SCALE = 1.0
@@ -40,8 +38,8 @@ def _track_resources():
     try:
         yield
     finally:
-        runtime = time.time() - start_time
-        memory = process.memory_info().rss / 1024 / 1024 - start_memory
+        time.time() - start_time
+        process.memory_info().rss / 1024 / 1024 - start_memory
 
 
 class MetricsEngine:
@@ -130,9 +128,7 @@ class MetricsEngine:
             sparsity_preservation=_compute_sparsity_preservation(input_matrix, output_matrix),
             batch_mixing_score=_compute_batch_mixing(output_container, layer_name),
             signal_to_noise_ratio=_compute_signal_to_noise(output_matrix),
-            missing_value_pattern_score=_compute_missing_pattern_score(
-                input_matrix, output_matrix
-            ),
+            missing_value_pattern_score=_compute_missing_pattern_score(input_matrix, output_matrix),
         )
 
     def evaluate_biological(
@@ -237,8 +233,9 @@ def _compute_variance_preservation(input_matrix: Any, output_matrix: Any) -> flo
         pca_input.fit(input_X)
         pca_output.fit(output_X)
 
-        min_comp = min(len(pca_input.explained_variance_ratio_),
-                       len(pca_output.explained_variance_ratio_))
+        min_comp = min(
+            len(pca_input.explained_variance_ratio_), len(pca_output.explained_variance_ratio_)
+        )
 
         if min_comp == 0:
             return 0.0
@@ -402,7 +399,7 @@ def _compute_biological_variance_explained(
             n_group = np.sum(mask)
             between_var += (group_mean - overall_mean) ** 2 * n_group
 
-        between_var /= (total_n - 1)
+        between_var /= total_n - 1
 
         # Within-group variance
         within_var = 0.0
@@ -412,7 +409,7 @@ def _compute_biological_variance_explained(
             n_group = np.sum(mask)
             within_var += group_var * (n_group - 1)
 
-        within_var /= (total_n - len(unique_groups))
+        within_var /= total_n - len(unique_groups)
 
         total_var = between_var + within_var
         return (between_var / total_var) if total_var > 0 else 0.0

@@ -14,13 +14,12 @@ from __future__ import annotations
 
 import numpy as np
 import polars as pl
-import scipy.sparse as sp
 import pytest
+import scipy.sparse as sp
 
-from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
 from scptensor.core.exceptions import ValueError as ScpValueError
-
+from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
 # =============================================================================
 # Pytest markers for sparse matrix tests
@@ -30,7 +29,7 @@ from scptensor.core.exceptions import ValueError as ScpValueError
 sparse_unsupported = pytest.mark.skipif(
     True,
     reason="Sparse matrices are not yet supported by normalization functions. "
-          "They will be converted to dense internally or raise an error."
+    "They will be converted to dense internally or raise an error.",
 )
 
 
@@ -63,17 +62,21 @@ def create_normalization_test_container(
     rng = np.random.default_rng(seed)
 
     # Create sample metadata
-    obs = pl.DataFrame({
-        "_index": [f"sample_{i}" for i in range(n_samples)],
-        "batch": rng.choice(["A", "B"], n_samples),
-        "condition": rng.choice(["control", "treatment"], n_samples),
-    })
+    obs = pl.DataFrame(
+        {
+            "_index": [f"sample_{i}" for i in range(n_samples)],
+            "batch": rng.choice(["A", "B"], n_samples),
+            "condition": rng.choice(["control", "treatment"], n_samples),
+        }
+    )
 
     # Create feature metadata
-    var = pl.DataFrame({
-        "_index": [f"protein_{i}" for i in range(n_features)],
-        "mean_intensity": rng.uniform(10, 30, n_features),
-    })
+    var = pl.DataFrame(
+        {
+            "_index": [f"protein_{i}" for i in range(n_features)],
+            "mean_intensity": rng.uniform(10, 30, n_features),
+        }
+    )
 
     # Create data matrix with different scales per sample
     # This helps test normalization effectiveness
@@ -97,11 +100,7 @@ def create_normalization_test_container(
         M = None
 
     # Create assay
-    assay = Assay(
-        var=var,
-        layers={"raw": ScpMatrix(X=X, M=M)},
-        feature_id_col="_index"
-    )
+    assay = Assay(var=var, layers={"raw": ScpMatrix(X=X, M=M)}, feature_id_col="_index")
 
     return ScpContainer(obs=obs, assays={"protein": assay}, sample_id_col="_index")
 
@@ -182,10 +181,7 @@ class TestMedianCentering:
         container = create_normalization_test_container(seed=42)
 
         result = median_centering(
-            container,
-            assay_name="protein",
-            base_layer_name="raw",
-            new_layer_name="custom_centered"
+            container, assay_name="protein", base_layer_name="raw", new_layer_name="custom_centered"
         )
 
         assert "custom_centered" in result.assays["protein"].layers
@@ -195,10 +191,7 @@ class TestMedianCentering:
         """Test median centering with None as layer name (uses default)."""
         container = create_normalization_test_container(seed=42)
 
-        result = median_centering(
-            container,
-            new_layer_name=None
-        )
+        result = median_centering(container, new_layer_name=None)
 
         assert "median_centered" in result.assays["protein"].layers
 
@@ -245,8 +238,11 @@ class TestMedianCentering:
         """Test that original container is not modified."""
         container = create_normalization_test_container(seed=42)
 
-        original_X = container.assays["protein"].layers["raw"].X.copy().toarray() if sp.issparse(
-            container.assays["protein"].layers["raw"].X) else container.assays["protein"].layers["raw"].X.copy()
+        original_X = (
+            container.assays["protein"].layers["raw"].X.copy().toarray()
+            if sp.issparse(container.assays["protein"].layers["raw"].X)
+            else container.assays["protein"].layers["raw"].X.copy()
+        )
 
         result = median_centering(container)
 
@@ -274,11 +270,13 @@ class TestMedianCentering:
         obs = pl.DataFrame({"_index": ["s1", "s2", "s3"]})
         var = pl.DataFrame({"_index": ["p1", "p2", "p3"]})
 
-        X = np.array([
-            [10.0, 20.0, 30.0],
-            [0.0, 0.0, 0.0],
-            [15.0, 25.0, 35.0],
-        ])
+        X = np.array(
+            [
+                [10.0, 20.0, 30.0],
+                [0.0, 0.0, 0.0],
+                [15.0, 25.0, 35.0],
+            ]
+        )
 
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
         container = ScpContainer(obs=obs, assays={"protein": assay})
@@ -378,10 +376,7 @@ class TestMedianScaling:
         container = create_normalization_test_container(seed=42)
 
         result = median_scaling(
-            container,
-            assay_name="protein",
-            base_layer_name="raw",
-            new_layer_name="custom_scaled"
+            container, assay_name="protein", base_layer_name="raw", new_layer_name="custom_scaled"
         )
 
         assert "custom_scaled" in result.assays["protein"].layers
@@ -427,8 +422,11 @@ class TestMedianScaling:
         """Test that original container is not modified."""
         container = create_normalization_test_container(seed=42)
 
-        original_X = container.assays["protein"].layers["raw"].X.copy().toarray() if sp.issparse(
-            container.assays["protein"].layers["raw"].X) else container.assays["protein"].layers["raw"].X.copy()
+        original_X = (
+            container.assays["protein"].layers["raw"].X.copy().toarray()
+            if sp.issparse(container.assays["protein"].layers["raw"].X)
+            else container.assays["protein"].layers["raw"].X.copy()
+        )
 
         median_scaling(container, "protein", "raw")
 
@@ -519,7 +517,7 @@ class TestGlobalMedianNormalization:
             container,
             assay_name="protein",
             base_layer_name="raw",
-            new_layer_name="custom_global_norm"
+            new_layer_name="custom_global_norm",
         )
 
         assert "custom_global_norm" in result.assays["protein"].layers
@@ -565,8 +563,11 @@ class TestGlobalMedianNormalization:
         """Test that original container is not modified."""
         container = create_normalization_test_container(seed=42)
 
-        original_X = container.assays["protein"].layers["raw"].X.copy().toarray() if sp.issparse(
-            container.assays["protein"].layers["raw"].X) else container.assays["protein"].layers["raw"].X.copy()
+        original_X = (
+            container.assays["protein"].layers["raw"].X.copy().toarray()
+            if sp.issparse(container.assays["protein"].layers["raw"].X)
+            else container.assays["protein"].layers["raw"].X.copy()
+        )
 
         global_median_normalization(container)
 
@@ -581,11 +582,13 @@ class TestGlobalMedianNormalization:
         obs = pl.DataFrame({"_index": ["s1", "s2", "s3"]})
         var = pl.DataFrame({"_index": ["p1", "p2", "p3"]})
 
-        X = np.array([
-            [10.0, 20.0, 30.0],  # median = 20
-            [20.0, 30.0, 40.0],  # median = 30
-            [15.0, 25.0, 35.0],  # median = 25
-        ])
+        X = np.array(
+            [
+                [10.0, 20.0, 30.0],  # median = 20
+                [20.0, 30.0, 40.0],  # median = 30
+                [15.0, 25.0, 35.0],  # median = 25
+            ]
+        )
         # Global median = 25
 
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
@@ -597,11 +600,13 @@ class TestGlobalMedianNormalization:
 
         # Expected biases: [20-25=-5, 30-25=5, 25-25=0]
         # Expected result: X - bias
-        expected = np.array([
-            [15.0, 25.0, 35.0],  # 10-(-5)=15, 20-(-5)=25, 30-(-5)=35
-            [15.0, 25.0, 35.0],  # 20-5=15, 30-5=25, 40-5=35
-            [15.0, 25.0, 35.0],  # 15-0=15, 25-0=25, 35-0=35
-        ])
+        expected = np.array(
+            [
+                [15.0, 25.0, 35.0],  # 10-(-5)=15, 20-(-5)=25, 30-(-5)=35
+                [15.0, 25.0, 35.0],  # 20-5=15, 30-5=25, 40-5=35
+                [15.0, 25.0, 35.0],  # 15-0=15, 25-0=25, 35-0=35
+            ]
+        )
 
         assert np.allclose(X_norm, expected)
 
@@ -683,7 +688,7 @@ class TestSampleMeanNormalization:
             container,
             assay_name="protein",
             base_layer_name="raw",
-            new_layer_name="custom_mean_norm"
+            new_layer_name="custom_mean_norm",
         )
 
         assert "custom_mean_norm" in result.assays["protein"].layers
@@ -730,8 +735,11 @@ class TestSampleMeanNormalization:
         """Test that original container is not modified."""
         container = create_normalization_test_container(seed=42)
 
-        original_X = container.assays["protein"].layers["raw"].X.copy().toarray() if sp.issparse(
-            container.assays["protein"].layers["raw"].X) else container.assays["protein"].layers["raw"].X.copy()
+        original_X = (
+            container.assays["protein"].layers["raw"].X.copy().toarray()
+            if sp.issparse(container.assays["protein"].layers["raw"].X)
+            else container.assays["protein"].layers["raw"].X.copy()
+        )
 
         sample_mean_normalization(container)
 
@@ -839,7 +847,7 @@ class TestSampleMedianNormalization:
             container,
             assay_name="protein",
             base_layer_name="raw",
-            new_layer_name="custom_median_norm"
+            new_layer_name="custom_median_norm",
         )
 
         assert "custom_median_norm" in result.assays["protein"].layers
@@ -848,10 +856,7 @@ class TestSampleMedianNormalization:
         """Test sample median normalization with None as layer name."""
         container = create_normalization_test_container(seed=42)
 
-        result = sample_median_normalization(
-            container,
-            new_layer_name=None
-        )
+        result = sample_median_normalization(container, new_layer_name=None)
 
         # Should use default name
         assert "sample_median_norm" in result.assays["protein"].layers
@@ -898,8 +903,11 @@ class TestSampleMedianNormalization:
         """Test that original container is not modified."""
         container = create_normalization_test_container(seed=42)
 
-        original_X = container.assays["protein"].layers["raw"].X.copy().toarray() if sp.issparse(
-            container.assays["protein"].layers["raw"].X) else container.assays["protein"].layers["raw"].X.copy()
+        original_X = (
+            container.assays["protein"].layers["raw"].X.copy().toarray()
+            if sp.issparse(container.assays["protein"].layers["raw"].X)
+            else container.assays["protein"].layers["raw"].X.copy()
+        )
 
         sample_median_normalization(container)
 
@@ -1021,10 +1029,7 @@ class TestUpperQuartileNormalization:
         container = create_normalization_test_container(seed=42)
 
         result = upper_quartile_normalization(
-            container,
-            assay_name="protein",
-            base_layer_name="raw",
-            new_layer_name="custom_uq_norm"
+            container, assay_name="protein", base_layer_name="raw", new_layer_name="custom_uq_norm"
         )
 
         assert "custom_uq_norm" in result.assays["protein"].layers
@@ -1087,8 +1092,11 @@ class TestUpperQuartileNormalization:
         """Test that original container is not modified."""
         container = create_normalization_test_container(seed=42)
 
-        original_X = container.assays["protein"].layers["raw"].X.copy().toarray() if sp.issparse(
-            container.assays["protein"].layers["raw"].X) else container.assays["protein"].layers["raw"].X.copy()
+        original_X = (
+            container.assays["protein"].layers["raw"].X.copy().toarray()
+            if sp.issparse(container.assays["protein"].layers["raw"].X)
+            else container.assays["protein"].layers["raw"].X.copy()
+        )
 
         upper_quartile_normalization(container)
 
@@ -1102,11 +1110,13 @@ class TestUpperQuartileNormalization:
         obs = pl.DataFrame({"_index": ["s1", "s2", "s3"]})
         var = pl.DataFrame({"_index": ["p1", "p2", "p3", "p4"]})
 
-        X = np.array([
-            [10.0, 20.0, 30.0, 40.0],  # UQ = 32.5
-            [0.0, 0.0, 0.0, 0.0],     # UQ = 0
-            [15.0, 25.0, 35.0, 45.0],  # UQ = 40
-        ])
+        X = np.array(
+            [
+                [10.0, 20.0, 30.0, 40.0],  # UQ = 32.5
+                [0.0, 0.0, 0.0, 0.0],  # UQ = 0
+                [15.0, 25.0, 35.0, 45.0],  # UQ = 40
+            ]
+        )
 
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
         container = ScpContainer(obs=obs, assays={"protein": assay})
@@ -1205,10 +1215,7 @@ class TestTMMNormalization:
         container = create_normalization_test_container(seed=42)
 
         result = tmm_normalization(
-            container,
-            assay_name="protein",
-            base_layer_name="raw",
-            new_layer_name="custom_tmm"
+            container, assay_name="protein", base_layer_name="raw", new_layer_name="custom_tmm"
         )
 
         assert "custom_tmm" in result.assays["protein"].layers
@@ -1270,8 +1277,11 @@ class TestTMMNormalization:
         """Test that original container is not modified."""
         container = create_normalization_test_container(seed=42)
 
-        original_X = container.assays["protein"].layers["raw"].X.copy().toarray() if sp.issparse(
-            container.assays["protein"].layers["raw"].X) else container.assays["protein"].layers["raw"].X.copy()
+        original_X = (
+            container.assays["protein"].layers["raw"].X.copy().toarray()
+            if sp.issparse(container.assays["protein"].layers["raw"].X)
+            else container.assays["protein"].layers["raw"].X.copy()
+        )
 
         tmm_normalization(container)
 
@@ -1285,10 +1295,12 @@ class TestTMMNormalization:
         obs = pl.DataFrame({"_index": ["s1", "s2"]})
         var = pl.DataFrame({"_index": ["p1", "p2", "p3", "p4"]})
 
-        X = np.array([
-            [10.0, 20.0, 0.0, 40.0],
-            [0.0, 20.0, 30.0, 0.0],
-        ])
+        X = np.array(
+            [
+                [10.0, 20.0, 0.0, 40.0],
+                [0.0, 20.0, 30.0, 0.0],
+            ]
+        )
 
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
         container = ScpContainer(obs=obs, assays={"protein": assay})
@@ -1353,14 +1365,13 @@ class TestTMMNormalization:
 # =============================================================================
 
 
+from scptensor.normalization.global_median import global_median_normalization
 from scptensor.normalization.median_centering import median_centering
 from scptensor.normalization.median_scaling import median_scaling
-from scptensor.normalization.global_median import global_median_normalization
 from scptensor.normalization.sample_mean import sample_mean_normalization
 from scptensor.normalization.sample_median import sample_median_normalization
-from scptensor.normalization.upper_quartile import upper_quartile_normalization
 from scptensor.normalization.tmm import tmm_normalization
-
+from scptensor.normalization.upper_quartile import upper_quartile_normalization
 
 # =============================================================================
 # Run All Tests (for direct execution)

@@ -23,13 +23,13 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from scptensor.core import (
-    is_sparse_matrix,
-    get_sparsity_ratio,
-    to_sparse_if_beneficial,
-    get_memory_usage,
-    ScpMatrix,
     MaskCode,
     MatrixOps,
+    ScpMatrix,
+    get_memory_usage,
+    get_sparsity_ratio,
+    is_sparse_matrix,
+    to_sparse_if_beneficial,
 )
 
 # Type aliases for clarity
@@ -59,7 +59,7 @@ def demo_sparse_conversion() -> None:
     # Auto-convert
     X_sparse = to_sparse_if_beneficial(X_dense, threshold=0.5)
 
-    print(f"\nAfter auto-conversion:")
+    print("\nAfter auto-conversion:")
     print(f"  Format: {'Sparse' if is_sparse_matrix(X_sparse) else 'Dense'}")
 
     # Memory comparison
@@ -97,7 +97,9 @@ def demo_matrix_ops_optimization() -> None:
     tests = [
         (
             "Marking values as imputed",
-            lambda m: MatrixOps.mark_values(m, (np.array([0, 10]), np.array([0, 10])), MaskCode.IMPUTED),
+            lambda m: MatrixOps.mark_values(
+                m, (np.array([0, 10]), np.array([0, 10])), MaskCode.IMPUTED
+            ),
             lambda r: r.M,
         ),
         (
@@ -145,7 +147,7 @@ def demo_realistic_scp_pipeline() -> None:
     mem_sparse = get_memory_usage(X)["nbytes"]
     mem_dense = n_cells * n_proteins * 8  # float64
 
-    print(f"\nMemory usage:")
+    print("\nMemory usage:")
     print(f"  Sparse: {mem_sparse / 1024 / 1024:.2f} MB")
     print(f"  Dense:  {mem_dense / 1024 / 1024:.2f} MB")
     print(f"  Savings: {(1 - mem_sparse / mem_dense) * 100:.1f}%")

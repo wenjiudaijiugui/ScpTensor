@@ -10,8 +10,7 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
-from scptensor.core.exceptions import ScpValueError
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.core.utils import requires_dependency
@@ -119,8 +118,7 @@ def harmony(
     obs_df = container.obs
     if batch_key not in obs_df.columns:
         raise ScpValueError(
-            f"Batch key '{batch_key}' not found in obs. "
-            f"Available columns: {list(obs_df.columns)}",
+            f"Batch key '{batch_key}' not found in obs. Available columns: {list(obs_df.columns)}",
             parameter="batch_key",
             value=batch_key,
         )
@@ -235,10 +233,12 @@ if __name__ == "__main__":
 
     # Create container
     var = pl.DataFrame({"_index": [f"pc_{i}" for i in range(n_features)]})
-    obs = pl.DataFrame({
-        "_index": [f"cell_{i}" for i in range(2 * n_samples_per_batch)],
-        "batch": ["batch1"] * n_samples_per_batch + ["batch2"] * n_samples_per_batch,
-    })
+    obs = pl.DataFrame(
+        {
+            "_index": [f"cell_{i}" for i in range(2 * n_samples_per_batch)],
+            "batch": ["batch1"] * n_samples_per_batch + ["batch2"] * n_samples_per_batch,
+        }
+    )
 
     assay = Assay(var=var)
     assay.add_layer("pca", ScpMatrix(X=X, M=None))

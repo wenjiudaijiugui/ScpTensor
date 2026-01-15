@@ -146,11 +146,10 @@ def scatter(
 
     # Determine if color is categorical for colormap selection
     is_categorical = False
-    if isinstance(color_values, np.ndarray):
-        if (
-            color_values.dtype.kind in {"U", "S", "O"} or color_values.dtype == pl.String
-        ):  # String types
-            is_categorical = True
+    if isinstance(color_values, np.ndarray) and (
+        color_values.dtype.kind in {"U", "S", "O"} or color_values.dtype == pl.String
+    ):  # String types
+        is_categorical = True
 
     # Create scatter plot
     if show_missing_values and mask is not None and mask.sum() > 0:

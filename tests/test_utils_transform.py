@@ -58,8 +58,7 @@ class TestAsinhTransform:
         """Test asinh transform on positive values."""
         result = asinh_transform(positive_data, cofactor=5.0)
         # asinh should preserve ordering for positive values
-        assert np.all(np.argsort(positive_data.ravel()) ==
-                     np.argsort(result.ravel()))
+        assert np.all(np.argsort(positive_data.ravel()) == np.argsort(result.ravel()))
         # All values should be positive
         assert np.all(result > 0)
 
@@ -264,7 +263,7 @@ class TestQuantileNormalize:
     def test_quantile_normalize_copy(self, sample_data):
         """Test that copy=True preserves original."""
         original = sample_data.copy()
-        result = quantile_normalize(sample_data, copy=True)
+        quantile_normalize(sample_data, copy=True)
         assert np.allclose(sample_data, original)
 
     def test_quantile_normalize_axis_0(self, sample_data):
@@ -275,9 +274,7 @@ class TestQuantileNormalize:
         sorted_result = np.sort(result, axis=0)
         # All columns should have identical sorted values
         for i in range(1, sorted_result.shape[1]):
-            np.testing.assert_array_almost_equal(
-                sorted_result[:, 0], sorted_result[:, i]
-            )
+            np.testing.assert_array_almost_equal(sorted_result[:, 0], sorted_result[:, i])
 
     def test_quantile_normalize_axis_1(self, sample_data):
         """Test quantile normalization along axis 1 (rows)."""
@@ -286,9 +283,7 @@ class TestQuantileNormalize:
         sorted_result = np.sort(result, axis=1)
         # All rows should have identical sorted values
         for i in range(1, sorted_result.shape[0]):
-            np.testing.assert_array_almost_equal(
-                sorted_result[i, :], sorted_result[0, :]
-            )
+            np.testing.assert_array_almost_equal(sorted_result[i, :], sorted_result[0, :])
 
     def test_quantile_normalize_invalid_axis(self, sample_data):
         """Test that invalid axis raises ValueError."""
@@ -297,12 +292,15 @@ class TestQuantileNormalize:
 
     def test_quantile_normalize_simple_case(self):
         """Test quantile normalize with simple data."""
-        X = np.array([
-            [1, 5, 9],
-            [2, 6, 10],
-            [3, 7, 11],
-            [4, 8, 12],
-        ], dtype=float)
+        X = np.array(
+            [
+                [1, 5, 9],
+                [2, 6, 10],
+                [3, 7, 11],
+                [4, 8, 12],
+            ],
+            dtype=float,
+        )
         result = quantile_normalize(X, axis=0)
         # After normalization, all columns should be identical
         # Each column becomes the mean of sorted columns
@@ -327,12 +325,15 @@ class TestQuantileNormalize:
 
     def test_quantile_normalize_constant_column(self):
         """Test quantile normalize with a constant column."""
-        X = np.array([
-            [1, 5],
-            [1, 6],
-            [1, 7],
-            [1, 8],
-        ], dtype=float)
+        X = np.array(
+            [
+                [1, 5],
+                [1, 6],
+                [1, 7],
+                [1, 8],
+            ],
+            dtype=float,
+        )
         result = quantile_normalize(X, axis=0)
         # Should handle constant column gracefully
         assert result.shape == X.shape
@@ -353,11 +354,14 @@ class TestQuantileNormalize:
 
     def test_quantile_normalize_identical_columns(self):
         """Test quantile normalize with identical columns."""
-        X = np.array([
-            [1, 1, 1],
-            [2, 2, 2],
-            [3, 3, 3],
-        ], dtype=float)
+        X = np.array(
+            [
+                [1, 1, 1],
+                [2, 2, 2],
+                [3, 3, 3],
+            ],
+            dtype=float,
+        )
         result = quantile_normalize(X, axis=0)
         # Identical columns should remain identical
         assert np.allclose(result[:, 0], result[:, 1])
@@ -365,18 +369,19 @@ class TestQuantileNormalize:
 
     def test_quantile_normalize_negative_values(self):
         """Test quantile normalize with negative values."""
-        X = np.array([
-            [-10, 0, 10],
-            [-5, 5, 15],
-            [0, 10, 20],
-        ], dtype=float)
+        X = np.array(
+            [
+                [-10, 0, 10],
+                [-5, 5, 15],
+                [0, 10, 20],
+            ],
+            dtype=float,
+        )
         result = quantile_normalize(X, axis=0)
         assert result.shape == X.shape
         # Check columns have same distribution
         sorted_result = np.sort(result, axis=0)
-        np.testing.assert_array_almost_equal(
-            sorted_result[:, 0], sorted_result[:, 1]
-        )
+        np.testing.assert_array_almost_equal(sorted_result[:, 0], sorted_result[:, 1])
 
 
 class TestRobustScale:
@@ -430,10 +435,7 @@ class TestRobustScale:
 
     def test_robust_scale_no_centering(self, sample_data):
         """Test robust scale without centering."""
-        result = robust_scale(
-            sample_data, axis=0,
-            with_centering=False, with_scaling=True
-        )
+        result = robust_scale(sample_data, axis=0, with_centering=False, with_scaling=True)
         # Median should not necessarily be zero
         # But IQR should be close to 1
         q75 = np.percentile(result, 75, axis=0)
@@ -443,10 +445,7 @@ class TestRobustScale:
 
     def test_robust_scale_no_scaling(self, sample_data):
         """Test robust scale without scaling."""
-        result = robust_scale(
-            sample_data, axis=0,
-            with_centering=True, with_scaling=False
-        )
+        result = robust_scale(sample_data, axis=0, with_centering=True, with_scaling=False)
         # Median should be near zero
         medians = np.median(result, axis=0)
         assert np.allclose(medians, 0, atol=1e-10)
@@ -518,8 +517,8 @@ class TestRobustScale:
 
     def test_robust_scale_copy(self, sample_data):
         """Test that copy=True preserves original."""
-        original = sample_data.copy()
-        result = robust_scale(sample_data, copy=True)
+        sample_data.copy()
+        robust_scale(sample_data, copy=True)
         # Original might be modified if it's sparse
         if not sp.issparse(sample_data):
             # For dense, if copy=True, original should be preserved
@@ -528,11 +527,14 @@ class TestRobustScale:
 
     def test_robust_scale_negative_values(self):
         """Test robust scale with negative values."""
-        X = np.array([
-            [-10, -5, 0],
-            [-5, 0, 5],
-            [0, 5, 10],
-        ], dtype=float)
+        X = np.array(
+            [
+                [-10, -5, 0],
+                [-5, 0, 5],
+                [0, 5, 10],
+            ],
+            dtype=float,
+        )
         result = robust_scale(X, axis=0)
         assert np.all(np.isfinite(result))
         medians = np.median(result, axis=0)

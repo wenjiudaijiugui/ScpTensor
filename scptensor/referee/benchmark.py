@@ -115,8 +115,7 @@ class IntegrationReferee:
         if layer not in assay.layers:
             available = ", ".join(assay.layers.keys())
             raise ValueError(
-                f"Layer '{layer}' not found in assay '{assay_name}'. "
-                f"Available: {available}"
+                f"Layer '{layer}' not found in assay '{assay_name}'. Available: {available}"
             )
 
         # Extract data
@@ -191,9 +190,7 @@ class IntegrationReferee:
             return self._container.obs[key]
         except KeyError:
             available = ", ".join(self._container.obs.columns)
-            raise KeyError(
-                f"Column '{key}' not found in obs. Available: {available}"
-            ) from None
+            raise KeyError(f"Column '{key}' not found in obs. Available: {available}") from None
 
     def _is_valid_candidate(self, assay: str, layer: str) -> bool:
         """Check if candidate exists, logging failures."""

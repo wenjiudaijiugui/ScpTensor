@@ -17,7 +17,12 @@ import numpy as np
 import polars as pl
 import umap as umap_learn
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError, ValidationError
+from scptensor.core.exceptions import (
+    AssayNotFoundError,
+    LayerNotFoundError,
+    ScpValueError,
+    ValidationError,
+)
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
 if TYPE_CHECKING:
@@ -194,9 +199,7 @@ def umap(
     new_container.add_assay(new_assay_name, new_assay)
 
     # Log operation for provenance tracking
-    random_state_str = (
-        str(random_state) if isinstance(random_state, int) else "RandomState"
-    )
+    random_state_str = str(random_state) if isinstance(random_state, int) else "RandomState"
     new_container.log_operation(
         action="umap",
         params={

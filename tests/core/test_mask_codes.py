@@ -4,8 +4,8 @@ Tests for MaskCode enum and mask code operations.
 This module tests the provenance tracking system through mask codes.
 """
 
-import pytest
 import numpy as np
+import pytest
 from scipy import sparse
 
 from scptensor.core import MaskCode, ScpMatrix
@@ -101,7 +101,7 @@ class TestMaskCodeOperations:
         X = np.random.rand(3, 3)
         M = np.array([[0, 1, 2], [3, 0, 5], [6, 0, 0]], dtype=np.int8)
         matrix = ScpMatrix(X=X, M=M)
-        mask = (matrix.M == MaskCode.VALID)
+        mask = matrix.M == MaskCode.VALID
         expected = np.array([[True, False, False], [False, True, False], [False, True, True]])
         np.testing.assert_array_equal(mask, expected)
 
@@ -120,7 +120,7 @@ class TestMaskCodeOperations:
         X = np.random.rand(3, 3)
         M = np.array([[0, 1, 5], [3, 5, 0], [6, 0, 5]], dtype=np.int8)
         matrix = ScpMatrix(X=X, M=M)
-        imputed_mask = (matrix.M == MaskCode.IMPUTED)
+        imputed_mask = matrix.M == MaskCode.IMPUTED
         expected = np.array([[False, False, True], [False, True, False], [False, False, True]])
         np.testing.assert_array_equal(imputed_mask, expected)
 

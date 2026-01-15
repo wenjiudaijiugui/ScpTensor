@@ -232,8 +232,7 @@ def _handle_missing_values(
         return X_arr, None
 
     raise ValidationError(
-        f"Unknown missing value strategy: {strategy}. "
-        "Use 'ignore', 'zero', or 'median'.",
+        f"Unknown missing value strategy: {strategy}. Use 'ignore', 'zero', or 'median'.",
         field="strategy",
     )
 
@@ -432,9 +431,7 @@ def diff_expr_ttest(
         raise LayerNotFoundError(layer_name, assay_name)
 
     if group_col not in container.obs.columns:
-        raise ValidationError(
-            f"Group column '{group_col}' not found in obs", field="group_col"
-        )
+        raise ValidationError(f"Group column '{group_col}' not found in obs", field="group_col")
 
     groups = container.obs[group_col].to_numpy()
     group_indices = _extract_group_indices(groups, [group1, group2], min_samples_per_group)
@@ -581,9 +578,7 @@ def diff_expr_mannwhitney(
         raise LayerNotFoundError(layer_name, assay_name)
 
     if group_col not in container.obs.columns:
-        raise ValidationError(
-            f"Group column '{group_col}' not found in obs", field="group_col"
-        )
+        raise ValidationError(f"Group column '{group_col}' not found in obs", field="group_col")
 
     groups = container.obs[group_col].to_numpy()
     group_indices = _extract_group_indices(groups, [group1, group2], min_samples_per_group)
@@ -722,9 +717,7 @@ def diff_expr_anova(
         raise LayerNotFoundError(layer_name, assay_name)
 
     if group_col not in container.obs.columns:
-        raise ValidationError(
-            f"Group column '{group_col}' not found in obs", field="group_col"
-        )
+        raise ValidationError(f"Group column '{group_col}' not found in obs", field="group_col")
 
     groups = container.obs[group_col].to_numpy()
     unique_groups = groups[~_isna(groups)]
@@ -747,8 +740,12 @@ def diff_expr_anova(
     p_values = np.full(n_features, nan_value, dtype=np.float64)
     test_stats = np.full(n_features, nan_value, dtype=np.float64)
 
-    group_means = {f"{g}_mean": np.full(n_features, nan_value, dtype=np.float64) for g in unique_groups}
-    group_medians = {f"{g}_median": np.full(n_features, nan_value, dtype=np.float64) for g in unique_groups}
+    group_means = {
+        f"{g}_mean": np.full(n_features, nan_value, dtype=np.float64) for g in unique_groups
+    }
+    group_medians = {
+        f"{g}_median": np.full(n_features, nan_value, dtype=np.float64) for g in unique_groups
+    }
 
     for j in range(n_features):
         group_data: list[np.ndarray] | None = []
@@ -869,9 +866,7 @@ def diff_expr_kruskal(
         raise LayerNotFoundError(layer_name, assay_name)
 
     if group_col not in container.obs.columns:
-        raise ValidationError(
-            f"Group column '{group_col}' not found in obs", field="group_col"
-        )
+        raise ValidationError(f"Group column '{group_col}' not found in obs", field="group_col")
 
     groups = container.obs[group_col].to_numpy()
     unique_groups = groups[~_isna(groups)]
@@ -894,8 +889,12 @@ def diff_expr_kruskal(
     p_values = np.full(n_features, nan_value, dtype=np.float64)
     test_stats = np.full(n_features, nan_value, dtype=np.float64)
 
-    group_means = {f"{g}_mean": np.full(n_features, nan_value, dtype=np.float64) for g in unique_groups}
-    group_medians = {f"{g}_median": np.full(n_features, nan_value, dtype=np.float64) for g in unique_groups}
+    group_means = {
+        f"{g}_mean": np.full(n_features, nan_value, dtype=np.float64) for g in unique_groups
+    }
+    group_medians = {
+        f"{g}_median": np.full(n_features, nan_value, dtype=np.float64) for g in unique_groups
+    }
 
     for j in range(n_features):
         group_data: list[np.ndarray] | None = []

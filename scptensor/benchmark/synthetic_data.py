@@ -7,7 +7,6 @@ import polars as pl
 
 from scptensor.core.structures import Assay, MaskCode, ScpContainer, ScpMatrix
 
-
 # Constants
 _GROUP_PROTEIN_RATIO = 0.2
 _LOD_MISSING_RATIO = 0.6
@@ -132,12 +131,14 @@ class SyntheticDataset:
         groups = self._generate_groups()
         batches = self._generate_batches()
 
-        obs = pl.DataFrame({
-            "sample_id": sample_ids,
-            "group": groups,
-            "batch": batches,
-            "_index": sample_ids,
-        })
+        obs = pl.DataFrame(
+            {
+                "sample_id": sample_ids,
+                "group": groups,
+                "batch": batches,
+                "_index": sample_ids,
+            }
+        )
 
         X_true = self._generate_true_expression()
         X_effect = self._add_effects(X_true, groups, batches)
@@ -203,12 +204,8 @@ class SyntheticDataset:
         np.ndarray
             Expression matrix (n_samples x n_features).
         """
-        protein_means = np.random.lognormal(
-            mean=1, sigma=0.8, size=self.config.n_features
-        )
-        protein_vars = np.random.gamma(
-            shape=2, scale=0.3, size=self.config.n_features
-        )
+        protein_means = np.random.lognormal(mean=1, sigma=0.8, size=self.config.n_features)
+        protein_vars = np.random.gamma(shape=2, scale=0.3, size=self.config.n_features)
 
         X = np.empty((self.config.n_samples, self.config.n_features))
 
@@ -221,9 +218,7 @@ class SyntheticDataset:
 
         return X
 
-    def _add_effects(
-        self, X: np.ndarray, groups: list[str], batches: list[str]
-    ) -> np.ndarray:
+    def _add_effects(self, X: np.ndarray, groups: list[str], batches: list[str]) -> np.ndarray:
         """Add biological group and batch effects to expression data.
 
         Parameters
@@ -250,7 +245,10 @@ class SyntheticDataset:
 
         group_labels = [int(g.replace("Group", "")) - 1 for g in groups]
         for i, group_idx in enumerate(group_labels):
-            effect = 1.0 + (group_idx - self.config.n_groups / 2) * self.config.group_effect_strength * 0.1
+            effect = (
+                1.0
+                + (group_idx - self.config.n_groups / 2) * self.config.group_effect_strength * 0.1
+            )
             X_effect[i, group_indices] *= effect
 
         # Batch effects (for all proteins)
@@ -350,11 +348,13 @@ class SyntheticDataset:
             p=_CLASS_PROBABILITIES,
         )
 
-        return pl.DataFrame({
-            "protein_id": protein_ids,
-            "protein_class": protein_classes,
-            "_index": protein_ids,
-        })
+        return pl.DataFrame(
+            {
+                "protein_id": protein_ids,
+                "protein_class": protein_classes,
+                "_index": protein_ids,
+            }
+        )
 
     def get_ground_truth(self) -> dict[str, np.ndarray]:
         """Get ground truth information for validation.
@@ -386,10 +386,10 @@ def create_benchmark_datasets() -> list[ScpContainer]:
         List of synthetic datasets with varying characteristics.
     """
     configs = [
-        (50, 200, 2, 2, 0.2, 0.2, 0.5, 3.0, 42),   # Small, high signal
+        (50, 200, 2, 2, 0.2, 0.2, 0.5, 3.0, 42),  # Small, high signal
         (100, 500, 3, 3, 0.3, 0.2, 0.5, 2.0, 123),  # Medium, moderate
-        (200, 1000, 4, 4, 0.4, 0.2, 0.5, 1.5, 456), # Large, challenging
-        (150, 800, 2, 3, 0.35, 0.4, 0.5, 2.5, 789), # High batch effect
+        (200, 1000, 4, 4, 0.4, 0.2, 0.5, 1.5, 456),  # Large, challenging
+        (150, 800, 2, 3, 0.35, 0.4, 0.5, 2.5, 789),  # High batch effect
     ]
 
     datasets = []

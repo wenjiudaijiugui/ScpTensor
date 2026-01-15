@@ -4,10 +4,8 @@ Tests for ProvenanceLog and AggregationLink helper structures.
 This module contains tests for ProvenanceLog and AggregationLink functionality.
 """
 
-import pytest
-from datetime import datetime
-import numpy as np
 import polars as pl
+import pytest
 
 
 class TestProvenanceLog:
@@ -21,7 +19,7 @@ class TestProvenanceLog:
             timestamp="2025-01-06T10:00:00",
             action="normalize",
             params={"method": "log", "base": 2},
-            description="Log normalization"
+            description="Log normalization",
         )
 
         assert log.timestamp == "2025-01-06T10:00:00"
@@ -38,7 +36,7 @@ class TestProvenanceLog:
             action="impute",
             params={"method": "knn", "k": 5},
             software_version="0.1.0",
-            description="KNN imputation"
+            description="KNN imputation",
         )
 
         assert log.software_version == "0.1.0"
@@ -50,9 +48,7 @@ class TestProvenanceLog:
         from scptensor.core import ProvenanceLog
 
         log = ProvenanceLog(
-            timestamp="2025-01-06T10:00:00",
-            action="filter",
-            params={"threshold": 0.5}
+            timestamp="2025-01-06T10:00:00", action="filter", params={"threshold": 0.5}
         )
 
         assert log.action == "filter"
@@ -65,11 +61,7 @@ class TestProvenanceLog:
         log = ProvenanceLog(
             timestamp="2025-01-06T10:00:00",
             action="batch_correction",
-            params={
-                "method": "combat",
-                "batch_key": "batch",
-                "covariates": ["age", "gender"]
-            }
+            params={"method": "combat", "batch_key": "batch", "covariates": ["age", "gender"]},
         )
 
         assert len(log.params["covariates"]) == 2
@@ -83,16 +75,11 @@ class TestAggregationLink:
         """Test creating an AggregationLink between assays."""
         from scptensor.core import AggregationLink
 
-        linkage = pl.DataFrame({
-            "source_id": ["PEP1", "PEP2", "PEP3"],
-            "target_id": ["PROT1", "PROT1", "PROT2"]
-        })
-
-        link = AggregationLink(
-            source_assay="peptide",
-            target_assay="protein",
-            linkage=linkage
+        linkage = pl.DataFrame(
+            {"source_id": ["PEP1", "PEP2", "PEP3"], "target_id": ["PROT1", "PROT1", "PROT2"]}
         )
+
+        link = AggregationLink(source_assay="peptide", target_assay="protein", linkage=linkage)
 
         assert link.source_assay == "peptide"
         assert link.target_assay == "protein"
@@ -103,32 +90,28 @@ class TestAggregationLink:
         from scptensor.core import AggregationLink
 
         # Missing required column
-        invalid_linkage = pl.DataFrame({
-            "source_id": ["PEP1", "PEP2"]
-            # Missing "target_id"
-        })
+        invalid_linkage = pl.DataFrame(
+            {
+                "source_id": ["PEP1", "PEP2"]
+                # Missing "target_id"
+            }
+        )
 
         with pytest.raises(ValueError, match="must contain columns"):
-            AggregationLink(
-                source_assay="peptide",
-                target_assay="protein",
-                linkage=invalid_linkage
-            )
+            AggregationLink(source_assay="peptide", target_assay="protein", linkage=invalid_linkage)
 
     def test_aggregation_link_with_many_to_one(self):
         """Test AggregationLink with many-to-one mapping."""
         from scptensor.core import AggregationLink
 
-        linkage = pl.DataFrame({
-            "source_id": ["PEP1", "PEP2", "PEP3", "PEP4", "PEP5"],
-            "target_id": ["PROT1", "PROT1", "PROT2", "PROT2", "PROT3"]
-        })
-
-        link = AggregationLink(
-            source_assay="peptide",
-            target_assay="protein",
-            linkage=linkage
+        linkage = pl.DataFrame(
+            {
+                "source_id": ["PEP1", "PEP2", "PEP3", "PEP4", "PEP5"],
+                "target_id": ["PROT1", "PROT1", "PROT2", "PROT2", "PROT3"],
+            }
         )
+
+        link = AggregationLink(source_assay="peptide", target_assay="protein", linkage=linkage)
 
         assert link.source_assay == "peptide"
         assert len(link.linkage) == 5
@@ -141,16 +124,11 @@ class TestAggregationLink:
         """Test AggregationLink with one-to-one mapping."""
         from scptensor.core import AggregationLink
 
-        linkage = pl.DataFrame({
-            "source_id": ["TX1", "TX2", "TX3"],
-            "target_id": ["GENE1", "GENE2", "GENE3"]
-        })
-
-        link = AggregationLink(
-            source_assay="transcript",
-            target_assay="gene",
-            linkage=linkage
+        linkage = pl.DataFrame(
+            {"source_id": ["TX1", "TX2", "TX3"], "target_id": ["GENE1", "GENE2", "GENE3"]}
         )
+
+        link = AggregationLink(source_assay="transcript", target_assay="gene", linkage=linkage)
 
         assert link.source_assay == "transcript"
         assert link.target_assay == "gene"
@@ -160,16 +138,11 @@ class TestAggregationLink:
         """Test querying feature mapping through linkage."""
         from scptensor.core import AggregationLink
 
-        linkage = pl.DataFrame({
-            "source_id": ["PEP1", "PEP2", "PEP3"],
-            "target_id": ["PROT1", "PROT1", "PROT2"]
-        })
-
-        link = AggregationLink(
-            source_assay="peptide",
-            target_assay="protein",
-            linkage=linkage
+        linkage = pl.DataFrame(
+            {"source_id": ["PEP1", "PEP2", "PEP3"], "target_id": ["PROT1", "PROT1", "PROT2"]}
         )
+
+        link = AggregationLink(source_assay="peptide", target_assay="protein", linkage=linkage)
 
         # Query mapping for PEP1
         pep1_target = link.linkage.filter(pl.col("source_id") == "PEP1")["target_id"][0]
@@ -178,4 +151,3 @@ class TestAggregationLink:
         # Query all peptides mapping to PROT1
         prot1_sources = link.linkage.filter(pl.col("target_id") == "PROT1")["source_id"].to_list()
         assert set(prot1_sources) == {"PEP1", "PEP2"}
-

@@ -1,10 +1,7 @@
 """Test the competitor benchmark functionality."""
 
-import numpy as np
-
 from scptensor.benchmark import (
     CompetitorBenchmarkSuite,
-    CompetitorResultVisualizer,
     SyntheticDataset,
 )
 

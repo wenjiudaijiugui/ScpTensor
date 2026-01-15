@@ -242,10 +242,14 @@ class BenchmarkSuite:
         """
         bio = result.biological_scores
         biological_score = (
-            bio.group_separation * 0.5
-            + bio.biological_signal_preservation * 0.3
-            + bio.clustering_consistency * 0.2
-        ) if bio else 0.0
+            (
+                bio.group_separation * 0.5
+                + bio.biological_signal_preservation * 0.3
+                + bio.clustering_consistency * 0.2
+            )
+            if bio
+            else 0.0
+        )
 
         tech = result.technical_scores
         technical_score = (
@@ -337,4 +341,5 @@ class BenchmarkSuite:
             Deep copy of the container.
         """
         import copy
+
         return copy.deepcopy(container)

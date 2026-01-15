@@ -33,4 +33,3 @@ ScpTensor achieves **numerical parity with Scanpy** for deterministic operations
 The PCA implementation is **70% faster** while maintaining identical results.
 
 Generated: Tue Jan 13 22:26:30 CST 2026
-

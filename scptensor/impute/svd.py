@@ -131,9 +131,7 @@ def svd_impute(
     # Check for missing values
     missing_mask = np.isnan(X_dense)
     if not np.any(missing_mask):
-        new_matrix = ScpMatrix(
-            X=X_dense, M=_update_imputed_mask(input_matrix.M, missing_mask)
-        )
+        new_matrix = ScpMatrix(X=X_dense, M=_update_imputed_mask(input_matrix.M, missing_mask))
         layer_name = new_layer_name or "imputed_svd"
         assay.add_layer(layer_name, new_matrix)
         container.log_operation(
@@ -187,9 +185,7 @@ def svd_impute(
         X_old = X.copy()
 
     # Create new layer
-    new_matrix = ScpMatrix(
-        X=X, M=_update_imputed_mask(input_matrix.M, missing_mask)
-    )
+    new_matrix = ScpMatrix(X=X, M=_update_imputed_mask(input_matrix.M, missing_mask))
     layer_name = new_layer_name or "imputed_svd"
     assay.add_layer(layer_name, new_matrix)
 
@@ -355,7 +351,7 @@ if __name__ == "__main__":
     try:
         # Invalid assay
         svd_impute(container, assay_name="nonexistent", base_layer="raw")
-        assert False, "Should have raised ValueError"
+        raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         assert "not found" in str(e)
         print("  Invalid assay error: OK")
@@ -363,7 +359,7 @@ if __name__ == "__main__":
     try:
         # Invalid layer
         svd_impute(container, assay_name="protein", base_layer="nonexistent")
-        assert False, "Should have raised ValueError"
+        raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         assert "not found" in str(e)
         print("  Invalid layer error: OK")
@@ -376,7 +372,7 @@ if __name__ == "__main__":
             base_layer="raw",
             n_components=1000,  # Too large
         )
-        assert False, "Should have raised ValueError"
+        raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         assert "n_components" in str(e)
         print("  Invalid n_components error: OK")
@@ -384,7 +380,7 @@ if __name__ == "__main__":
     try:
         # Invalid init_method
         svd_impute(container, assay_name="protein", base_layer="raw", init_method="invalid")
-        assert False, "Should have raised ValueError"
+        raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         assert "init_method" in str(e)
         print("  Invalid init_method error: OK")

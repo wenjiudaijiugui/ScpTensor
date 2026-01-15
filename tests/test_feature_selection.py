@@ -8,22 +8,21 @@ This module tests all feature selection methods:
 - model.py: select_by_model_importance, select_by_pca_loadings
 """
 
-import pytest
 import numpy as np
 import polars as pl
+import pytest
 from scipy import sparse
 
-from scptensor.core import ScpContainer, Assay, ScpMatrix
+from scptensor.core import Assay, ScpContainer, ScpMatrix
 from scptensor.feature_selection import (
-    select_by_dropout,
     get_dropout_stats,
-    select_hvg,
-    select_by_vst,
     select_by_dispersion,
+    select_by_dropout,
     select_by_model_importance,
     select_by_pca_loadings,
+    select_by_vst,
+    select_hvg,
 )
-
 
 # =============================================================================
 # Fixtures for feature selection tests
@@ -66,20 +65,20 @@ def fs_container():
     for i in range(80, 100):
         X[:, i] = np.random.normal(loc=5, scale=0.5, size=n_samples)
 
-    var = pl.DataFrame({
-        "_index": [f"feature_{i}" for i in range(n_features)],
-        "protein_name": [f"Protein{i}" for i in range(n_features)]
-    })
-    obs = pl.DataFrame({
-        "_index": [f"sample_{i}" for i in range(n_samples)],
-        "batch": ["batch1"] * 25 + ["batch2"] * 25
-    })
-
-    assay = Assay(
-        var=var,
-        layers={"raw": ScpMatrix(X=X, M=None)},
-        feature_id_col="_index"
+    var = pl.DataFrame(
+        {
+            "_index": [f"feature_{i}" for i in range(n_features)],
+            "protein_name": [f"Protein{i}" for i in range(n_features)],
+        }
     )
+    obs = pl.DataFrame(
+        {
+            "_index": [f"sample_{i}" for i in range(n_samples)],
+            "batch": ["batch1"] * 25 + ["batch2"] * 25,
+        }
+    )
+
+    assay = Assay(var=var, layers={"raw": ScpMatrix(X=X, M=None)}, feature_id_col="_index")
 
     return ScpContainer(obs=obs, assays={"protein": assay})
 
@@ -105,11 +104,7 @@ def fs_container_with_mask():
     var = pl.DataFrame({"_index": [f"feature_{i}" for i in range(n_features)]})
     obs = pl.DataFrame({"_index": [f"sample_{i}" for i in range(n_samples)]})
 
-    assay = Assay(
-        var=var,
-        layers={"raw": ScpMatrix(X=X, M=M)},
-        feature_id_col="_index"
-    )
+    assay = Assay(var=var, layers={"raw": ScpMatrix(X=X, M=M)}, feature_id_col="_index")
 
     return ScpContainer(obs=obs, assays={"protein": assay})
 
@@ -130,11 +125,7 @@ def fs_sparse_container():
     var = pl.DataFrame({"_index": [f"feature_{i}" for i in range(n_features)]})
     obs = pl.DataFrame({"_index": [f"sample_{i}" for i in range(n_samples)]})
 
-    assay = Assay(
-        var=var,
-        layers={"raw": ScpMatrix(X=X_sparse, M=None)},
-        feature_id_col="_index"
-    )
+    assay = Assay(var=var, layers={"raw": ScpMatrix(X=X_sparse, M=None)}, feature_id_col="_index")
 
     return ScpContainer(obs=obs, assays={"protein": assay})
 
@@ -151,11 +142,7 @@ def fs_small_container():
     var = pl.DataFrame({"_index": [f"feature_{i}" for i in range(n_features)]})
     obs = pl.DataFrame({"_index": [f"sample_{i}" for i in range(n_samples)]})
 
-    assay = Assay(
-        var=var,
-        layers={"raw": ScpMatrix(X=X, M=None)},
-        feature_id_col="_index"
-    )
+    assay = Assay(var=var, layers={"raw": ScpMatrix(X=X, M=None)}, feature_id_col="_index")
 
     return ScpContainer(obs=obs, assays={"protein": assay})
 
@@ -179,9 +166,9 @@ def fs_multi_layer_container():
         layers={
             "raw": ScpMatrix(X=X_raw, M=None),
             "log": ScpMatrix(X=X_log, M=None),
-            "normalized": ScpMatrix(X=X_norm, M=None)
+            "normalized": ScpMatrix(X=X_norm, M=None),
         },
-        feature_id_col="_index"
+        feature_id_col="_index",
     )
 
     return ScpContainer(obs=obs, assays={"protein": assay})
@@ -198,10 +185,7 @@ class TestSelectByDropout:
     def test_basic_dropout_filtering(self, fs_container):
         """Test basic dropout filtering with subset=True."""
         result = select_by_dropout(
-            fs_container,
-            assay_name="protein",
-            max_dropout_rate=0.4,
-            subset=True
+            fs_container, assay_name="protein", max_dropout_rate=0.4, subset=True
         )
 
         # Should filter out high-dropout features
@@ -212,10 +196,7 @@ class TestSelectByDropout:
     def test_dropout_annotation_mode(self, fs_container):
         """Test dropout filtering with subset=False (annotation mode)."""
         result = select_by_dropout(
-            fs_container,
-            assay_name="protein",
-            max_dropout_rate=0.3,
-            subset=False
+            fs_container, assay_name="protein", max_dropout_rate=0.3, subset=False
         )
 
         # Should have same number of features
@@ -234,12 +215,7 @@ class TestSelectByDropout:
 
     def test_dropout_with_min_detected(self, fs_container):
         """Test dropout filtering with min_detected constraint."""
-        result = select_by_dropout(
-            fs_container,
-            assay_name="protein",
-            min_detected=25,
-            subset=True
-        )
+        result = select_by_dropout(fs_container, assay_name="protein", min_detected=25, subset=True)
 
         # Should filter out features detected in fewer samples
         assert result.assays["protein"].n_features < fs_container.assays["protein"].n_features
@@ -247,10 +223,7 @@ class TestSelectByDropout:
     def test_dropout_with_mask(self, fs_container_with_mask):
         """Test dropout filtering respects mask matrix."""
         result = select_by_dropout(
-            fs_container_with_mask,
-            assay_name="protein",
-            max_dropout_rate=0.5,
-            subset=True
+            fs_container_with_mask, assay_name="protein", max_dropout_rate=0.5, subset=True
         )
 
         # Mask values should be considered as missing
@@ -259,10 +232,7 @@ class TestSelectByDropout:
     def test_dropout_with_sparse_matrix(self, fs_sparse_container):
         """Test dropout filtering works with sparse matrices."""
         result = select_by_dropout(
-            fs_sparse_container,
-            assay_name="protein",
-            max_dropout_rate=0.6,
-            subset=True
+            fs_sparse_container, assay_name="protein", max_dropout_rate=0.6, subset=True
         )
 
         # Should handle sparse matrices
@@ -290,20 +260,12 @@ class TestSelectByDropout:
         """Test ValueError when no features pass filter."""
         with pytest.raises(ValueError, match="No features pass the dropout filter"):
             select_by_dropout(
-                fs_small_container,
-                max_dropout_rate=0.001,
-                min_detected=100,
-                subset=True
+                fs_small_container, max_dropout_rate=0.001, min_detected=100, subset=True
             )
 
     def test_dropout_relaxed_filter(self, fs_container):
         """Test with very relaxed filter criteria."""
-        result = select_by_dropout(
-            fs_container,
-            max_dropout_rate=0.99,
-            min_detected=1,
-            subset=True
-        )
+        result = select_by_dropout(fs_container, max_dropout_rate=0.99, min_detected=1, subset=True)
 
         # Most features should pass
         assert result.assays["protein"].n_features > fs_container.assays["protein"].n_features * 0.5
@@ -312,10 +274,7 @@ class TestSelectByDropout:
         """Test dropout filtering on different layers."""
         # Test on log layer
         result_log = select_by_dropout(
-            fs_multi_layer_container,
-            layer="log",
-            max_dropout_rate=0.5,
-            subset=True
+            fs_multi_layer_container, layer="log", max_dropout_rate=0.5, subset=True
         )
         assert "log" in result_log.assays["protein"].layers
 
@@ -339,7 +298,11 @@ class TestGetDropoutStats:
         stats = get_dropout_stats(fs_container, assay_name="protein")
 
         # Dropout rate should be in [0, 1]
-        assert stats["dropout_rate"].filter((stats["dropout_rate"] < 0) | (stats["dropout_rate"] > 1)).is_empty()
+        assert (
+            stats["dropout_rate"]
+            .filter((stats["dropout_rate"] < 0) | (stats["dropout_rate"] > 1))
+            .is_empty()
+        )
 
         # n_detected + n_missing should equal n_samples
         n_samples = fs_container.n_samples
@@ -382,11 +345,7 @@ class TestSelectHVG:
     def test_basic_hvg_selection_cv(self, fs_container):
         """Test basic HVG selection with CV method."""
         result = select_hvg(
-            fs_container,
-            assay_name="protein",
-            n_top_features=30,
-            method="cv",
-            subset=True
+            fs_container, assay_name="protein", n_top_features=30, method="cv", subset=True
         )
 
         assert result.assays["protein"].n_features == 30
@@ -395,11 +354,7 @@ class TestSelectHVG:
     def test_basic_hvg_selection_dispersion(self, fs_container):
         """Test HVG selection with dispersion method."""
         result = select_hvg(
-            fs_container,
-            assay_name="protein",
-            n_top_features=25,
-            method="dispersion",
-            subset=True
+            fs_container, assay_name="protein", n_top_features=25, method="dispersion", subset=True
         )
 
         assert result.assays["protein"].n_features == 25
@@ -407,11 +362,7 @@ class TestSelectHVG:
     def test_hvg_annotation_mode(self, fs_container):
         """Test HVG annotation mode."""
         result = select_hvg(
-            fs_container,
-            assay_name="protein",
-            n_top_features=30,
-            method="cv",
-            subset=False
+            fs_container, assay_name="protein", n_top_features=30, method="cv", subset=False
         )
 
         # Same number of features
@@ -428,11 +379,7 @@ class TestSelectHVG:
     def test_hvg_n_top_greater_than_features(self, fs_small_container):
         """Test when n_top_features > n_features."""
         n_features = fs_small_container.assays["protein"].n_features
-        result = select_hvg(
-            fs_small_container,
-            n_top_features=n_features + 100,
-            subset=True
-        )
+        result = select_hvg(fs_small_container, n_top_features=n_features + 100, subset=True)
 
         # Should return all features
         assert result.assays["protein"].n_features == n_features
@@ -449,22 +396,13 @@ class TestSelectHVG:
 
     def test_hvg_with_sparse(self, fs_sparse_container):
         """Test HVG with sparse matrix."""
-        result = select_hvg(
-            fs_sparse_container,
-            n_top_features=20,
-            subset=True
-        )
+        result = select_hvg(fs_sparse_container, n_top_features=20, subset=True)
 
         assert result.assays["protein"].n_features == 20
 
     def test_hvg_multi_layer(self, fs_multi_layer_container):
         """Test HVG on different layers."""
-        result = select_hvg(
-            fs_multi_layer_container,
-            layer="log",
-            n_top_features=25,
-            subset=True
-        )
+        result = select_hvg(fs_multi_layer_container, layer="log", n_top_features=25, subset=True)
 
         assert result.assays["protein"].n_features == 25
 
@@ -479,24 +417,14 @@ class TestSelectByVST:
 
     def test_basic_vst_selection(self, fs_container):
         """Test basic VST selection."""
-        result = select_by_vst(
-            fs_container,
-            assay_name="protein",
-            n_top_features=30,
-            subset=True
-        )
+        result = select_by_vst(fs_container, assay_name="protein", n_top_features=30, subset=True)
 
         assert result.assays["protein"].n_features == 30
         assert len(result.history) > len(fs_container.history)
 
     def test_vst_annotation_mode(self, fs_container):
         """Test VST annotation mode."""
-        result = select_by_vst(
-            fs_container,
-            assay_name="protein",
-            n_top_features=30,
-            subset=False
-        )
+        result = select_by_vst(fs_container, assay_name="protein", n_top_features=30, subset=False)
 
         # Same number of features
         assert result.assays["protein"].n_features == fs_container.assays["protein"].n_features
@@ -512,11 +440,7 @@ class TestSelectByVST:
     def test_vst_with_min_mean(self, fs_container):
         """Test VST with min_mean filtering."""
         result = select_by_vst(
-            fs_container,
-            assay_name="protein",
-            n_top_features=20,
-            min_mean=5.0,
-            subset=True
+            fs_container, assay_name="protein", n_top_features=20, min_mean=5.0, subset=True
         )
 
         # Should select features above mean threshold
@@ -525,11 +449,7 @@ class TestSelectByVST:
     def test_vst_custom_bins(self, fs_container):
         """Test VST with custom number of bins."""
         result = select_by_vst(
-            fs_container,
-            assay_name="protein",
-            n_top_features=25,
-            n_bins=10,
-            subset=True
+            fs_container, assay_name="protein", n_top_features=25, n_bins=10, subset=True
         )
 
         assert result.assays["protein"].n_features == 25
@@ -554,22 +474,14 @@ class TestSelectByVST:
 
     def test_vst_with_sparse(self, fs_sparse_container):
         """Test VST with sparse matrix."""
-        result = select_by_vst(
-            fs_sparse_container,
-            n_top_features=20,
-            subset=True
-        )
+        result = select_by_vst(fs_sparse_container, n_top_features=20, subset=True)
 
         assert result.assays["protein"].n_features == 20
 
     def test_vst_n_top_greater_than_features(self, fs_small_container):
         """Test when n_top_features > n_features."""
         n_features = fs_small_container.assays["protein"].n_features
-        result = select_by_vst(
-            fs_small_container,
-            n_top_features=n_features + 100,
-            subset=True
-        )
+        result = select_by_vst(fs_small_container, n_top_features=n_features + 100, subset=True)
 
         assert result.assays["protein"].n_features == n_features
 
@@ -580,10 +492,7 @@ class TestSelectByDispersion:
     def test_basic_dispersion_selection(self, fs_container):
         """Test basic dispersion-based selection."""
         result = select_by_dispersion(
-            fs_container,
-            assay_name="protein",
-            n_top_features=30,
-            subset=True
+            fs_container, assay_name="protein", n_top_features=30, subset=True
         )
 
         assert result.assays["protein"].n_features == 30
@@ -592,10 +501,7 @@ class TestSelectByDispersion:
     def test_dispersion_annotation_mode(self, fs_container):
         """Test dispersion annotation mode."""
         result = select_by_dispersion(
-            fs_container,
-            assay_name="protein",
-            n_top_features=25,
-            subset=False
+            fs_container, assay_name="protein", n_top_features=25, subset=False
         )
 
         # Same number of features
@@ -612,11 +518,7 @@ class TestSelectByDispersion:
     def test_dispersion_custom_bins(self, fs_container):
         """Test dispersion with custom number of bins."""
         result = select_by_dispersion(
-            fs_container,
-            assay_name="protein",
-            n_top_features=20,
-            n_bins=10,
-            subset=True
+            fs_container, assay_name="protein", n_top_features=20, n_bins=10, subset=True
         )
 
         assert result.assays["protein"].n_features == 20
@@ -633,11 +535,7 @@ class TestSelectByDispersion:
 
     def test_dispersion_with_sparse(self, fs_sparse_container):
         """Test dispersion with sparse matrix."""
-        result = select_by_dispersion(
-            fs_sparse_container,
-            n_top_features=20,
-            subset=True
-        )
+        result = select_by_dispersion(fs_sparse_container, n_top_features=20, subset=True)
 
         assert result.assays["protein"].n_features == 20
 
@@ -645,9 +543,7 @@ class TestSelectByDispersion:
         """Test when n_top_features > n_features."""
         n_features = fs_small_container.assays["protein"].n_features
         result = select_by_dispersion(
-            fs_small_container,
-            n_top_features=n_features + 100,
-            subset=True
+            fs_small_container, n_top_features=n_features + 100, subset=True
         )
 
         assert result.assays["protein"].n_features == n_features
@@ -669,7 +565,7 @@ class TestSelectByModelImportance:
             method="variance_threshold",
             variance_threshold=1.0,
             n_top_features=30,
-            subset=True
+            subset=True,
         )
 
         assert result.assays["protein"].n_features <= 30
@@ -682,7 +578,7 @@ class TestSelectByModelImportance:
             assay_name="protein",
             method="variance_threshold",
             n_top_features=25,
-            subset=False
+            subset=False,
         )
 
         # Same number of features
@@ -705,7 +601,7 @@ class TestSelectByModelImportance:
                 method="random_forest",
                 n_top_features=30,
                 n_estimators=20,
-                subset=True
+                subset=True,
             )
 
             assert result.assays["protein"].n_features == 30
@@ -715,11 +611,7 @@ class TestSelectByModelImportance:
     def test_mutual_info_method(self, fs_container):
         """Test mutual info method."""
         result = select_by_model_importance(
-            fs_container,
-            assay_name="protein",
-            method="mutual_info",
-            n_top_features=30,
-            subset=True
+            fs_container, assay_name="protein", method="mutual_info", n_top_features=30, subset=True
         )
 
         # Should fall back to variance-based selection
@@ -728,10 +620,7 @@ class TestSelectByModelImportance:
     def test_model_invalid_method(self, fs_container):
         """Test ValueError for invalid method."""
         with pytest.raises(ValueError, match="method must be"):
-            select_by_model_importance(
-                fs_container,
-                method="invalid_method"
-            )
+            select_by_model_importance(fs_container, method="invalid_method")
 
     def test_model_invalid_assay(self, fs_container):
         """Test ValueError for non-existent assay."""
@@ -750,7 +639,7 @@ class TestSelectByModelImportance:
             assay_name="protein",
             method="variance_threshold",
             n_top_features=20,
-            subset=True
+            subset=True,
         )
 
         assert result.assays["protein"].n_features == 20
@@ -762,7 +651,7 @@ class TestSelectByModelImportance:
             fs_small_container,
             method="variance_threshold",
             n_top_features=n_features + 100,
-            subset=True
+            subset=True,
         )
 
         assert result.assays["protein"].n_features == n_features
@@ -777,7 +666,7 @@ class TestSelectByModelImportance:
                 n_top_features=25,
                 max_depth=5,
                 n_estimators=20,
-                subset=True
+                subset=True,
             )
 
             assert result.assays["protein"].n_features == 25
@@ -792,11 +681,7 @@ class TestSelectByPCALoadings:
         """Test basic PCA loading selection."""
         try:
             result = select_by_pca_loadings(
-                fs_container,
-                assay_name="protein",
-                n_top_features=30,
-                n_components=10,
-                subset=True
+                fs_container, assay_name="protein", n_top_features=30, n_components=10, subset=True
             )
 
             assert result.assays["protein"].n_features == 30
@@ -808,11 +693,7 @@ class TestSelectByPCALoadings:
         """Test PCA in annotation mode."""
         try:
             result = select_by_pca_loadings(
-                fs_container,
-                assay_name="protein",
-                n_top_features=25,
-                n_components=10,
-                subset=False
+                fs_container, assay_name="protein", n_top_features=25, n_components=10, subset=False
             )
 
             # Same number of features
@@ -846,7 +727,7 @@ class TestSelectByPCALoadings:
                 assay_name="protein",
                 n_top_features=20,
                 n_components=5,
-                subset=True
+                subset=True,
             )
 
             assert result.assays["protein"].n_features == 20
@@ -858,9 +739,7 @@ class TestSelectByPCALoadings:
         try:
             n_features = fs_small_container.assays["protein"].n_features
             result = select_by_pca_loadings(
-                fs_small_container,
-                n_top_features=n_features + 100,
-                subset=True
+                fs_small_container, n_top_features=n_features + 100, subset=True
             )
 
             assert result.assays["protein"].n_features == n_features
@@ -871,11 +750,7 @@ class TestSelectByPCALoadings:
         """Test PCA with custom number of components."""
         try:
             result = select_by_pca_loadings(
-                fs_container,
-                assay_name="protein",
-                n_top_features=20,
-                n_components=15,
-                subset=True
+                fs_container, assay_name="protein", n_top_features=20, n_components=15, subset=True
             )
 
             assert result.assays["protein"].n_features == 20
@@ -894,34 +769,18 @@ class TestFeatureSelectionIntegration:
     def test_combined_dropout_and_hvg(self, fs_container):
         """Test combining dropout filter with HVG selection."""
         # First filter by dropout
-        filtered = select_by_dropout(
-            fs_container,
-            max_dropout_rate=0.5,
-            subset=True
-        )
+        filtered = select_by_dropout(fs_container, max_dropout_rate=0.5, subset=True)
 
         # Then select HVG from filtered
-        result = select_hvg(
-            filtered,
-            n_top_features=20,
-            subset=True
-        )
+        result = select_hvg(filtered, n_top_features=20, subset=True)
 
         assert result.assays["protein"].n_features == 20
 
     def test_vst_and_dispersion_consistency(self, fs_container):
         """Test that VST and dispersion give reasonable results."""
-        result_vst = select_by_vst(
-            fs_container,
-            n_top_features=30,
-            subset=False
-        )
+        result_vst = select_by_vst(fs_container, n_top_features=30, subset=False)
 
-        result_disp = select_by_dispersion(
-            fs_container,
-            n_top_features=30,
-            subset=False
-        )
+        result_disp = select_by_dispersion(fs_container, n_top_features=30, subset=False)
 
         # Both should select 30 features
         assert result_vst.assays["protein"].var["highly_variable"].sum() == 30
@@ -931,10 +790,7 @@ class TestFeatureSelectionIntegration:
         """Test feature selection pipeline with multiple layers."""
         # Select features on raw layer
         result = select_by_dropout(
-            fs_multi_layer_container,
-            layer="raw",
-            max_dropout_rate=0.5,
-            subset=True
+            fs_multi_layer_container, layer="raw", max_dropout_rate=0.5, subset=True
         )
 
         # Other layers should still be accessible

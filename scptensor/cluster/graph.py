@@ -10,9 +10,7 @@ import numpy as np
 import polars as pl
 from sklearn.neighbors import kneighbors_graph
 
-from scptensor.core.exceptions import AssayNotFoundError
-from scptensor.core.exceptions import LayerNotFoundError
-from scptensor.core.exceptions import ScpValueError
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.core.structures import ScpContainer
 from scptensor.core.utils import requires_dependency
 
@@ -147,7 +145,7 @@ def leiden(
     )
 
     sources, targets = adj_matrix.nonzero()
-    edges = list(zip(sources.tolist(), targets.tolist()))
+    edges = list(zip(sources.tolist(), targets.tolist(), strict=False))
 
     graph = ig.Graph(directed=False)
     graph.add_vertices(adj_matrix.shape[0])
@@ -163,9 +161,7 @@ def leiden(
     labels = np.array(partition.membership)
 
     col_name = f"leiden_r{resolution}"
-    new_obs = container.obs.with_columns(
-        pl.Series(col_name, labels).cast(pl.String)
-    )
+    new_obs = container.obs.with_columns(pl.Series(col_name, labels).cast(pl.String))
 
     new_container = ScpContainer(
         obs=new_obs,
@@ -190,7 +186,7 @@ def leiden(
 if __name__ == "__main__":
     import numpy as np
 
-    from scptensor.core.structures import ScpContainer, Assay, ScpMatrix
+    from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
     np.random.seed(42)
     X_test = np.random.randn(100, 10)

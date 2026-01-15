@@ -8,10 +8,9 @@ ScpTensor and Scanpy outputs for numerical equivalence and performance.
 from __future__ import annotations
 
 import time
-import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, List, Dict, Optional
+from typing import Any, Literal
 
 import numpy as np
 import scipy.sparse as sp
@@ -27,22 +26,22 @@ except ImportError:
     sc = None
     AnnData = None
 
+from scptensor.core.io import from_scanpy, to_scanpy
+
+# Import ScpTensor
+# Import with aliases to avoid conflicts with scanpy's pca/umap
+from scptensor.dim_reduction import pca as scptensor_pca
+from scptensor.dim_reduction import umap as scptensor_umap
+
+# Import HVG selection
+from scptensor.feature_selection.hvg import select_hvg
+from scptensor.normalization import log_normalize
 from tests.real_data_comparison.metrics import (
     ComparisonResult,
     SimilarityMetrics,
     format_time,
     speedup_factor,
 )
-
-# Import ScpTensor
-from scptensor.core.structures import ScpContainer
-from scptensor.core.io import from_scanpy, to_scanpy
-from scptensor.normalization import log_normalize
-# Import with aliases to avoid conflicts with scanpy's pca/umap
-from scptensor.dim_reduction import pca as scptensor_pca
-from scptensor.dim_reduction import umap as scptensor_umap
-# Import HVG selection
-from scptensor.feature_selection.hvg import select_hvg
 
 
 class ComparisonSuite:
@@ -95,7 +94,7 @@ class ComparisonSuite:
         self.container_scptensor = from_scanpy(self.adata_scanpy, assay_name=assay_name)
 
         # Store original data for each test
-        self.results: List[ComparisonResult] = []
+        self.results: list[ComparisonResult] = []
 
         # Verification that data loaded correctly
         assert self.adata_scanpy.shape == self.container_scptensor.shape, (
@@ -110,7 +109,7 @@ class ComparisonSuite:
         method: Literal["log1p", "log", "sqrt"] = "log1p",
         base: float = 2.0,
         offset: float = 1.0,
-        target_sum: Optional[float] = None,
+        target_sum: float | None = None,
     ) -> ComparisonResult:
         """Compare normalization methods.
 
@@ -193,6 +192,7 @@ class ComparisonSuite:
                 X_sqrt = np.sqrt(X)
             # Create a new layer with sqrt result
             from scptensor.core.structures import ScpMatrix
+
             container.assays[self.assay_name].layers["sqrt"] = ScpMatrix(
                 X=X_sqrt,
                 M=container.assays[self.assay_name].layers[base_layer].M,
@@ -428,7 +428,7 @@ class ComparisonSuite:
 
     def compare_qc_metrics(
         self,
-        percent_top: Optional[List[int]] = None,
+        percent_top: list[int] | None = None,
         log1p: bool = False,
         detection_threshold: float = 0.0,
     ) -> ComparisonResult:
@@ -503,7 +503,7 @@ class ComparisonSuite:
         total_counts = np.sum(X_dense, axis=1).flatten()
 
         # Initialize results dictionary
-        qc_metrics: Dict[str, np.ndarray] = {
+        qc_metrics: dict[str, np.ndarray] = {
             "n_proteins": n_proteins,
             "total_counts": total_counts,
         }
@@ -539,7 +539,7 @@ class ComparisonSuite:
         time_scptensor = time.perf_counter() - t0
 
         # Extract Scanpy results for comparison
-        scanpy_metrics: Dict[str, np.ndarray] = {}
+        scanpy_metrics: dict[str, np.ndarray] = {}
         scanpy_metrics["n_proteins"] = adata.obs["n_genes_by_counts"].to_numpy().flatten()
         scanpy_metrics["total_counts"] = adata.obs["total_counts"].to_numpy().flatten()
 
@@ -550,7 +550,7 @@ class ComparisonSuite:
                     scanpy_metrics[f"pct_counts_{n_top}"] = adata.obs[key].to_numpy().flatten()
 
         # Calculate Pearson correlation for each metric
-        correlations: Dict[str, float] = {}
+        correlations: dict[str, float] = {}
         all_passed = True
 
         for key in ["n_proteins", "total_counts"]:
@@ -815,9 +815,7 @@ class ComparisonSuite:
         time_scptensor = time.perf_counter() - t0
 
         # Get ScpTensor selected features
-        scptensor_hvg_mask = container_hvg.assays[self.assay_name].var[
-            "highly_variable"
-        ].to_numpy()
+        scptensor_hvg_mask = container_hvg.assays[self.assay_name].var["highly_variable"].to_numpy()
         scptensor_selected = set(np.where(scptensor_hvg_mask)[0])
         n_scptensor_selected = len(scptensor_selected)
 
@@ -861,7 +859,7 @@ class ComparisonSuite:
 
     # ==================== Reporting ====================
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """Generate summary of all comparison results.
 
         Returns
@@ -875,7 +873,9 @@ class ComparisonSuite:
         total = len(self.results)
 
         # Calculate aggregate metrics
-        avg_speedup = np.mean([speedup_factor(r.time_scanpy, r.time_scptensor) for r in self.results])
+        avg_speedup = np.mean(
+            [speedup_factor(r.time_scanpy, r.time_scptensor) for r in self.results]
+        )
         max_speedup = max([speedup_factor(r.time_scanpy, r.time_scptensor) for r in self.results])
         min_speedup = min([speedup_factor(r.time_scanpy, r.time_scptensor) for r in self.results])
 
@@ -920,9 +920,11 @@ class ComparisonSuite:
 
             print(f"\n[{status}] {r.module}:")
             print(f"  {metric_name}: {metric_str}")
-            print(f"  Time: Scanpy {format_time(r.time_scanpy)} | "
-                  f"ScpTensor {format_time(r.time_scptensor)} | "
-                  f"Speedup: {speedup_factor(r.time_scanpy, r.time_scptensor):.2f}x")
+            print(
+                f"  Time: Scanpy {format_time(r.time_scanpy)} | "
+                f"ScpTensor {format_time(r.time_scptensor)} | "
+                f"Speedup: {speedup_factor(r.time_scanpy, r.time_scptensor):.2f}x"
+            )
 
             if r.details:
                 for key, value in r.details.items():
@@ -1047,6 +1049,7 @@ def run_phase1_tests(
             print(f"   Result: ERROR - {e}")
         # Create a failure result
         from tests.real_data_comparison.metrics import ComparisonResult
+
         result = ComparisonResult(
             module="pca_50pc",
             metrics={},
@@ -1057,9 +1060,8 @@ def run_phase1_tests(
         )
         suite.results.append(result)
 
-    if not result.passed:
-        if verbose:
-            print("\n[WARNING] PCA failed, continuing to UMAP")
+    if not result.passed and verbose:
+        print("\n[WARNING] PCA failed, continuing to UMAP")
 
     # Test 3: UMAP
     if verbose:
@@ -1075,6 +1077,7 @@ def run_phase1_tests(
             print(f"   Result: ERROR - {e}")
         # Create a failure result
         from tests.real_data_comparison.metrics import ComparisonResult
+
         result = ComparisonResult(
             module="umap_15n_2d",
             metrics={},
@@ -1090,8 +1093,6 @@ def run_phase1_tests(
 
 
 if __name__ == "__main__":
-    import sys
-
     print("ComparisonSuite module for ScpTensor vs Scanpy testing")
     print()
     print("Usage:")

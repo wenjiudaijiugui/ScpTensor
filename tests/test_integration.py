@@ -16,24 +16,24 @@ Tests cover:
 - Sparse matrix handling
 """
 
-import pytest
 import numpy as np
 import polars as pl
+import pytest
 from scipy import sparse
 
-from scptensor.core.structures import ScpContainer, Assay, ScpMatrix
 from scptensor.core.exceptions import (
     AssayNotFoundError,
     LayerNotFoundError,
-    ScpValueError,
     MissingDependencyError,
+    ScpValueError,
 )
-from scptensor.integration import mnn_correct, harmony, scanorama_integrate, combat
-
+from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
+from scptensor.integration import combat, harmony, mnn_correct, scanorama_integrate
 
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
 
 def create_batch_container(
     n_samples_per_batch: int = 30,
@@ -69,7 +69,7 @@ def create_batch_container(
     np.random.seed(random_state)
 
     total_samples = n_samples_per_batch * n_batches
-    batch_names = [f"batch{i+1}" for i in range(n_batches)]
+    batch_names = [f"batch{i + 1}" for i in range(n_batches)]
     batches = np.repeat(batch_names, n_samples_per_batch)
 
     # Create groups (biologically meaningful clusters)
@@ -131,7 +131,7 @@ def compute_batch_effect_metric(X: np.ndarray, batches: np.ndarray) -> float:
     # Between-batch variance
     between_ss = sum(
         len(X[batches == b]) * np.sum((bm - grand_mean) ** 2)
-        for b, bm in zip(unique_batches, batch_means)
+        for b, bm in zip(unique_batches, batch_means, strict=False)
     )
 
     # Total variance
@@ -180,6 +180,7 @@ def compute_biological_signal_retention(
 # Test MNN Correction
 # =============================================================================
 
+
 class TestMNNCorrection:
     """Test Mutual Nearest Neighbors batch correction."""
 
@@ -198,7 +199,7 @@ class TestMNNCorrection:
         batch2_idx = batches_orig == "batch2"
         mean_before_batch1 = np.mean(X_orig[batch1_idx], axis=0)
         mean_before_batch2 = np.mean(X_orig[batch2_idx], axis=0)
-        batch_diff_before = np.linalg.norm(mean_before_batch1 - mean_before_batch2)
+        np.linalg.norm(mean_before_batch1 - mean_before_batch2)
 
         # Apply MNN correction
         result = mnn_correct(
@@ -221,7 +222,7 @@ class TestMNNCorrection:
         # Check batch means are closer after correction (by checking means changed)
         mean_after_batch1 = np.mean(X_corrected[batch1_idx], axis=0)
         mean_after_batch2 = np.mean(X_corrected[batch2_idx], axis=0)
-        batch_diff_after = np.linalg.norm(mean_after_batch1 - mean_after_batch2)
+        np.linalg.norm(mean_after_batch1 - mean_after_batch2)
 
         # The correction should change the data (not be identical)
         assert not np.allclose(X_orig, X_corrected), "MNN should modify the data"
@@ -554,6 +555,7 @@ class TestMNNCorrection:
 # Test Harmony Integration
 # =============================================================================
 
+
 class TestHarmonyIntegration:
     """Test Harmony batch correction (requires harmonypy)."""
 
@@ -678,7 +680,7 @@ class TestHarmonyIntegration:
                 assay_name="nonexistent",
                 base_layer="raw",
             )
-            assert False, "Should have raised MissingDependencyError or AssayNotFoundError"
+            raise AssertionError("Should have raised MissingDependencyError or AssayNotFoundError")
         except (MissingDependencyError, AssayNotFoundError):
             pass  # Expected if harmonypy not installed
         except ImportError:
@@ -697,7 +699,7 @@ class TestHarmonyIntegration:
                 assay_name="protein",
                 base_layer="raw",
             )
-            assert False, "Should have raised error"
+            raise AssertionError("Should have raised error")
         except MissingDependencyError:
             pass  # harmonypy not installed
         except ScpValueError:
@@ -722,7 +724,7 @@ class TestHarmonyIntegration:
                 assay_name="protein",
                 base_layer="raw",
             )
-            assert False, "Should have raised error"
+            raise AssertionError("Should have raised error")
         except ScpValueError as e:
             assert "at least 2 batches" in str(e)
         except ImportError:
@@ -755,7 +757,7 @@ class TestHarmonyIntegration:
                 assay_name="protein",
                 base_layer="raw",
             )
-            assert False, "Should have raised error"
+            raise AssertionError("Should have raised error")
         except ScpValueError as e:
             assert "at least 2 samples per batch" in str(e)
         except ImportError:
@@ -765,6 +767,7 @@ class TestHarmonyIntegration:
 # =============================================================================
 # Test Scanorama Integration
 # =============================================================================
+
 
 class TestScanoramaIntegration:
     """Test Scanorama batch correction (requires scanorama)."""
@@ -940,7 +943,7 @@ class TestScanoramaIntegration:
                 base_layer="raw",
                 sigma=0,
             )
-            assert False, "Should have raised error"
+            raise AssertionError("Should have raised error")
         except MissingDependencyError:
             pass  # scanorama not installed
         except ScpValueError as e:
@@ -962,7 +965,7 @@ class TestScanoramaIntegration:
                 base_layer="raw",
                 alpha=0,
             )
-            assert False, "Should have raised error"
+            raise AssertionError("Should have raised error")
         except MissingDependencyError:
             pass  # scanorama not installed
         except ScpValueError as e:
@@ -984,7 +987,7 @@ class TestScanoramaIntegration:
                 base_layer="raw",
                 knn=-5,
             )
-            assert False, "Should have raised error"
+            raise AssertionError("Should have raised error")
         except MissingDependencyError:
             pass  # scanorama not installed
         except ScpValueError:
@@ -1005,7 +1008,7 @@ class TestScanoramaIntegration:
                 assay_name="nonexistent",
                 base_layer="raw",
             )
-            assert False, "Should have raised error"
+            raise AssertionError("Should have raised error")
         except (MissingDependencyError, AssayNotFoundError):
             pass  # Expected
         except ImportError:
@@ -1027,7 +1030,7 @@ class TestScanoramaIntegration:
                 assay_name="protein",
                 base_layer="raw",
             )
-            assert False, "Should have raised error"
+            raise AssertionError("Should have raised error")
         except MissingDependencyError:
             pass  # scanorama not installed
         except ScpValueError as e:
@@ -1039,6 +1042,7 @@ class TestScanoramaIntegration:
 # =============================================================================
 # Test ComBat (additional tests)
 # =============================================================================
+
 
 class TestComBatAdditional:
     """Additional tests for ComBat batch correction."""
@@ -1181,6 +1185,7 @@ class TestComBatAdditional:
 # Test Batch Effect Reduction
 # =============================================================================
 
+
 class TestBatchEffectReduction:
     """Test that batch correction methods actually reduce batch effects."""
 
@@ -1196,7 +1201,7 @@ class TestBatchEffectReduction:
         # Compute batch separation before correction
         batch1_mean = np.mean(X_orig[batches == "batch1"], axis=0)
         batch2_mean = np.mean(X_orig[batches == "batch2"], axis=0)
-        batch_diff_before = np.linalg.norm(batch1_mean - batch2_mean)
+        np.linalg.norm(batch1_mean - batch2_mean)
 
         result = mnn_correct(
             container,
@@ -1209,7 +1214,7 @@ class TestBatchEffectReduction:
         X_corrected = result.assays["protein"].layers["mnn_corrected"].X
         batch1_mean_after = np.mean(X_corrected[batches == "batch1"], axis=0)
         batch2_mean_after = np.mean(X_corrected[batches == "batch2"], axis=0)
-        batch_diff_after = np.linalg.norm(batch1_mean_after - batch2_mean_after)
+        np.linalg.norm(batch1_mean_after - batch2_mean_after)
 
         # Data should be modified (not identical)
         assert not np.allclose(X_orig, X_corrected), "MNN should modify the data"
@@ -1243,6 +1248,7 @@ class TestBatchEffectReduction:
 # Test Biological Signal Preservation
 # =============================================================================
 
+
 class TestBiologicalSignalPreservation:
     """Test that batch correction preserves biological signals."""
 
@@ -1259,7 +1265,7 @@ class TestBiologicalSignalPreservation:
         groups = container.obs["group"].to_numpy()
 
         X_orig = container.assays["protein"].layers["raw"].X
-        signal_before = compute_biological_signal_retention(X_orig, groups)
+        compute_biological_signal_retention(X_orig, groups)
 
         result = mnn_correct(
             container,
@@ -1288,7 +1294,7 @@ class TestBiologicalSignalPreservation:
         groups = container.obs["group"].to_numpy()
 
         X_orig = container.assays["protein"].layers["raw"].X
-        signal_before = compute_biological_signal_retention(X_orig, groups)
+        compute_biological_signal_retention(X_orig, groups)
 
         result = combat(
             container,
@@ -1307,6 +1313,7 @@ class TestBiologicalSignalPreservation:
 # =============================================================================
 # Edge Cases and Boundary Conditions
 # =============================================================================
+
 
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""
@@ -1432,6 +1439,7 @@ class TestEdgeCases:
 # =============================================================================
 # Test History/Provenance Logging
 # =============================================================================
+
 
 class TestHistoryLogging:
     """Test that integration methods log properly to history."""

@@ -1,6 +1,5 @@
 """Median centering normalization for ScpTensor."""
 
-
 import numpy as np
 
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError

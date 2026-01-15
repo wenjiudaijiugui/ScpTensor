@@ -10,8 +10,11 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, MissingDependencyError
-from scptensor.core.exceptions import ScpValueError
+from scptensor.core.exceptions import (
+    AssayNotFoundError,
+    LayerNotFoundError,
+    ScpValueError,
+)
 from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.core.utils import requires_dependency
@@ -104,7 +107,9 @@ def scanorama_integrate(
     if sigma <= 0:
         raise ScpValueError(f"sigma must be positive, got {sigma}.", parameter="sigma", value=sigma)
     if not (0 < alpha < 1):
-        raise ScpValueError(f"alpha must be in (0, 1), got {alpha}.", parameter="alpha", value=alpha)
+        raise ScpValueError(
+            f"alpha must be in (0, 1), got {alpha}.", parameter="alpha", value=alpha
+        )
     if knn is not None and knn <= 0:
         raise ScpValueError(f"knn must be positive or None, got {knn}.", parameter="knn", value=knn)
 
@@ -119,8 +124,7 @@ def scanorama_integrate(
     obs_df = container.obs
     if batch_key not in obs_df.columns:
         raise ScpValueError(
-            f"Batch key '{batch_key}' not found in obs. "
-            f"Available columns: {list(obs_df.columns)}",
+            f"Batch key '{batch_key}' not found in obs. Available columns: {list(obs_df.columns)}",
             parameter="batch_key",
             value=batch_key,
         )
@@ -226,10 +230,12 @@ if __name__ == "__main__":
 
     # Create container
     var = pl.DataFrame({"_index": [f"prot_{i}" for i in range(n_features)]})
-    obs = pl.DataFrame({
-        "_index": [f"cell_{i}" for i in range(2 * n_samples_per_batch)],
-        "batch": ["batch1"] * n_samples_per_batch + ["batch2"] * n_samples_per_batch,
-    })
+    obs = pl.DataFrame(
+        {
+            "_index": [f"cell_{i}" for i in range(2 * n_samples_per_batch)],
+            "batch": ["batch1"] * n_samples_per_batch + ["batch2"] * n_samples_per_batch,
+        }
+    )
 
     assay = Assay(var=var)
     assay.add_layer("raw", ScpMatrix(X=X, M=None))

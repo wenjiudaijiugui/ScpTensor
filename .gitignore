@@ -68,6 +68,20 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+_build/
+
+# Benchmark results
+competitor_benchmark_results/
+*.json
+!package.json
+
+# Coverage reports
+coverage.json
+htmlcov/
+
+# Temporary test files (not starting with test_)
+tests/[!t]*.py
+tests/total_proc.py
 
 # PyBuilder
 target/

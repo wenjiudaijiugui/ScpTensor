@@ -63,10 +63,7 @@ def _check_valid_data(X: np.ndarray | sp.spmatrix) -> None:
         data = X.ravel() if isinstance(X, np.ndarray) else X
 
     if np.any(np.isnan(data)) or np.any(np.isinf(data)):
-        raise ValueError(
-            "Input data contains NaN or infinite values. "
-            "Please use an imputed layer."
-        )
+        raise ValueError("Input data contains NaN or infinite values. Please use an imputed layer.")
 
 
 # =============================================================================
@@ -143,8 +140,10 @@ def optimal_svd_solver(
     # Sparse matrix path
     if sp.issparse(X):
         if center:
-            return "arpack" if n_components < 100 else (
-                "covariance_eigh" if n_features <= 5000 else "arpack"
+            return (
+                "arpack"
+                if n_components < 100
+                else ("covariance_eigh" if n_features <= 5000 else "arpack")
             )
         # Non-centered sparse: TruncatedSVD is optimal
         return "randomized"
@@ -270,9 +269,7 @@ class _CenteredScaledLinearOperator(LinearOperator):
 # =============================================================================
 
 
-def _flip_signs(
-    U: np.ndarray, Vt: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
+def _flip_signs(U: np.ndarray, Vt: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Enforce deterministic sign convention on SVD results.
 
     For each component (row in Vt), find the element with the largest absolute value.
@@ -311,9 +308,7 @@ def _flip_signs(
 # =============================================================================
 
 
-def _full_svd(
-    X: np.ndarray, n_components: int
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _full_svd(X: np.ndarray, n_components: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Compute full SVD using LAPACK.
 
     Parameters
@@ -363,8 +358,7 @@ def _arpack_svd(
 
     if k < 1:
         raise ValueError(
-            f"n_components={n_components} is too large for ARPACK "
-            f"with matrix shape {X.shape}"
+            f"n_components={n_components} is too large for ARPACK with matrix shape {X.shape}"
         )
 
     try:
@@ -480,9 +474,7 @@ def _covariance_eigh_svd(
 # =============================================================================
 
 
-def _compute_sparse_variance(
-    X: sp.spmatrix, mean: np.ndarray, n_samples: int
-) -> np.ndarray:
+def _compute_sparse_variance(X: sp.spmatrix, mean: np.ndarray, n_samples: int) -> np.ndarray:
     """Compute variance for sparse matrix efficiently.
 
     Uses: var = E[X^2] - (E[X])^2
@@ -601,8 +593,7 @@ def pca(
 
     if n_components > min_dim:
         raise ValueError(
-            f"n_components ({n_components}) cannot exceed "
-            f"min(n_samples, n_features) ({min_dim})."
+            f"n_components ({n_components}) cannot exceed min(n_samples, n_features) ({min_dim})."
         )
 
     # ===== SOLVER SELECTION =====
@@ -617,8 +608,8 @@ def pca(
     # Sparse matrices only support specific solvers
     if sp.issparse(X) and svd_solver == "full":
         raise ValueError(
-            f"Sparse matrices do not support 'full' solver. "
-            f"Use 'arpack', 'randomized', or 'covariance_eigh'."
+            "Sparse matrices do not support 'full' solver. "
+            "Use 'arpack', 'randomized', or 'covariance_eigh'."
         )
 
     # ===== PREPROCESSING =====
@@ -632,7 +623,9 @@ def pca(
 
     if scale:
         if sp.issparse(X):
-            std = _compute_sparse_variance(X, mean if center is not None else np.zeros(n_features), n_samples)
+            std = _compute_sparse_variance(
+                X, mean if center is not None else np.zeros(n_features), n_samples
+            )
             std = np.sqrt(std)
         else:
             std = np.std(X, axis=0, ddof=1)
@@ -687,19 +680,24 @@ def pca(
                 U_reduced, S_reduced, Vt_reduced = _full_svd(X_dense, n_components)
             else:
                 U_reduced, S_reduced, Vt_reduced = _full_svd(
-                    X_processed, n_components  # type: ignore[arg-type]
+                    X_processed,
+                    n_components,  # type: ignore[arg-type]
                 )
 
         elif svd_solver == "arpack":
             operator = linear_op if use_linear_operator else X_processed
             U_reduced, S_reduced, Vt_reduced = _arpack_svd(
-                operator, n_components, random_state  # type: ignore[arg-type]
+                operator,
+                n_components,
+                random_state,  # type: ignore[arg-type]
             )
 
         elif svd_solver == "randomized":
             operator = linear_op if use_linear_operator else X_processed
             U_reduced, S_reduced, Vt_reduced = _randomized_svd(
-                operator, n_components, random_state=random_state  # type: ignore[arg-type]
+                operator,
+                n_components,
+                random_state=random_state,  # type: ignore[arg-type]
             )
 
         else:  # covariance_eigh
@@ -713,7 +711,9 @@ def pca(
                 U_reduced, S_reduced, Vt_reduced = _full_svd(X_dense, n_components)
             else:
                 U_temp, S_reduced, Vt_reduced = _covariance_eigh_svd(
-                    X, mean if center else np.zeros(n_features), n_components  # type: ignore[arg-type]
+                    X,
+                    mean if center else np.zeros(n_features),
+                    n_components,  # type: ignore[arg-type]
                 )
                 if U_temp is None:
                     V = Vt_reduced.T
@@ -756,9 +756,7 @@ def pca(
     eigenvalues = S_reduced**2 / (n_samples - 1)
     explained_variance_ratio = eigenvalues / total_variance
 
-    variance_ratio_col_name = (
-        "explained_variance_ratio" if center else "explained_inertia_ratio"
-    )
+    variance_ratio_col_name = "explained_variance_ratio" if center else "explained_inertia_ratio"
 
     # ===== CREATE OUTPUT ASSAY =====
     pc_names = [f"PC{i + 1}" for i in range(n_components)]
@@ -783,8 +781,7 @@ def pca(
     # ===== STORE LOADINGS IN ORIGINAL ASSAY =====
     # Create loadings DataFrame efficiently
     loading_cols = {
-        f"{new_assay_name}_PC{i + 1}_loading": loadings[:, i]
-        for i in range(n_components)
+        f"{new_assay_name}_PC{i + 1}_loading": loadings[:, i] for i in range(n_components)
     }
     loadings_df = pl.DataFrame(loading_cols)
 

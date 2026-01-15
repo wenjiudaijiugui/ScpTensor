@@ -25,7 +25,6 @@ import sys
 from pathlib import Path
 from typing import Final
 
-import numpy as np
 import pandas as pd
 
 # Add project root to path dynamically
@@ -34,7 +33,6 @@ sys.path.insert(0, str(project_root))
 
 from scptensor.benchmark import (
     CompetitorBenchmarkSuite,
-    ComparisonResult,
     SyntheticDataset,
 )
 
@@ -178,22 +176,26 @@ def generate_markdown_report(
     # Operation summaries
     for operation, summary in summaries.items():
         name = operation.replace("_", " ").title()
-        lines.extend([
-            f"### {name}\n",
-            f"- **Winner:** {summary.winner.upper()}",
-            f"- **Mean Speedup:** {summary.mean_speedup:.3f}x (+/- {summary.std_speedup:.3f})",
-            f"- **Memory Ratio:** {summary.mean_memory_ratio:.3f}",
-            f"- **Accuracy Correlation:** {summary.mean_accuracy:.3f}",
-            f"- **Comparisons:** {summary.n_comparisons}",
-            "",
-        ])
+        lines.extend(
+            [
+                f"### {name}\n",
+                f"- **Winner:** {summary.winner.upper()}",
+                f"- **Mean Speedup:** {summary.mean_speedup:.3f}x (+/- {summary.std_speedup:.3f})",
+                f"- **Memory Ratio:** {summary.mean_memory_ratio:.3f}",
+                f"- **Accuracy Correlation:** {summary.mean_accuracy:.3f}",
+                f"- **Comparisons:** {summary.n_comparisons}",
+                "",
+            ]
+        )
 
     # Detailed results table
-    lines.extend([
-        "## Detailed Results\n",
-        "| Operation | Dataset | ScpTensor (ms) | Competitor (ms) | Speedup | Accuracy |",
-        "|-----------|---------|----------------|-----------------|---------|----------|",
-    ])
+    lines.extend(
+        [
+            "## Detailed Results\n",
+            "| Operation | Dataset | ScpTensor (ms) | Competitor (ms) | Speedup | Accuracy |",
+            "|-----------|---------|----------------|-----------------|---------|----------|",
+        ]
+    )
 
     for _, row in df.iterrows():
         lines.append(
@@ -203,19 +205,21 @@ def generate_markdown_report(
         )
 
     # Methodology
-    lines.extend([
-        "\n## Methodology\n",
-        "- **Test Data:** Synthetic single-cell proteomics datasets",
-        "- **Metrics:** Runtime, memory usage, output correlation",
-        "- **Speedup > 1.0:** ScpTensor is faster",
-        "- **Speedup < 1.0:** Competitor is faster",
-        "- **Accuracy:** Correlation between ScpTensor and competitor outputs\n",
-        "## Competitors\n",
-        "- **numpy:** Raw numerical computing",
-        "- **scikit-learn:** Machine learning library",
-        "- **scipy:** Scientific computing",
-        "- **scanpy-style:** Single-cell analysis patterns",
-    ])
+    lines.extend(
+        [
+            "\n## Methodology\n",
+            "- **Test Data:** Synthetic single-cell proteomics datasets",
+            "- **Metrics:** Runtime, memory usage, output correlation",
+            "- **Speedup > 1.0:** ScpTensor is faster",
+            "- **Speedup < 1.0:** Competitor is faster",
+            "- **Accuracy:** Correlation between ScpTensor and competitor outputs\n",
+            "## Competitors\n",
+            "- **numpy:** Raw numerical computing",
+            "- **scikit-learn:** Machine learning library",
+            "- **scipy:** Scientific computing",
+            "- **scanpy-style:** Single-cell analysis patterns",
+        ]
+    )
 
     output_path.write_text("\n".join(lines))
     print(f"   Markdown: {output_path}")
@@ -261,6 +265,7 @@ def main() -> int:
     except Exception as e:
         print(f"\nBenchmark failed: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

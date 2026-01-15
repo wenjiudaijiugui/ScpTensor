@@ -4,9 +4,9 @@ Tests for Assay core structure.
 This module contains tests for Assay functionality.
 """
 
-import pytest
 import numpy as np
 import polars as pl
+import pytest
 from scipy import sparse
 
 
@@ -29,10 +29,7 @@ class TestAssayBasic:
         """Test Assay with custom feature_id_col."""
         from scptensor.core import Assay, ScpMatrix
 
-        var = pl.DataFrame({
-            "_index": ["P1", "P2"],
-            "protein_id": ["Prot1", "Prot2"]
-        })
+        var = pl.DataFrame({"_index": ["P1", "P2"], "protein_id": ["Prot1", "Prot2"]})
         X = np.random.rand(5, 2)
         matrix = ScpMatrix(X=X)
         assay = Assay(var=var, layers={"raw": matrix}, feature_id_col="protein_id")
@@ -153,8 +150,8 @@ class TestAssayBasic:
             layers={
                 "raw": ScpMatrix(X=X_raw),
                 "log": ScpMatrix(X=X_log),
-                "normalized": ScpMatrix(X=X_norm)
-            }
+                "normalized": ScpMatrix(X=X_norm),
+            },
         )
 
         assert len(assay.layers) == 3
@@ -182,12 +179,14 @@ class TestAssayBasic:
         """Test assay with additional metadata in var."""
         from scptensor.core import Assay, ScpMatrix
 
-        var = pl.DataFrame({
-            "_index": ["P1", "P2", "P3"],
-            "protein_name": ["Protein1", "Protein2", "Protein3"],
-            "chromosome": ["chr1", "chr2", "chr3"],
-            "is_significant": [True, False, True]
-        })
+        var = pl.DataFrame(
+            {
+                "_index": ["P1", "P2", "P3"],
+                "protein_name": ["Protein1", "Protein2", "Protein3"],
+                "chromosome": ["chr1", "chr2", "chr3"],
+                "is_significant": [True, False, True],
+            }
+        )
         X = np.random.rand(10, 3)
         matrix = ScpMatrix(X=X)
         assay = Assay(var=var, layers={"raw": matrix})
@@ -220,13 +219,7 @@ class TestAssayBasic:
         X1 = np.random.rand(3, 2)
         X2 = np.random.rand(3, 2) * 2
 
-        assay = Assay(
-            var=var,
-            layers={
-                "layer1": ScpMatrix(X=X1),
-                "layer2": ScpMatrix(X=X2)
-            }
-        )
+        assay = Assay(var=var, layers={"layer1": ScpMatrix(X=X1), "layer2": ScpMatrix(X=X2)})
 
         subset_assay = assay.subset(feature_indices=[0])
 

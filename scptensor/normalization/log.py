@@ -117,9 +117,7 @@ def log_normalize(
     if is_sparse_matrix(X):
         # For sparse matrices, use combined log+scale operation
         # This reduces memory allocations and improves cache locality
-        X_log = sparse_safe_log1p_with_scale(
-            X, offset=offset, scale=log_base, use_jit=use_jit
-        )
+        X_log = sparse_safe_log1p_with_scale(X, offset=offset, scale=log_base, use_jit=use_jit)
         # Ensure CSR format for efficiency
         X_log = ensure_sparse_format(X_log, "csr")
     else:

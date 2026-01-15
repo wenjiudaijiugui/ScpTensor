@@ -6,13 +6,13 @@ imputation algorithms (PPCA, SVD, MissForest) from JIT compilation.
 """
 
 import time
+
 import numpy as np
-import numpy.random as npr
 import polars as pl
 
-from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
-from scptensor.impute import ppca, svd_impute, missforest
 from scptensor.core.jit_ops import NUMBA_AVAILABLE
+from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
+from scptensor.impute import missforest, ppca, svd_impute
 
 print("=" * 60)
 print("ScpTensor JIT Integration Benchmark")
@@ -88,7 +88,7 @@ X_imputed_ppca = result_ppca.assays["protein"].layers["imputed_ppca"].X
 mae_ppca = np.mean(np.abs(X_imputed_ppca[mask_ppca] - X_true_ppca[mask_ppca]))
 corr_ppca = np.corrcoef(X_imputed_ppca[mask_ppca], X_true_ppca[mask_ppca])[0, 1]
 
-print(f"Dataset: 500 samples x 100 features, 20% missing")
+print("Dataset: 500 samples x 100 features, 20% missing")
 print(f"Time: {mean_time:.2f} +/- {std_time:.2f} seconds")
 print(f"MAE: {mae_ppca:.4f}")
 print(f"Correlation: {corr_ppca:.4f}")
@@ -119,7 +119,7 @@ X_imputed_svd = result_svd.assays["protein"].layers["imputed_svd"].X
 mae_svd = np.mean(np.abs(X_imputed_svd[mask_svd] - X_true_svd[mask_svd]))
 corr_svd = np.corrcoef(X_imputed_svd[mask_svd], X_true_svd[mask_svd])[0, 1]
 
-print(f"Dataset: 500 samples x 100 features, 20% missing")
+print("Dataset: 500 samples x 100 features, 20% missing")
 print(f"Time: {mean_time:.2f} +/- {std_time:.2f} seconds")
 print(f"MAE: {mae_svd:.4f}")
 print(f"Correlation: {corr_svd:.4f}")
@@ -150,7 +150,7 @@ X_imputed_mf = result_mf.assays["protein"].layers["imputed_mf"].X
 mae_mf = np.mean(np.abs(X_imputed_mf[mask_mf] - X_true_mf[mask_mf]))
 corr_mf = np.corrcoef(X_imputed_mf[mask_mf], X_true_mf[mask_mf])[0, 1]
 
-print(f"Dataset: 200 samples x 50 features, 20% missing")
+print("Dataset: 200 samples x 50 features, 20% missing")
 print(f"Time: {mean_time:.2f} +/- {std_time:.2f} seconds")
 print(f"MAE: {mae_mf:.4f}")
 print(f"Correlation: {corr_mf:.4f}")

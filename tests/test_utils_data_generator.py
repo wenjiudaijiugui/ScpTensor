@@ -5,12 +5,12 @@ which generates synthetic single-cell proteomics data.
 """
 
 import numpy as np
+import polars as pl
 import pytest
 import scipy.sparse as sp
-import polars as pl
 
+from scptensor.core.structures import ScpContainer
 from scptensor.utils.data_generator import ScpDataGenerator
-from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
 class TestScpDataGeneratorInit:
@@ -282,11 +282,10 @@ class TestScpDataGeneratorGenerate:
         assay = container.assays[gen.assay_name]
         matrix = assay.layers[gen.layer_name]
 
-        if matrix.M is not None:
+        if matrix.M is not None and not sp.issparse(matrix.M):
             # Check that mask exists and is correct type
-            if not sp.issparse(matrix.M):
-                # Bool mask might be stored as int8 with values 0/1
-                assert matrix.M.dtype in [bool, np.int8]
+            # Bool mask might be stored as int8 with values 0/1
+            assert matrix.M.dtype in [bool, np.int8]
 
     def test_generate_zero_missing_rate(self):
         """Test generation with no missing values."""
@@ -414,8 +413,12 @@ class TestScpDataGeneratorGenerate:
 
         # Check if there are differences between batches
         # Use the sample_id_col for indexing
-        batch_0_samples = container.obs.filter(pl.col("batch") == "Batch_0")[default_generator.sample_id_col].to_list()
-        batch_1_samples = container.obs.filter(pl.col("batch") == "Batch_1")[default_generator.sample_id_col].to_list()
+        container.obs.filter(pl.col("batch") == "Batch_0")[
+            default_generator.sample_id_col
+        ].to_list()
+        container.obs.filter(pl.col("batch") == "Batch_1")[
+            default_generator.sample_id_col
+        ].to_list()
 
         # Get positions - since order is preserved in generation, we can use direct indices
         batch_0_mask = container.obs["batch"] == "Batch_0"

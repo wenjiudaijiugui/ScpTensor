@@ -9,7 +9,7 @@ from scptensor.core.exceptions import (
     ScpValueError,
 )
 from scptensor.core.jit_ops import impute_missing_with_col_means_jit
-from scptensor.core.structures import MaskCode, ScpContainer, ScpMatrix
+from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
 
 
@@ -172,9 +172,7 @@ def missforest(
         X_old = X_in.copy()
 
     # Create new layer
-    new_matrix = ScpMatrix(
-        X=X_in, M=_update_imputed_mask(input_matrix.M, missing_mask_original)
-    )
+    new_matrix = ScpMatrix(X=X_in, M=_update_imputed_mask(input_matrix.M, missing_mask_original))
     layer_name = new_layer_name or "imputed_missforest"
     assay.add_layer(layer_name, new_matrix)
 

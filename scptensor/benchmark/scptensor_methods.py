@@ -7,16 +7,13 @@ The wrappers extract raw arrays, apply the operation, and return
 results in a standardized format for comparison.
 """
 
-from typing import Any
-
 import numpy as np
 import psutil
 
-from scptensor.core.structures import ScpContainer, Assay, ScpMatrix
+from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.impute.knn import knn as scptensor_knn
 from scptensor.impute.svd import svd_impute as scptensor_svd_impute
 from scptensor.normalization.log import log_normalize as scptensor_log_normalize
-
 
 # =============================================================================
 # Resource Tracking
@@ -64,9 +61,7 @@ def _get_valid_data(X: np.ndarray, M: np.ndarray | None = None) -> np.ndarray:
     return X_nan
 
 
-def _create_container_from_data(
-    X: np.ndarray, M: np.ndarray | None = None
-) -> ScpContainer:
+def _create_container_from_data(X: np.ndarray, M: np.ndarray | None = None) -> ScpContainer:
     """Create a minimal ScpContainer from data arrays.
 
     Parameters
@@ -85,15 +80,19 @@ def _create_container_from_data(
 
     n_samples, n_features = X.shape
 
-    obs = pl.DataFrame({
-        "_index": [f"S{i:03d}" for i in range(n_samples)],
-        "sample_id": [f"S{i:03d}" for i in range(n_samples)],
-    })
+    obs = pl.DataFrame(
+        {
+            "_index": [f"S{i:03d}" for i in range(n_samples)],
+            "sample_id": [f"S{i:03d}" for i in range(n_samples)],
+        }
+    )
 
-    var = pl.DataFrame({
-        "_index": [f"P{i:04d}" for i in range(n_features)],
-        "protein_id": [f"P{i:04d}" for i in range(n_features)],
-    })
+    var = pl.DataFrame(
+        {
+            "_index": [f"P{i:04d}" for i in range(n_features)],
+            "protein_id": [f"P{i:04d}" for i in range(n_features)],
+        }
+    )
 
     matrix = ScpMatrix(X=X.copy(), M=M.copy() if M is not None else None)
     assay = Assay(var=var, layers={"raw": matrix}, feature_id_col="protein_id")
@@ -144,6 +143,7 @@ class ScpTensorLogNormalize:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         # Create container
@@ -200,6 +200,7 @@ class ScpTensorKNNImputer:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         # Convert mask to NaN format for ScpTensor
@@ -262,6 +263,7 @@ class ScpTensorSVDImputer:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         # Convert mask to NaN format for ScpTensor
@@ -323,6 +325,7 @@ class ScpTensorPCA:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         # Handle missing values
@@ -391,6 +394,7 @@ class ScpTensorKMeans:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         # Handle missing values
@@ -405,15 +409,19 @@ class ScpTensorKMeans:
         import polars as pl
 
         n_samples = X_valid.shape[0]
-        obs = pl.DataFrame({
-            "_index": [f"S{i:03d}" for i in range(n_samples)],
-            "sample_id": [f"S{i:03d}" for i in range(n_samples)],
-        })
+        obs = pl.DataFrame(
+            {
+                "_index": [f"S{i:03d}" for i in range(n_samples)],
+                "sample_id": [f"S{i:03d}" for i in range(n_samples)],
+            }
+        )
 
-        var = pl.DataFrame({
-            "_index": [f"D{i:04d}" for i in range(X_valid.shape[1])],
-            "dim_id": [f"D{i:04d}" for i in range(X_valid.shape[1])],
-        })
+        var = pl.DataFrame(
+            {
+                "_index": [f"D{i:04d}" for i in range(X_valid.shape[1])],
+                "dim_id": [f"D{i:04d}" for i in range(X_valid.shape[1])],
+            }
+        )
 
         matrix = ScpMatrix(X=X_valid.copy(), M=None)
         assay = Assay(var=var, layers={"X": matrix}, feature_id_col="dim_id")
@@ -495,7 +503,6 @@ def list_scptensor_methods() -> list[str]:
 
 if __name__ == "__main__":
     # Test the wrappers
-    import time
 
     print("Testing ScpTensor method wrappers...")
 

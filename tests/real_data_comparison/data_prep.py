@@ -14,9 +14,7 @@ Data Structure:
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import polars as pl
@@ -155,7 +153,7 @@ def match_samples_to_design(
 def convert_to_h5ad(
     tsv_path: str | Path,
     output_path: str | Path,
-    design_path: Optional[str | Path] = None,
+    design_path: str | Path | None = None,
     min_nonzero: int = 3,
     min_samples_per_protein: int = 3,
     transpose: bool = True,
@@ -236,16 +234,18 @@ def convert_to_h5ad(
         print(f"Filtering {(~valid_samples).sum()} samples with < {min_nonzero} detections")
         X = X[:, valid_samples]
         obs = obs.filter(valid_samples)
-        sample_names = [s for s, v in zip(sample_names, valid_samples) if v]
+        sample_names = [s for s, v in zip(sample_names, valid_samples, strict=False) if v]
 
     # Filter proteins with too few detections
     var_plasm = pl.DataFrame(var_dict)
     valid_proteins = var_plasm["n_samples_detected"] >= min_samples_per_protein
     if not valid_proteins.all():
-        print(f"Filtering {(~valid_proteins).sum()} proteins detected in < {min_samples_per_protein} samples")
+        print(
+            f"Filtering {(~valid_proteins).sum()} proteins detected in < {min_samples_per_protein} samples"
+        )
         X = X[valid_proteins.to_list(), :]
         var = var.filter(valid_proteins)
-        protein_names = [p for p, v in zip(protein_names, valid_proteins) if v]
+        protein_names = [p for p, v in zip(protein_names, valid_proteins, strict=False) if v]
 
     print(f"After filtering: {X.shape[0]} proteins x {X.shape[1]} samples")
 

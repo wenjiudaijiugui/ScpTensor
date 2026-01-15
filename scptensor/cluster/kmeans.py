@@ -11,12 +11,8 @@ import numpy as np
 import polars as pl
 from sklearn.cluster import KMeans as SKLearnKMeans
 
-from scptensor.core.exceptions import AssayNotFoundError
-from scptensor.core.exceptions import LayerNotFoundError
-from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import Assay
-from scptensor.core.structures import ScpContainer
-from scptensor.core.structures import ScpMatrix
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
+from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
 
 def _validate_params(n_clusters: int) -> None:
@@ -165,10 +161,12 @@ def run_kmeans(
 
     one_hot, M_cluster = _create_one_hot_encoding(labels, n_clusters)
 
-    var_cluster = pl.DataFrame({
-        "_index": [f"Cluster_{i}" for i in range(n_clusters)],
-        "cluster_id": [f"Cluster_{i}" for i in range(n_clusters)],
-    })
+    var_cluster = pl.DataFrame(
+        {
+            "_index": [f"Cluster_{i}" for i in range(n_clusters)],
+            "cluster_id": [f"Cluster_{i}" for i in range(n_clusters)],
+        }
+    )
 
     matrix_cluster = ScpMatrix(X=one_hot, M=M_cluster)
 
@@ -183,9 +181,7 @@ def run_kmeans(
 
     new_obs = container.obs
     if key_added:
-        new_obs = container.obs.with_columns(
-            pl.Series(key_added, labels).cast(pl.String)
-        )
+        new_obs = container.obs.with_columns(pl.Series(key_added, labels).cast(pl.String))
 
     new_container = ScpContainer(
         obs=new_obs,
@@ -210,7 +206,7 @@ def run_kmeans(
 if __name__ == "__main__":
     import numpy as np
 
-    from scptensor.core.structures import ScpContainer, Assay, ScpMatrix
+    from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
     np.random.seed(42)
     X_test = np.random.randn(100, 10)
