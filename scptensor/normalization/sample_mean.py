@@ -1,6 +1,5 @@
 """Sample mean normalization for ScpTensor."""
 
-import warnings
 from typing import overload
 
 import numpy as np
@@ -18,7 +17,6 @@ def sample_mean_normalization(
     assay_name: str = "protein",
     source_layer: str = "raw",
     new_layer_name: str = "sample_mean_norm",
-    base_layer_name: str | None = None,
 ) -> ScpContainer: ...
 
 
@@ -27,7 +25,6 @@ def sample_mean_normalization(
     assay_name: str = "protein",
     source_layer: str = "raw",
     new_layer_name: str = "sample_mean_norm",
-    base_layer_name: str | None = None,
 ) -> ScpContainer:
     """
     Sample mean normalization to eliminate systematic biases from loading differences.
@@ -49,9 +46,6 @@ def sample_mean_normalization(
         Name of the layer to normalize.
     new_layer_name : str, default="sample_mean_norm"
         Name for the new normalized layer.
-    base_layer_name : str, optional
-        .. deprecated:: 0.2.0
-            Use ``source_layer`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
@@ -78,16 +72,6 @@ def sample_mean_normalization(
     >>> 'sample_mean_norm' in result.assays['protein'].layers
     True
     """
-    # Handle deprecated parameter name
-    if base_layer_name is not None:
-        warnings.warn(
-            "'base_layer_name' is deprecated, use 'source_layer' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        source_layer = base_layer_name
-
     # Validate assay and layer existence
     if assay_name not in container.assays:
         available = ", ".join(f"'{k}'" for k in container.assays.keys())

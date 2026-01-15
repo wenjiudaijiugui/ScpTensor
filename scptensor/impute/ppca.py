@@ -5,7 +5,6 @@ Reference:
     Journal of the Royal Statistical Society (1999).
 """
 
-import warnings
 from typing import overload
 
 import numpy as np
@@ -33,8 +32,6 @@ def ppca(
     max_iter: int = 100,
     tol: float = 1e-6,
     random_state: int | None = None,
-    base_layer: str | None = None,
-    layer: str | None = None,
 ) -> ScpContainer: ...
 
 
@@ -47,8 +44,6 @@ def ppca(
     max_iter: int = 100,
     tol: float = 1e-6,
     random_state: int | None = None,
-    base_layer: str | None = None,
-    layer: str | None = None,
 ) -> ScpContainer:
     """
     Impute missing values using Probabilistic PCA (PPCA).
@@ -74,12 +69,6 @@ def ppca(
         Convergence tolerance.
     random_state : int, optional
         Random seed for reproducibility.
-    base_layer : str, optional
-        .. deprecated:: 0.2.0
-            Use ``source_layer`` instead. Will be removed in version 1.0.0.
-    layer : str, optional
-        .. deprecated:: 0.2.0
-            Use ``source_layer`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
@@ -111,23 +100,6 @@ def ppca(
     >>> "imputed_ppca" in result.assays["proteins"].layers
     True
     """
-    # Handle deprecated parameter names
-    if base_layer is not None:
-        warnings.warn(
-            "'base_layer' is deprecated, use 'source_layer' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        source_layer = base_layer
-    if layer is not None:
-        warnings.warn(
-            "'layer' is deprecated, use 'source_layer' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        source_layer = layer
     # Validate parameters
     if n_components <= 0:
         raise ScpValueError(

@@ -1,6 +1,5 @@
 """KNN imputation for single-cell proteomics data."""
 
-import warnings
 from typing import overload
 
 import numpy as np
@@ -25,9 +24,6 @@ def knn(
     weights: str = "uniform",
     batch_size: int = 500,
     oversample_factor: int = 3,
-    base_layer: str | None = None,
-    layer: str | None = None,
-    output_layer: str | None = None,
 ) -> ScpContainer: ...
 
 
@@ -40,9 +36,6 @@ def knn(
     weights: str = "uniform",
     batch_size: int = 500,
     oversample_factor: int = 3,
-    base_layer: str | None = None,
-    layer: str | None = None,
-    output_layer: str | None = None,
 ) -> ScpContainer:
     """
     Impute missing values using k-Nearest Neighbors with over-sampling.
@@ -69,15 +62,6 @@ def knn(
         Number of rows to process at once.
     oversample_factor : int, default 3
         Multiplier for search range k_search = oversample_factor * k.
-    base_layer : str, optional
-        .. deprecated:: 0.2.0
-            Use ``source_layer`` instead. Will be removed in version 1.0.0.
-    layer : str, optional
-        .. deprecated:: 0.2.0
-            Use ``source_layer`` instead. Will be removed in version 1.0.0.
-    output_layer : str, optional
-        .. deprecated:: 0.2.0
-            Use ``new_layer_name`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
@@ -105,31 +89,6 @@ def knn(
     >>> "imputed_knn" in result.assays["proteins"].layers
     True
     """
-    # Handle deprecated parameter names
-    if base_layer is not None:
-        warnings.warn(
-            "'base_layer' is deprecated, use 'source_layer' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        source_layer = base_layer
-    if layer is not None:
-        warnings.warn(
-            "'layer' is deprecated, use 'source_layer' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        source_layer = layer
-    if output_layer is not None:
-        warnings.warn(
-            "'output_layer' is deprecated, use 'new_layer_name' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        new_layer_name = output_layer
     # Parameter validation
     if k <= 0:
         raise ScpValueError(

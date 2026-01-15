@@ -1,6 +1,5 @@
 """MissForest imputation for single-cell proteomics data."""
 
-import warnings
 from typing import overload
 
 import numpy as np
@@ -28,8 +27,6 @@ def missforest(
     n_jobs: int = -1,
     random_state: int = 42,
     verbose: int = 0,
-    base_layer: str | None = None,
-    layer: str | None = None,
 ) -> ScpContainer: ...
 
 
@@ -44,8 +41,6 @@ def missforest(
     n_jobs: int = -1,
     random_state: int = 42,
     verbose: int = 0,
-    base_layer: str | None = None,
-    layer: str | None = None,
 ) -> ScpContainer:
     """
     Impute missing values using MissForest (Random Forest imputation).
@@ -75,12 +70,6 @@ def missforest(
         Random seed.
     verbose : int, default 0
         Verbosity level.
-    base_layer : str, optional
-        .. deprecated:: 0.2.0
-            Use ``source_layer`` instead. Will be removed in version 1.0.0.
-    layer : str, optional
-        .. deprecated:: 0.2.0
-            Use ``source_layer`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
@@ -103,23 +92,6 @@ def missforest(
     >>> "imputed_missforest" in result.assays["proteins"].layers
     True
     """
-    # Handle deprecated parameter names
-    if base_layer is not None:
-        warnings.warn(
-            "'base_layer' is deprecated, use 'source_layer' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        source_layer = base_layer
-    if layer is not None:
-        warnings.warn(
-            "'layer' is deprecated, use 'source_layer' instead. "
-            "This will be removed in version 1.0.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        source_layer = layer
     # Validate parameters
     if max_iter <= 0:
         raise ScpValueError(
