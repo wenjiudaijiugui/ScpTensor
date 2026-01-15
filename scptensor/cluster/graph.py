@@ -6,6 +6,9 @@ on k-nearest neighbor graphs, including the Leiden algorithm.
 
 from __future__ import annotations
 
+import warnings
+from functools import wraps
+
 import numpy as np
 import polars as pl
 from sklearn.neighbors import kneighbors_graph
@@ -13,6 +16,38 @@ from sklearn.neighbors import kneighbors_graph
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.core.structures import ScpContainer
 from scptensor.core.utils import requires_dependency
+
+
+def _deprecated_cluster_alias(old_name: str, new_name: str):
+    """Create a deprecated alias wrapper for cluster functions.
+
+    Parameters
+    ----------
+    old_name : str
+        Original function name being deprecated.
+    new_name : str
+        New function name with cluster_ prefix.
+
+    Returns
+    -------
+    callable
+        Decorator function that wraps the original with deprecation warning.
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            warnings.warn(
+                f"{old_name}() is deprecated and will be removed in v0.2.0. "
+                f"Use {new_name}() instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 def _validate_graph_params(n_neighbors: int, resolution: float) -> None:
@@ -84,7 +119,7 @@ def _get_input_matrix(
 
 @requires_dependency("leidenalg", "pip install leidenalg")
 @requires_dependency("igraph", "pip install python-igraph")
-def leiden(
+def cluster_leiden(
     container: ScpContainer,
     assay_name: str = "pca",
     base_layer: str = "X",
@@ -202,9 +237,13 @@ if __name__ == "__main__":
     test_container = ScpContainer(obs=obs_test, assays={"pca": test_assay})
 
     try:
-        result = leiden(test_container, n_neighbors=10, resolution=0.5)
+        result = cluster_leiden(test_container, n_neighbors=10, resolution=0.5)
         assert "leiden_r0.5" in result.obs.columns
         assert len(result.history) == 1
         print("All tests passed.")
     except (ImportError, Exception):
         print("Skipping test: leidenalg/igraph not installed.")
+
+
+# Deprecated alias for backward compatibility
+leiden = _deprecated_cluster_alias("leiden", "cluster_leiden")(cluster_leiden)
