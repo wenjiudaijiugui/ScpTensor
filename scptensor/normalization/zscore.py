@@ -11,6 +11,8 @@ References:
     proteomics data. Expert Review of Proteomics.
 """
 
+import warnings
+
 from typing import overload
 
 import numpy as np
@@ -25,7 +27,7 @@ from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
 @overload
-def zscore(
+def norm_zscore(
     container: ScpContainer,
     assay_name: str = "protein",
     source_layer: str = "imputed",
@@ -35,7 +37,7 @@ def zscore(
 ) -> ScpContainer: ...
 
 
-def zscore(
+def norm_zscore(
     container: ScpContainer,
     assay_name: str = "protein",
     source_layer: str = "imputed",
@@ -94,7 +96,7 @@ def zscore(
     >>> assay = Assay(var=pl.DataFrame({'_index': ['p1', 'p2']}))
     >>> assay.add_layer('imputed', ScpMatrix(X=np.array([[1.0, 2.0], [3.0, 4.0]])))
     >>> container.add_assay('protein', assay)
-    >>> result = zscore(container)
+    >>> result = norm_zscore(container)
     >>> 'zscore' in result.assays['protein'].layers
     True
     """
@@ -178,3 +180,27 @@ def zscore(
     )
 
     return container
+
+
+# Backward compatibility alias
+def zscore(container, assay_name="protein", base_layer_name=None, source_layer=None,
+           new_layer_name=None, axis=0, ddof=1):
+    """Deprecated: Use norm_zscore instead.
+
+    This function will be removed in version 1.0.0.
+
+    Notes
+    -----
+    For backward compatibility, accepts both 'base_layer_name' (deprecated) and
+    'source_layer' (new parameter name). If both are provided, 'source_layer' takes precedence.
+    """
+    warnings.warn(
+        "'zscore' is deprecated, use 'norm_zscore' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    # Handle parameter name change for backward compatibility
+    if source_layer is None:
+        source_layer = base_layer_name
+    return norm_zscore(container, assay_name, source_layer, new_layer_name, axis, ddof)

@@ -1,5 +1,7 @@
 """Sample median normalization for ScpTensor."""
 
+import warnings
+
 from typing import overload
 
 import numpy as np
@@ -12,7 +14,7 @@ from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
 @overload
-def sample_median_normalization(
+def norm_sample_median(
     container: ScpContainer,
     assay_name: str = "protein",
     source_layer: str = "raw",
@@ -20,7 +22,7 @@ def sample_median_normalization(
 ) -> ScpContainer: ...
 
 
-def sample_median_normalization(
+def norm_sample_median(
     container: ScpContainer,
     assay_name: str = "protein",
     source_layer: str = "raw",
@@ -68,7 +70,7 @@ def sample_median_normalization(
     >>> assay = Assay(var=pl.DataFrame({'_index': ['p1', 'p2']}))
     >>> assay.add_layer('raw', ScpMatrix(X=np.array([[1, 2], [3, 4]])))
     >>> container.add_assay('protein', assay)
-    >>> result = sample_median_normalization(container)
+    >>> result = norm_sample_median(container)
     >>> 'sample_median_norm' in result.assays['protein'].layers
     True
     """
@@ -118,3 +120,18 @@ def sample_median_normalization(
     )
 
     return container
+
+
+# Backward compatibility alias
+def sample_median_normalization(*args, **kwargs):
+    """Deprecated: Use norm_sample_median instead.
+
+    This function will be removed in version 1.0.0.
+    """
+    warnings.warn(
+        "'sample_median_normalization' is deprecated, use 'norm_sample_median' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return norm_sample_median(*args, **kwargs)

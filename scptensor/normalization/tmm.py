@@ -5,6 +5,8 @@ Reference:
     for differential expression analysis of RNA-seq data. Genome Biology, 11(3), R25.
 """
 
+import warnings
+
 from typing import overload
 
 import numpy as np
@@ -18,7 +20,7 @@ from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
 @overload
-def tmm_normalization(
+def norm_tmm(
     container: ScpContainer,
     assay_name: str = "protein",
     source_layer: str = "raw",
@@ -28,7 +30,7 @@ def tmm_normalization(
 ) -> ScpContainer: ...
 
 
-def tmm_normalization(
+def norm_tmm(
     container: ScpContainer,
     assay_name: str = "protein",
     source_layer: str = "raw",
@@ -88,7 +90,7 @@ def tmm_normalization(
     >>> assay = Assay(var=pl.DataFrame({'_index': ['p1', 'p2', 'p3']}))
     >>> assay.add_layer('raw', ScpMatrix(X=np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])))
     >>> container.add_assay('protein', assay)
-    >>> result = tmm_normalization(container)
+    >>> result = norm_tmm(container)
     >>> 'tmm_norm' in result.assays['protein'].layers
     True
     """
@@ -209,3 +211,27 @@ def tmm_normalization(
     )
 
     return container
+
+
+# Backward compatibility alias
+def tmm_normalization(container, assay_name="protein", base_layer_name=None, source_layer="raw",
+                      new_layer_name="tmm_norm", reference_sample=None, trim_ratio=0.3):
+    """Deprecated: Use norm_tmm instead.
+
+    This function will be removed in version 1.0.0.
+
+    Notes
+    -----
+    For backward compatibility, accepts both 'base_layer_name' (deprecated) and
+    'source_layer' (new parameter name). If 'source_layer' is default, 'base_layer_name' takes precedence.
+    """
+    warnings.warn(
+        "'tmm_normalization' is deprecated, use 'norm_tmm' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    # Handle parameter name change for backward compatibility
+    if base_layer_name is not None and source_layer == "raw":
+        source_layer = base_layer_name
+    return norm_tmm(container, assay_name, source_layer, new_layer_name, reference_sample, trim_ratio)

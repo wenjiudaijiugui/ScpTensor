@@ -1,5 +1,7 @@
 """Median centering normalization for ScpTensor."""
 
+import warnings
+
 from typing import overload
 
 import numpy as np
@@ -12,7 +14,7 @@ from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
 @overload
-def median_centering(
+def norm_median_center(
     container: ScpContainer,
     assay_name: str = "protein",
     source_layer: str = "raw",
@@ -20,7 +22,7 @@ def median_centering(
 ) -> ScpContainer: ...
 
 
-def median_centering(
+def norm_median_center(
     container: ScpContainer,
     assay_name: str = "protein",
     source_layer: str = "raw",
@@ -67,7 +69,7 @@ def median_centering(
     >>> assay = Assay(var=pl.DataFrame({'_index': ['p1', 'p2']}))
     >>> assay.add_layer('raw', ScpMatrix(X=np.array([[1, 2], [3, 4]])))
     >>> container.add_assay('protein', assay)
-    >>> result = median_centering(container)
+    >>> result = norm_median_center(container)
     >>> 'median_centered' in result.assays['protein'].layers
     True
     """
@@ -117,3 +119,18 @@ def median_centering(
     )
 
     return container
+
+
+# Backward compatibility alias
+def median_centering(*args, **kwargs):
+    """Deprecated: Use norm_median_center instead.
+
+    This function will be removed in version 1.0.0.
+    """
+    warnings.warn(
+        "'median_centering' is deprecated, use 'norm_median_center' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return norm_median_center(*args, **kwargs)

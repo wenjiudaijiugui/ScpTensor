@@ -1,5 +1,7 @@
 """Median scaling normalization for ScpTensor."""
 
+import warnings
+
 from typing import overload
 
 import numpy as np
@@ -12,7 +14,7 @@ from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
 @overload
-def median_scaling(
+def norm_median_scale(
     container: ScpContainer,
     assay_name: str,
     source_layer: str,
@@ -20,7 +22,7 @@ def median_scaling(
 ) -> ScpContainer: ...
 
 
-def median_scaling(
+def norm_median_scale(
     container: ScpContainer,
     assay_name: str,
     source_layer: str,
@@ -68,7 +70,7 @@ def median_scaling(
     >>> assay = Assay(var=pl.DataFrame({'_index': ['p1', 'p2']}))
     >>> assay.add_layer('raw', ScpMatrix(X=np.array([[1, 2], [3, 4]])))
     >>> container.add_assay('protein', assay)
-    >>> result = median_scaling(container, 'protein', 'raw')
+    >>> result = norm_median_scale(container, 'protein', 'raw')
     >>> 'median_scaling' in result.assays['protein'].layers
     True
     """
@@ -116,3 +118,18 @@ def median_scaling(
     )
 
     return container
+
+
+# Backward compatibility alias
+def median_scaling(*args, **kwargs):
+    """Deprecated: Use norm_median_scale instead.
+
+    This function will be removed in version 1.0.0.
+    """
+    warnings.warn(
+        "'median_scaling' is deprecated, use 'norm_median_scale' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return norm_median_scale(*args, **kwargs)
