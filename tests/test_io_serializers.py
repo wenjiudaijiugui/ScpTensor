@@ -59,3 +59,27 @@ def test_deserialize_dataframe_from_hdf5():
         assert df.shape == (2, 3)
         assert df.columns == ["_index", "batch", "value"]
         assert df["_index"].to_list() == ["S1", "S2"]
+
+
+def test_serialize_provenance_log(sample_container):
+    """Test serializing operation history."""
+    import h5py
+
+    from scptensor.io.serializers import deserialize_provenance, serialize_provenance
+
+    # Add some history
+    sample_container.log_operation("test_op", {"n": 5}, "Test operation")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / "test.h5"
+        with h5py.File(path, "w") as f:
+            group = f.create_group("provenance")
+            serialize_provenance(sample_container.history, group)
+
+        # Deserialize and verify
+        with h5py.File(path, "r") as f:
+            history = deserialize_provenance(f["provenance"])
+
+        assert len(history) == 1
+        assert history[0].action == "test_op"
+        assert history[0].params == {"n": 5}
