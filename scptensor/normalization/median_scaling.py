@@ -1,16 +1,33 @@
 """Median scaling normalization for ScpTensor."""
 
+import warnings
+from typing import overload
+
 import numpy as np
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
+from scptensor.core.exceptions import (
+    AssayNotFoundError,
+    LayerNotFoundError,
+)
 from scptensor.core.structures import ScpContainer, ScpMatrix
+
+
+@overload
+def median_scaling(
+    container: ScpContainer,
+    assay_name: str,
+    source_layer: str,
+    new_layer_name: str = "median_scaling",
+    base_layer_name: str | None = None,
+) -> ScpContainer: ...
 
 
 def median_scaling(
     container: ScpContainer,
     assay_name: str,
-    base_layer_name: str,
+    source_layer: str,
     new_layer_name: str = "median_scaling",
+    base_layer_name: str | None = None,
 ) -> ScpContainer:
     """
     Apply median scaling normalization to align samples.
@@ -28,10 +45,13 @@ def median_scaling(
         ScpContainer containing the data.
     assay_name : str
         Name of the assay to process.
-    base_layer_name : str
+    source_layer : str
         Name of the layer to normalize.
     new_layer_name : str, default="median_scaling"
         Name for the new normalized layer.
+    base_layer_name : str, optional
+        .. deprecated:: 0.2.0
+            Use ``source_layer`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
@@ -58,15 +78,35 @@ def median_scaling(
     >>> 'median_scaling' in result.assays['protein'].layers
     True
     """
+    # Handle deprecated parameter name
+    if base_layer_name is not None:
+        warnings.warn(
+            "'base_layer_name' is deprecated, use 'source_layer' instead. "
+            "This will be removed in version 1.0.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        source_layer = base_layer_name
+
     # Validate assay and layer existence
     if assay_name not in container.assays:
-        raise AssayNotFoundError(assay_name)
+        available = ", ".join(f"'{k}'" for k in container.assays.keys())
+        raise AssayNotFoundError(
+            assay_name,
+            hint=f"Available assays: {available}. Use container.list_assays() to see all assays.",
+        )
 
     assay = container.assays[assay_name]
-    if base_layer_name not in assay.layers:
-        raise LayerNotFoundError(base_layer_name, assay_name)
+    if source_layer not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            source_layer,
+            assay_name,
+            hint=f"Available layers in assay '{assay_name}': {available}. "
+            f"Use assay.list_layers() to see all layers.",
+        )
 
-    input_layer = assay.layers[base_layer_name]
+    input_layer = assay.layers[source_layer]
     X = input_layer.X
 
     # Compute and apply median scaling (vectorized)
@@ -83,8 +123,12 @@ def median_scaling(
 
     container.log_operation(
         action="normalization_median_scaling",
-        params={"assay": assay_name},
-        description=f"Median scaling on layer '{base_layer_name}' -> '{new_layer_name}'.",
+        params={
+            "assay": assay_name,
+            "source_layer": source_layer,
+            "new_layer_name": new_layer_name,
+        },
+        description=f"Median scaling on layer '{source_layer}' -> '{new_layer_name}'.",
     )
 
     return container

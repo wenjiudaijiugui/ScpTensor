@@ -11,6 +11,9 @@ References:
     proteomics data. Expert Review of Proteomics.
 """
 
+import warnings
+from typing import overload
+
 import numpy as np
 
 from scptensor.core.exceptions import (
@@ -22,13 +25,26 @@ from scptensor.core.exceptions import (
 from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
+@overload
 def zscore(
     container: ScpContainer,
     assay_name: str = "protein",
-    base_layer_name: str = "imputed",
+    source_layer: str = "imputed",
     new_layer_name: str | None = "zscore",
     axis: int = 0,
     ddof: int = 1,
+    base_layer_name: str | None = None,
+) -> ScpContainer: ...
+
+
+def zscore(
+    container: ScpContainer,
+    assay_name: str = "protein",
+    source_layer: str = "imputed",
+    new_layer_name: str | None = "zscore",
+    axis: int = 0,
+    ddof: int = 1,
+    base_layer_name: str | None = None,
 ) -> ScpContainer:
     """
     Z-score normalization (standardization).
@@ -46,7 +62,7 @@ def zscore(
         The ScpContainer object.
     assay_name : str, default="protein"
         Name of the assay to transform.
-    base_layer_name : str, default="imputed"
+    source_layer : str, default="imputed"
         Name of the layer to use as input.
     new_layer_name : Optional[str], default="zscore"
         Name for the new layer with z-scores.
@@ -55,6 +71,9 @@ def zscore(
     ddof : int, default=1
         Delta degrees of freedom. 1 for unbiased estimator (sample std),
         0 for population std. R's scale() uses ddof=1.
+    base_layer_name : str, optional
+        .. deprecated:: 0.2.0
+            Use ``source_layer`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
@@ -85,36 +104,58 @@ def zscore(
     >>> 'zscore' in result.assays['protein'].layers
     True
     """
+    # Handle deprecated parameter name
+    if base_layer_name is not None:
+        warnings.warn(
+            "'base_layer_name' is deprecated, use 'source_layer' instead. "
+            "This will be removed in version 1.0.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        source_layer = base_layer_name
+
     # Validate parameters early (guard clause pattern)
     if axis not in (0, 1):
         raise ScpValueError(
-            f"Axis must be 0 or 1, got {axis}.",
+            f"Axis must be 0 or 1, got {axis}. "
+            "Use axis=0 to standardize features (columns), axis=1 for samples (rows).",
             parameter="axis",
             value=axis,
         )
     if ddof < 0:
         raise ScpValueError(
-            f"Delta degrees of freedom must be non-negative, got {ddof}.",
+            f"Delta degrees of freedom must be non-negative, got {ddof}. "
+            "Use ddof=1 for sample std (unbiased), ddof=0 for population std.",
             parameter="ddof",
             value=ddof,
         )
 
     # Validate assay and layer existence
     if assay_name not in container.assays:
-        raise AssayNotFoundError(assay_name)
+        available = ", ".join(f"'{k}'" for k in container.assays.keys())
+        raise AssayNotFoundError(
+            assay_name,
+            hint=f"Available assays: {available}. Use container.list_assays() to see all assays.",
+        )
 
     assay = container.assays[assay_name]
-    if base_layer_name not in assay.layers:
-        raise LayerNotFoundError(base_layer_name, assay_name)
+    if source_layer not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            source_layer,
+            assay_name,
+            hint=f"Available layers in assay '{assay_name}': {available}. "
+            f"Use assay.list_layers() to see all layers.",
+        )
 
-    input_layer = assay.layers[base_layer_name]
+    input_layer = assay.layers[source_layer]
     X = input_layer.X.copy()
 
     # Z-score requires complete matrix - no missing values allowed
     if np.isnan(X).any():
         raise ValidationError(
             "Z-score normalization requires a complete matrix (no missing values). "
-            f"Layer '{base_layer_name}' contains NaNs. "
+            f"Layer '{source_layer}' contains NaNs. "
             "Please apply imputation before z-score normalization. "
             "Reference: Vanderaa, C. & Gatto, L. (2023). Expert Review of Proteomics.",
             field="X",
@@ -142,8 +183,14 @@ def zscore(
 
     container.log_operation(
         action="normalization_zscore",
-        params={"assay": assay_name, "axis": axis, "ddof": ddof},
-        description=f"Z-score normalization on '{base_layer_name}' -> '{target_layer_name}'.",
+        params={
+            "assay": assay_name,
+            "source_layer": source_layer,
+            "new_layer_name": target_layer_name,
+            "axis": axis,
+            "ddof": ddof,
+        },
+        description=f"Z-score normalization on '{source_layer}' -> '{target_layer_name}'.",
     )
 
     return container

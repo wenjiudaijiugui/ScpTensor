@@ -6,6 +6,9 @@ Reference:
     expression in mRNA-Seq experiments. BMC Bioinformatics, 11, 94.
 """
 
+import warnings
+from typing import overload
+
 import numpy as np
 
 from scptensor.core.exceptions import (
@@ -16,12 +19,24 @@ from scptensor.core.exceptions import (
 from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
+@overload
 def upper_quartile_normalization(
     container: ScpContainer,
     assay_name: str = "protein",
-    base_layer_name: str = "raw",
+    source_layer: str = "raw",
     new_layer_name: str = "upper_quartile_norm",
     percentile: float = 0.75,
+    base_layer_name: str | None = None,
+) -> ScpContainer: ...
+
+
+def upper_quartile_normalization(
+    container: ScpContainer,
+    assay_name: str = "protein",
+    source_layer: str = "raw",
+    new_layer_name: str = "upper_quartile_norm",
+    percentile: float = 0.75,
+    base_layer_name: str | None = None,
 ) -> ScpContainer:
     """
     Upper quartile normalization to align samples based on their 75th percentile values.
@@ -42,12 +57,15 @@ def upper_quartile_normalization(
         ScpContainer containing the data.
     assay_name : str, default="protein"
         Name of the assay to process.
-    base_layer_name : str, default="raw"
+    source_layer : str, default="raw"
         Name of the layer to normalize.
     new_layer_name : str, default="upper_quartile_norm"
         Name for the new normalized layer.
     percentile : float, default=0.75
         Percentile to use. Must be in (0, 1). Default is 0.75 for upper quartile.
+    base_layer_name : str, optional
+        .. deprecated:: 0.2.0
+            Use ``source_layer`` instead. Will be removed in version 1.0.0.
 
     Returns
     -------
@@ -76,23 +94,44 @@ def upper_quartile_normalization(
     >>> 'upper_quartile_norm' in result.assays['protein'].layers
     True
     """
+    # Handle deprecated parameter name
+    if base_layer_name is not None:
+        warnings.warn(
+            "'base_layer_name' is deprecated, use 'source_layer' instead. "
+            "This will be removed in version 1.0.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        source_layer = base_layer_name
+
     # Validate parameters (guard clause pattern)
     if not (0 < percentile < 1):
         raise ScpValueError(
-            f"Percentile must be in (0, 1), got {percentile}.",
+            f"Percentile must be in (0, 1), got {percentile}. "
+            "Use 0.75 for upper quartile, 0.5 for median, or 0.25 for lower quartile.",
             parameter="percentile",
             value=percentile,
         )
 
     # Validate assay and layer existence
     if assay_name not in container.assays:
-        raise AssayNotFoundError(assay_name)
+        available = ", ".join(f"'{k}'" for k in container.assays.keys())
+        raise AssayNotFoundError(
+            assay_name,
+            hint=f"Available assays: {available}. Use container.list_assays() to see all assays.",
+        )
 
     assay = container.assays[assay_name]
-    if base_layer_name not in assay.layers:
-        raise LayerNotFoundError(base_layer_name, assay_name)
+    if source_layer not in assay.layers:
+        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        raise LayerNotFoundError(
+            source_layer,
+            assay_name,
+            hint=f"Available layers in assay '{assay_name}': {available}. "
+            f"Use assay.list_layers() to see all layers.",
+        )
 
-    input_layer = assay.layers[base_layer_name]
+    input_layer = assay.layers[source_layer]
     X = input_layer.X.copy()
 
     # Calculate percentile for each sample (vectorized)
@@ -117,8 +156,13 @@ def upper_quartile_normalization(
 
     container.log_operation(
         action="normalization_upper_quartile",
-        params={"assay": assay_name, "percentile": percentile},
-        description=f"Upper quartile normalization on layer '{base_layer_name}' -> '{new_layer_name}'.",
+        params={
+            "assay": assay_name,
+            "source_layer": source_layer,
+            "new_layer_name": new_layer_name,
+            "percentile": percentile,
+        },
+        description=f"Upper quartile normalization on layer '{source_layer}' -> '{new_layer_name}'.",
     )
 
     return container
