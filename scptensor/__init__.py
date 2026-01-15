@@ -144,6 +144,9 @@ from scptensor.impute import knn, missforest, ppca, svd_impute
 # Integration (Batch Correction)
 from scptensor.integration import combat, harmony, mnn_correct, scanorama_integrate
 
+# HDF5 I/O
+from scptensor.io import IOFormatError, IOPasswordError, IOWriteError, load_hdf5, save_hdf5
+
 # Normalization
 from scptensor.normalization import (
     global_median_normalization,
@@ -220,6 +223,12 @@ __all__ = [
     "to_scanpy",
     "read_h5ad",
     "write_h5ad",
+    # HDF5 I/O
+    "save_hdf5",
+    "load_hdf5",
+    "IOFormatError",
+    "IOPasswordError",
+    "IOWriteError",
     # Sparse utilities
     "is_sparse_matrix",
     "get_sparsity_ratio",
