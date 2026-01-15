@@ -5,5 +5,19 @@ supporting HDF5 and Parquet formats with complete data fidelity.
 """
 
 from scptensor.io.exceptions import IOFormatError, IOPasswordError, IOWriteError
+from scptensor.io.serializers import (
+    deserialize_dataframe,
+    serialize_dataframe,
+    serialize_dense_matrix,
+    serialize_sparse_matrix,
+)
 
-__all__ = ["IOFormatError", "IOPasswordError", "IOWriteError"]
+__all__ = [
+    "IOFormatError",
+    "IOPasswordError",
+    "IOWriteError",
+    "deserialize_dataframe",
+    "serialize_dataframe",
+    "serialize_dense_matrix",
+    "serialize_sparse_matrix",
+]
