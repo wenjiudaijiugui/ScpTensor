@@ -232,6 +232,7 @@ All planned v0.2.0 tasks have been successfully completed:
 
 - 4 new Jupyter notebooks in `docs/tutorials/`
 - Performance report in `docs/PERFORMANCE_REPORT.md`
+- API Migration Guide in `docs/MIGRATION_GUIDE.md` - Documents parameter naming changes and migration path
 
 ---
 
