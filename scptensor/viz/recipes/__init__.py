@@ -14,6 +14,7 @@ from .qc import (
     qc_completeness,
     qc_matrix_spy,
 )
+from .report import generate_analysis_report, ReportTheme
 from .statistics import correlation_matrix, dendrogram
 from .stats import volcano
 
@@ -37,4 +38,6 @@ __all__ = [
     "volcano_enhanced",
     "rank_genes_groups_dotplot",
     "rank_genes_groups_stacked_violin",
+    "generate_analysis_report",
+    "ReportTheme",
 ]

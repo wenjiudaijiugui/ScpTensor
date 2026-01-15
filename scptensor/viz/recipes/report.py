@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import matplotlib.pyplot as plt
+    from matplotlib.figure import Figure
 
 
 @dataclass
@@ -85,7 +89,7 @@ class ReportTheme:
     cmap_cluster: str = "viridis"
 
     @classmethod
-    def dark(cls) -> "ReportTheme":
+    def dark(cls) -> ReportTheme:
         """Create dark mode theme.
 
         Returns
@@ -102,7 +106,7 @@ class ReportTheme:
         )
 
     @classmethod
-    def colorblind(cls) -> "ReportTheme":
+    def colorblind(cls) -> ReportTheme:
         """Create colorblind-friendly theme.
 
         Returns
@@ -118,3 +122,95 @@ class ReportTheme:
             cmap_missing="Blues",
             cmap_cluster="cividis",
         )
+
+
+def generate_analysis_report(
+    container: "ScpContainer",
+    assay_name: str = "proteins",
+    group_col: str = "group",
+    batch_col: str | None = "batch",
+    diff_expr_groups: tuple[str, str] | None = None,
+    output_path: str | None = None,
+    figsize: tuple[float, float] = (16, 12),
+    dpi: int = 300,
+    style: str = "science",
+    panels: list[str] | None = None,
+    theme: ReportTheme | None = None,
+) -> Figure:
+    """Generate a comprehensive analysis report as a single-page figure.
+
+    Parameters
+    ----------
+    container : ScpContainer
+        Input data container
+    assay_name : str, default "proteins"
+        Assay to visualize
+    group_col : str, default "group"
+        Column in obs for grouping
+    batch_col : str | None, default "batch"
+        Column in obs for batch information
+    diff_expr_groups : tuple[str, str] | None
+        (group1, group2) for differential expression
+    output_path : str | None
+        Path to save the figure
+    figsize : tuple[float, float], default (16, 12)
+        Figure size in inches
+    dpi : int, default 300
+        Resolution for output
+    style : str, default "science"
+        Matplotlib style to use
+    panels : list[str] | None
+        Which panels to include (default: all)
+    theme : ReportTheme | None
+        Theme configuration (default: ReportTheme())
+
+    Returns
+    -------
+    Figure
+        The generated figure
+    """
+    # Import here to avoid circular dependency
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec
+
+    from scptensor.core.structures import ScpContainer
+
+    if theme is None:
+        theme = ReportTheme(figsize=figsize, dpi=dpi)
+
+    # Apply style
+    if style == "science":
+        try:
+            plt.style.use(["science", "no-latex"])
+        except OSError:
+            # Fallback if scienceplots not available
+            plt.style.use("default")
+    else:
+        try:
+            plt.style.use(style)
+        except (OSError, ValueError):
+            plt.style.use("default")
+
+    # Create figure with grid layout
+    fig = plt.figure(figsize=theme.figsize, dpi=theme.dpi)
+    gs = GridSpec(3, 3, figure=fig, hspace=theme.panel_spacing, wspace=theme.panel_spacing)
+
+    # Render title
+    fig.suptitle(
+        f"ScpTensor Analysis Report | Dataset: {assay_name}",
+        fontsize=theme.title_fontsize + 4,
+        fontweight="bold",
+    )
+
+    # Placeholder panels (will be implemented in later tasks)
+    for i in range(9):
+        ax = fig.add_subplot(gs[i])
+        ax.text(0.5, 0.5, f"Panel {i+1}", ha="center", va="center")
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+    # Save if path provided
+    if output_path:
+        fig.savefig(output_path, dpi=theme.dpi, bbox_inches="tight")
+
+    return fig
