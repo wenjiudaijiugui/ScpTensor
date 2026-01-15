@@ -1,5 +1,6 @@
 """Tests for report generation module."""
 
+import matplotlib.pyplot as plt
 import pytest
 from scptensor.viz.recipes.report import ReportTheme
 
@@ -25,3 +26,13 @@ def test_theme_colorblind_preset():
     theme = ReportTheme.colorblind()
     assert theme.primary_color == "#0072B2"
     assert theme.cmap_cluster == "cividis"
+
+
+def test_generate_report_basic(sample_container):
+    """Test generate_analysis_report basic functionality."""
+    from scptensor.viz.recipes.report import generate_analysis_report
+
+    fig = generate_analysis_report(sample_container)
+    assert fig is not None
+    assert fig.get_size_inches()[0] >= 16
+    plt.close(fig)
