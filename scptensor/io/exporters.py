@@ -6,8 +6,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scipy import sparse
 import h5py
 
+from scptensor import __version__ as scptensor_version
 from scptensor.core.structures import ScpContainer
 from scptensor.io.exceptions import IOWriteError
 from scptensor.io.serializers import (
@@ -16,6 +18,9 @@ from scptensor.io.serializers import (
     serialize_provenance,
     serialize_sparse_matrix,
 )
+
+if TYPE_CHECKING:
+    from scptensor.core.structures import Assay
 
 FORMAT_VERSION = "1.0"
 
@@ -60,6 +65,10 @@ def save_hdf5(
     ------
     IOWriteError
         If file exists and overwrite=False
+
+    Returns
+    -------
+    None
     """
     path = Path(path)
 
@@ -74,7 +83,7 @@ def save_hdf5(
     with h5py.File(path, "w") as f:
         # Write attributes
         f.attrs["format_version"] = FORMAT_VERSION
-        f.attrs["scptensor_version"] = "0.2.0"
+        f.attrs["scptensor_version"] = scptensor_version
         f.attrs["creation_time"] = datetime.now().isoformat()
 
         # Save obs
@@ -103,7 +112,7 @@ def save_hdf5(
 
 
 def _save_assay(
-    assay,
+    assay: Assay,
     group: h5py.Group,
     save_layers: list[str] | None = None,
     compression: str | None = "gzip",
@@ -140,8 +149,6 @@ def _save_assay(
         matrix = assay.layers[layer_name]
 
         # Save X
-        from scipy import sparse
-
         if sparse.issparse(matrix.X):
             serialize_sparse_matrix(matrix.X, layer_group, "X")
         else:
