@@ -1,0 +1,782 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Batch Correction" href="integration.html"><link rel="prev" title="Standardization" href="standardization.html">
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2025.12.19 -->
+        <title>Imputation - ScpTensor v0.1.0</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">ScpTensor v0.1.0</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <span class="sidebar-brand-text">ScpTensor v0.1.0</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start Guide</a></li>
+<li class="toctree-l1 current has-children"><a class="reference internal" href="index.html">API Reference</a><input aria-label="Toggle navigation of API Reference" checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="core.html">Core Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="qc.html">Quality Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="normalization.html">Normalization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="standardization.html">Standardization</a></li>
+<li class="toctree-l2 current current-page"><a class="current reference internal" href="#">Imputation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="integration.html">Batch Correction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dim_reduction.html">Dimensionality Reduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feature_selection.html">Feature Selection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="diff_expr.html">Differential Expression</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cluster.html">Clustering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="viz.html">Visualization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="benchmark.html">Benchmark</a></li>
+<li class="toctree-l2"><a class="reference internal" href="referee.html">Referee (Evaluation)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html">Utilities</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/yourusername/ScpTensor/edit/main/docs/api/impute.rst" rel="edit" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="module-scptensor.impute">
+<span id="imputation"></span><h1>Imputation<a class="headerlink" href="#module-scptensor.impute" title="Link to this heading">¶</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="scptensor.impute.knn">
+<span class="sig-prename descclassname"><span class="pre">scptensor.impute.</span></span><span class="sig-name descname"><span class="pre">knn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">container</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assay_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_layer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_layer_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'imputed_knn'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'uniform'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">oversample_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/scptensor/impute/knn.html#knn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scptensor.impute.knn" title="Link to this definition">¶</a></dt>
+<dd><p>Impute missing values using k-Nearest Neighbors with Over-sampling and Filtering.</p>
+<p>Refactored V4:
+1. Time Complexity: Dominated by distance calculation O(M * N * D).
+2. Space Complexity: O(Batch * N) due to batch processing.
+3. Algorithm Correctness: Addresses “Effective K Decay” by over-sampling neighbors.</p>
+<blockquote>
+<div><p>We search for k_search = oversample_factor * k neighbors first.
+Then, for each missing feature, we filter these candidates to find valid (non-missing) ones.
+We select the top k valid neighbors for imputation.</p>
+</div></blockquote>
+<ol class="arabic simple" start="4">
+<li><p>Numerical Stability: Adds protection for small weights sum in weighted KNN.</p></li>
+</ol>
+<dl>
+<dt>Args:</dt><dd><p>container: The ScpContainer object.
+assay_name: Name of the assay to use.
+base_layer: Name of the layer containing data with missing values.
+new_layer_name: Name for the new layer with imputed data.
+k: Number of neighbors to use for calculation.
+weights: Weight function used in prediction. ‘uniform’ or ‘distance’.
+batch_size: Number of rows to process at once to control memory usage.
+oversample_factor: Factor to determine search range (k_search = oversample_factor * k).</p>
+<blockquote>
+<div><p>Higher values reduce the chance of effective k decay but increase computation slightly.</p>
+</div></blockquote>
+</dd>
+<dt>Returns:</dt><dd><p>ScpContainer: The updated container with the new layer.</p>
+</dd>
+<dt>Raises:</dt><dd><p>AssayNotFoundError: If the specified assay does not exist.
+LayerNotFoundError: If the specified layer does not exist in the assay.
+ScpValueError: If k, batch_size, weights, or oversample_factor parameters are invalid.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="scptensor.impute.missforest">
+<span class="sig-prename descclassname"><span class="pre">scptensor.impute.</span></span><span class="sig-name descname"><span class="pre">missforest</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">container</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assay_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_layer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_layer_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'imputed_missforest'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_estimators</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_depth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">42</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/scptensor/impute/missforest.html#missforest"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scptensor.impute.missforest" title="Link to this definition">¶</a></dt>
+<dd><p>Impute missing values using MissForest (Random Forest Imputation).</p>
+<p>This implementation follows the MissForest algorithm:
+1. Initial imputation using mean/median.
+2. Iteratively impute each variable (feature) by training a Random Forest</p>
+<blockquote>
+<div><p>on observed values of other variables.</p>
+</div></blockquote>
+<ol class="arabic simple" start="3">
+<li><p>Stop when the difference between iterations is small or max_iter is reached.</p></li>
+</ol>
+<dl class="simple">
+<dt>Args:</dt><dd><p>container: The ScpContainer object.
+assay_name: Name of the assay to use.
+base_layer: Name of the layer containing data with missing values.
+new_layer_name: Name for the new layer with imputed data.
+max_iter: Maximum number of iterations.
+n_estimators: Number of trees in the forest.
+max_depth: Maximum depth of the trees.
+n_jobs: Number of jobs to run in parallel.
+random_state: Random seed for reproducibility.
+verbose: Verbosity level.</p>
+</dd>
+<dt>Returns:</dt><dd><p>ScpContainer: The updated container with the new layer.</p>
+</dd>
+<dt>Raises:</dt><dd><p>AssayNotFoundError: If the specified assay does not exist.
+LayerNotFoundError: If the specified layer does not exist in the assay.
+ScpValueError: If max_iter, n_estimators, or other parameters are invalid.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="scptensor.impute.ppca">
+<span class="sig-prename descclassname"><span class="pre">scptensor.impute.</span></span><span class="sig-name descname"><span class="pre">ppca</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">container</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assay_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_layer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_layer_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'imputed_ppca'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_components</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/scptensor/impute/ppca.html#ppca"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scptensor.impute.ppca" title="Link to this definition">¶</a></dt>
+<dd><p>Impute missing values using Probabilistic PCA (PPCA).</p>
+<p>PPCA models the data as a linear Gaussian latent variable model and
+uses the EM algorithm to estimate parameters and impute missing values.
+This method is effective for data with a strong low-dimensional structure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>container</strong> (<a class="reference internal" href="core.html#scptensor.core.ScpContainer" title="scptensor.core.ScpContainer"><em>ScpContainer</em></a>) – Input container with missing values</p></li>
+<li><p><strong>assay_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the assay to use</p></li>
+<li><p><strong>base_layer</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the layer containing data with missing values</p></li>
+<li><p><strong>new_layer_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>optional</em>) – Name for the new layer with imputed data (default: ‘imputed_ppca’)</p></li>
+<li><p><strong>n_components</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>optional</em>) – Number of principal components to use (default: 10)</p></li>
+<li><p><strong>max_iter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>optional</em>) – Maximum number of EM iterations (default: 100)</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – Convergence tolerance (default: 1e-6)</p></li>
+<li><p><strong>random_state</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>optional</em>) – Random seed for reproducibility (default: None)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Container with imputed data in new layer</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="core.html#scptensor.core.ScpContainer" title="scptensor.core.ScpContainer">ScpContainer</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="core.html#scptensor.core.AssayNotFoundError" title="scptensor.core.AssayNotFoundError"><strong>AssayNotFoundError</strong></a> – If the specified assay does not exist</p></li>
+<li><p><a class="reference internal" href="core.html#scptensor.core.LayerNotFoundError" title="scptensor.core.LayerNotFoundError"><strong>LayerNotFoundError</strong></a> – If the specified layer does not exist in the assay</p></li>
+<li><p><strong>ScpValueError</strong> – If n_components, max_iter, or tol parameters are invalid</p></li>
+<li><p><a class="reference internal" href="core.html#scptensor.core.DimensionError" title="scptensor.core.DimensionError"><strong>DimensionError</strong></a> – If n_components is too large for the data dimensions</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<dl class="simple">
+<dt>The PPCA model assumes:</dt><dd><p>x = Wz + mu + epsilon</p>
+</dd>
+<dt>where:</dt><dd><ul class="simple">
+<li><p>z is a latent variable with N(0, I)</p></li>
+<li><p>W is the factor loading matrix</p></li>
+<li><p>mu is the mean</p></li>
+<li><p>epsilon is noise with N(0, sigma^2 I)</p></li>
+</ul>
+</dd>
+<dt>The EM algorithm iteratively:</dt><dd><ol class="arabic simple">
+<li><p>E-step: Compute posterior expectations of latent variables</p></li>
+<li><p>M-step: Update W and sigma^2</p></li>
+<li><p>Impute missing values using current model parameters</p></li>
+</ol>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">container</span> <span class="o">=</span> <span class="n">ppca</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">assay_name</span><span class="o">=</span><span class="s1">&#39;protein&#39;</span><span class="p">,</span> <span class="n">base_layer</span><span class="o">=</span><span class="s1">&#39;raw&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Impute using 20 principal components</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">container</span> <span class="o">=</span> <span class="n">ppca</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">assay_name</span><span class="o">=</span><span class="s1">&#39;protein&#39;</span><span class="p">,</span>
+<span class="gp">... </span>                 <span class="n">base_layer</span><span class="o">=</span><span class="s1">&#39;raw&#39;</span><span class="p">,</span> <span class="n">n_components</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="scptensor.impute.svd_impute">
+<span class="sig-prename descclassname"><span class="pre">scptensor.impute.</span></span><span class="sig-name descname"><span class="pre">svd_impute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">container</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assay_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_layer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_layer_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'imputed_svd'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_components</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mean'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/scptensor/impute/svd.html#svd_impute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scptensor.impute.svd_impute" title="Link to this definition">¶</a></dt>
+<dd><p>Impute missing values using iterative SVD.</p>
+<dl class="simple">
+<dt>This method alternates between:</dt><dd><ol class="arabic simple">
+<li><p>Computing SVD of the current (partially filled) matrix</p></li>
+<li><p>Reconstructing the matrix using only top singular values/vectors</p></li>
+<li><p>Filling missing values with the reconstructed values</p></li>
+</ol>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>container</strong> (<a class="reference internal" href="core.html#scptensor.core.ScpContainer" title="scptensor.core.ScpContainer"><em>ScpContainer</em></a>) – Input container with missing values</p></li>
+<li><p><strong>assay_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the assay to use</p></li>
+<li><p><strong>base_layer</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the layer containing data with missing values</p></li>
+<li><p><strong>new_layer_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>optional</em>) – Name for the new layer with imputed data (default: ‘imputed_svd’)</p></li>
+<li><p><strong>n_components</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>optional</em>) – Number of singular components to use (default: 10)</p></li>
+<li><p><strong>max_iter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>optional</em>) – Maximum number of iterations (default: 100)</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – Convergence tolerance (default: 1e-6)</p></li>
+<li><p><strong>init_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>optional</em>) – Initialization method: ‘mean’ or ‘median’ (default: ‘mean’)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Container with imputed data in new layer</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="core.html#scptensor.core.ScpContainer" title="scptensor.core.ScpContainer">ScpContainer</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="core.html#scptensor.core.AssayNotFoundError" title="scptensor.core.AssayNotFoundError"><strong>AssayNotFoundError</strong></a> – If the specified assay does not exist</p></li>
+<li><p><a class="reference internal" href="core.html#scptensor.core.LayerNotFoundError" title="scptensor.core.LayerNotFoundError"><strong>LayerNotFoundError</strong></a> – If the specified layer does not exist in the assay</p></li>
+<li><p><strong>ScpValueError</strong> – If n_components, max_iter, tol, or init_method parameters are invalid</p></li>
+<li><p><a class="reference internal" href="core.html#scptensor.core.DimensionError" title="scptensor.core.DimensionError"><strong>DimensionError</strong></a> – If n_components is too large for the data dimensions</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<dl class="simple">
+<dt>The algorithm follows these steps:</dt><dd><ol class="arabic simple">
+<li><p>Initialize missing values (mean or median)</p></li>
+<li><p>Repeat until convergence:
+a. Compute SVD: X = U &#64; S &#64; V.T
+b. Keep only top k components: X_k = U[:, :k] &#64; S[:k] &#64; V[:, :k].T
+c. Fill missing values with X_k
+d. Check convergence (change in imputed values)</p></li>
+</ol>
+</dd>
+</dl>
+<p>This is equivalent to soft-impute with nuclear norm regularization
+and is effective for low-rank data structures.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">container</span> <span class="o">=</span> <span class="n">svd_impute</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">assay_name</span><span class="o">=</span><span class="s1">&#39;protein&#39;</span><span class="p">,</span> <span class="n">base_layer</span><span class="o">=</span><span class="s1">&#39;raw&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Impute using 20 singular components</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">container</span> <span class="o">=</span> <span class="n">svd_impute</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">assay_name</span><span class="o">=</span><span class="s1">&#39;protein&#39;</span><span class="p">,</span>
+<span class="gp">... </span>                       <span class="n">base_layer</span><span class="o">=</span><span class="s1">&#39;raw&#39;</span><span class="p">,</span> <span class="n">n_components</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<section id="imputation-methods">
+<h2>Imputation Methods<a class="headerlink" href="#imputation-methods" title="Link to this heading">¶</a></h2>
+<section id="module-scptensor.impute.knn">
+<span id="knn-imputation"></span><h3>KNN Imputation<a class="headerlink" href="#module-scptensor.impute.knn" title="Link to this heading">¶</a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="scptensor.impute.knn.knn">
+<span class="sig-prename descclassname"><span class="pre">scptensor.impute.knn.</span></span><span class="sig-name descname"><span class="pre">knn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">container</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assay_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_layer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_layer_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'imputed_knn'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'uniform'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">oversample_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/scptensor/impute/knn.html#knn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scptensor.impute.knn.knn" title="Link to this definition">¶</a></dt>
+<dd><p>Impute missing values using k-Nearest Neighbors with Over-sampling and Filtering.</p>
+<p>Refactored V4:
+1. Time Complexity: Dominated by distance calculation O(M * N * D).
+2. Space Complexity: O(Batch * N) due to batch processing.
+3. Algorithm Correctness: Addresses “Effective K Decay” by over-sampling neighbors.</p>
+<blockquote>
+<div><p>We search for k_search = oversample_factor * k neighbors first.
+Then, for each missing feature, we filter these candidates to find valid (non-missing) ones.
+We select the top k valid neighbors for imputation.</p>
+</div></blockquote>
+<ol class="arabic simple" start="4">
+<li><p>Numerical Stability: Adds protection for small weights sum in weighted KNN.</p></li>
+</ol>
+<dl>
+<dt>Args:</dt><dd><p>container: The ScpContainer object.
+assay_name: Name of the assay to use.
+base_layer: Name of the layer containing data with missing values.
+new_layer_name: Name for the new layer with imputed data.
+k: Number of neighbors to use for calculation.
+weights: Weight function used in prediction. ‘uniform’ or ‘distance’.
+batch_size: Number of rows to process at once to control memory usage.
+oversample_factor: Factor to determine search range (k_search = oversample_factor * k).</p>
+<blockquote>
+<div><p>Higher values reduce the chance of effective k decay but increase computation slightly.</p>
+</div></blockquote>
+</dd>
+<dt>Returns:</dt><dd><p>ScpContainer: The updated container with the new layer.</p>
+</dd>
+<dt>Raises:</dt><dd><p>AssayNotFoundError: If the specified assay does not exist.
+LayerNotFoundError: If the specified layer does not exist in the assay.
+ScpValueError: If k, batch_size, weights, or oversample_factor parameters are invalid.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-scptensor.impute.missforest">
+<span id="missforest-imputation"></span><h3>MissForest Imputation<a class="headerlink" href="#module-scptensor.impute.missforest" title="Link to this heading">¶</a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="scptensor.impute.missforest.missforest">
+<span class="sig-prename descclassname"><span class="pre">scptensor.impute.missforest.</span></span><span class="sig-name descname"><span class="pre">missforest</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">container</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assay_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_layer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_layer_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'imputed_missforest'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_estimators</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_depth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">42</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/scptensor/impute/missforest.html#missforest"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scptensor.impute.missforest.missforest" title="Link to this definition">¶</a></dt>
+<dd><p>Impute missing values using MissForest (Random Forest Imputation).</p>
+<p>This implementation follows the MissForest algorithm:
+1. Initial imputation using mean/median.
+2. Iteratively impute each variable (feature) by training a Random Forest</p>
+<blockquote>
+<div><p>on observed values of other variables.</p>
+</div></blockquote>
+<ol class="arabic simple" start="3">
+<li><p>Stop when the difference between iterations is small or max_iter is reached.</p></li>
+</ol>
+<dl class="simple">
+<dt>Args:</dt><dd><p>container: The ScpContainer object.
+assay_name: Name of the assay to use.
+base_layer: Name of the layer containing data with missing values.
+new_layer_name: Name for the new layer with imputed data.
+max_iter: Maximum number of iterations.
+n_estimators: Number of trees in the forest.
+max_depth: Maximum depth of the trees.
+n_jobs: Number of jobs to run in parallel.
+random_state: Random seed for reproducibility.
+verbose: Verbosity level.</p>
+</dd>
+<dt>Returns:</dt><dd><p>ScpContainer: The updated container with the new layer.</p>
+</dd>
+<dt>Raises:</dt><dd><p>AssayNotFoundError: If the specified assay does not exist.
+LayerNotFoundError: If the specified layer does not exist in the assay.
+ScpValueError: If max_iter, n_estimators, or other parameters are invalid.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-scptensor.impute.ppca">
+<span id="ppca-imputation"></span><h3>PPCA Imputation<a class="headerlink" href="#module-scptensor.impute.ppca" title="Link to this heading">¶</a></h3>
+<p>Probabilistic PCA (PPCA) imputation for single-cell proteomics data.</p>
+<p>This module implements PPCA-based missing value imputation using an
+expectation-maximization (EM) algorithm.</p>
+<dl class="simple">
+<dt>Reference:</dt><dd><p>Tipping ME, Bishop CM. Probabilistic principal component analysis.
+Journal of the Royal Statistical Society (1999).</p>
+</dd>
+</dl>
+<dl class="py function">
+<dt class="sig sig-object py" id="scptensor.impute.ppca.ppca">
+<span class="sig-prename descclassname"><span class="pre">scptensor.impute.ppca.</span></span><span class="sig-name descname"><span class="pre">ppca</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">container</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assay_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_layer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_layer_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'imputed_ppca'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_components</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/scptensor/impute/ppca.html#ppca"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scptensor.impute.ppca.ppca" title="Link to this definition">¶</a></dt>
+<dd><p>Impute missing values using Probabilistic PCA (PPCA).</p>
+<p>PPCA models the data as a linear Gaussian latent variable model and
+uses the EM algorithm to estimate parameters and impute missing values.
+This method is effective for data with a strong low-dimensional structure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>container</strong> (<a class="reference internal" href="core.html#scptensor.core.ScpContainer" title="scptensor.core.ScpContainer"><em>ScpContainer</em></a>) – Input container with missing values</p></li>
+<li><p><strong>assay_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the assay to use</p></li>
+<li><p><strong>base_layer</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the layer containing data with missing values</p></li>
+<li><p><strong>new_layer_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>optional</em>) – Name for the new layer with imputed data (default: ‘imputed_ppca’)</p></li>
+<li><p><strong>n_components</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>optional</em>) – Number of principal components to use (default: 10)</p></li>
+<li><p><strong>max_iter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>optional</em>) – Maximum number of EM iterations (default: 100)</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – Convergence tolerance (default: 1e-6)</p></li>
+<li><p><strong>random_state</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>optional</em>) – Random seed for reproducibility (default: None)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Container with imputed data in new layer</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="core.html#scptensor.core.ScpContainer" title="scptensor.core.ScpContainer">ScpContainer</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="core.html#scptensor.core.AssayNotFoundError" title="scptensor.core.AssayNotFoundError"><strong>AssayNotFoundError</strong></a> – If the specified assay does not exist</p></li>
+<li><p><a class="reference internal" href="core.html#scptensor.core.LayerNotFoundError" title="scptensor.core.LayerNotFoundError"><strong>LayerNotFoundError</strong></a> – If the specified layer does not exist in the assay</p></li>
+<li><p><strong>ScpValueError</strong> – If n_components, max_iter, or tol parameters are invalid</p></li>
+<li><p><a class="reference internal" href="core.html#scptensor.core.DimensionError" title="scptensor.core.DimensionError"><strong>DimensionError</strong></a> – If n_components is too large for the data dimensions</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<dl class="simple">
+<dt>The PPCA model assumes:</dt><dd><p>x = Wz + mu + epsilon</p>
+</dd>
+<dt>where:</dt><dd><ul class="simple">
+<li><p>z is a latent variable with N(0, I)</p></li>
+<li><p>W is the factor loading matrix</p></li>
+<li><p>mu is the mean</p></li>
+<li><p>epsilon is noise with N(0, sigma^2 I)</p></li>
+</ul>
+</dd>
+<dt>The EM algorithm iteratively:</dt><dd><ol class="arabic simple">
+<li><p>E-step: Compute posterior expectations of latent variables</p></li>
+<li><p>M-step: Update W and sigma^2</p></li>
+<li><p>Impute missing values using current model parameters</p></li>
+</ol>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">container</span> <span class="o">=</span> <span class="n">ppca</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">assay_name</span><span class="o">=</span><span class="s1">&#39;protein&#39;</span><span class="p">,</span> <span class="n">base_layer</span><span class="o">=</span><span class="s1">&#39;raw&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Impute using 20 principal components</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">container</span> <span class="o">=</span> <span class="n">ppca</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">assay_name</span><span class="o">=</span><span class="s1">&#39;protein&#39;</span><span class="p">,</span>
+<span class="gp">... </span>                 <span class="n">base_layer</span><span class="o">=</span><span class="s1">&#39;raw&#39;</span><span class="p">,</span> <span class="n">n_components</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+<section id="module-scptensor.impute.svd">
+<span id="svd-imputation"></span><h3>SVD Imputation<a class="headerlink" href="#module-scptensor.impute.svd" title="Link to this heading">¶</a></h3>
+<p>SVD (Singular Value Decomposition) imputation for single-cell proteomics data.</p>
+<p>This module implements SVD-based missing value imputation, which iteratively
+fills missing values using low-rank matrix approximation.</p>
+<dl class="simple">
+<dt>Reference:</dt><dd><p>Troyanskaya O, et al. Missing value estimation methods for DNA microarrays.
+Bioinformatics (2001).</p>
+</dd>
+</dl>
+<dl class="py function">
+<dt class="sig sig-object py" id="scptensor.impute.svd.svd_impute">
+<span class="sig-prename descclassname"><span class="pre">scptensor.impute.svd.</span></span><span class="sig-name descname"><span class="pre">svd_impute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">container</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assay_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_layer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_layer_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'imputed_svd'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_components</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mean'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/scptensor/impute/svd.html#svd_impute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scptensor.impute.svd.svd_impute" title="Link to this definition">¶</a></dt>
+<dd><p>Impute missing values using iterative SVD.</p>
+<dl class="simple">
+<dt>This method alternates between:</dt><dd><ol class="arabic simple">
+<li><p>Computing SVD of the current (partially filled) matrix</p></li>
+<li><p>Reconstructing the matrix using only top singular values/vectors</p></li>
+<li><p>Filling missing values with the reconstructed values</p></li>
+</ol>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>container</strong> (<a class="reference internal" href="core.html#scptensor.core.ScpContainer" title="scptensor.core.ScpContainer"><em>ScpContainer</em></a>) – Input container with missing values</p></li>
+<li><p><strong>assay_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the assay to use</p></li>
+<li><p><strong>base_layer</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the layer containing data with missing values</p></li>
+<li><p><strong>new_layer_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>optional</em>) – Name for the new layer with imputed data (default: ‘imputed_svd’)</p></li>
+<li><p><strong>n_components</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>optional</em>) – Number of singular components to use (default: 10)</p></li>
+<li><p><strong>max_iter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>optional</em>) – Maximum number of iterations (default: 100)</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – Convergence tolerance (default: 1e-6)</p></li>
+<li><p><strong>init_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>optional</em>) – Initialization method: ‘mean’ or ‘median’ (default: ‘mean’)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Container with imputed data in new layer</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="core.html#scptensor.core.ScpContainer" title="scptensor.core.ScpContainer">ScpContainer</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="core.html#scptensor.core.AssayNotFoundError" title="scptensor.core.AssayNotFoundError"><strong>AssayNotFoundError</strong></a> – If the specified assay does not exist</p></li>
+<li><p><a class="reference internal" href="core.html#scptensor.core.LayerNotFoundError" title="scptensor.core.LayerNotFoundError"><strong>LayerNotFoundError</strong></a> – If the specified layer does not exist in the assay</p></li>
+<li><p><strong>ScpValueError</strong> – If n_components, max_iter, tol, or init_method parameters are invalid</p></li>
+<li><p><a class="reference internal" href="core.html#scptensor.core.DimensionError" title="scptensor.core.DimensionError"><strong>DimensionError</strong></a> – If n_components is too large for the data dimensions</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<dl class="simple">
+<dt>The algorithm follows these steps:</dt><dd><ol class="arabic simple">
+<li><p>Initialize missing values (mean or median)</p></li>
+<li><p>Repeat until convergence:
+a. Compute SVD: X = U &#64; S &#64; V.T
+b. Keep only top k components: X_k = U[:, :k] &#64; S[:k] &#64; V[:, :k].T
+c. Fill missing values with X_k
+d. Check convergence (change in imputed values)</p></li>
+</ol>
+</dd>
+</dl>
+<p>This is equivalent to soft-impute with nuclear norm regularization
+and is effective for low-rank data structures.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">container</span> <span class="o">=</span> <span class="n">svd_impute</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">assay_name</span><span class="o">=</span><span class="s1">&#39;protein&#39;</span><span class="p">,</span> <span class="n">base_layer</span><span class="o">=</span><span class="s1">&#39;raw&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Impute using 20 singular components</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">container</span> <span class="o">=</span> <span class="n">svd_impute</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">assay_name</span><span class="o">=</span><span class="s1">&#39;protein&#39;</span><span class="p">,</span>
+<span class="gp">... </span>                       <span class="n">base_layer</span><span class="o">=</span><span class="s1">&#39;raw&#39;</span><span class="p">,</span> <span class="n">n_components</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="integration.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Batch Correction</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="standardization.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Standardization</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, ScpTensor Team
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Imputation</a><ul>
+<li><a class="reference internal" href="#scptensor.impute.knn"><code class="docutils literal notranslate"><span class="pre">knn()</span></code></a></li>
+<li><a class="reference internal" href="#scptensor.impute.missforest"><code class="docutils literal notranslate"><span class="pre">missforest()</span></code></a></li>
+<li><a class="reference internal" href="#scptensor.impute.ppca"><code class="docutils literal notranslate"><span class="pre">ppca()</span></code></a></li>
+<li><a class="reference internal" href="#scptensor.impute.svd_impute"><code class="docutils literal notranslate"><span class="pre">svd_impute()</span></code></a></li>
+<li><a class="reference internal" href="#imputation-methods">Imputation Methods</a><ul>
+<li><a class="reference internal" href="#module-scptensor.impute.knn">KNN Imputation</a><ul>
+<li><a class="reference internal" href="#scptensor.impute.knn.knn"><code class="docutils literal notranslate"><span class="pre">knn()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-scptensor.impute.missforest">MissForest Imputation</a><ul>
+<li><a class="reference internal" href="#scptensor.impute.missforest.missforest"><code class="docutils literal notranslate"><span class="pre">missforest()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-scptensor.impute.ppca">PPCA Imputation</a><ul>
+<li><a class="reference internal" href="#scptensor.impute.ppca.ppca"><code class="docutils literal notranslate"><span class="pre">ppca()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-scptensor.impute.svd">SVD Imputation</a><ul>
+<li><a class="reference internal" href="#scptensor.impute.svd.svd_impute"><code class="docutils literal notranslate"><span class="pre">svd_impute()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=38b66d78"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    </body>
+</html>

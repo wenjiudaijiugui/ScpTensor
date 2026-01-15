@@ -1,0 +1,639 @@
+# ScpTensor Master Design Document
+
+**Project:** ScpTensor - Single-Cell Proteomics Analysis Framework
+**Current Version:** v0.1.0-alpha
+**Target Version:** v0.1.0-beta
+**Document Version:** 1.0
+**Last Updated:** 2025-01-05
+**Status:** Active Development Plan
+
+---
+
+## Executive Summary
+
+### Current State Assessment
+
+ScpTensor is currently in **early prototype stage** (v0.1.0-alpha). While the core data structure design demonstrates solid architectural principles, the framework suffers from critical issues that **block production deployment**:
+
+**Key Metrics:**
+- **Codebase:** ~6500 LOC, 17 modules
+- **Test Coverage:** 0% (no unit tests)
+- **Critical Blockers:** 3 issues preventing production use
+- **Module Completeness:** ~60% (major gaps in integration, impute, diff_expr)
+- **Production Readiness:** ~15%
+
+**Critical Issues:**
+1. Multiple core modules lack `__init__.py` (integration, qc) - cannot import
+2. Zero unit test coverage - no correctness guarantees
+3. Advertised features incomplete or missing (Harmony, MNN, Scanorama, diff_expr)
+
+---
+
+### Strategic Vision
+
+Transform ScpTensor from prototype to production-ready SCP analysis framework (v0.1.0-beta) by achieving:
+
+1. **Modular Completeness:** All advertised modules functional and importable
+2. **Quality Assurance:** 80%+ test coverage with CI/CD pipeline
+3. **Documentation:** Complete API docs, migration guide, tutorials
+4. **Performance:** Benchmark-validated optimizations with Numba JIT
+
+**Success Criteria:**
+- All modules importable via standard Python imports
+- 80%+ code coverage on core structures
+- Zero critical issues in ISSUES_AND_LIMITATIONS.md
+- Successful end-to-end pipeline on real SCP dataset
+- Public API stable and documented
+
+---
+
+### Critical Path Summary (8-10 weeks)
+
+```
+Phase 1 (Week 1-2):  Architecture Fix → Testing Infrastructure
+Phase 2 (Week 3-6):  Feature Completion → Core Module Implementation
+Phase 3 (Week 7-8):  Documentation → Performance Optimization
+Phase 4 (Week 9-10): Integration Testing → Release Preparation
+```
+
+**Estimated Effort:** 300-400 person-hours
+**Team Size:** 1-2 core developers + part-time test/docs support
+
+---
+
+### Resource Requirements
+
+| Phase | Development | Testing | Documentation | Total (person-days) |
+|-------|------------|---------|---------------|---------------------|
+| Phase 1 | 3 | 7 | 2 | 12 |
+| Phase 2 | 18 | 4 | 3 | 25 |
+| Phase 3 | 6 | 2 | 7 | 15 |
+| Phase 4 | 5 | 8 | 2 | 15 |
+| **Total** | **32** | **21** | **14** | **67** (~13 weeks)**
+
+*Note: With 2 developers, timeline reduces to ~8 weeks*
+
+---
+
+## Architecture Overview
+
+### Current vs Target Module Structure
+
+#### Current State (Problematic)
+
+```
+scptensor/
+├── core/          ✅ Complete (structures, reader, matrix_ops)
+├── normalization/ ✅ Complete (6 methods)
+├── impute/        ⚠️  Partial (1/4 methods: KNN only)
+├── integration/   ❌ Broken (no __init__.py, 3/4 files empty)
+├── qc/            ❌ Broken (no __init__.py)
+├── dim_reduction/ ✅ Complete (PCA, UMAP)
+├── cluster/       ✅ Complete (KMeans, Graph-based)
+├── diff_expr/     ❌ Empty (deferred to v0.2.0)
+├── benchmark/     ✅ Complete (separate concern)
+├── utils/         ✅ Complete
+└── viz/           ✅ Complete
+```
+
+**Critical Problems:**
+- `integration/`, `qc/` cannot be imported via standard paths
+- Empty files break user expectations from README
+- No test infrastructure exists
+
+---
+
+#### Target State (v0.1.0-beta)
+
+```
+scptensor/
+├── core/          (Public API: ScpContainer, Assay, ScpMatrix, ProvenanceLog)
+├── normalization/ (6 methods: log, median, mean, TMM, upper_quartile, zscore)
+├── impute/        (4 methods: KNN, PPCA, SVD, MissForest)
+├── integration/   (4 methods: ComBat, Harmony, MNN, Scanorama)
+├── qc/            (2 modules: basic_qc, outlier_detection)
+├── dim_reduction/ (2 methods: PCA, UMAP)
+├── cluster/       (2 methods: KMeans, Leiden/Louvain)
+├── utils/         (Helper functions)
+└── viz/           (Visualization tools with SciencePlots)
+
+Deferred to v0.2.0:
+├── diff_expr/     (Differential expression analysis)
+└── feature_selection/ (Advanced feature selection)
+```
+
+**Improvements:**
+- All modules importable via `from scptensor.module import function`
+- Empty files removed or implemented
+- Complete test coverage
+- Type annotations on all public APIs
+
+---
+
+### Data Flow Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    SCP Raw Data                               │
+│  (Peptide/Protein quantification tables)                      │
+└────────────────────────┬─────────────────────────────────────┘
+                         ↓
+┌──────────────────────────────────────────────────────────────┐
+│                    reader module                              │
+│  → ScpContainer(obs, assays={peptides, proteins})            │
+└────────────────────────┬─────────────────────────────────────┘
+                         ↓
+┌──────────────────────────────────────────────────────────────┐
+│                    QC Module                                  │
+│  → Filter outliers, missing value analysis                    │
+│  → Updates obs with QC metrics                               │
+└────────────────────────┬─────────────────────────────────────┘
+                         ↓
+┌──────────────────────────────────────────────────────────────┐
+│                 Normalization                                 │
+│  → Log transform, scaling, centering                         │
+│  → Creates new layer: "raw" → "log"                         │
+└────────────────────────┬─────────────────────────────────────┘
+                         ↓
+┌──────────────────────────────────────────────────────────────┐
+│                  Imputation                                   │
+│  → KNN/PPCA/SVD fill missing values                          │
+│  → Creates new layer: "log" → "imputed"                     │
+│  → Updates mask: M[missing] = IMPUTED (5)                   │
+└────────────────────────┬─────────────────────────────────────┘
+                         ↓
+┌──────────────────────────────────────────────────────────────┐
+│                 Integration                                  │
+│  → Batch correction (ComBat/Harmony)                         │
+│  → Creates new layer: "imputed" → "corrected"               │
+└────────────────────────┬─────────────────────────────────────┘
+                         ↓
+┌──────────────────────────────────────────────────────────────┐
+│              Dimensionality Reduction                        │
+│  → PCA/UMAP embeddings                                       │
+│  → Creates new assay: pca, umap                             │
+└────────────────────────┬─────────────────────────────────────┘
+                         ↓
+┌──────────────────────────────────────────────────────────────┐
+│                   Clustering                                  │
+│  → Cell type identification (KMeans, Leiden)                 │
+│  → Updates obs: obs['cluster'] = labels                     │
+└────────────────────────┬─────────────────────────────────────┘
+                         ↓
+┌──────────────────────────────────────────────────────────────┐
+│                 Visualization                                │
+│  → Publication-ready figures (SciencePlots style)            │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Key Design Patterns:**
+
+1. **Immutable Layer Creation:** Functions create new layers, don't modify in-place
+   - Enables reproducibility via `ProvenanceLog`
+   - Preserves data lineage
+
+2. **Mask-Based Provenance:** `ScpMatrix.M` tracks data status
+   - `0`: VALID (detected)
+   - `1`: MBR (missing between runs)
+   - `2`: LOD (below limit of detection)
+   - `5`: IMPUTED (filled)
+
+3. **Assay-Aggregation Links:** Relate peptide-level to protein-level data
+   - Enables peptide → protein aggregation
+   - Maintains audit trail
+
+---
+
+### Module Responsibility Matrix
+
+| Module | Responsibility | Input | Output | Side Effects |
+|--------|---------------|-------|--------|--------------|
+| **core** | Data structures, provenance | - | ScpContainer, Assay, ScpMatrix | None |
+| **normalization** | Transform distributions | ScpContainer + layer | ScpContainer + new layer | Updates history |
+| **impute** | Fill missing values | ScpContainer + layer | ScpContainer + new layer | Updates mask to IMPUTED |
+| **integration** | Remove batch effects | ScpContainer + layer | ScpContainer + new layer | Updates history |
+| **qc** | Quality control | ScpContainer | ScpContainer | Updates obs/var with metrics |
+| **dim_reduction** | Reduce dimensions | ScpContainer + assay | ScpContainer + new assay | None |
+| **cluster** | Cluster samples | ScpContainer + assay | ScpContainer | Updates obs with labels |
+| **viz** | Visualize data | ScpContainer | matplotlib Axes | None |
+
+---
+
+## Priority Matrix
+
+### P0: Critical Blockers (Must Complete Before Any Release)
+
+| ID | Task | Effort (person-days) | Dependencies | Risk | Owner | Status |
+|----|------|---------------------|--------------|------|-------|--------|
+| P0-1 | Add `integration/__init__.py` | 0.5 | None | Low | Core Dev | ⏳ Pending |
+| P0-2 | Add `qc/__init__.py` | 0.5 | None | Low | Core Dev | ⏳ Pending |
+| P0-3 | Remove/implement empty integration stubs | 2 | P0-1 | Medium | Algo Dev | ⏳ Pending |
+| P0-4 | Set up pytest infrastructure | 2 | None | Low | Test Dev | ⏳ Pending |
+| P0-5 | Write core structure tests (50+ tests) | 5 | P0-4 | Medium | Test Dev | ⏳ Pending |
+| P0-6 | Add CI/CD pipeline (GitHub Actions) | 3 | P0-4 | Low | DevOps | ⏳ Pending |
+| P0-7 | Fix hardcoded paths in tests | 1 | None | Low | Test Dev | ⏳ Pending |
+
+**Subtotal:** 14 person-days (~2 weeks)
+**Critical Path:** P0-4 → P0-5 → P0-6
+
+**Milestone:** M1 - Architecture Fixed, M2 - Test Infrastructure Ready
+
+---
+
+### P1: High Priority (Required for v0.1.0-beta)
+
+| ID | Task | Effort (person-days) | Dependencies | Risk | Owner | Status |
+|----|------|---------------------|--------------|------|-------|--------|
+| P1-1 | Complete PPCA imputation method | 4 | P0-5 | Medium | Algo Dev | ⏳ Pending |
+| P1-2 | Complete SVD imputation method | 4 | P0-5 | Medium | Algo Dev | ⏳ Pending |
+| P1-3 | Add type hints to all public functions | 5 | None | Low | Core Dev | ⏳ Pending |
+| P1-4 | Implement unified error handling layer | 6 | P0-5 | Medium | Core Dev | ⏳ Pending |
+| P1-5 | Generate API documentation (Sphinx) | 5 | P1-3 | Low | Doc Dev | ⏳ Pending |
+| P1-6 | Write integration tests (pipeline) | 7 | P0-5 | Medium | Test Dev | ⏳ Pending |
+| P1-7 | Optimize sparse matrix operations | 6 | P0-5 | High | Perf Dev | ⏳ Pending |
+| P1-8 | Add Numba JIT to hot loops | 5 | P1-7 | Medium | Perf Dev | ⏳ Pending |
+| P1-9 | Fix dependency management | 2 | None | Low | Core Dev | ⏳ Pending |
+
+**Subtotal:** 44 person-days (~8 weeks)
+**Parallelization Tracks:**
+- **Algorithms:** P1-1, P1-2 (4-8 days)
+- **Core Quality:** P1-3, P1-4, P1-9 (5-13 days)
+- **Documentation:** P1-5 (5 days, starts after P1-3)
+- **Testing:** P1-6 (7 days, starts after P0-5)
+- **Performance:** P1-7, P1-8 (11 days, starts after profiling)
+
+**Milestone:** M3 - Feature Complete, M4 - Documentation Complete
+
+---
+
+### P2: Medium Priority (Nice-to-Have / v0.2.0)
+
+| ID | Task | Effort (person-days) | Dependencies | Risk | Owner | Status |
+|----|------|---------------------|--------------|------|-------|--------|
+| P2-1 | Implement diff_expr module | 12 | v0.1.0-beta | High | Algo Dev | ⏳ Deferred |
+| P2-2 | Add advanced QC methods | 8 | Basic QC | Medium | QC Dev | ⏳ Deferred |
+| P2-3 | Create tutorial notebooks | 6 | P1-5 | Low | Doc Dev | ⏳ Deferred |
+| P2-4 | Benchmark against competitors | 5 | v0.1.0-beta | Medium | Perf Dev | ⏳ Deferred |
+| P2-5 | Add pre-commit hooks (ruff/black) | 2 | None | Low | DevOps | ⏳ Deferred |
+| P2-6 | Write developer guide | 4 | P1-5 | Low | Doc Dev | ⏳ Deferred |
+
+**Subtotal:** 37 person-days (~7 weeks)
+**Strategy:** Defer until after v0.1.0-beta release
+
+---
+
+### Effort Distribution by Category
+
+```
+Testing:         20% (pytest + tests + CI)       ████████████░░░░░░░░░░░░░░
+Algorithms:      25% (impute + integration)      ████████████████░░░░░░░░░
+Documentation:   20% (API docs + tutorials)      ████████████░░░░░░░░░░░░░░
+Infrastructure:  15% (CI/CD + tooling)          ████████░░░░░░░░░░░░░░░░░
+Performance:     15% (optimization + JIT)       ████████░░░░░░░░░░░░░░░░░
+Core Quality:    5%  (types + error handling)   ██░░░░░░░░░░░░░░░░░░░░░░
+```
+
+---
+
+### Risk Assessment
+
+**High Risk Items:**
+
+| Risk ID | Risk Description | Probability | Impact | Mitigation Strategy | Owner |
+|---------|-----------------|-------------|--------|---------------------|-------|
+| R1 | PPCA/SVD algorithm complexity exceeds estimates | Medium | High | Early prototype validation (Week 3) | Algo Dev |
+| R2 | Performance optimization requires architecture changes | Low | High | Optimize first, refactor only if needed | Perf Dev |
+| R3 | Test coverage targets difficult to achieve | Low | Medium | Focus on core modules first | Test Dev |
+| R4 | Insufficient manpower causes delays | Medium | High | Defer P2 tasks to v0.2.0 | Project Lead |
+| R5 | Dependency library version conflicts (Numba/Polars) | Low | Medium | Use uv to lock versions | DevOps |
+
+**Monitoring:** Review risks weekly during sprint planning
+
+---
+
+## Document Ecosystem
+
+This document serves as the central hub for all ScpTensor design documentation. Below is the complete documentation ecosystem and how to use it.
+
+---
+
+### Quick Reference
+
+| Document | Purpose | Audience | Status |
+|----------|---------|----------|--------|
+| [ISSUES_AND_LIMITATIONS.md](../ISSUES_AND_LIMITATIONS.md) | Current problem analysis | All | ✅ Complete |
+| **MASTER.md** (this doc) | Strategic overview + navigation | Maintainers | ✅ Complete |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Module design specifications | Developers | ⏳ To be created |
+| [ROADMAP.md](./ROADMAP.md) | Detailed execution plan | Maintainers | ⏳ To be created |
+| [MIGRATION.md](./MIGRATION.md) | v0.1.0-alpha → v0.1.0-beta guide | Users | ⏳ To be created |
+| [API_REFERENCE.md](./API_REFERENCE.md) | Complete public API docs | Users + Devs | ⏳ To be created |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Developer workflow | Contributors | ⏳ To be created |
+
+---
+
+### Document Relationships
+
+```
+                    ISSUES_AND_LIMITATIONS.md
+                            ↓ (identifies problems)
+                    ┌──────────────────────┐
+                    │   MASTER.md          │ ← (you are here)
+                    │  - Executive Summary │
+                    │  - Architecture      │
+                    │  - Priority Matrix   │
+                    │  - Navigation Hub    │
+                    └──────────────────────┘
+                            ↓
+        ┌───────────┬───────┼───────┬───────────┐
+        ↓           ↓       ↓       ↓           ↓
+    ARCHITECTURE  ROADMAP  MIGRATION  API_REF  CONTRIBUTING
+        │           │       │       │           │
+    Module     Execution   Upgrade  Function   Development
+    Design      Plan       Guide    Reference  Workflow
+```
+
+---
+
+### 1. ARCHITECTURE.md
+
+**Purpose:** Module design specifications and data contracts
+
+**Contents:**
+- Module Responsibility Matrix (what each module does)
+- Data Structure Specifications (ScpContainer, Assay, ScpMatrix)
+- Public API Contracts (function signatures + types)
+- Integration Patterns (how modules interact)
+- Design Decisions (why patterns were chosen)
+
+**When to Reference:**
+- Designing new modules
+- Understanding module boundaries
+- API changes impact analysis
+- Code review guidance
+
+**Link:** [ARCHITECTURE.md](./ARCHITECTURE.md)
+
+---
+
+### 2. ROADMAP.md
+
+**Purpose:** Detailed execution plan with milestones and priorities
+
+**Contents:**
+- Priority Matrix (P0/P1/P2 with full details)
+- Milestone Definitions (M1-M5 with acceptance criteria)
+- Sprint Planning (2-week sprints breakdown)
+- Dependency Graph (Mermaid visualization)
+- Risk Register (with mitigation strategies)
+- Progress Tracking (weekly updates)
+
+**When to Reference:**
+- Sprint planning
+- Progress tracking
+- Resource allocation decisions
+- Risk management
+
+**Link:** [ROADMAP.md](./ROADMAP.md)
+
+---
+
+### 3. MIGRATION.md
+
+**Purpose:** Guide from v0.1.0-alpha to v0.1.0-beta
+
+**Contents:**
+- Breaking Changes (API modifications)
+- Data Compatibility (saved object migration)
+- Step-by-step Migration Guide
+- Rollback Procedures
+- Testing Checklist (validation steps)
+- FAQ and troubleshooting
+
+**When to Reference:**
+- Upgrading from alpha to beta
+- Debugging migration issues
+- Assessing upgrade risk
+- Planning migration timeline
+
+**Link:** [MIGRATION.md](./MIGRATION.md)
+
+---
+
+### 4. API_REFERENCE.md
+
+**Purpose:** Complete public API documentation
+
+**Contents:**
+- Core Structures (ScpContainer, Assay, ScpMatrix)
+- Module APIs (normalization, impute, integration, etc.)
+- Type Annotations (full type signatures)
+- Usage Examples (one per module)
+- Performance Considerations
+- Deprecation Timeline
+
+**When to Reference:**
+- Using ScpTensor in code
+- Understanding function contracts
+- Checking deprecation status
+- Writing integration code
+
+**Link:** [API_REFERENCE.md](./API_REFERENCE.md)
+
+---
+
+### 5. CONTRIBUTING.md
+
+**Purpose:** Developer onboarding and workflow guide
+
+**Contents:**
+- Development Environment Setup
+- Code Style Standards (ruff, type hints)
+- Testing Requirements (pytest, coverage)
+- Pull Request Process
+- Code Review Checklist
+- CI/CD Pipeline Usage
+- Getting Help
+
+**When to Reference:**
+- Onboarding new contributors
+- Submitting pull requests
+- Reviewing code changes
+- Setting up development environment
+
+**Link:** [../CONTRIBUTING.md](../CONTRIBUTING.md) *Note: To be created*
+
+---
+
+## Maintenance Protocol
+
+### Update Frequency
+
+**MASTER.md:** Weekly during active development
+- Update milestone progress
+- Adjust priority matrix based on new information
+- Review and refresh risk assessment
+
+**Linked Documents:**
+- **ROADMAP.md:** Weekly (after each sprint)
+- **ISSUES_AND_LIMITATIONS.md:** Weekly (close resolved issues)
+- **ARCHITECTURE.md:** As needed (design changes)
+- **MIGRATION.md:** Per release
+- **API_REFERENCE.md:** Per release
+
+---
+
+### Review Process
+
+1. **Weekly Review (Project Lead):**
+   - Update progress tracking in ROADMAP.md
+   - Close completed items in ISSUES_AND_LIMITATIONS.md
+   - Adjust priority matrix if needed
+
+2. **Release Review (All Maintainers):**
+   - Verify all acceptance criteria met
+   - Update API_REFERENCE.md with new APIs
+   - Create MIGRATION.md for release
+   - Tag release in git
+
+3. **Post-Mortem (After each milestone):**
+   - Document lessons learned
+   - Update risk assessments
+   - Adjust timeline estimates
+
+---
+
+### Version Control
+
+**Major Changes:** Create git tag
+```bash
+git tag -a v0.1.0-beta-design -m "Design document freeze for v0.1.0-beta"
+git push origin v0.1.0-beta-design
+```
+
+**Archive Old Plans:**
+```bash
+docs/design/archive/
+├── 2025-01-initial-design/
+└── 2025-02-iteration-2/
+```
+
+**Document History:**
+| Version | Date | Changes | Author |
+|---------|------|---------|--------|
+| 1.0 | 2025-01-05 | Initial master design document | ScpTensor Team |
+
+---
+
+## Success Metrics
+
+### Phase Completion Criteria
+
+**Phase 1: Architecture & Testing (Weeks 1-2)**
+- [ ] All modules have `__init__.py`
+- [ ] All public APIs importable
+- [ ] pytest configured and running
+- [ ] Core structure tests ≥80% coverage
+- [ ] CI/CD pipeline operational
+
+**Phase 2: Feature Completion (Weeks 3-6)**
+- [ ] All P0 tasks complete
+- [ ] P1 tasks ≥80% complete
+- [ ] Integration tests passing
+- [ ] Type annotation coverage ≥90%
+- [ ] Error handling implemented
+
+**Phase 3: Documentation & Performance (Weeks 7-8)**
+- [ ] API documentation generated
+- [ ] Migration guide complete
+- [ ] Performance optimizations applied
+- [ ] Benchmark suite operational
+
+**Phase 4: Release Preparation (Weeks 9-10)**
+- [ ] All P0 and P1 tasks complete
+- [ ] End-to-end integration test passing
+- [ ] Release notes prepared
+- [ ] v0.1.0-beta tag created
+
+---
+
+### Quality Gates
+
+**Before Each Release:**
+- [ ] Zero critical issues in ISSUES_AND_LIMITATIONS.md
+- [ ] Test coverage ≥80% (core structures), ≥60% (overall)
+- [ ] All tests passing in CI/CD
+- [ ] Documentation complete and accurate
+- [ ] Performance benchmarks meet targets
+- [ ] Real dataset end-to-end test successful
+
+---
+
+## Communication Plan
+
+### Stakeholder Updates
+
+**Weekly (Internal Team):**
+- Sprint progress
+- Blockers and risks
+- Next week priorities
+
+**Bi-Weekly (Stakeholders):**
+- Milestone achievements
+- Timeline adjustments
+- Resource needs
+
+**Per Release (Public):**
+- Release notes
+- Migration guide
+- Known issues and limitations
+
+---
+
+## Next Steps
+
+### Immediate Actions (This Week)
+
+1. **Review and approve this design document** (All maintainers)
+2. **Create detailed documents** (ARCHITECTURE.md, ROADMAP.md, etc.)
+3. **Set up project tracking** (GitHub Projects/Milestones)
+4. **Kick off Phase 1** (Architecture fix)
+
+### This Month
+
+1. **Complete Phase 1** (Architecture & Testing)
+2. **Start Phase 2** (Feature Implementation)
+3. **Begin documentation** (API_REFERENCE.md)
+4. **Weekly reviews** (Adjust plans as needed)
+
+---
+
+## Appendix
+
+### A. Glossary
+
+- **Assay:** Feature-space specific data manager (e.g., proteins, peptides)
+- **Layer:** Versioned data matrix (e.g., "raw", "log", "imputed")
+- **Mask:** Provenance tracking matrix (M) indicating data status
+- **ScpContainer:** Top-level container managing multi-assay experiments
+- **ProvenanceLog:** Operation history tracking data lineage
+
+### B. References
+
+- Robinson MD, Oshlack A (2010) A scaling normalization method for differential expression analysis of RNA-seq data. *Genome Biology* 11:R25
+- Johnson WE, Li C, Rabinovic A (2007) Adjusting batch effects in microarray expression data using empirical Bayes methods. *Biostatistics* 8:118-127
+- Traag VA, Waltman L, van Eck NJ (2019) From Louvain to Leiden: guaranteeing well-connected communities. *Scientific Reports* 9:5233
+- McInnes L, Healy J, Melville J (2018) UMAP: Uniform Manifold Approximation and Projection for dimension reduction. *arXiv:1802.03426*
+
+### C. Related Documents
+
+- [README.md](../../README.md) - Project overview
+- [ISSUES_AND_LIMITATIONS.md](../ISSUES_AND_LIMITATIONS.md) - Current problems
+- [pyproject.toml](../../pyproject.toml) - Dependencies and configuration
+
+---
+
+**Document Owner:** ScpTensor Project Lead
+**Review Cycle:** Weekly during active development
+**Next Review:** 2025-01-12
+
+**End of MASTER.md**

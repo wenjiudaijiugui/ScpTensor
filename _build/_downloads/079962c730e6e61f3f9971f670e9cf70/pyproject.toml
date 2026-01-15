@@ -1,0 +1,138 @@
+[project]
+name = "scptensor"
+version = "0.1.0"
+description = "Single-cell proteomics (SCP) data analysis framework with comprehensive tools for quality control, normalization, imputation, batch correction, and dimensionality reduction."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.9",
+    "numba>=0.60",
+    "numpy>=1.26",
+    "pandas>=2.0",
+    "plotly>=6.0",
+    "polars>=1.0",
+    "pyarrow>=14.0",
+    "psutil>=6.0",
+    "scienceplots>=2.0",
+    "scikit-learn>=1.5",
+    "scipy>=1.14",
+    "seaborn>=0.13",
+    "umap-learn>=0.5.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ipykernel>=7.1",
+    "mypy>=1.9",
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "scanpy>=1.10",
+]
+docs = [
+    "sphinx>=7.0",
+    "furo>=2024.0",
+    "sphinx-autodoc-typehints>=2.0",
+    "myst-parser>=3.0",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.1.0",
+    "mypy>=1.15.0",
+    "pytest>=9.0.1",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.9.10",
+    "scanpy>=1.11.5",
+]
+
+docs = [
+    "sphinx>=8.0.0",
+    "furo>=2024.0.0",
+    "sphinx-autodoc-typehints>=2.0.0",
+    "myst-parser>=4.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+    "--cov=scptensor",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow-running tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["scptensor"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
+default = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "W",   # pycodestyle warnings
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # line length handled by formatter
+    "SIM108", # use ternary operator (can reduce readability)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["scptensor"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["N", "S"]  # Allow relaxed naming and security in tests
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+follow_imports = "normal"

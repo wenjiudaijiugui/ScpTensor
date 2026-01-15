@@ -1,0 +1,7 @@
+Differential Expression
+=======================
+
+.. automodule:: scptensor.diff_expr
+   :members:
+   :undoc-members:
+   :show-inheritance:

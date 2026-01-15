@@ -1,0 +1,15 @@
+Feature Selection
+=================
+
+.. automodule:: scptensor.feature_selection
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Highly Variable Genes (HVG)
+---------------------------
+
+.. automodule:: scptensor.feature_selection.hvg
+   :members:
+   :undoc-members:
+   :show-inheritance:

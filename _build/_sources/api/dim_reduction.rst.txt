@@ -1,0 +1,20 @@
+Dimensionality Reduction
+========================
+
+.. automodule:: scptensor.dim_reduction
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Methods
+-------
+
+.. automodule:: scptensor.dim_reduction.pca
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: scptensor.dim_reduction.umap
+   :members:
+   :undoc-members:
+   :show-inheritance:

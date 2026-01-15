@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     import matplotlib.pyplot as plt
 
 
-__all__ = ["scatter", "umap", "pca", "tsne"]
+__all__ = ["scatter", "umap", "pca", "tsne", "embedding"]
 
 
 def scatter(
@@ -538,6 +538,43 @@ def tsne(
     >>> ax = tsne(container, layer="normalized", color="condition")
     """
     return scatter(container, layer=layer, basis="tsne", **kwargs)
+
+
+def embedding(
+    container: ScpContainer,
+    layer: str = "normalized",
+    basis: str = "umap",
+    **kwargs,
+) -> plt.Axes:
+    """Generic embedding scatter plot.
+
+    This is a convenience alias for :func:`scatter` that allows specifying
+    the embedding basis as a parameter. Useful when the basis is determined
+    dynamically (e.g., in user interfaces or pipelines).
+
+    Parameters
+    ----------
+    container : ScpContainer
+        Input data container with embedding coordinates in obs.
+    layer : str, default "normalized"
+        Layer name for feature-based coloring.
+    basis : str, default "umap"
+        Embedding basis name. Expects {basis}_1 and {basis}_2 columns in obs.
+        Common values: "umap", "pca", "tsne".
+    **kwargs
+        Additional arguments passed to :func:`scatter`.
+
+    Returns
+    -------
+    plt.Axes
+        The axes containing the embedding scatter plot.
+
+    Examples
+    --------
+    >>> from scptensor.viz.recipes.embedding import embedding
+    >>> ax = embedding(container, basis="pca", color="cluster")
+    """
+    return scatter(container, layer=layer, basis=basis, **kwargs)
 
 
 if __name__ == "__main__":

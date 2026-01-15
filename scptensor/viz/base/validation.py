@@ -5,9 +5,9 @@ All validation functions raise VisualizationError with descriptive messages.
 """
 
 import numpy as np
-from scptensor import ScpContainer
-from scptensor.core.exceptions import VisualizationError, LayerNotFoundError
 
+from scptensor import ScpContainer
+from scptensor.core.exceptions import LayerNotFoundError, VisualizationError
 
 __all__ = [
     "validate_container",
@@ -34,9 +34,7 @@ def validate_container(container: ScpContainer) -> None:
     if container is None:
         raise VisualizationError("Container cannot be None")
     if not isinstance(container, ScpContainer):
-        raise VisualizationError(
-            f"Expected ScpContainer, got {type(container).__name__}"
-        )
+        raise VisualizationError(f"Expected ScpContainer, got {type(container).__name__}")
 
 
 def validate_layer(container: ScpContainer, assay_name: str, layer: str) -> None:
@@ -110,9 +108,7 @@ def validate_features(
     missing = set(var_names) - available
 
     if missing:
-        raise VisualizationError(
-            f"Features not found in assay '{assay_name}': {sorted(missing)}"
-        )
+        raise VisualizationError(f"Features not found in assay '{assay_name}': {sorted(missing)}")
 
 
 def validate_groupby(container: ScpContainer, groupby: str) -> None:
@@ -133,12 +129,11 @@ def validate_groupby(container: ScpContainer, groupby: str) -> None:
     if groupby not in container.obs.columns:
         available = container.obs.columns
         raise VisualizationError(
-            f"Column '{groupby}' not found in obs. "
-            f"Available columns: {list(available)}"
+            f"Column '{groupby}' not found in obs. Available columns: {list(available)}"
         )
 
 
-def validate_plot_data(X: np.ndarray, n_min: int = 1) -> None:
+def validate_plot_data(X: np.ndarray, n_min: int = 1) -> None:  # noqa: N803
     """Validate sufficient data for plotting.
 
     Parameters
@@ -175,13 +170,13 @@ if __name__ == "__main__":
     print("   Valid container: OK")
 
     try:
-        validate_container(None)
+        validate_container(None)  # type: ignore[arg-type]
         print("   None container: FAILED")
     except VisualizationError as e:
         print(f"   None container: OK (raised: {e})")
 
     try:
-        validate_container("not_a_container")
+        validate_container("not_a_container")  # type: ignore[arg-type]
         print("   Wrong type: FAILED")
     except VisualizationError as e:
         print(f"   Wrong type: OK (raised: {e})")

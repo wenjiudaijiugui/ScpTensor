@@ -1,0 +1,714 @@
+# ScpTensor Development Roadmap
+
+**Current Version:** v0.1.0-alpha
+**Target Version:** v0.1.0-beta
+**Timeline:** 8-10 weeks
+**Total Effort:** 67 person-days (~13 weeks for 1 person, ~8 weeks for 2 people)
+
+**Last Updated:** 2025-01-05
+**Status:** Active Planning
+
+---
+
+## Executive Summary
+
+This roadmap provides a detailed execution plan for transforming ScpTensor from prototype (v0.1.0-alpha) to production-ready framework (v0.1.0-beta).
+
+**Key Milestones:**
+1. **M1:** Architecture Fixed (Week 2)
+2. **M2:** Test Infrastructure Ready (Week 3)
+3. **M3:** Feature Complete (Week 6)
+4. **M4:** Documentation Complete (Week 7)
+5. **M5:** Production Ready (Week 10)
+
+**Critical Success Factors:**
+- Complete P0 tasks before starting P1
+- Maintain 80%+ test coverage on all new code
+- Document all public APIs
+- Performance benchmarks meet targets
+
+---
+
+## Priority Matrix Detail
+
+### P0: Critical Blockers (Must Complete)
+
+| ID | Task Description | Effort (person-days) | Dependencies | Risk | Owner | Status | Sprint |
+|----|------------------|---------------------|--------------|------|-------|--------|--------|
+| P0-1 | Add `integration/__init__.py` | 0.5 | None | Low | Core Dev | ⏳ Pending | 1 |
+| P0-2 | Add `qc/__init__.py` | 0.5 | None | Low | Core Dev | ⏳ Pending | 1 |
+| P0-3 | Remove/implement empty integration stubs | 2 | P0-1 | Medium | Algo Dev | ⏳ Pending | 1 |
+| P0-4 | Configure pytest infrastructure | 2 | None | Low | Test Dev | ⏳ Pending | 1 |
+| P0-5 | Write core structure tests (50+ tests) | 5 | P0-4 | Medium | Test Dev | ⏳ Pending | 2 |
+| P0-6 | Add GitHub Actions CI/CD pipeline | 3 | P0-4 | Low | DevOps | ⏳ Pending | 2 |
+| P0-7 | Fix hardcoded paths in tests | 1 | None | Low | Test Dev | ⏳ Pending | 1 |
+
+**P0 Subtotal:** 14 person-days (~2 weeks for 1 person)
+**Critical Path:** P0-4 → P0-5 → P0-6
+
+---
+
+### P1: High Priority (v0.1.0-beta Required)
+
+| ID | Task Description | Effort (person-days) | Dependencies | Risk | Owner | Status | Sprint |
+|----|------------------|---------------------|--------------|------|-------|--------|--------|
+| P1-1 | Implement PPCA imputation method | 4 | P0-5 | Medium | Algo Dev | ⏳ Pending | 3-4 |
+| P1-2 | Implement SVD imputation method | 4 | P0-5 | Medium | Algo Dev | ⏳ Pending | 3-4 |
+| P1-3 | Add type hints to all public functions | 5 | None | Low | Core Dev | ⏳ Pending | 3 |
+| P1-4 | Implement unified error handling layer | 6 | P0-5 | Medium | Core Dev | ⏳ Pending | 3-4 |
+| P1-5 | Generate API documentation (Sphinx) | 5 | P1-3 | Low | Doc Dev | ⏳ Pending | 5-6 |
+| P1-6 | Write integration tests (pipeline) | 7 | P0-5 | Medium | Test Dev | ⏳ Pending | 4-5 |
+| P1-7 | Optimize sparse matrix operations | 6 | P0-5 | High | Perf Dev | ⏳ Pending | 5-6 |
+| P1-8 | Add Numba JIT to hot loops | 5 | P1-7 | Medium | Perf Dev | ⏳ Pending | 6 |
+| P1-9 | Fix dependency management (pyproject.toml) | 2 | None | Low | Core Dev | ⏳ Pending | 3 |
+
+**P1 Subtotal:** 44 person-days
+**Parallelization Opportunities:**
+- **Sprint 3:** P1-3, P1-9 (Core), P1-1, P1-4 start (Algo)
+- **Sprint 4:** P1-1, P1-4 continue, P1-6 start
+- **Sprint 5-6:** P1-5, P1-7 (parallel tracks)
+- **Sprint 6:** P1-8 (after P1-7)
+
+---
+
+### P2: Medium Priority (Deferred to v0.2.0)
+
+| ID | Task Description | Effort (person-days) | Dependencies | Risk | Owner | Status |
+|----|------------------|---------------------|--------------|------|-------|--------|
+| P2-1 | Implement diff_expr module | 12 | v0.1.0-beta | High | Algo Dev | ⏳ Deferred |
+| P2-2 | Add advanced QC methods | 8 | Basic QC | Medium | QC Dev | ⏳ Deferred |
+| P2-3 | Create tutorial notebooks | 6 | P1-5 | Low | Doc Dev | ⏳ Deferred |
+| P2-4 | Benchmark against competitors | 5 | v0.1.0-beta | Medium | Perf Dev | ⏳ Deferred |
+| P2-5 | Add pre-commit hooks (ruff/black) | 2 | None | Low | DevOps | ⏳ Deferred |
+| P2-6 | Write developer guide | 4 | P1-5 | Low | Doc Dev | ⏳ Deferred |
+
+**P2 Subtotal:** 37 person-days
+**Strategy:** Defer until after v0.1.0-beta release
+
+---
+
+## Milestones
+
+### Milestone M1: Architecture Fixed
+
+**Target Date:** End of Week 2
+
+**Objective:** All modules importable, empty files removed, paths fixed
+
+**Acceptance Criteria:**
+- [ ] `integration/__init__.py` exists and exports public API
+- [ ] `qc/__init__.py` exists and exports public API
+- [ ] Empty files removed (harmony.py, mnn.py, scanorama.py) OR implemented with TODO markers
+- [ ] Hardcoded paths in tests replaced with relative paths
+- [ ] `pytest --collect-only` passes (no import errors)
+- [ ] All advertised modules can be imported via standard paths
+
+**Verification Commands:**
+```bash
+# Test all imports
+python -c "from scptensor.integration import combat; print('✅ integration')"
+python -c "from scptensor.qc import basic_qc; print('✅ qc')"
+python -c "from scptensor.normalization import log_normalize; print('✅ normalization')"
+
+# Run pytest collection
+pytest --collect-only
+```
+
+**Deliverables:**
+- Working `integration/__init__.py` with exports
+- Working `qc/__init__.py` with exports
+- Clean test codebase (no hardcoded paths)
+- Module import validation script
+
+**Success Metrics:**
+- 100% of modules importable
+- Zero import errors
+- All test files use portable paths
+
+---
+
+### Milestone M2: Test Infrastructure Ready
+
+**Target Date:** End of Week 3
+
+**Objective:** Pytest configured, core tests passing, CI/CD operational
+
+**Acceptance Criteria:**
+- [ ] `pytest` configured in `pyproject.toml`
+- [ ] Core structure tests written (50+ test cases):
+  - ScpContainer: 15 tests (init, add_assay, copy, validate)
+  - Assay: 15 tests (init, add_layer, subset)
+  - ScpMatrix: 10 tests (init, validation, mask codes)
+  - ProvenanceLog: 5 tests
+  - AggregationLink: 5 tests
+- [ ] Test coverage ≥80% for `scptensor/core`
+- [ ] GitHub Actions workflow created (`.github/workflows/test.yml`)
+- [ ] CI runs on every push and PR
+- [ ] Coverage reports generated (pytest-cov)
+- [ ] All tests passing in CI
+
+**CI/CD Pipeline Requirements:**
+```yaml
+# .github/workflows/test.yml
+name: Tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Install dependencies
+        run: uv pip install -e ".[dev]"
+      - name: Run pytest
+        run: pytest --cov=scptensor --cov-report=xml
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+```
+
+**Verification Commands:**
+```bash
+# Run tests locally
+pytest tests/ -v --cov=scptensor --cov-report=term
+
+# Check coverage
+pytest --cov=scptensor --cov-report=html
+open htmlcov/index.html  # Should show ≥80% for core
+```
+
+**Deliverables:**
+- `pytest.ini` or `pyproject.toml` pytest configuration
+- 50+ unit tests in `tests/core/`
+- GitHub Actions workflow file
+- CI/CD pipeline operational
+- Coverage badge in README
+
+**Success Metrics:**
+- 80%+ test coverage for core structures
+- Zero test failures in CI
+- Build time < 5 minutes
+
+---
+
+### Milestone M3: Feature Complete
+
+**Target Date:** End of Week 6
+
+**Objective:** All P1 algorithms implemented, type hints complete, error handling in place
+
+**Acceptance Criteria:**
+- [ ] All P0 tasks complete (100%)
+- [ ] All P1 tasks ≥80% complete
+- [ ] Imputation methods: KNN ✅, PPCA ✅, SVD ✅
+- [ ] Integration methods: ComBat ✅, at least 1 additional (Harmony/MNN/Scanorama)
+- [ ] Type annotation coverage ≥90% on public APIs
+- [ ] Error handling layer implemented:
+  - Custom exception hierarchy
+  - Input validation on all public functions
+  - Clear error messages
+- [ ] Integration tests passing (full pipeline)
+- [ ] Dependency management fixed (combat, scanpy in correct groups)
+
+**Test Coverage Requirements:**
+- Core structures: ≥80%
+- Normalization: ≥70%
+- Imputation: ≥70%
+- Integration: ≥70%
+- Overall: ≥60%
+
+**Verification Commands:**
+```bash
+# Type checking with mypy
+mypy scptensor/ --strict
+# Should pass with <10 errors (acceptable for v0.1.0-beta)
+
+# Run full test suite
+pytest tests/ -v
+
+# Integration test
+python tests/total_proc.py
+```
+
+**Deliverables:**
+- PPCA implementation (`impute/ppca.py`)
+- SVD implementation (`impute/svd.py`)
+- At least 1 additional integration method
+- Type hints on 90%+ of public functions
+- Error handling module (`core/exceptions.py`)
+- Integration test suite (`tests/integration/`)
+- Updated `pyproject.toml`
+
+**Success Metrics:**
+- All advertised features working
+- Test coverage targets met
+- Type checking passes
+- Zero critical bugs
+
+---
+
+### Milestone M4: Documentation Complete
+
+**Target Date:** End of Week 7
+
+**Objective:** API docs generated, migration guide complete, tutorials created
+
+**Acceptance Criteria:**
+- [ ] Sphinx/autodoc configured
+- [ ] API documentation generated for all modules
+- [ ] Migration guide (MIGRATION.md) complete:
+  - Breaking changes documented
+  - Step-by-step migration instructions
+  - Rollback procedures
+- [ ] At least 2 tutorial notebooks:
+  - Basic analysis workflow (QC → Normalize → Impute → Cluster)
+  - Advanced pipeline (Integration + Dim Reduction + Visualization)
+- [ ] All docstrings follow NumPy style guide
+- [ ] Examples in docstrings tested (doctest)
+- [ ] API documentation deployed (GitHub Pages or ReadTheDocs)
+
+**Sphinx Configuration:**
+```python
+# docs/conf.py
+extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.napoleon',  # NumPy-style docstrings
+    'sphinx.ext.viewcode',  # Source code links
+    'sphinx.ext.intersphinx',  # Cross-references
+]
+
+autodoc_default_options = {
+    'members': True,
+    'member-order': 'bysource',
+    'special-members': '__init__',
+    'undoc-members': True,
+    'exclude-members': '__weakref__'
+}
+```
+
+**Verification Commands:**
+```bash
+# Build documentation
+cd docs/
+make html
+
+# Run doctests
+pytest --doctest-modules scptensor/
+```
+
+**Deliverables:**
+- `docs/conf.py` (Sphinx configuration)
+- `docs/api/` (generated API docs)
+- `docs/notebooks/` (tutorial notebooks)
+- `MIGRATION.md` (migration guide)
+- Deployed documentation site
+
+**Success Metrics:**
+- All public APIs documented
+- Documentation builds without warnings
+- At least 2 working tutorial notebooks
+- Migration guide reviewed by maintainer
+
+---
+
+### Milestone M5: Production Ready (v0.1.0-beta)
+
+**Target Date:** End of Week 10
+
+**Objective:** All acceptance criteria met, release prepared
+
+**Acceptance Criteria:**
+- [ ] All P0 and P1 tasks 100% complete
+- [ ] All P2 tasks either complete or explicitly deferred
+- [ ] Zero critical issues in ISSUES_AND_LIMITATIONS.md
+- [ ] End-to-end integration test passing on real SCP dataset
+- [ ] Performance benchmarks meet targets:
+  - Normalization: <5s for 1000×5000 matrix
+  - KNN imputation: <30s for 1000×5000, k=5
+  - ComBat: <10s for 1000×5000
+- [ ] Release notes prepared (`CHANGELOG.md`)
+- [ ] Version bumped to 0.1.0b1 in `pyproject.toml`
+- [ ] Git tag created: `v0.1.0-beta`
+- [ ] Migration guide (MIGRATION.md) published
+- [ ] API reference (API_REFERENCE.md) published
+- [ ] README updated with installation instructions and examples
+
+**End-to-End Integration Test:**
+```python
+# tests/integration/test_real_dataset.py
+def test_real_scp_dataset():
+    """Test complete pipeline on real SCP data"""
+    # Load real dataset (from tests/data/)
+    container = reader.read_scp_data("tests/data/PXD061065/")
+
+    # Run full pipeline
+    container = log_normalize(container, ...)
+    container = knn(container, ...)
+    container = combat(container, ...)
+    container = pca(container, ...)
+    container = run_kmeans(container, ...)
+
+    # Validate results
+    assert container.assays['proteins'].layers['corrected'] is not None
+    assert 'kmeans_cluster' in container.obs.columns
+    assert len(np.unique(container.obs['kmeans_cluster'])) == 2
+```
+
+**Release Checklist:**
+- [ ] All tests passing (including integration tests)
+- [ ] Documentation complete and accurate
+- [ ] Performance benchmarks passing
+- [ ] CHANGELOG.md updated
+- [ ] Version number bumped
+- [ ] Git tag created
+- [ ] Release announcement draft prepared
+
+**Deliverables:**
+- v0.1.0-beta release (Python package)
+- CHANGELOG.md
+- Release announcement (GitHub Release)
+- Updated README.md
+- Updated ISSUES_AND_LIMITATIONS.md (close resolved issues)
+
+**Success Metrics:**
+- All acceptance criteria met
+- Zero P0/P1 bugs remaining
+- Test coverage ≥60% overall
+- Real dataset end-to-end test passing
+- Documentation deployed
+
+---
+
+## Dependency Graph
+
+```mermaid
+graph TD
+    %% P0 Tasks
+    P0_1[P0-1: integration/__init__.py] --> P0_3[P0-3: Remove empty files]
+    P0_2[P0-2: qc/__init__.py]
+    P0_4[P0-4: pytest config] --> P0_5[P0-5: Core tests]
+    P0_5 --> P0_6[P0-6: CI/CD]
+    P0_7[P0-7: Fix paths]
+
+    %% P1 Tasks
+    P0_5 --> P1_1[P1-1: PPCA]
+    P0_5 --> P1_2[P1-2: SVD]
+    P0_5 --> P1_4[P1-4: Error handling]
+    P0_5 --> P1_6[P1-6: Integration tests]
+    P1_3[P1-3: Type hints] --> P1_5[P1-5: API docs]
+    P1_7[P1-7: Sparse optimization] --> P1_8[P1-8: Numba JIT]
+
+    %% Milestones
+    P0_1 & P0_2 & P0_3 & P0_7 --> M1[M1: Architecture Fixed]
+    P0_4 & P0_5 & P0_6 --> M2[M2: Test Ready]
+    P1_1 & P1_2 & P1_3 & P1_4 & P1_6 & P1_9 --> M3[M3: Feature Complete]
+    P1_5 --> M4[M4: Doc Complete]
+    M2 & M3 & M4 --> M5[M5: v0.1.0-beta]
+
+    %% Styling
+    style P0_1 fill:#ff6b6b
+    style P0_2 fill:#ff6b6b
+    style P0_3 fill:#ff6b6b
+    style P0_4 fill:#ff6b6b
+    style P0_5 fill:#ff6b6b
+    style P0_6 fill:#ff6b6b
+    style P0_7 fill:#ff6b6b
+    style M1 fill:#51cf66
+    style M2 fill:#51cf66
+    style M3 fill:#51cf66
+    style M4 fill:#51cf66
+    style M5 fill:#51cf66,stroke-width:3px
+```
+
+---
+
+## Sprint Planning
+
+### Sprint 1 (Week 1): Architecture Fix
+
+**Goal:** Complete M1 - Architecture Fixed
+
+**Tasks:**
+- P0-1: Add `integration/__init__.py`
+- P0-2: Add `qc/__init__.py`
+- P0-3: Remove/implement empty stub files
+- P0-7: Fix hardcoded paths
+
+**Deliverables:**
+- All modules importable
+- Empty files resolved
+- Test code portable
+
+**Success Criteria:**
+- `from scptensor.integration import combat` works
+- `from scptensor.qc import basic_qc` works
+- All test files use relative paths
+
+---
+
+### Sprint 2 (Week 2): Testing Infrastructure
+
+**Goal:** Begin M2 - Test Infrastructure
+
+**Tasks:**
+- P0-4: Configure pytest
+- P0-5: Write core structure tests (50+ tests)
+- Start P0-6: GitHub Actions setup
+
+**Deliverables:**
+- Pytest configured
+- Core tests written
+- CI/CD partially set up
+
+**Success Criteria:**
+- 50+ tests passing
+- Coverage ≥80% for core
+- CI workflow created
+
+---
+
+### Sprint 3 (Week 3): Test Completion + P1 Start
+
+**Goal:** Complete M2, start P1 tasks
+
+**Tasks:**
+- P0-6: Complete CI/CD setup
+- P1-3: Add type hints (start)
+- P1-9: Fix dependency management
+- P1-1: Start PPCA implementation
+- P1-4: Start error handling
+
+**Deliverables:**
+- M2 complete (test infrastructure ready)
+- Type hints started
+- PPCA implementation started
+
+**Success Criteria:**
+- CI/CD operational
+- M2 acceptance criteria met
+- P1 tasks progressing
+
+---
+
+### Sprint 4 (Week 4): Algorithm Development
+
+**Goal:** P1 algorithms + error handling
+
+**Tasks:**
+- P1-1: Complete PPCA
+- P1-2: Implement SVD
+- P1-4: Complete error handling
+- P1-6: Start integration tests
+
+**Deliverables:**
+- PPCA implementation complete
+- SVD implementation complete
+- Error handling layer complete
+
+**Success Criteria:**
+- PPCA tests passing
+- SVD tests passing
+- Error handling validated
+
+---
+
+### Sprint 5 (Week 5): Documentation + Optimization
+
+**Goal:** P1 docs + performance
+
+**Tasks:**
+- P1-5: Generate API documentation
+- P1-6: Complete integration tests
+- P1-7: Optimize sparse operations
+
+**Deliverables:**
+- API docs generated
+- Integration tests passing
+- Profiling data collected
+
+**Success Criteria:**
+- Sphinx builds without errors
+- Integration test suite passing
+- Performance bottlenecks identified
+
+---
+
+### Sprint 6 (Week 6): Feature Completion
+
+**Goal:** Complete M3 - Feature Complete
+
+**Tasks:**
+- P1-8: Add Numba JIT
+- Complete remaining P1 tasks
+- M3 validation
+
+**Deliverables:**
+- All P1 tasks ≥80% complete
+- M3 acceptance criteria met
+- Performance optimized
+
+**Success Criteria:**
+- Type coverage ≥90%
+- Test coverage targets met
+- Performance benchmarks passing
+
+---
+
+### Sprint 7 (Week 7): Documentation
+
+**Goal:** Complete M4 - Documentation Complete
+
+**Tasks:**
+- Complete API documentation
+- Write MIGRATION.md
+- Create tutorial notebooks
+- M4 validation
+
+**Deliverables:**
+- API docs deployed
+- Migration guide complete
+- 2+ tutorial notebooks
+
+**Success Criteria:**
+- M4 acceptance criteria met
+- Documentation builds without warnings
+- Tutorials tested
+
+---
+
+### Sprint 8 (Week 8): Integration & Release Prep
+
+**Goal:** Prepare for M5 - Production Ready
+
+**Tasks:**
+- End-to-end integration testing
+- Performance validation
+- Release notes (CHANGELOG.md)
+- Version bump
+- Final bug fixes
+
+**Deliverables:**
+- Integration tests passing
+- Real dataset tested
+- Release notes ready
+
+**Success Criteria:**
+- Zero critical bugs
+- Performance targets met
+- Release checklist complete
+
+---
+
+### Sprint 9-10 (Weeks 9-10): Final Release
+
+**Goal:** Complete M5 - v0.1.0-beta Release
+
+**Tasks:**
+- Final validation
+- Create release
+- Deploy documentation
+- Announcement
+
+**Deliverables:**
+- v0.1.0-beta tag
+- Release published to PyPI (optional)
+- Documentation deployed
+- Release announcement
+
+**Success Criteria:**
+- M5 acceptance criteria met
+- Release successful
+- Zero known critical issues
+
+---
+
+## Risk Register
+
+| Risk ID | Description | Probability | Impact | Mitigation Strategy | Owner | Status |
+|---------|-------------|-------------|--------|---------------------|-------|--------|
+| R1 | PPCA/SVD algorithm complexity exceeds estimates | Medium | High | Early prototype (Week 3), reduce scope if needed | Algo Dev | Monitor |
+| R2 | Performance optimization requires architecture changes | Low | High | Profile first, optimize hotspots only | Perf Dev | Monitor |
+| R3 | Test coverage targets difficult to achieve | Low | Medium | Focus on core modules first | Test Dev | Monitor |
+| R4 | Insufficient manpower causes delays | Medium | High | Defer P2 tasks to v0.2.0, prioritize P0/P1 | Project Lead | Active |
+| R5 | Dependency conflicts (Numba/Polars) | Low | Medium | Use uv to lock versions | DevOps | Monitor |
+| R6 | Real dataset integration test fails | Medium | High | Test early (Week 7), reserve time for fixes | Test Dev | Monitor |
+
+**Risk Management:**
+- Review risks weekly during sprint planning
+- Update probability/impact based on new information
+- Activate mitigation strategies proactively
+
+---
+
+## Progress Tracking
+
+### Weekly Updates
+
+**Template:**
+```markdown
+## Week N Progress (YYYY-MM-DD)
+
+### Completed
+- [ ] Task ID: Description (completed ahead/on/behind schedule)
+
+### In Progress
+- [ ] Task ID: Description (percentage complete)
+
+### Blocked
+- [ ] Task ID: Description (blocker, resolution plan)
+
+### Next Week
+- [ ] Task ID: Description (planned)
+
+### Risks/Issues
+- Risk ID: Status update
+```
+
+---
+
+### Milestone Progress
+
+| Milestone | Target Date | Actual Date | Status | Notes |
+|-----------|-------------|-------------|--------|-------|
+| M1: Architecture Fixed | Week 2 | - | ⏳ Pending | - |
+| M2: Test Ready | Week 3 | - | ⏳ Pending | - |
+| M3: Feature Complete | Week 6 | - | ⏳ Pending | - |
+| M4: Doc Complete | Week 7 | - | ⏳ Pending | - |
+| M5: v0.1.0-beta | Week 10 | - | ⏳ Pending | - |
+
+---
+
+## Effort Tracking
+
+### Actual vs Planned
+
+| Week | Planned Effort (person-days) | Actual Effort | Variance | Notes |
+|------|------------------------------|---------------|----------|-------|
+| 1 | 5 | - | - | TBD |
+| 2 | 5 | - | - | TBD |
+| 3 | 7 | - | - | TBD |
+| 4 | 7 | - | - | TBD |
+| 5 | 7 | - | - | TBD |
+| 6 | 7 | - | - | TBD |
+| 7 | 7 | - | - | TBD |
+| 8 | 7 | - | - | TBD |
+| 9-10 | 14 | - | - | TBD |
+| **Total** | **67** | - | - | - |
+
+---
+
+## Change Log
+
+### 2025-01-05
+- Initial roadmap creation
+- Defined P0/P1/P2 tasks
+- Established milestones M1-M5
+- Created sprint plan (8-10 weeks)
+
+---
+
+**Document Owner:** Project Lead
+**Update Frequency:** Weekly
+**Next Review:** End of Sprint 1 (2025-01-12)
+
+**End of ROADMAP.md**

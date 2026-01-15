@@ -1,0 +1,55 @@
+Benchmark
+=========
+
+.. automodule:: scptensor.benchmark
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Benchmark Core
+--------------
+
+.. automodule:: scptensor.benchmark.core
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Metrics
+~~~~~~~
+
+.. automodule:: scptensor.benchmark.metrics
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Benchmark Suite
+~~~~~~~~~~~~~~~
+
+.. automodule:: scptensor.benchmark.benchmark_suite
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Synthetic Data
+~~~~~~~~~~~~~~
+
+.. automodule:: scptensor.benchmark.synthetic_data
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Parameter Grid
+~~~~~~~~~~~~~~
+
+.. automodule:: scptensor.benchmark.parameter_grid
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Visualization
+~~~~~~~~~~~~~
+
+.. automodule:: scptensor.benchmark.visualization
+   :members:
+   :undoc-members:
+   :show-inheritance:

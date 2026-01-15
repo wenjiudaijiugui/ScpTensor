@@ -33,7 +33,36 @@ __version__ = "0.1.0"
 __author__ = "ScpTensor Team"
 
 # Core data structures and exceptions
+# Benchmarking
+from scptensor.benchmark import (
+    COMPETITOR_REGISTRY,
+    BenchmarkResults,
+    BenchmarkSuite,
+    BiologicalMetrics,
+    ComparisonResult,
+    CompetitorBenchmarkSuite,
+    CompetitorResultVisualizer,
+    ComputationalMetrics,
+    MethodConfig,
+    MethodRunResult,
+    MetricsEngine,
+    ParameterGrid,
+    ResultsVisualizer,
+    ScanpyStyleOps,
+    SyntheticDataset,
+    create_method_configs,
+    create_normalization_parameter_grids,
+    get_competitor,
+    get_competitors_by_operation,
+    list_competitors,
+)
+
+# Clustering
+from scptensor.cluster import run_kmeans
+
+# Core I/O and sparse utilities
 from scptensor.core import (
+    NUMBA_AVAILABLE,
     AggregationLink,
     Assay,
     AssayNotFoundError,
@@ -44,7 +73,6 @@ from scptensor.core import (
     MatrixMetadata,
     MatrixOps,
     MissingDependencyError,
-    NUMBA_AVAILABLE,
     ProvenanceLog,
     ScpContainer,
     ScpMatrix,
@@ -53,10 +81,6 @@ from scptensor.core import (
     StructureError,
     ValidationError,
     VisualizationError,
-)
-
-# Core I/O and sparse utilities
-from scptensor.core import (
     apply_mask_threshold,
     auto_convert_for_operation,
     cleanup_layers,
@@ -91,6 +115,35 @@ from scptensor.core import (
     write_h5ad,
 )
 
+# Datasets
+from scptensor.datasets import (
+    REPRODUCIBILITY_NOTE,
+    DatasetSize,
+    DatasetType,
+    load_example_with_clusters,
+    load_simulated_scrnaseq_like,
+    load_toy_example,
+)
+
+# Differential Expression
+from scptensor.diff_expr import (
+    DiffExprResult,
+    adjust_fdr,
+    diff_expr_anova,
+    diff_expr_kruskal,
+    diff_expr_mannwhitney,
+    diff_expr_ttest,
+)
+
+# Dimensionality Reduction
+from scptensor.dim_reduction import pca, umap
+
+# Imputation
+from scptensor.impute import knn, missforest, ppca, svd_impute
+
+# Integration (Batch Correction)
+from scptensor.integration import combat, harmony, mnn_correct, scanorama_integrate
+
 # Normalization
 from scptensor.normalization import (
     global_median_normalization,
@@ -100,12 +153,6 @@ from scptensor.normalization import (
     tmm_normalization,
     upper_quartile_normalization,
 )
-
-# Imputation
-from scptensor.impute import knn, missforest, ppca, svd_impute
-
-# Integration (Batch Correction)
-from scptensor.integration import combat, harmony, mnn_correct, scanorama_integrate
 
 # Quality Control
 from scptensor.qc import (
@@ -121,11 +168,11 @@ from scptensor.qc import (
     filter_samples_by_total_count,
 )
 
-# Dimensionality Reduction
-from scptensor.dim_reduction import pca, umap
+# Standardization (deprecated, re-exported for backward compatibility)
+from scptensor.standardization import zscore
 
-# Clustering
-from scptensor.cluster import run_kmeans
+# Utilities
+from scptensor.utils import ScpDataGenerator
 
 # Visualization
 from scptensor.viz import (
@@ -137,57 +184,6 @@ from scptensor.viz import (
     violin,
     volcano,
 )
-
-# Differential Expression
-from scptensor.diff_expr import (
-    DiffExprResult,
-    adjust_fdr,
-    diff_expr_anova,
-    diff_expr_kruskal,
-    diff_expr_mannwhitney,
-    diff_expr_ttest,
-)
-
-# Benchmarking
-from scptensor.benchmark import (
-    BenchmarkResults,
-    BenchmarkSuite,
-    BiologicalMetrics,
-    COMPETITOR_REGISTRY,
-    ComparisonResult,
-    CompetitorBenchmarkSuite,
-    CompetitorResultVisualizer,
-    ComputationalMetrics,
-    create_method_configs,
-    create_normalization_parameter_grids,
-    get_competitor,
-    get_competitors_by_operation,
-    list_competitors,
-    MetricsEngine,
-    MethodConfig,
-    MethodRunResult,
-    ParameterGrid,
-    ResultsVisualizer,
-    ScanpyStyleOps,
-    SyntheticDataset,
-)
-
-# Datasets
-from scptensor.datasets import (
-    DatasetSize,
-    DatasetType,
-    load_example_with_clusters,
-    load_simulated_scrnaseq_like,
-    load_toy_example,
-    REPRODUCIBILITY_NOTE,
-)
-
-# Utilities
-from scptensor.utils import ScpDataGenerator
-
-# Standardization (deprecated, re-exported for backward compatibility)
-from scptensor.standardization import zscore
-
 
 # Public API
 __all__ = [

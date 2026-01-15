@@ -5,12 +5,12 @@ import polars as pl
 import pytest
 
 from scptensor import Assay, ScpContainer, ScpMatrix
-from scptensor.core.exceptions import VisualizationError, LayerNotFoundError
+from scptensor.core.exceptions import LayerNotFoundError, VisualizationError
 from scptensor.viz.base.validation import (
     validate_container,
-    validate_layer,
     validate_features,
     validate_groupby,
+    validate_layer,
     validate_plot_data,
 )
 

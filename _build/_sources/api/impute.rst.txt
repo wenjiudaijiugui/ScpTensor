@@ -1,0 +1,42 @@
+Imputation
+==========
+
+.. automodule:: scptensor.impute
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Imputation Methods
+------------------
+
+KNN Imputation
+~~~~~~~~~~~~~~
+
+.. automodule:: scptensor.impute.knn
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+MissForest Imputation
+~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: scptensor.impute.missforest
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+PPCA Imputation
+~~~~~~~~~~~~~~~
+
+.. automodule:: scptensor.impute.ppca
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+SVD Imputation
+~~~~~~~~~~~~~~
+
+.. automodule:: scptensor.impute.svd
+   :members:
+   :undoc-members:
+   :show-inheritance:

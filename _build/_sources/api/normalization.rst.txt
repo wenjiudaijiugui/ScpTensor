@@ -1,0 +1,58 @@
+Normalization
+=============
+
+.. automodule:: scptensor.normalization
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Normalization Methods
+----------------------
+
+.. automodule:: scptensor.normalization.log
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: scptensor.normalization.global_median
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: scptensor.normalization.sample_mean
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: scptensor.normalization.sample_median
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: scptensor.normalization.upper_quartile
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: scptensor.normalization.tmm
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: scptensor.normalization.median_centering
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: scptensor.normalization.median_scaling
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Z-Score Normalization
+~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: scptensor.normalization.zscore
+   :members:
+   :undoc-members:
+   :show-inheritance:

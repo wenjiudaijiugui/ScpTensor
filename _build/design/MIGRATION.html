@@ -1,0 +1,1219 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html">
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2025.12.19 -->
+        <title>ScpTensor Migration Guide - ScpTensor v0.1.0</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">ScpTensor v0.1.0</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <span class="sidebar-brand-text">ScpTensor v0.1.0</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start Guide</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../api/index.html">API Reference</a><input aria-label="Toggle navigation of API Reference" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/core.html">Core Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/qc.html">Quality Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/normalization.html">Normalization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/standardization.html">Standardization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/impute.html">Imputation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/integration.html">Batch Correction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/dim_reduction.html">Dimensionality Reduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/feature_selection.html">Feature Selection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/diff_expr.html">Differential Expression</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/cluster.html">Clustering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/viz.html">Visualization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/benchmark.html">Benchmark</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/referee.html">Referee (Evaluation)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/utils.html">Utilities</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/yourusername/ScpTensor/edit/main/docs/design/MIGRATION.md" rel="edit" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="scptensor-migration-guide">
+<h1>ScpTensor Migration Guide<a class="headerlink" href="#scptensor-migration-guide" title="Link to this heading">¶</a></h1>
+<section id="v0-1-0-alpha-v0-1-0-beta">
+<h2>v0.1.0-alpha → v0.1.0-beta<a class="headerlink" href="#v0-1-0-alpha-v0-1-0-beta" title="Link to this heading">¶</a></h2>
+<p><strong>For:</strong> All users currently using v0.1.0-alpha
+<strong>Migration Difficulty:</strong> Medium (1-2 hours)
+<strong>Data Compatibility:</strong> ⚠️ Some breaking changes
+<strong>Last Updated:</strong> 2025-01-05</p>
+</section>
+<hr class="docutils" />
+<section id="quick-start">
+<h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading">¶</a></h2>
+<p><strong>Estimated Time:</strong> 1-2 hours
+<strong>Prerequisites:</strong> Backup current environment and code</p>
+<p><strong>3-Step Migration:</strong></p>
+<ol class="arabic simple">
+<li><p>Update environment: <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">pip</span> <span class="pre">install</span> <span class="pre">--upgrade</span> <span class="pre">scptensor</span></code></p></li>
+<li><p>Update import statements in your code</p></li>
+<li><p>Validate with provided test script</p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="checklist">
+<h2>Checklist<a class="headerlink" href="#checklist" title="Link to this heading">¶</a></h2>
+<section id="pre-migration">
+<h3>Pre-Migration<a class="headerlink" href="#pre-migration" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>[ ] Backup current virtual environment</p></li>
+<li><p>[ ] Backup custom code using ScpTensor</p></li>
+<li><p>[ ] Note down all ScpTensor APIs used</p></li>
+<li><p>[ ] Read breaking changes section</p></li>
+</ul>
+</section>
+<section id="post-migration">
+<h3>Post-Migration<a class="headerlink" href="#post-migration" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>[ ] All import statements updated</p></li>
+<li><p>[ ] Code runs without errors</p></li>
+<li><p>[ ] Saved data objects load correctly</p></li>
+<li><p>[ ] Analysis results match (allow numerical tolerance)</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="breaking-changes">
+<h2>Breaking Changes<a class="headerlink" href="#breaking-changes" title="Link to this heading">¶</a></h2>
+<section id="module-import-paths">
+<h3>1. Module Import Paths<a class="headerlink" href="#module-import-paths" title="Link to this heading">¶</a></h3>
+<section id="change">
+<h4>Change<a class="headerlink" href="#change" title="Link to this heading">¶</a></h4>
+<p>Previously required direct file imports due to missing <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.1.0-alpha (workaround)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.integration.combat</span><span class="w"> </span><span class="kn">import</span> <span class="n">combat</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.qc.basic</span><span class="w"> </span><span class="kn">import</span> <span class="n">basic_qc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.impute.knn</span><span class="w"> </span><span class="kn">import</span> <span class="n">knn</span>
+</pre></div>
+</div>
+<p>Now use standard imports:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.1.0-beta (correct way)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.integration</span><span class="w"> </span><span class="kn">import</span> <span class="n">combat</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.qc</span><span class="w"> </span><span class="kn">import</span> <span class="n">basic_qc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.impute</span><span class="w"> </span><span class="kn">import</span> <span class="n">knn</span>
+</pre></div>
+</div>
+</section>
+<section id="migration-steps">
+<h4>Migration Steps<a class="headerlink" href="#migration-steps" title="Link to this heading">¶</a></h4>
+<p><strong>Step 1:</strong> Find all direct imports</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>grep<span class="w"> </span>-r<span class="w"> </span><span class="s2">&quot;from scptensor\.&quot;</span><span class="w"> </span>--include<span class="o">=</span><span class="s2">&quot;*.py&quot;</span><span class="w"> </span>.<span class="w"> </span>&gt;<span class="w"> </span>imports_audit.txt
+</pre></div>
+</div>
+<p><strong>Step 2:</strong> Replace imports</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Replace patterns:</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.integration.combat</span><span class="w"> </span><span class="kn">import</span> <span class="n">combat</span>
+<span class="err">↓</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.integration</span><span class="w"> </span><span class="kn">import</span> <span class="n">combat</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.qc.basic</span><span class="w"> </span><span class="kn">import</span> <span class="n">basic_qc</span>
+<span class="err">↓</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.qc</span><span class="w"> </span><span class="kn">import</span> <span class="n">basic_qc</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.impute.knn</span><span class="w"> </span><span class="kn">import</span> <span class="n">knn</span>
+<span class="err">↓</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.impute</span><span class="w"> </span><span class="kn">import</span> <span class="n">knn</span>
+</pre></div>
+</div>
+<p><strong>Step 3:</strong> Verify imports</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from scptensor.integration import combat; print(&#39;✅&#39;)&quot;</span>
+python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from scptensor.qc import basic_qc; print(&#39;✅&#39;)&quot;</span>
+python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from scptensor.impute import knn; print(&#39;✅&#39;)&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="function-signatures-type-enforcement">
+<h3>2. Function Signatures (Type Enforcement)<a class="headerlink" href="#function-signatures-type-enforcement" title="Link to this heading">¶</a></h3>
+<section id="id1">
+<h4>Change<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h4>
+<p>Functions now have strict type annotations and validation:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.1.0-alpha (no types, silent failures)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">combat</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">batch_key</span><span class="p">,</span> <span class="n">assay_name</span><span class="p">,</span> <span class="n">base_layer</span><span class="p">,</span> <span class="n">new_layer_name</span><span class="p">):</span>
+    <span class="k">pass</span>
+
+<span class="c1"># v0.1.0-beta (type-safe, validates input)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">combat</span><span class="p">(</span>
+    <span class="n">container</span><span class="p">:</span> <span class="n">ScpContainer</span><span class="p">,</span>
+    <span class="n">batch_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">assay_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">base_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">new_layer_name</span><span class="p">:</span> <span class="nb">str</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ScpContainer</span><span class="p">:</span>
+    <span class="c1"># Validates: container is ScpContainer</span>
+    <span class="c1"># Validates: batch_key exists in obs</span>
+    <span class="c1"># Validates: assay exists</span>
+    <span class="c1"># Validates: layers exist</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="impact">
+<h4>Impact<a class="headerlink" href="#impact" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p>Type mismatches now raise clear errors</p></li>
+<li><p>Invalid parameters detected early</p></li>
+<li><p>Better IDE support (autocomplete, type checking)</p></li>
+</ul>
+</section>
+<section id="id2">
+<h4>Migration Steps<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h4>
+<p><strong>Step 1:</strong> Run your code with v0.1.0-beta</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>your_analysis.py
+</pre></div>
+</div>
+<p><strong>Step 2:</strong> Fix type errors as they appear</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example error:</span>
+<span class="c1"># TypeError: batch_key must be str, got int</span>
+
+<span class="c1"># Fix:</span>
+<span class="n">container</span> <span class="o">=</span> <span class="n">combat</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">batch_key</span><span class="o">=</span><span class="s2">&quot;batch&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>  <span class="c1"># Correct</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="error-handling">
+<h3>3. Error Handling<a class="headerlink" href="#error-handling" title="Link to this heading">¶</a></h3>
+<section id="id3">
+<h4>Change<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h4>
+<p>Silent failures replaced with explicit exceptions:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.1.0-alpha (ignores invalid method)</span>
+<span class="n">container</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s1">&#39;invalid&#39;</span><span class="p">)</span>
+<span class="c1"># Does nothing, hard to debug</span>
+
+<span class="c1"># v0.1.0-beta (raises clear error)</span>
+<span class="n">container</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s1">&#39;invalid&#39;</span><span class="p">)</span>
+<span class="c1"># ValueError: Invalid normalization method &#39;invalid&#39;.</span>
+<span class="c1"># Valid options: [&#39;log&#39;, &#39;median&#39;, &#39;tmm&#39;, &#39;zscore&#39;, &#39;mean&#39;, &#39;upper_quartile&#39;]</span>
+</pre></div>
+</div>
+</section>
+<section id="id4">
+<h4>Migration Steps<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h4>
+<p><strong>Step 1:</strong> Check for invalid parameters in your code</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Review all function calls</span>
+<span class="n">normalize</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">method</span><span class="o">=...</span><span class="p">)</span>
+<span class="n">combat</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">batch_key</span><span class="o">=...</span><span class="p">)</span>
+<span class="n">knn</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">k</span><span class="o">=...</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Step 2:</strong> Update to valid parameters</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Old (deprecated)</span>
+<span class="n">container</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s1">&#39;median_centering&#39;</span><span class="p">)</span>
+
+<span class="c1"># New (correct)</span>
+<span class="n">container</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s1">&#39;median&#39;</span><span class="p">)</span>
+<span class="c1"># OR use sample_median_normalization() directly</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="dependency-versions">
+<h3>4. Dependency Versions<a class="headerlink" href="#dependency-versions" title="Link to this heading">¶</a></h3>
+<section id="minimum-version-requirements">
+<h4>Minimum Version Requirements<a class="headerlink" href="#minimum-version-requirements" title="Link to this heading">¶</a></h4>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.1.0-beta minimum versions</span>
+<span class="n">polars</span><span class="w"> </span><span class="err">&gt;</span><span class="o">=</span><span class="w"> </span><span class="mf">1.35</span><span class="p">.</span><span class="n">2</span><span class="w">      </span><span class="c1"># (up from 1.0.0)</span>
+<span class="n">numpy</span><span class="w"> </span><span class="err">&gt;</span><span class="o">=</span><span class="w"> </span><span class="mf">2.3</span><span class="p">.</span><span class="n">5</span><span class="w">        </span><span class="c1"># (up from 1.24.0)</span>
+<span class="n">scipy</span><span class="w"> </span><span class="err">&gt;</span><span class="o">=</span><span class="w"> </span><span class="mf">1.16</span><span class="p">.</span><span class="n">3</span><span class="w">       </span><span class="c1"># (up from 1.10.0)</span>
+</pre></div>
+</div>
+</section>
+<section id="id5">
+<h4>Migration Steps<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h4>
+<p><strong>Step 1:</strong> Update dependencies</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>scptensor
+</pre></div>
+</div>
+<p><strong>Step 2:</strong> Verify versions</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import polars; print(polars.__version__)&quot;</span>
+python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import numpy; print(numpy.__version__)&quot;</span>
+python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import scipy; print(scipy.__version__)&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="data-compatibility">
+<h2>Data Compatibility<a class="headerlink" href="#data-compatibility" title="Link to this heading">¶</a></h2>
+<section id="scpcontainer-serialization">
+<h3>ScpContainer Serialization<a class="headerlink" href="#scpcontainer-serialization" title="Link to this heading">¶</a></h3>
+<section id="compatibility-partially-compatible">
+<h4>Compatibility: Partially Compatible<a class="headerlink" href="#compatibility-partially-compatible" title="Link to this heading">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Saving in v0.1.0-alpha</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;container_alpha.pkl&#39;</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+
+<span class="c1"># Loading in v0.1.0-beta</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;container_alpha.pkl&#39;</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">container</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>  <span class="c1"># ✅ Works for base structures</span>
+</pre></div>
+</div>
+</section>
+<section id="new-fields-backward-compatible">
+<h4>New Fields (Backward Compatible)<a class="headerlink" href="#new-fields-backward-compatible" title="Link to this heading">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># New in v0.1.0-beta</span>
+<span class="n">container</span><span class="o">.</span><span class="n">history</span>        <span class="c1"># Operation log (was empty/None before)</span>
+<span class="n">container</span><span class="o">.</span><span class="n">assays</span><span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">metadata</span>  <span class="c1"># Quality metadata (new)</span>
+
+<span class="c1"># Handle missing fields gracefully</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="s1">&#39;history&#39;</span><span class="p">):</span>
+    <span class="n">container</span><span class="o">.</span><span class="n">history</span> <span class="o">=</span> <span class="p">[]</span>
+</pre></div>
+</div>
+</section>
+<section id="layer-naming">
+<h4>Layer Naming<a class="headerlink" href="#layer-naming" title="Link to this heading">¶</a></h4>
+<p>Layer naming convention now enforced:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Recommended names</span>
+<span class="s1">&#39;raw&#39;</span>       <span class="c1"># Original data</span>
+<span class="s1">&#39;log&#39;</span>       <span class="c1"># Log-transformed</span>
+<span class="s1">&#39;imputed&#39;</span>   <span class="c1"># After imputation</span>
+<span class="s1">&#39;corrected&#39;</span> <span class="c1"># After batch correction</span>
+<span class="s1">&#39;scaled&#39;</span>    <span class="c1"># After scaling</span>
+
+<span class="c1"># Your custom names still work</span>
+<span class="s1">&#39;my_custom_layer&#39;</span>  <span class="c1"># ✅ Allowed</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="migration-strategies">
+<h2>Migration Strategies<a class="headerlink" href="#migration-strategies" title="Link to this heading">¶</a></h2>
+<section id="strategy-1-incremental-migration-recommended">
+<h3>Strategy 1: Incremental Migration (Recommended)<a class="headerlink" href="#strategy-1-incremental-migration-recommended" title="Link to this heading">¶</a></h3>
+<p><strong>Best for:</strong> Large projects, teams, production code</p>
+<p><strong>Steps:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Create migration branch</strong></p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span>feature/migrate-to-beta
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p><strong>Install v0.1.0-beta in new environment</strong></p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>venv<span class="w"> </span>.venv-beta
+<span class="nb">source</span><span class="w"> </span>.venv-beta/bin/activate
+uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">scptensor</span><span class="o">==</span><span class="m">0</span>.1.0b1
+</pre></div>
+</div>
+<ol class="arabic simple" start="3">
+<li><p><strong>Migrate one module at a time</strong></p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Start with non-critical scripts</span>
+<span class="c1"># Test each module before proceeding</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="4">
+<li><p><strong>Run test suite after each change</strong></p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>tests/unit/<span class="w"> </span>-v
+</pre></div>
+</div>
+<ol class="arabic simple" start="5">
+<li><p><strong>Validate results match</strong></p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Compare old vs new results</span>
+<span class="n">compare_results</span><span class="p">(</span><span class="n">old_container</span><span class="p">,</span> <span class="n">new_container</span><span class="p">)</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="6">
+<li><p><strong>Merge when all tests pass</strong></p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>checkout<span class="w"> </span>main
+git<span class="w"> </span>merge<span class="w"> </span>feature/migrate-to-beta
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="strategy-2-parallel-validation">
+<h3>Strategy 2: Parallel Validation<a class="headerlink" href="#strategy-2-parallel-validation" title="Link to this heading">¶</a></h3>
+<p><strong>Best for:</strong> Risk-averse projects, scientific reproducibility</p>
+<p><strong>Steps:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Keep v0.1.0-alpha environment</strong></p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Old environment stays intact</span>
+<span class="nb">source</span><span class="w"> </span>.venv-alpha/bin/activate
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p><strong>Run analysis, save results</strong></p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.1.0-alpha</span>
+<span class="n">container_alpha</span> <span class="o">=</span> <span class="n">run_analysis</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="n">save_results</span><span class="p">(</span><span class="n">container_alpha</span><span class="p">,</span> <span class="s1">&#39;results_alpha.npz&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="3">
+<li><p><strong>Repeat in v0.1.0-beta</strong></p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>.venv-beta/bin/activate
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.1.0-beta</span>
+<span class="n">container_beta</span> <span class="o">=</span> <span class="n">run_analysis</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="n">save_results</span><span class="p">(</span><span class="n">container_beta</span><span class="p">,</span> <span class="s1">&#39;results_beta.npz&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="4">
+<li><p><strong>Compare results</strong></p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Validation script</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">X_alpha</span> <span class="o">=</span> <span class="n">load_results</span><span class="p">(</span><span class="s1">&#39;results_alpha.npz&#39;</span><span class="p">)</span>
+<span class="n">X_beta</span> <span class="o">=</span> <span class="n">load_results</span><span class="p">(</span><span class="s1">&#39;results_beta.npz&#39;</span><span class="p">)</span>
+
+<span class="c1"># Allow numerical tolerance</span>
+<span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">X_alpha</span><span class="p">,</span> <span class="n">X_beta</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✅ Results match within tolerance&quot;</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">max_diff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">X_alpha</span> <span class="o">-</span> <span class="n">X_beta</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;⚠️  Max difference: </span><span class="si">{</span><span class="n">max_diff</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Review differences before deploying&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="strategy-3-complete-rewrite">
+<h3>Strategy 3: Complete Rewrite<a class="headerlink" href="#strategy-3-complete-rewrite" title="Link to this heading">¶</a></h3>
+<p><strong>Best for:</strong> Small projects, new users, code needing refactoring</p>
+<p><strong>Advantages:</strong></p>
+<ul class="simple">
+<li><p>Clean code using latest APIs</p></li>
+<li><p>Type safety from start</p></li>
+<li><p>Best practices built-in</p></li>
+</ul>
+<p><strong>Disadvantages:</strong></p>
+<ul class="simple">
+<li><p>Higher upfront effort</p></li>
+<li><p>Risk of introducing bugs</p></li>
+</ul>
+<p><strong>When to Use:</strong></p>
+<ul class="simple">
+<li><p>Codebase &lt; 1000 lines</p></li>
+<li><p>Project not in production</p></li>
+<li><p>Learning opportunity for team</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="step-by-step-migration">
+<h2>Step-by-Step Migration<a class="headerlink" href="#step-by-step-migration" title="Link to this heading">¶</a></h2>
+<section id="step-1-environment-setup-15-min">
+<h3>Step 1: Environment Setup (15 min)<a class="headerlink" href="#step-1-environment-setup-15-min" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1. Backup current environment</span>
+uv<span class="w"> </span>pip<span class="w"> </span>freeze<span class="w"> </span>&gt;<span class="w"> </span>requirements_alpha.txt
+cp<span class="w"> </span>-r<span class="w"> </span>.venv<span class="w"> </span>.venv_backup
+
+<span class="c1"># 2. Uninstall old version</span>
+uv<span class="w"> </span>pip<span class="w"> </span>uninstall<span class="w"> </span>scptensor
+
+<span class="c1"># 3. Install v0.1.0-beta</span>
+uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">scptensor</span><span class="o">==</span><span class="m">0</span>.1.0b1
+
+<span class="c1"># 4. Verify installation</span>
+python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import scptensor; print(scptensor.__version__)&quot;</span>
+<span class="c1"># Expected: 0.1.0b1</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="step-2-code-audit-30-min">
+<h3>Step 2: Code Audit (30 min)<a class="headerlink" href="#step-2-code-audit-30-min" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1. Find all ScpTensor imports</span>
+grep<span class="w"> </span>-r<span class="w"> </span><span class="s2">&quot;from scptensor&quot;</span><span class="w"> </span>--include<span class="o">=</span><span class="s2">&quot;*.py&quot;</span><span class="w"> </span>.<span class="w"> </span>&gt;<span class="w"> </span>imports.txt
+
+<span class="c1"># 2. Find all direct submodule imports</span>
+grep<span class="w"> </span>-r<span class="w"> </span><span class="s2">&quot;from scptensor\.&quot;</span><span class="w"> </span>--include<span class="o">=</span><span class="s2">&quot;*.py&quot;</span><span class="w"> </span>.<span class="w"> </span>&gt;<span class="w"> </span>direct_imports.txt
+
+<span class="c1"># 3. Audit the files</span>
+cat<span class="w"> </span>imports.txt
+cat<span class="w"> </span>direct_imports.txt
+</pre></div>
+</div>
+<p><strong>Checklist:</strong></p>
+<ul class="simple">
+<li><p>[ ] List all modules used (normalization, impute, integration, etc.)</p></li>
+<li><p>[ ] Identify direct submodule imports (need fixing)</p></li>
+<li><p>[ ] Note any internal API usage (may need updates)</p></li>
+<li><p>[ ] Check for deprecated function names</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="step-3-update-imports-15-min">
+<h3>Step 3: Update Imports (15 min)<a class="headerlink" href="#step-3-update-imports-15-min" title="Link to this heading">¶</a></h3>
+<p><strong>Automated replacement script:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">fix_imports</span><span class="p">(</span><span class="n">file_path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Update import statements to v0.1.0-beta style&quot;&quot;&quot;</span>
+    <span class="n">content</span> <span class="o">=</span> <span class="n">file_path</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+
+    <span class="n">replacements</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="c1"># Integration module</span>
+        <span class="p">(</span><span class="sa">r</span><span class="s1">&#39;from scptensor\.integration\.combat import&#39;</span><span class="p">,</span>
+         <span class="s1">&#39;from scptensor.integration import&#39;</span><span class="p">),</span>
+        <span class="p">(</span><span class="sa">r</span><span class="s1">&#39;from scptensor\.integration\.harmony import&#39;</span><span class="p">,</span>
+         <span class="s1">&#39;from scptensor.integration import&#39;</span><span class="p">),</span>
+
+        <span class="c1"># QC module</span>
+        <span class="p">(</span><span class="sa">r</span><span class="s1">&#39;from scptensor\.qc\.basic import&#39;</span><span class="p">,</span>
+         <span class="s1">&#39;from scptensor.qc import&#39;</span><span class="p">),</span>
+        <span class="p">(</span><span class="sa">r</span><span class="s1">&#39;from scptensor\.qc\.outlier import&#39;</span><span class="p">,</span>
+         <span class="s1">&#39;from scptensor.qc import&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Impute module</span>
+        <span class="p">(</span><span class="sa">r</span><span class="s1">&#39;from scptensor\.impute\.knn import&#39;</span><span class="p">,</span>
+         <span class="s1">&#39;from scptensor.impute import&#39;</span><span class="p">),</span>
+        <span class="p">(</span><span class="sa">r</span><span class="s1">&#39;from scptensor\.impute\.ppca import&#39;</span><span class="p">,</span>
+         <span class="s1">&#39;from scptensor.impute import&#39;</span><span class="p">),</span>
+        <span class="p">(</span><span class="sa">r</span><span class="s1">&#39;from scptensor\.impute\.svd import&#39;</span><span class="p">,</span>
+         <span class="s1">&#39;from scptensor.impute import&#39;</span><span class="p">),</span>
+    <span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">pattern</span><span class="p">,</span> <span class="n">replacement</span> <span class="ow">in</span> <span class="n">replacements</span><span class="p">:</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">replacement</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span>
+
+    <span class="n">file_path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ Fixed: </span><span class="si">{</span><span class="n">file_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Apply to all Python files</span>
+<span class="k">for</span> <span class="n">py_file</span> <span class="ow">in</span> <span class="n">Path</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">rglob</span><span class="p">(</span><span class="s1">&#39;*.py&#39;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="s1">&#39;venv&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">py_file</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">fix_imports</span><span class="p">(</span><span class="n">py_file</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;❌ Error in </span><span class="si">{</span><span class="n">py_file</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="step-4-run-tests-30-min">
+<h3>Step 4: Run Tests (30 min)<a class="headerlink" href="#step-4-run-tests-30-min" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1. Run unit tests</span>
+pytest<span class="w"> </span>tests/unit/<span class="w"> </span>-v
+
+<span class="c1"># 2. Run integration tests</span>
+pytest<span class="w"> </span>tests/integration/<span class="w"> </span>-v
+
+<span class="c1"># 3. Run your analysis scripts</span>
+python<span class="w"> </span>scripts/my_analysis.py
+</pre></div>
+</div>
+<p><strong>Common Errors and Fixes:</strong></p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Error</p></th>
+<th class="head"><p>Cause</p></th>
+<th class="head"><p>Fix</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ModuleNotFoundError:</span> <span class="pre">No</span> <span class="pre">module</span> <span class="pre">named</span> <span class="pre">'scptensor.integration.combat'</span></code></p></td>
+<td><p>Old import path</p></td>
+<td><p>Change to <code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">scptensor.integration</span> <span class="pre">import</span> <span class="pre">combat</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">TypeError:</span> <span class="pre">'str'</span> <span class="pre">object</span> <span class="pre">cannot</span> <span class="pre">be</span> <span class="pre">interpreted</span> <span class="pre">as</span> <span class="pre">an</span> <span class="pre">integer</span></code></p></td>
+<td><p>Type checking now strict</p></td>
+<td><p>Ensure parameter types match signature</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ValueError:</span> <span class="pre">Invalid</span> <span class="pre">normalization</span> <span class="pre">method</span></code></p></td>
+<td><p>Deprecated method name</p></td>
+<td><p>Use correct method name</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">AttributeError:</span> <span class="pre">'ScpContainer'</span> <span class="pre">object</span> <span class="pre">has</span> <span class="pre">no</span> <span class="pre">attribute</span> <span class="pre">'history'</span></code></p></td>
+<td><p>Old data format</p></td>
+<td><p>Re-create container from raw data</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="step-5-data-validation-15-min">
+<h3>Step 5: Data Validation (15 min)<a class="headerlink" href="#step-5-data-validation-15-min" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Test saved data compatibility</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># Load old container</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;my_container.pkl&#39;</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">container</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+<span class="c1"># Validate structure</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="k">assert</span> <span class="n">container</span><span class="o">.</span><span class="n">n_samples</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;No samples&quot;</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">container</span><span class="o">.</span><span class="n">assays</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;No assays&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✅ Container structure valid&quot;</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">AssertionError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;❌ Validation error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Re-create container from raw data&quot;</span><span class="p">)</span>
+
+<span class="c1"># Check data integrity</span>
+<span class="k">for</span> <span class="n">assay_name</span><span class="p">,</span> <span class="n">assay</span> <span class="ow">in</span> <span class="n">container</span><span class="o">.</span><span class="n">assays</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">layer_name</span><span class="p">,</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">assay</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">layer</span><span class="o">.</span><span class="n">X</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">X</span><span class="p">)):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;⚠️  NaN found in </span><span class="si">{</span><span class="n">assay_name</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">layer_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">X</span><span class="p">)):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;⚠️  Inf found in </span><span class="si">{</span><span class="n">assay_name</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">layer_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✅ Data validation complete&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="step-6-performance-check-15-min">
+<h3>Step 6: Performance Check (15 min)<a class="headerlink" href="#step-6-performance-check-15-min" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+<span class="c1"># Benchmark key operations</span>
+<span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<span class="n">container</span> <span class="o">=</span> <span class="n">log_normalize</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="s1">&#39;raw&#39;</span><span class="p">,</span> <span class="s1">&#39;log&#39;</span><span class="p">)</span>
+<span class="n">normalize_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Normalization: </span><span class="si">{</span><span class="n">normalize_time</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
+
+<span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<span class="n">container</span> <span class="o">=</span> <span class="n">knn</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="s1">&#39;protein&#39;</span><span class="p">,</span> <span class="s1">&#39;log&#39;</span><span class="p">,</span> <span class="s1">&#39;imputed&#39;</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">knn_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;KNN imputation: </span><span class="si">{</span><span class="n">knn_time</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
+
+<span class="c1"># Expected improvements:</span>
+<span class="c1"># Normalization: ~10% faster</span>
+<span class="c1"># KNN: ~20% faster (with Numba JIT)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="rollback-procedure">
+<h2>Rollback Procedure<a class="headerlink" href="#rollback-procedure" title="Link to this heading">¶</a></h2>
+<p>If migration fails:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1. Uninstall v0.1.0-beta</span>
+uv<span class="w"> </span>pip<span class="w"> </span>uninstall<span class="w"> </span>scptensor
+
+<span class="c1"># 2. Restore v0.1.0-alpha environment</span>
+rm<span class="w"> </span>-rf<span class="w"> </span>.venv
+cp<span class="w"> </span>-r<span class="w"> </span>.venv_backup<span class="w"> </span>.venv
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+
+<span class="c1"># 3. Reinstall v0.1.0-alpha</span>
+uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements_alpha.txt
+
+<span class="c1"># 4. Restore code from git</span>
+git<span class="w"> </span>checkout<span class="w"> </span>main
+git<span class="w"> </span>branch<span class="w"> </span>-D<span class="w"> </span>feature/migrate-to-beta
+
+<span class="c1"># 5. Verify rollback</span>
+pytest<span class="w"> </span>tests/<span class="w">  </span><span class="c1"># Should pass</span>
+python<span class="w"> </span>scripts/my_analysis.py<span class="w">  </span><span class="c1"># Should work</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="faq">
+<h2>FAQ<a class="headerlink" href="#faq" title="Link to this heading">¶</a></h2>
+<section id="q1-my-saved-scpcontainer-won-t-load-in-v0-1-0-beta">
+<h3>Q1: My saved ScpContainer won’t load in v0.1.0-beta<a class="headerlink" href="#q1-my-saved-scpcontainer-won-t-load-in-v0-1-0-beta" title="Link to this heading">¶</a></h3>
+<p><strong>A:</strong> Check for new optional fields:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Handle missing fields</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="s1">&#39;history&#39;</span><span class="p">):</span>
+    <span class="n">container</span><span class="o">.</span><span class="n">history</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="c1"># Re-attach metadata if missing</span>
+<span class="k">for</span> <span class="n">assay</span> <span class="ow">in</span> <span class="n">container</span><span class="o">.</span><span class="n">assays</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">assay</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">layer</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">layer</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">MatrixMetadata</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="q2-migration-is-slower-than-expected">
+<h3>Q2: Migration is slower than expected<a class="headerlink" href="#q2-migration-is-slower-than-expected" title="Link to this heading">¶</a></h3>
+<p><strong>A:</strong> v0.1.0-beta should be faster, not slower. Check:</p>
+<ol class="arabic simple">
+<li><p>Numba is installed and working: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-c</span> <span class="pre">&quot;import</span> <span class="pre">numba;</span> <span class="pre">print(numba.__version__)&quot;</span></code></p></li>
+<li><p>Using sparse matrices for sparse data</p></li>
+<li><p>Run profiler: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">cProfile</span> <span class="pre">-o</span> <span class="pre">profile.stats</span> <span class="pre">your_script.py</span></code></p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="q3-function-names-have-changed">
+<h3>Q3: Function names have changed<a class="headerlink" href="#q3-function-names-have-changed" title="Link to this heading">¶</a></h3>
+<p><strong>A:</strong> Check the <a class="reference internal" href="API_REFERENCE.html"><span class="std std-doc">API_REFERENCE.md</span></a> for current function names. Common renames:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">median_centering()</span></code> → <code class="docutils literal notranslate"><span class="pre">sample_median_normalization()</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">global_scaling()</span></code> → <code class="docutils literal notranslate"><span class="pre">global_median_normalization()</span></code></p></li>
+</ul>
+<p>Old names may still work but are deprecated.</p>
+</section>
+<hr class="docutils" />
+<section id="q4-how-long-until-v0-1-0-alpha-is-deprecated">
+<h3>Q4: How long until v0.1.0-alpha is deprecated?<a class="headerlink" href="#q4-how-long-until-v0-1-0-alpha-is-deprecated" title="Link to this heading">¶</a></h3>
+<p><strong>A:</strong> v0.1.0-alpha will be supported for 6 months after v0.1.0-beta release. After that, security updates only. Plan to migrate within 3 months.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="getting-help">
+<h2>Getting Help<a class="headerlink" href="#getting-help" title="Link to this heading">¶</a></h2>
+<section id="resources">
+<h3>Resources<a class="headerlink" href="#resources" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Documentation:</strong> <a class="reference internal" href="API_REFERENCE.html"><span class="std std-doc">API_REFERENCE.md</span></a></p></li>
+<li><p><strong>Architecture:</strong> <a class="reference internal" href="ARCHITECTURE.html"><span class="std std-doc">ARCHITECTURE.md</span></a></p></li>
+<li><p><strong>Roadmap:</strong> <a class="reference internal" href="ROADMAP.html"><span class="std std-doc">ROADMAP.md</span></a></p></li>
+<li><p><strong>Issues:</strong> <a class="reference external" href="https://github.com/yourorg/scptensor/issues">GitHub Issues</a></p></li>
+</ul>
+</section>
+<section id="reporting-migration-problems">
+<h3>Reporting Migration Problems<a class="headerlink" href="#reporting-migration-problems" title="Link to this heading">¶</a></h3>
+<p>When reporting issues, include:</p>
+<ol class="arabic simple">
+<li><p>ScpTensor version:</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import scptensor; print(scptensor.__version__)&quot;</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p>Error message and stack trace:</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>your_script.py<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tee<span class="w"> </span>error.log
+</pre></div>
+</div>
+<ol class="arabic simple" start="3">
+<li><p>Minimal reproducible code:</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Shortest code that reproduces the issue</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScpContainer</span>
+<span class="c1"># ... your code ...</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="4">
+<li><p>System info:</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>sysconfig
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="success-criteria">
+<h2>Success Criteria<a class="headerlink" href="#success-criteria" title="Link to this heading">¶</a></h2>
+<p>Migration is successful when:</p>
+<ul class="simple">
+<li><p>[ ] All import statements updated</p></li>
+<li><p>[ ] Code runs without errors</p></li>
+<li><p>[ ] Tests pass (pytest)</p></li>
+<li><p>[ ] Saved data loads correctly</p></li>
+<li><p>[ ] Results match v0.1.0-alpha (within numerical tolerance)</p></li>
+<li><p>[ ] Performance is equal or better</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="appendix">
+<h2>Appendix<a class="headerlink" href="#appendix" title="Link to this heading">¶</a></h2>
+<section id="a-complete-import-mapping">
+<h3>A. Complete Import Mapping<a class="headerlink" href="#a-complete-import-mapping" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Old Import (v0.1.0-alpha)</p></th>
+<th class="head"><p>New Import (v0.1.0-beta)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">scptensor.integration.combat</span> <span class="pre">import</span> <span class="pre">combat</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">scptensor.integration</span> <span class="pre">import</span> <span class="pre">combat</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">scptensor.qc.basic</span> <span class="pre">import</span> <span class="pre">basic_qc</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">scptensor.qc</span> <span class="pre">import</span> <span class="pre">basic_qc</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">scptensor.impute.knn</span> <span class="pre">import</span> <span class="pre">knn</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">scptensor.impute</span> <span class="pre">import</span> <span class="pre">knn</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">scptensor.impute.p</span> <span class="pre">pca</span> <span class="pre">import</span> <span class="pre">ppca</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">scptensor.impute</span> <span class="pre">import</span> <span class="pre">ppca</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">scptensor.normalization.log</span> <span class="pre">import</span> <span class="pre">log_normalize</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">scptensor.normalization</span> <span class="pre">import</span> <span class="pre">log_normalize</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="b-type-annotation-example">
+<h3>B. Type Annotation Example<a class="headerlink" href="#b-type-annotation-example" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># v0.1.0-beta enforces types</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScpContainer</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">my_function</span><span class="p">(</span>
+    <span class="n">container</span><span class="p">:</span> <span class="n">ScpContainer</span><span class="p">,</span>
+    <span class="n">assay_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">param</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ScpContainer</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Your custom function with type hints.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    container : ScpContainer</span>
+<span class="sd">        Input container</span>
+<span class="sd">    assay_name : str</span>
+<span class="sd">        Assay to process</span>
+<span class="sd">    layer : str</span>
+<span class="sd">        Layer to use</span>
+<span class="sd">    param : float, optional</span>
+<span class="sd">        Your parameter</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ScpContainer</span>
+<span class="sd">        Processed container</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Implementation here</span>
+    <span class="k">return</span> <span class="n">container</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="c-validation-script">
+<h3>C. Validation Script<a class="headerlink" href="#c-validation-script" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">validate_migration.py - Validate v0.1.0-beta migration</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScpContainer</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_imports</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Test all imports work&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.integration</span><span class="w"> </span><span class="kn">import</span> <span class="n">combat</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.qc</span><span class="w"> </span><span class="kn">import</span> <span class="n">basic_qc</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.impute</span><span class="w"> </span><span class="kn">import</span> <span class="n">knn</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✅ All imports successful&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;❌ Import error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_container_creation</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Test container creation&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">polars</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pl</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScpContainer</span><span class="p">,</span> <span class="n">Assay</span><span class="p">,</span> <span class="n">ScpMatrix</span>
+
+        <span class="n">obs</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;_index&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;S1&quot;</span><span class="p">,</span> <span class="s2">&quot;S2&quot;</span><span class="p">,</span> <span class="s2">&quot;S3&quot;</span><span class="p">]})</span>
+        <span class="n">var</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;_index&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;P1&quot;</span><span class="p">,</span> <span class="s2">&quot;P2&quot;</span><span class="p">]})</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">matrix</span> <span class="o">=</span> <span class="n">ScpMatrix</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">assay</span> <span class="o">=</span> <span class="n">Assay</span><span class="p">(</span><span class="n">var</span><span class="o">=</span><span class="n">var</span><span class="p">,</span> <span class="n">layers</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;X&quot;</span><span class="p">:</span> <span class="n">matrix</span><span class="p">})</span>
+        <span class="n">container</span> <span class="o">=</span> <span class="n">ScpContainer</span><span class="p">(</span><span class="n">obs</span><span class="o">=</span><span class="n">obs</span><span class="p">,</span> <span class="n">assays</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="n">assay</span><span class="p">})</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✅ Container creation successful&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;❌ Container error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run all validation tests&quot;&quot;&quot;</span>
+    <span class="n">tests</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">test_imports</span><span class="p">,</span>
+        <span class="n">test_container_creation</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">test</span><span class="p">()</span> <span class="k">for</span> <span class="n">test</span> <span class="ow">in</span> <span class="n">tests</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">results</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">✅ All validation tests passed!&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Migration successful.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">❌ Some validation tests failed&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Please review errors above.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">1</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>Run validation:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>validate_migration.py
+</pre></div>
+</div>
+<hr class="docutils" />
+<p><strong>Document Version:</strong> 1.0
+<strong>Last Updated:</strong> 2025-01-05
+<strong>Next Review:</strong> v0.1.0-beta release</p>
+<p><strong>End of MIGRATION.md</strong></p>
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, ScpTensor Team
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">ScpTensor Migration Guide</a><ul>
+<li><a class="reference internal" href="#v0-1-0-alpha-v0-1-0-beta">v0.1.0-alpha → v0.1.0-beta</a></li>
+<li><a class="reference internal" href="#quick-start">Quick Start</a></li>
+<li><a class="reference internal" href="#checklist">Checklist</a><ul>
+<li><a class="reference internal" href="#pre-migration">Pre-Migration</a></li>
+<li><a class="reference internal" href="#post-migration">Post-Migration</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#breaking-changes">Breaking Changes</a><ul>
+<li><a class="reference internal" href="#module-import-paths">1. Module Import Paths</a><ul>
+<li><a class="reference internal" href="#change">Change</a></li>
+<li><a class="reference internal" href="#migration-steps">Migration Steps</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#function-signatures-type-enforcement">2. Function Signatures (Type Enforcement)</a><ul>
+<li><a class="reference internal" href="#id1">Change</a></li>
+<li><a class="reference internal" href="#impact">Impact</a></li>
+<li><a class="reference internal" href="#id2">Migration Steps</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#error-handling">3. Error Handling</a><ul>
+<li><a class="reference internal" href="#id3">Change</a></li>
+<li><a class="reference internal" href="#id4">Migration Steps</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#dependency-versions">4. Dependency Versions</a><ul>
+<li><a class="reference internal" href="#minimum-version-requirements">Minimum Version Requirements</a></li>
+<li><a class="reference internal" href="#id5">Migration Steps</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#data-compatibility">Data Compatibility</a><ul>
+<li><a class="reference internal" href="#scpcontainer-serialization">ScpContainer Serialization</a><ul>
+<li><a class="reference internal" href="#compatibility-partially-compatible">Compatibility: Partially Compatible</a></li>
+<li><a class="reference internal" href="#new-fields-backward-compatible">New Fields (Backward Compatible)</a></li>
+<li><a class="reference internal" href="#layer-naming">Layer Naming</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#migration-strategies">Migration Strategies</a><ul>
+<li><a class="reference internal" href="#strategy-1-incremental-migration-recommended">Strategy 1: Incremental Migration (Recommended)</a></li>
+<li><a class="reference internal" href="#strategy-2-parallel-validation">Strategy 2: Parallel Validation</a></li>
+<li><a class="reference internal" href="#strategy-3-complete-rewrite">Strategy 3: Complete Rewrite</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#step-by-step-migration">Step-by-Step Migration</a><ul>
+<li><a class="reference internal" href="#step-1-environment-setup-15-min">Step 1: Environment Setup (15 min)</a></li>
+<li><a class="reference internal" href="#step-2-code-audit-30-min">Step 2: Code Audit (30 min)</a></li>
+<li><a class="reference internal" href="#step-3-update-imports-15-min">Step 3: Update Imports (15 min)</a></li>
+<li><a class="reference internal" href="#step-4-run-tests-30-min">Step 4: Run Tests (30 min)</a></li>
+<li><a class="reference internal" href="#step-5-data-validation-15-min">Step 5: Data Validation (15 min)</a></li>
+<li><a class="reference internal" href="#step-6-performance-check-15-min">Step 6: Performance Check (15 min)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#rollback-procedure">Rollback Procedure</a></li>
+<li><a class="reference internal" href="#faq">FAQ</a><ul>
+<li><a class="reference internal" href="#q1-my-saved-scpcontainer-won-t-load-in-v0-1-0-beta">Q1: My saved ScpContainer won’t load in v0.1.0-beta</a></li>
+<li><a class="reference internal" href="#q2-migration-is-slower-than-expected">Q2: Migration is slower than expected</a></li>
+<li><a class="reference internal" href="#q3-function-names-have-changed">Q3: Function names have changed</a></li>
+<li><a class="reference internal" href="#q4-how-long-until-v0-1-0-alpha-is-deprecated">Q4: How long until v0.1.0-alpha is deprecated?</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#getting-help">Getting Help</a><ul>
+<li><a class="reference internal" href="#resources">Resources</a></li>
+<li><a class="reference internal" href="#reporting-migration-problems">Reporting Migration Problems</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#success-criteria">Success Criteria</a></li>
+<li><a class="reference internal" href="#appendix">Appendix</a><ul>
+<li><a class="reference internal" href="#a-complete-import-mapping">A. Complete Import Mapping</a></li>
+<li><a class="reference internal" href="#b-type-annotation-example">B. Type Annotation Example</a></li>
+<li><a class="reference internal" href="#c-validation-script">C. Validation Script</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=38b66d78"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    </body>
+</html>

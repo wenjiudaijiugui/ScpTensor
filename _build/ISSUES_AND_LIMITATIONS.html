@@ -1,0 +1,1009 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html">
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2025.12.19 -->
+        <title>ScpTensor: Known Issues and Limitations - ScpTensor v0.1.0</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">ScpTensor v0.1.0</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  <span class="sidebar-brand-text">ScpTensor v0.1.0</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start Guide</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="api/index.html">API Reference</a><input aria-label="Toggle navigation of API Reference" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/core.html">Core Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/qc.html">Quality Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/normalization.html">Normalization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/standardization.html">Standardization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/impute.html">Imputation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/integration.html">Batch Correction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/dim_reduction.html">Dimensionality Reduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/feature_selection.html">Feature Selection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/diff_expr.html">Differential Expression</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/cluster.html">Clustering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/viz.html">Visualization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/benchmark.html">Benchmark</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/referee.html">Referee (Evaluation)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/utils.html">Utilities</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/yourusername/ScpTensor/edit/main/docs/ISSUES_AND_LIMITATIONS.md" rel="edit" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="scptensor-known-issues-and-limitations">
+<h1>ScpTensor: Known Issues and Limitations<a class="headerlink" href="#scptensor-known-issues-and-limitations" title="Link to this heading">¶</a></h1>
+<p><strong>Version:</strong> 0.1.0
+<strong>Last Updated:</strong> 2025-01-05
+<strong>Status:</strong> Early Development - Not Production Ready</p>
+<hr class="docutils" />
+<section id="executive-summary">
+<h2>Executive Summary<a class="headerlink" href="#executive-summary" title="Link to this heading">¶</a></h2>
+<p>ScpTensor is currently in <strong>early prototype stage</strong>. While the core data structure design (<code class="docutils literal notranslate"><span class="pre">ScpContainer</span></code>, <code class="docutils literal notranslate"><span class="pre">Assay</span></code>, <code class="docutils literal notranslate"><span class="pre">ScpMatrix</span></code>) demonstrates solid architectural principles, the framework suffers from critical issues that <strong>block production deployment</strong>:</p>
+<ul class="simple">
+<li><p>Multiple core modules cannot be imported</p></li>
+<li><p>No unit test coverage</p></li>
+<li><p>Incomplete feature implementations</p></li>
+<li><p>Missing documentation infrastructure</p></li>
+</ul>
+<p><strong>Estimated Effort to Production:</strong> 2-3 months of focused development</p>
+</section>
+<hr class="docutils" />
+<section id="critical-issues-blockers">
+<h2>Critical Issues (Blockers)<a class="headerlink" href="#critical-issues-blockers" title="Link to this heading">¶</a></h2>
+<section id="module-architecture-failures">
+<h3>1. Module Architecture Failures<a class="headerlink" href="#module-architecture-failures" title="Link to this heading">¶</a></h3>
+<p><strong>Severity:</strong> 🔴 CRITICAL
+<strong>Impact:</strong> Core functionality inaccessible via standard imports</p>
+<section id="missing-init-py-files">
+<h4>1.1 Missing <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> Files<a class="headerlink" href="#missing-init-py-files" title="Link to this heading">¶</a></h4>
+<p>Several directories contain implementation code but lack <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>, preventing module imports:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>scptensor/integration/<span class="w">    </span><span class="c1"># ❌ Missing __init__.py</span>
+scptensor/qc/<span class="w">             </span><span class="c1"># ❌ Missing __init__.py</span>
+</pre></div>
+</div>
+<p><strong>Evidence:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># This fails despite file existing:</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.integration</span><span class="w"> </span><span class="kn">import</span> <span class="n">combat</span>  <span class="c1"># ModuleNotFoundError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.qc</span><span class="w"> </span><span class="kn">import</span> <span class="n">basic</span>           <span class="c1"># ModuleNotFoundError</span>
+</pre></div>
+</div>
+<p><strong>Workarounds Currently Used:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Direct file imports (brittle):</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scptensor.integration.combat</span><span class="w"> </span><span class="kn">import</span> <span class="n">combat</span>  <span class="c1"># Works but fragile</span>
+</pre></div>
+</div>
+<p><strong>Impact:</strong></p>
+<ul class="simple">
+<li><p>README documentation examples are non-functional</p></li>
+<li><p>Users cannot follow standard import patterns</p></li>
+<li><p>Breaks Python packaging conventions</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="empty-module-implementations">
+<h4>1.2 Empty Module Implementations<a class="headerlink" href="#empty-module-implementations" title="Link to this heading">¶</a></h4>
+<p>Multiple modules exist as stubs only:</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>Status</p></th>
+<th class="head"><p>Lines</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">scptensor/integration/harmony.py</span></code></p></td>
+<td><p>Empty (0 bytes)</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">scptensor/integration/mnn.py</span></code></p></td>
+<td><p>Empty (0 bytes)</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">scptensor/integration/scanorama.py</span></code></p></td>
+<td><p>Empty (0 bytes)</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">scptensor/diff_expr/__init__.py</span></code></p></td>
+<td><p>Empty</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">scptensor/diff_expr/*.py</span></code></p></td>
+<td><p>Non-existent</p></td>
+<td><p>N/A</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>README Claims vs Reality:</strong></p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Module</p></th>
+<th class="head"><p>README Promise</p></th>
+<th class="head"><p>Actual Status</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">integration</span></code></p></td>
+<td><p>combat, harmony, mnn, scanorama</p></td>
+<td><p>Only combat implemented</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">diff_expr</span></code></p></td>
+<td><p>Differential expression</p></td>
+<td><p>Completely missing</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">impute</span></code></p></td>
+<td><p>knn, missforest, ppca, svd</p></td>
+<td><p>Only knn complete</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="zero-unit-test-coverage">
+<h3>2. Zero Unit Test Coverage<a class="headerlink" href="#zero-unit-test-coverage" title="Link to this heading">¶</a></h3>
+<p><strong>Severity:</strong> 🔴 CRITICAL
+<strong>Impact:</strong> No correctness guarantees, high regression risk</p>
+<section id="missing-test-files">
+<h4>2.1 Missing Test Files<a class="headerlink" href="#missing-test-files" title="Link to this heading">¶</a></h4>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>find<span class="w"> </span>.<span class="w"> </span>-name<span class="w"> </span><span class="s2">&quot;test_*.py&quot;</span><span class="w"> </span>-o<span class="w"> </span>-name<span class="w"> </span><span class="s2">&quot;*_test.py&quot;</span>
+<span class="c1"># Returns: 0 results in project root (only venv results)</span>
+</pre></div>
+</div>
+<p><strong>Current Testing Strategy:</strong></p>
+<ul class="simple">
+<li><p>Single integration test: <code class="docutils literal notranslate"><span class="pre">tests/total_proc.py</span></code> (291 lines)</p></li>
+<li><p>No unit tests for:</p>
+<ul>
+<li><p>Core data structures (<code class="docutils literal notranslate"><span class="pre">ScpMatrix</span></code>, <code class="docutils literal notranslate"><span class="pre">Assay</span></code>, <code class="docutils literal notranslate"><span class="pre">ScpContainer</span></code>)</p></li>
+<li><p>Algorithm implementations (KNN, ComBat, PCA, etc.)</p></li>
+<li><p>Edge cases and error handling</p></li>
+<li><p>Type validation</p></li>
+</ul>
+</li>
+</ul>
+<p><strong>Risk Examples:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># scptensor/core/structures.py - Unvalidated assumptions:</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">X_df</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># Crashes if data contains non-numeric types</span>
+<span class="c1"># No try-except, no dtype validation</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="test-infrastructure-issues">
+<h4>2.2 Test Infrastructure Issues<a class="headerlink" href="#test-infrastructure-issues" title="Link to this heading">¶</a></h4>
+<p><strong>Missing Components:</strong></p>
+<ul class="simple">
+<li><p>❌ No <code class="docutils literal notranslate"><span class="pre">pytest.ini</span></code> or <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> test configuration</p></li>
+<li><p>❌ No test fixtures for synthetic data</p></li>
+<li><p>❌ No coverage tracking (pytest-cov)</p></li>
+<li><p>❌ No continuous integration</p></li>
+</ul>
+<p><strong>Recommendation:</strong></p>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Required in pyproject.toml:</span>
+<span class="k">[tool.pytest.ini_options]</span>
+<span class="n">testpaths</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;tests&quot;</span><span class="p">]</span>
+<span class="n">python_files</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;test_*.py&quot;</span><span class="p">]</span>
+<span class="n">addopts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;--cov=scptensor --cov-report=html --cov-report=term&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="documentation-gaps">
+<h3>3. Documentation Gaps<a class="headerlink" href="#documentation-gaps" title="Link to this heading">¶</a></h3>
+<p><strong>Severity:</strong> 🟡 HIGH
+<strong>Impact:</strong> Poor usability, unmaintainable codebase</p>
+<section id="missing-documentation-infrastructure">
+<h4>3.1 Missing Documentation Infrastructure<a class="headerlink" href="#missing-documentation-infrastructure" title="Link to this heading">¶</a></h4>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ls<span class="w"> </span>docs/
+<span class="c1"># Returns: No such file or directory (before this document)</span>
+</pre></div>
+</div>
+<p><strong>What’s Missing:</strong></p>
+<ul class="simple">
+<li><p>❌ API documentation (Sphinx/MkDocs)</p></li>
+<li><p>❌ Installation guide beyond README</p></li>
+<li><p>❌ Tutorial notebooks</p></li>
+<li><p>❌ Developer contribution guide</p></li>
+<li><p>❌ Architecture decision records (ADRs)</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="code-documentation-issues">
+<h4>3.2 Code Documentation Issues<a class="headerlink" href="#code-documentation-issues" title="Link to this heading">¶</a></h4>
+<p><strong>Example 1: Missing Docstrings</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># scptensor/impute/knn.py</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">knn</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">assay_name</span><span class="p">,</span> <span class="n">base_layer</span><span class="p">,</span> <span class="n">new_layer_name</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+    <span class="c1"># What does this function return?</span>
+    <span class="c1"># What are the preconditions?</span>
+    <span class="c1"># What exceptions can be raised?</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<p><strong>Example 2: Mixed Language Comments</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># scptensor/core/structures.py:47</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">记录对容器执行的操作历史。</span>
+<span class="sd">Record of operations performed on the container.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p><strong>Issue:</strong> Bilingual docstrings violate documentation best practices.</p>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="high-priority-issues">
+<h2>High-Priority Issues<a class="headerlink" href="#high-priority-issues" title="Link to this heading">¶</a></h2>
+<section id="dependency-management-problems">
+<h3>4. Dependency Management Problems<a class="headerlink" href="#dependency-management-problems" title="Link to this heading">¶</a></h3>
+<p><strong>Severity:</strong> 🟠 MEDIUM-HIGH
+<strong>Location:</strong> <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code></p>
+<section id="duplicate-dependency-declarations">
+<h4>4.1 Duplicate Dependency Declarations<a class="headerlink" href="#duplicate-dependency-declarations" title="Link to this heading">¶</a></h4>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Current pyproject.toml:</span>
+<span class="n">dependencies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="c1"># ... runtime deps ...</span>
+<span class="p">]</span>
+
+<span class="k">[dependency-groups]</span>
+<span class="n">dev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="s2">&quot;combat&gt;=0.3.3&quot;</span><span class="p">,</span><span class="w">      </span><span class="c1"># ❌ Should be in dependencies if used by core code</span>
+<span class="w">    </span><span class="s2">&quot;scanpy&gt;=1.11.5&quot;</span><span class="p">,</span><span class="w">     </span><span class="c1"># ❌ Same issue</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<p><strong>Problem:</strong> <code class="docutils literal notranslate"><span class="pre">combat</span></code> is imported in <code class="docutils literal notranslate"><span class="pre">scptensor/integration/combat.py</span></code>, which is part of the core library, not just development.</p>
+</section>
+<hr class="docutils" />
+<section id="misclassified-dependencies">
+<h4>4.2 Misclassified Dependencies<a class="headerlink" href="#misclassified-dependencies" title="Link to this heading">¶</a></h4>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Package</p></th>
+<th class="head"><p>Current Location</p></th>
+<th class="head"><p>Should Be</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">combat</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dev</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dependencies</span></code> (used in integration module)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">scanpy</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dev</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dev</span></code> or optional (used in benchmarking)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ipykernel</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dev</span></code></p></td>
+<td><p>✅ Correct</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pytest</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dev</span></code></p></td>
+<td><p>✅ Correct</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="code-quality-concerns">
+<h3>5. Code Quality Concerns<a class="headerlink" href="#code-quality-concerns" title="Link to this heading">¶</a></h3>
+<p><strong>Severity:</strong> 🟠 MEDIUM-HIGH</p>
+<section id="inconsistent-type-annotations">
+<h4>5.1 Inconsistent Type Annotations<a class="headerlink" href="#inconsistent-type-annotations" title="Link to this heading">¶</a></h4>
+<p><strong>Good Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># scptensor/core/structures.py</span>
+<span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span>
+    <span class="n">obs</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">assays</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Assay</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">):</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<p><strong>Problematic Examples:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># scptensor/integration/combat.py</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">combat</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">batch_key</span><span class="p">,</span> <span class="n">assay_name</span><span class="p">,</span> <span class="n">base_layer</span><span class="p">,</span> <span class="n">new_layer_name</span><span class="p">):</span>
+    <span class="c1"># No type hints for parameters</span>
+    <span class="c1"># No return type annotation</span>
+    <span class="k">pass</span>
+
+<span class="c1"># scptensor/impute/knn.py</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">knn</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">assay_name</span><span class="p">,</span> <span class="n">base_layer</span><span class="p">,</span> <span class="n">new_layer_name</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+    <span class="c1"># Same issue</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<p><strong>Impact:</strong></p>
+<ul class="simple">
+<li><p>Reduced IDE support</p></li>
+<li><p>No static type checking benefits</p></li>
+<li><p>Harder to understand function contracts</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="hardcoded-paths">
+<h4>5.2 Hardcoded Paths<a class="headerlink" href="#hardcoded-paths" title="Link to this heading">¶</a></h4>
+<p><strong>Location:</strong> <code class="docutils literal notranslate"><span class="pre">tests/total_proc.py:45</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">data</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+    <span class="s2">&quot;/home/shenshang/projects/ScpTensor/tests/data/PXD061065/...&quot;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Issue:</strong> Non-portable absolute path breaks on other machines.</p>
+<p><strong>Fix Required:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="n">PROJECT_ROOT</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span>
+<span class="n">data_path</span> <span class="o">=</span> <span class="n">PROJECT_ROOT</span> <span class="o">/</span> <span class="s2">&quot;tests&quot;</span> <span class="o">/</span> <span class="s2">&quot;data&quot;</span> <span class="o">/</span> <span class="s2">&quot;PXD061065&quot;</span> <span class="o">/</span> <span class="s2">&quot;...&quot;</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="missing-error-handling">
+<h4>5.3 Missing Error Handling<a class="headerlink" href="#missing-error-handling" title="Link to this heading">¶</a></h4>
+<p><strong>Example: Data Loading</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># tests/total_proc.py:59</span>
+<span class="n">X_df</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">quantity_columns</span><span class="p">)</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">X_df</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># Crashes if non-numeric data present</span>
+<span class="c1"># No try-except, no validation</span>
+</pre></div>
+</div>
+<p><strong>Example: Matrix Operations</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># scptensor/core/structures.py</span>
+<span class="k">if</span> <span class="n">matrix</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_features</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="c1"># Good! But many other operations lack validation</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="performance-claims-vs-reality">
+<h3>6. Performance Claims vs Reality<a class="headerlink" href="#performance-claims-vs-reality" title="Link to this heading">¶</a></h3>
+<p><strong>Severity:</strong> 🟡 MEDIUM
+<strong>Issue:</strong> README overstates current performance optimizations</p>
+<section id="numba-not-utilized">
+<h4>6.1 Numba Not Utilized<a class="headerlink" href="#numba-not-utilized" title="Link to this heading">¶</a></h4>
+<p><strong>README Claim:</strong></p>
+<blockquote>
+<div><p>“By leveraging high-performance libraries such as Polars, NumPy, SciPy, and <strong>Numba</strong>”</p>
+</div></blockquote>
+<p><strong>Actual Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>grep<span class="w"> </span>-r<span class="w"> </span><span class="s2">&quot;@jit\|@njit\|numba.&quot;</span><span class="w"> </span>scptensor/
+<span class="c1"># Returns: No results</span>
+</pre></div>
+</div>
+<p><strong>Impact:</strong> Critical loops (e.g., KNN imputation) run at pure Python speeds.</p>
+</section>
+<hr class="docutils" />
+<section id="sparse-matrix-inefficiency">
+<h4>6.2 Sparse Matrix Inefficiency<a class="headerlink" href="#sparse-matrix-inefficiency" title="Link to this heading">¶</a></h4>
+<p><strong>Observation:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Multiple unnecessary conversions to dense:</span>
+<span class="n">X_dense</span> <span class="o">=</span> <span class="n">sparse_matrix</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>  <span class="c1"># Memory explosion for large datasets</span>
+</pre></div>
+</div>
+<p><strong>Required:</strong></p>
+<ul class="simple">
+<li><p>Audit all <code class="docutils literal notranslate"><span class="pre">.toarray()</span></code> calls</p></li>
+<li><p>Implement sparse-safe operations where possible</p></li>
+<li><p>Benchmark memory usage for 10K+ features</p></li>
+</ul>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="medium-priority-issues">
+<h2>Medium-Priority Issues<a class="headerlink" href="#medium-priority-issues" title="Link to this heading">¶</a></h2>
+<section id="missing-engineering-infrastructure">
+<h3>7. Missing Engineering Infrastructure<a class="headerlink" href="#missing-engineering-infrastructure" title="Link to this heading">¶</a></h3>
+<p><strong>Severity:</strong> 🟠 MEDIUM</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Component</p></th>
+<th class="head"><p>Status</p></th>
+<th class="head"><p>Priority</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>CI/CD (GitHub Actions)</p></td>
+<td><p>❌ Missing</p></td>
+<td><p>HIGH</p></td>
+</tr>
+<tr class="row-odd"><td><p>Code formatting (black/ruff)</p></td>
+<td><p>❌ Not configured</p></td>
+<td><p>MEDIUM</p></td>
+</tr>
+<tr class="row-even"><td><p>Linting (pylint/mypy)</p></td>
+<td><p>❌ Not configured</p></td>
+<td><p>MEDIUM</p></td>
+</tr>
+<tr class="row-odd"><td><p>Pre-commit hooks</p></td>
+<td><p>❌ Not set up</p></td>
+<td><p>MEDIUM</p></td>
+</tr>
+<tr class="row-even"><td><p>CHANGELOG.md</p></td>
+<td><p>❌ Missing</p></td>
+<td><p>LOW</p></td>
+</tr>
+<tr class="row-odd"><td><p>LICENSE file</p></td>
+<td><p>❌ Missing</p></td>
+<td><p>HIGH (legal)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="feature-completeness-gaps">
+<h3>8. Feature Completeness Gaps<a class="headerlink" href="#feature-completeness-gaps" title="Link to this heading">¶</a></h3>
+<p><strong>Severity:</strong> 🟡 MEDIUM</p>
+<section id="imputation-module">
+<h4>8.1 Imputation Module<a class="headerlink" href="#imputation-module" title="Link to this heading">¶</a></h4>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Method</p></th>
+<th class="head"><p>Status</p></th>
+<th class="head"><p>Completion</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>KNN</p></td>
+<td><p>✅ Implemented</p></td>
+<td><p>100%</p></td>
+</tr>
+<tr class="row-odd"><td><p>MissForest</p></td>
+<td><p>⚠️ Partial</p></td>
+<td><p>~60%</p></td>
+</tr>
+<tr class="row-even"><td><p>PPCA</p></td>
+<td><p>⚠️ Partial</p></td>
+<td><p>~40%</p></td>
+</tr>
+<tr class="row-odd"><td><p>SVD</p></td>
+<td><p>⚠️ Partial</p></td>
+<td><p>~40%</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="integration-module">
+<h4>8.2 Integration Module<a class="headerlink" href="#integration-module" title="Link to this heading">¶</a></h4>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Method</p></th>
+<th class="head"><p>Status</p></th>
+<th class="head"><p>File Size</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>ComBat</p></td>
+<td><p>✅ Implemented</p></td>
+<td><p>10.6 KB</p></td>
+</tr>
+<tr class="row-odd"><td><p>Harmony</p></td>
+<td><p>❌ Empty</p></td>
+<td><p>0 bytes</p></td>
+</tr>
+<tr class="row-even"><td><p>MNN</p></td>
+<td><p>❌ Empty</p></td>
+<td><p>0 bytes</p></td>
+</tr>
+<tr class="row-odd"><td><p>Scanorama</p></td>
+<td><p>❌ Empty</p></td>
+<td><p>0 bytes</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="quality-control-module">
+<h4>8.3 Quality Control Module<a class="headerlink" href="#quality-control-module" title="Link to this heading">¶</a></h4>
+<p><strong>Issue:</strong> <code class="docutils literal notranslate"><span class="pre">qc/</span></code> module exists but cannot be imported (no <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>).</p>
+<p><strong>Current State:</strong></p>
+<ul class="simple">
+<li><p>Implementation files exist (basic.py, outlier.py)</p></li>
+<li><p>Cannot use via <code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">scptensor.qc</span> <span class="pre">import</span> <span class="pre">basic</span></code></p></li>
+<li><p>Must use direct imports: <code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">scptensor.qc.basic</span> <span class="pre">import</span> <span class="pre">basic_qc</span></code></p></li>
+</ul>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="low-priority-issues">
+<h2>Low-Priority Issues<a class="headerlink" href="#low-priority-issues" title="Link to this heading">¶</a></h2>
+<section id="minor-code-smells">
+<h3>9. Minor Code Smells<a class="headerlink" href="#minor-code-smells" title="Link to this heading">¶</a></h3>
+<ol class="arabic">
+<li><p><strong>Inconsistent Naming:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">sample_median_normalization</span></code> vs <code class="docutils literal notranslate"><span class="pre">median_centering</span></code> (which is it?)</p></li>
+<li><p>Mix of <code class="docutils literal notranslate"><span class="pre">normalize</span></code> and <code class="docutils literal notranslate"><span class="pre">normalization</span></code> in function names</p></li>
+</ul>
+</li>
+<li><p><strong>Magic Numbers:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># benchmark_example.py</span>
+<span class="n">n_samples</span><span class="o">=</span><span class="mi">500</span>  <span class="c1"># Why 500? Document rationale.</span>
+<span class="n">n_features</span><span class="o">=</span><span class="mi">6000</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Commented-Out Code:</strong></p>
+<ul class="simple">
+<li><p>Multiple sections in <code class="docutils literal notranslate"><span class="pre">tests/total_proc.py</span></code></p></li>
+<li><p>Should be removed or documented</p></li>
+</ul>
+</li>
+</ol>
+</section>
+</section>
+<hr class="docutils" />
+<section id="recommended-fix-priorities">
+<h2>Recommended Fix Priorities<a class="headerlink" href="#recommended-fix-priorities" title="Link to this heading">¶</a></h2>
+<section id="phase-1-critical-architecture-week-1">
+<h3>Phase 1: Critical Architecture (Week 1)<a class="headerlink" href="#phase-1-critical-architecture-week-1" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>✅ Add <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> to all modules</p></li>
+<li><p>✅ Export public APIs via <code class="docutils literal notranslate"><span class="pre">__all__</span></code></p></li>
+<li><p>✅ Remove or stub empty files with TODO markers</p></li>
+<li><p>✅ Fix hardcoded paths</p></li>
+</ol>
+<p><strong>Estimated Effort:</strong> 3-5 days</p>
+</section>
+<hr class="docutils" />
+<section id="phase-2-testing-foundation-week-2">
+<h3>Phase 2: Testing Foundation (Week 2)<a class="headerlink" href="#phase-2-testing-foundation-week-2" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>✅ Set up pytest infrastructure</p></li>
+<li><p>✅ Write tests for core structures (50+ tests)</p></li>
+<li><p>✅ Add CI/CD pipeline</p></li>
+<li><p>✅ Configure coverage reporting</p></li>
+</ol>
+<p><strong>Estimated Effort:</strong> 5-7 days</p>
+</section>
+<hr class="docutils" />
+<section id="phase-3-feature-completion-weeks-3-4">
+<h3>Phase 3: Feature Completion (Weeks 3-4)<a class="headerlink" href="#phase-3-feature-completion-weeks-3-4" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>✅ Implement missing integration methods (Harmony, MNN) OR remove stubs</p></li>
+<li><p>✅ Complete imputation methods (PPCA, SVD)</p></li>
+<li><p>✅ Add comprehensive error handling</p></li>
+<li><p>✅ Type hint all public functions</p></li>
+</ol>
+<p><strong>Estimated Effort:</strong> 10-14 days</p>
+</section>
+<hr class="docutils" />
+<section id="phase-4-documentation-polish-week-5-6">
+<h3>Phase 4: Documentation &amp; Polish (Week 5-6)<a class="headerlink" href="#phase-4-documentation-polish-week-5-6" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>✅ Generate API docs with Sphinx</p></li>
+<li><p>✅ Write tutorial notebooks</p></li>
+<li><p>✅ Add developer guide</p></li>
+<li><p>✅ Create contribution guidelines</p></li>
+</ol>
+<p><strong>Estimated Effort:</strong> 7-10 days</p>
+</section>
+<hr class="docutils" />
+<section id="phase-5-performance-optimization-optional">
+<h3>Phase 5: Performance Optimization (Optional)<a class="headerlink" href="#phase-5-performance-optimization-optional" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>✅ Profile hotspots with cProfile</p></li>
+<li><p>✅ Add Numba JIT to critical loops</p></li>
+<li><p>✅ Optimize sparse matrix operations</p></li>
+<li><p>✅ Benchmark against competitors</p></li>
+</ol>
+<p><strong>Estimated Effort:</strong> 5-7 days</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-roadmap-suggestion">
+<h2>Version Roadmap Suggestion<a class="headerlink" href="#version-roadmap-suggestion" title="Link to this heading">¶</a></h2>
+<section id="v0-1-0-alpha-current">
+<h3>v0.1.0-alpha (Current)<a class="headerlink" href="#v0-1-0-alpha-current" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>❌ Cannot release in current state</p></li>
+</ul>
+</section>
+<section id="v0-1-0-beta-target-6-weeks">
+<h3>v0.1.0-beta (Target: 6 weeks)<a class="headerlink" href="#v0-1-0-beta-target-6-weeks" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>✅ All modules importable</p></li>
+<li><p>✅ 80%+ test coverage for core</p></li>
+<li><p>✅ Basic API documentation</p></li>
+<li><p>✅ CI/CD operational</p></li>
+</ul>
+</section>
+<section id="v0-1-0-target-8-weeks">
+<h3>v0.1.0 (Target: 8 weeks)<a class="headerlink" href="#v0-1-0-target-8-weeks" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>✅ All advertised features working</p></li>
+<li><p>✅ Complete documentation</p></li>
+<li><p>✅ Performance benchmarks</p></li>
+<li><p>✅ Tutorial notebooks</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Link to this heading">¶</a></h2>
+<p>ScpTensor has a <strong>solid foundation</strong> but requires significant work before production use. The main issues are:</p>
+<ol class="arabic simple">
+<li><p><strong>Architectural:</strong> Missing <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> files block core functionality</p></li>
+<li><p><strong>Testing:</strong> Zero unit tests is unacceptable for scientific software</p></li>
+<li><p><strong>Completeness:</strong> Many advertised features are stubs or missing</p></li>
+<li><p><strong>Engineering:</strong> No CI/CD, formatting, or quality checks</p></li>
+</ol>
+<p><strong>Recommendation:</strong> Treat as pre-alpha software. Do not use for production analysis until Phase 1-3 are complete.</p>
+</section>
+<hr class="docutils" />
+<section id="document-metadata">
+<h2>Document Metadata<a class="headerlink" href="#document-metadata" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Maintainer:</strong> ScpTensor Development Team</p></li>
+<li><p><strong>Review Cycle:</strong> Weekly during active development</p></li>
+<li><p><strong>Next Review:</strong> 2025-01-12</p></li>
+<li><p><strong>Related Documents:</strong></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">README.md</span></code> (User overview)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">docs/ROADMAP.md</span></code> (Future features - to be created)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">docs/CONTRIBUTING.md</span></code> (Development guide - to be created)</p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, ScpTensor Team
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">ScpTensor: Known Issues and Limitations</a><ul>
+<li><a class="reference internal" href="#executive-summary">Executive Summary</a></li>
+<li><a class="reference internal" href="#critical-issues-blockers">Critical Issues (Blockers)</a><ul>
+<li><a class="reference internal" href="#module-architecture-failures">1. Module Architecture Failures</a><ul>
+<li><a class="reference internal" href="#missing-init-py-files">1.1 Missing <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> Files</a></li>
+<li><a class="reference internal" href="#empty-module-implementations">1.2 Empty Module Implementations</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#zero-unit-test-coverage">2. Zero Unit Test Coverage</a><ul>
+<li><a class="reference internal" href="#missing-test-files">2.1 Missing Test Files</a></li>
+<li><a class="reference internal" href="#test-infrastructure-issues">2.2 Test Infrastructure Issues</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#documentation-gaps">3. Documentation Gaps</a><ul>
+<li><a class="reference internal" href="#missing-documentation-infrastructure">3.1 Missing Documentation Infrastructure</a></li>
+<li><a class="reference internal" href="#code-documentation-issues">3.2 Code Documentation Issues</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#high-priority-issues">High-Priority Issues</a><ul>
+<li><a class="reference internal" href="#dependency-management-problems">4. Dependency Management Problems</a><ul>
+<li><a class="reference internal" href="#duplicate-dependency-declarations">4.1 Duplicate Dependency Declarations</a></li>
+<li><a class="reference internal" href="#misclassified-dependencies">4.2 Misclassified Dependencies</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#code-quality-concerns">5. Code Quality Concerns</a><ul>
+<li><a class="reference internal" href="#inconsistent-type-annotations">5.1 Inconsistent Type Annotations</a></li>
+<li><a class="reference internal" href="#hardcoded-paths">5.2 Hardcoded Paths</a></li>
+<li><a class="reference internal" href="#missing-error-handling">5.3 Missing Error Handling</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#performance-claims-vs-reality">6. Performance Claims vs Reality</a><ul>
+<li><a class="reference internal" href="#numba-not-utilized">6.1 Numba Not Utilized</a></li>
+<li><a class="reference internal" href="#sparse-matrix-inefficiency">6.2 Sparse Matrix Inefficiency</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#medium-priority-issues">Medium-Priority Issues</a><ul>
+<li><a class="reference internal" href="#missing-engineering-infrastructure">7. Missing Engineering Infrastructure</a></li>
+<li><a class="reference internal" href="#feature-completeness-gaps">8. Feature Completeness Gaps</a><ul>
+<li><a class="reference internal" href="#imputation-module">8.1 Imputation Module</a></li>
+<li><a class="reference internal" href="#integration-module">8.2 Integration Module</a></li>
+<li><a class="reference internal" href="#quality-control-module">8.3 Quality Control Module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#low-priority-issues">Low-Priority Issues</a><ul>
+<li><a class="reference internal" href="#minor-code-smells">9. Minor Code Smells</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#recommended-fix-priorities">Recommended Fix Priorities</a><ul>
+<li><a class="reference internal" href="#phase-1-critical-architecture-week-1">Phase 1: Critical Architecture (Week 1)</a></li>
+<li><a class="reference internal" href="#phase-2-testing-foundation-week-2">Phase 2: Testing Foundation (Week 2)</a></li>
+<li><a class="reference internal" href="#phase-3-feature-completion-weeks-3-4">Phase 3: Feature Completion (Weeks 3-4)</a></li>
+<li><a class="reference internal" href="#phase-4-documentation-polish-week-5-6">Phase 4: Documentation &amp; Polish (Week 5-6)</a></li>
+<li><a class="reference internal" href="#phase-5-performance-optimization-optional">Phase 5: Performance Optimization (Optional)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#version-roadmap-suggestion">Version Roadmap Suggestion</a><ul>
+<li><a class="reference internal" href="#v0-1-0-alpha-current">v0.1.0-alpha (Current)</a></li>
+<li><a class="reference internal" href="#v0-1-0-beta-target-6-weeks">v0.1.0-beta (Target: 6 weeks)</a></li>
+<li><a class="reference internal" href="#v0-1-0-target-8-weeks">v0.1.0 (Target: 8 weeks)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#conclusion">Conclusion</a></li>
+<li><a class="reference internal" href="#document-metadata">Document Metadata</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=38b66d78"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/scripts/furo.js?v=46bd48cc"></script>
+    </body>
+</html>

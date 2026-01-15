@@ -186,7 +186,7 @@ def dotplot(
         fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
     # Draw dots
-    for i, g in enumerate(unique_groups):
+    for i, _g in enumerate(unique_groups):
         for j in range(len(var_names)):
             size = pct_expr[i, j] * dot_size * 20
             color = mean_expr[i, j]
