@@ -36,3 +36,17 @@ def test_generate_report_basic(sample_container):
     assert fig is not None
     assert fig.get_size_inches()[0] >= 16
     plt.close(fig)
+
+
+def test_render_overview_panel(sample_container):
+    """Test overview panel rendering."""
+    from scptensor.viz.recipes.report import _render_overview_panel
+
+    fig = plt.figure(figsize=(6, 4))
+    ax = fig.add_subplot(111)
+    _render_overview_panel(ax, sample_container)
+
+    # Check that table was rendered (table is a child of axes)
+    tables = [child for child in ax.get_children() if hasattr(child, 'get_celld')]
+    assert len(tables) > 0
+    plt.close(fig)
