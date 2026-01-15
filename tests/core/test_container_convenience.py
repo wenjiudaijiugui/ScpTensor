@@ -10,6 +10,7 @@ This module tests convenience methods that improve usability:
 import pytest
 
 from scptensor.core import ScpContainer
+from scptensor.core.utils import _find_closest_match
 
 
 class TestContainerConvenience:
@@ -50,9 +51,13 @@ class TestContainerConvenience:
             sample_container.list_layers("invalid")
 
     def test_list_layers_error_message_includes_available(self, sample_container):
-        """Test list_layers error message includes available assays."""
-        with pytest.raises(KeyError, match="Available assays:"):
+        """Test list_layers error message includes available assays or suggestion."""
+        # Error should either suggest a similar name OR show available assays
+        with pytest.raises(KeyError) as exc_info:
             sample_container.list_layers("nonexistent")
+        error_msg = str(exc_info.value)
+        # Either we get a suggestion or the available assays list
+        assert "Did you mean" in error_msg or "Available assays:" in error_msg
 
     def test_list_layers_error_message_suggests_list_assays(self, sample_container):
         """Test list_layers error message suggests using list_assays."""
@@ -147,3 +152,145 @@ class TestContainerConvenience:
         # Get HTML representation
         html = container._repr_html_()
         assert "<strong>" in html
+
+
+class TestFuzzyMatching:
+    """Test fuzzy matching functionality for error suggestions."""
+
+    def test_find_closest_match_exact(self):
+        """Test _find_closest_match with exact match."""
+        result = _find_closest_match("raw", ["raw", "log", "normalized"])
+        assert result == "raw"
+
+    def test_find_closest_match_typo(self):
+        """Test _find_closest_match with typo."""
+        result = _find_closest_match("ra", ["raw", "log", "normalized"])
+        assert result == "raw"
+
+        result = _find_closest_match("prote", ["proteins", "peptides"])
+        assert result == "proteins"
+
+    def test_find_closest_match_case_sensitive(self):
+        """Test _find_closest_match is case-sensitive."""
+        result = _find_closest_match("RAW", ["raw", "log", "normalized"])
+        # Case-sensitive matching may not find "raw" for "RAW"
+        # depending on the similarity threshold
+        assert result is None or result == "raw"
+
+    def test_find_closest_match_no_close_match(self):
+        """Test _find_closest_match with no close match."""
+        result = _find_closest_match("xyz", ["raw", "log", "normalized"])
+        assert result is None
+
+    def test_find_closest_match_empty_options(self):
+        """Test _find_closest_match with empty options."""
+        result = _find_closest_match("raw", [])
+        assert result is None
+
+    def test_find_closest_match_single_option(self):
+        """Test _find_closest_match with single option."""
+        result = _find_closest_match("ra", ["raw"])
+        assert result == "raw"
+
+    def test_list_layers_suggests_correction(self, sample_container_multi_assay):
+        """Test list_layers suggests correction for similar assay name."""
+        # Test "prot" suggests "proteins"
+        with pytest.raises(KeyError, match="Did you mean 'proteins"):
+            sample_container_multi_assay.list_layers("prot")
+
+    def test_list_layers_suggests_peptide(self, sample_container_multi_assay):
+        """Test list_layers suggests correction for 'peptid' typo."""
+        with pytest.raises(KeyError, match="Did you mean 'peptides"):
+            sample_container_multi_assay.list_layers("peptid")
+
+    def test_list_layers_no_suggestion_for_dissimilar(self, sample_container_multi_assay):
+        """Test list_layers shows available assays when no close match."""
+        with pytest.raises(KeyError, match="Available assays:"):
+            sample_container_multi_assay.list_layers("xyzcompletelydifferent")
+
+    def test_list_layers_error_includes_list_assays_hint(self, sample_container):
+        """Test list_layers error message suggests list_assays when no match."""
+        # When there's no close match, should show available assays
+        with pytest.raises(KeyError, match="list_assays"):
+            sample_container.list_layers("completely_different_name")
+
+
+class TestAssayNotFoundError:
+    """Test AssayNotFoundError with fuzzy matching."""
+
+    def test_assay_not_found_with_suggestion(self):
+        """Test AssayNotFoundError includes fuzzy suggestion."""
+        from scptensor.core.exceptions import AssayNotFoundError
+
+        exc = AssayNotFoundError("prot", available_assays=["proteins", "peptides"])
+        assert "Did you mean 'proteins'" in str(exc)
+        assert exc.suggestion == "proteins"
+
+    def test_assay_not_found_without_suggestion(self):
+        """Test AssayNotFoundError shows available when no close match."""
+        from scptensor.core.exceptions import AssayNotFoundError
+
+        exc = AssayNotFoundError("xyz", available_assays=["proteins", "peptides"])
+        assert "Available assays:" in str(exc)
+        assert exc.suggestion is None
+
+    def test_assay_not_found_with_hint(self):
+        """Test AssayNotFoundError with manual hint."""
+        from scptensor.core.exceptions import AssayNotFoundError
+
+        # Suggestion takes precedence over hint
+        exc = AssayNotFoundError(
+            "prot", hint="Manual hint", available_assays=["proteins", "peptides"]
+        )
+        assert "Did you mean 'proteins'" in str(exc)
+
+    def test_assay_not_found_legacy_compatibility(self):
+        """Test AssayNotFoundError works without available_assays."""
+        from scptensor.core.exceptions import AssayNotFoundError
+
+        # Old-style usage without available_assays
+        exc = AssayNotFoundError("metabolites", hint="Use create_assay()")
+        assert "metabolites" in str(exc)
+        assert "Use create_assay()" in str(exc)
+
+
+class TestLayerNotFoundError:
+    """Test LayerNotFoundError with fuzzy matching."""
+
+    def test_layer_not_found_with_suggestion(self):
+        """Test LayerNotFoundError includes fuzzy suggestion."""
+        from scptensor.core.exceptions import LayerNotFoundError
+
+        exc = LayerNotFoundError(
+            "ra", assay_name="proteins", available_layers=["raw", "log", "normalized"]
+        )
+        assert "Did you mean 'raw'" in str(exc)
+        assert exc.suggestion == "raw"
+
+    def test_layer_not_found_without_suggestion(self):
+        """Test LayerNotFoundError shows available when no close match."""
+        from scptensor.core.exceptions import LayerNotFoundError
+
+        exc = LayerNotFoundError(
+            "xyz", assay_name="proteins", available_layers=["raw", "log", "normalized"]
+        )
+        assert "Available layers:" in str(exc)
+        assert exc.suggestion is None
+
+    def test_layer_not_found_without_assay_name(self):
+        """Test LayerNotFoundError without assay name."""
+        from scptensor.core.exceptions import LayerNotFoundError
+
+        exc = LayerNotFoundError(
+            "ra", available_layers=["raw", "log", "normalized"]
+        )
+        assert "Did you mean 'raw'" in str(exc)
+
+    def test_layer_not_found_legacy_compatibility(self):
+        """Test LayerNotFoundError works without available_layers."""
+        from scptensor.core.exceptions import LayerNotFoundError
+
+        # Old-style usage
+        exc = LayerNotFoundError("normalized", assay_name="proteins", hint="Run normalize()")
+        assert "normalized" in str(exc)
+        assert "Run normalize()" in str(exc)

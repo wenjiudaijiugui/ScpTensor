@@ -1,12 +1,47 @@
 """Core utility functions for ScpTensor."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Collection
+from difflib import get_close_matches
 from functools import wraps
 from typing import Any
 
 import numpy as np
 
 from scptensor.core.exceptions import MissingDependencyError
+
+
+def _find_closest_match(input_name: str, options: Collection[str]) -> str | None:
+    """Find the closest matching option for a given input.
+
+    Uses difflib to suggest corrections when a user provides
+    an incorrect assay/layer name.
+
+    Parameters
+    ----------
+    input_name : str
+        The user-provided name.
+    options : Collection[str]
+        Available valid options.
+
+    Returns
+    -------
+    str | None
+        The closest match if found (similarity > 0.6), None otherwise.
+
+    Examples
+    --------
+    >>> _find_closest_match("ra", ["raw", "log", "normalized"])
+    'raw'
+    >>> _find_closest_match("prote", ["proteins", "peptides"])
+    'proteins'
+    >>> _find_closest_match("xyz", ["raw", "log"]) is None
+    True
+    """
+    if not options:
+        return None
+
+    matches = get_close_matches(input_name, options, n=1, cutoff=0.6)
+    return matches[0] if matches else None
 
 
 def compute_pca(
@@ -128,6 +163,7 @@ def requires_dependency(package_name: str, install_hint: str) -> Callable:
 
 
 __all__ = [
+    "_find_closest_match",
     "compute_pca",
     "compute_umap",
     "requires_dependency",
