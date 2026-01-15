@@ -4,12 +4,12 @@ Edge case tests for Assay.
 This module tests edge cases, boundary conditions, and error handling for Assay.
 """
 
-import pytest
 import numpy as np
 import polars as pl
+import pytest
 from scipy import sparse
 
-from scptensor.core import Assay, ScpMatrix, MaskCode
+from scptensor.core import Assay, ScpMatrix
 
 
 class TestAssayEdgeCases:
@@ -110,10 +110,7 @@ class TestAssayFeatureIdCol:
 
     def test_assay_custom_feature_id_col(self):
         """Test Assay with custom feature_id_col."""
-        var = pl.DataFrame({
-            "_index": ["idx1", "idx2"],
-            "protein_id": ["P1", "P2"]
-        })
+        var = pl.DataFrame({"_index": ["idx1", "idx2"], "protein_id": ["P1", "P2"]})
         X = np.random.rand(3, 2)
         matrix = ScpMatrix(X=X)
         assay = Assay(var=var, layers={"raw": matrix}, feature_id_col="protein_id")
@@ -122,10 +119,7 @@ class TestAssayFeatureIdCol:
 
     def test_assay_feature_ids_property_uses_correct_col(self):
         """Test that feature_ids uses the correct column."""
-        var = pl.DataFrame({
-            "_index": ["x1", "x2"],
-            "gene_id": ["G1", "G2"]
-        })
+        var = pl.DataFrame({"_index": ["x1", "x2"], "gene_id": ["G1", "G2"]})
         X = np.random.rand(3, 2)
         matrix = ScpMatrix(X=X)
         assay = Assay(var=var, layers={"raw": matrix}, feature_id_col="gene_id")
@@ -252,10 +246,7 @@ class TestAssaySubset:
 
     def test_subset_preserves_feature_id_col(self):
         """Test that subsetting preserves feature_id_col setting."""
-        var = pl.DataFrame({
-            "_index": ["idx1", "idx2"],
-            "protein_id": ["P1", "P2"]
-        })
+        var = pl.DataFrame({"_index": ["idx1", "idx2"], "protein_id": ["P1", "P2"]})
         X = np.random.rand(3, 2)
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)}, feature_id_col="protein_id")
         subset_assay = assay.subset(feature_indices=[0])
@@ -274,6 +265,7 @@ class TestAssaySubset:
     def test_subset_preserves_metadata(self):
         """Test that subsetting preserves metadata if present."""
         from scptensor.core import MatrixMetadata
+
         var = pl.DataFrame({"_index": ["P1", "P2", "P3"]})
         X = np.random.rand(3, 3)
         metadata = MatrixMetadata(creation_info={"test": "value"})
@@ -310,8 +302,8 @@ class TestAssayRepr:
             layers={
                 "raw": ScpMatrix(X=np.array([[1.0]])),
                 "log": ScpMatrix(X=np.array([[0.0]])),
-                "norm": ScpMatrix(X=np.array([[1.0]]))
-            }
+                "norm": ScpMatrix(X=np.array([[1.0]])),
+            },
         )
         repr_str = repr(assay)
         assert "raw" in repr_str
@@ -324,47 +316,55 @@ class TestAssayWithMetadata:
 
     def test_assay_with_numeric_metadata_columns(self):
         """Test Assay with numeric metadata in var."""
-        var = pl.DataFrame({
-            "_index": ["P1", "P2"],
-            "mean_expr": [1.5, 2.3],
-            "variance": [0.5, 1.2],
-            "n_cells": [100, 150]
-        })
+        var = pl.DataFrame(
+            {
+                "_index": ["P1", "P2"],
+                "mean_expr": [1.5, 2.3],
+                "variance": [0.5, 1.2],
+                "n_cells": [100, 150],
+            }
+        )
         X = np.random.rand(10, 2)
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
         assert assay.var["mean_expr"].to_list() == [1.5, 2.3]
 
     def test_assay_with_boolean_metadata_columns(self):
         """Test Assay with boolean metadata in var."""
-        var = pl.DataFrame({
-            "_index": ["P1", "P2", "P3"],
-            "is_significant": [True, False, True],
-            "is_housekeeping": [False, False, True]
-        })
+        var = pl.DataFrame(
+            {
+                "_index": ["P1", "P2", "P3"],
+                "is_significant": [True, False, True],
+                "is_housekeeping": [False, False, True],
+            }
+        )
         X = np.random.rand(10, 3)
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
         assert assay.var["is_significant"].to_list() == [True, False, True]
 
     def test_assay_with_string_metadata_columns(self):
         """Test Assay with string metadata in var."""
-        var = pl.DataFrame({
-            "_index": ["P1", "P2"],
-            "chromosome": ["chr1", "chr2"],
-            "description": ["Protein 1", "Protein 2"]
-        })
+        var = pl.DataFrame(
+            {
+                "_index": ["P1", "P2"],
+                "chromosome": ["chr1", "chr2"],
+                "description": ["Protein 1", "Protein 2"],
+            }
+        )
         X = np.random.rand(10, 2)
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
         assert assay.var["chromosome"].to_list() == ["chr1", "chr2"]
 
     def test_assay_with_mixed_metadata_types(self):
         """Test Assay with mixed types in var."""
-        var = pl.DataFrame({
-            "_index": ["P1", "P2"],
-            "name": ["Protein1", "Protein2"],
-            "pval": [0.01, 0.05],
-            "significant": [True, False],
-            "chromosome": ["chr1", "chr2"]
-        })
+        var = pl.DataFrame(
+            {
+                "_index": ["P1", "P2"],
+                "name": ["Protein1", "Protein2"],
+                "pval": [0.01, 0.05],
+                "significant": [True, False],
+                "chromosome": ["chr1", "chr2"],
+            }
+        )
         X = np.random.rand(10, 2)
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
         assert len(assay.var.columns) == 5

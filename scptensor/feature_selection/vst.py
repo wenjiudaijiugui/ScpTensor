@@ -172,7 +172,7 @@ def _compute_vst_scores(
     vst_scores : ndarray
         VST scores (residuals from trend).
     """
-    n_features = len(log_means)
+    len(log_means)
 
     # Create bins using percentiles
     percentile_edges = np.linspace(0, 100, n_bins + 1)
@@ -221,9 +221,7 @@ def _compute_vst_scores(
         expected_log_var = trend_func(log_means)
     else:
         # Fallback: use constant
-        expected_log_var = np.full_like(
-            log_means, bin_medians[0] if len(bin_medians) > 0 else 0
-        )
+        expected_log_var = np.full_like(log_means, bin_medians[0] if len(bin_medians) > 0 else 0)
 
     # VST score = residual from trend
     residuals = log_variances - expected_log_var
@@ -297,21 +295,15 @@ def select_by_dispersion(
     dispersion = variances / (means + eps)
 
     # Normalize by bin median
-    normalized_dispersion = _normalize_dispersion_by_bins(
-        dispersion, means, n_bins
-    )
+    normalized_dispersion = _normalize_dispersion_by_bins(dispersion, means, n_bins)
 
     # Select top features
     n_features = assay.n_features
     if n_top_features >= n_features:
         top_indices = np.arange(n_features)
     else:
-        top_indices = np.argpartition(
-            normalized_dispersion, -n_top_features
-        )[-n_top_features:]
-        top_indices = top_indices[
-            np.argsort(-normalized_dispersion[top_indices])
-        ]
+        top_indices = np.argpartition(normalized_dispersion, -n_top_features)[-n_top_features:]
+        top_indices = top_indices[np.argsort(-normalized_dispersion[top_indices])]
 
     return _subset_or_annotate(
         container=container,
@@ -390,7 +382,7 @@ if __name__ == "__main__":
     for i in range(40, 60):
         X_test[:, i] = np.random.normal(loc=5, scale=0.5, size=n_samples)
 
-    from scptensor.core.structures import Assay, ScpMatrix, ScpContainer
+    from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
     var_test = pl.DataFrame({"_index": [f"feature_{i}" for i in range(n_features)]})
     obs_test = pl.DataFrame({"_index": [f"sample_{i}" for i in range(n_samples)]})
@@ -438,9 +430,7 @@ if __name__ == "__main__":
     )
     container_test2 = ScpContainer(obs=obs_test, assays={"protein": assay_test2})
 
-    result5 = select_by_vst(
-        container_test2, n_top_features=30, min_mean=1.0, subset=False
-    )
+    result5 = select_by_vst(container_test2, n_top_features=30, min_mean=1.0, subset=False)
     print("  Passed: min_mean filtering works")
 
     # Test 6: Edge case - n_top > n_features

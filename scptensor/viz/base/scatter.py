@@ -94,15 +94,19 @@ def _scatter_subtle(
     if np.any(valid):
         c_valid = None if c is None else c[valid]
         ax.scatter(
-            X[valid, 0], X[valid, 1],
-            c=c_valid, alpha=1.0, zorder=10, label="Measured", **kwargs
+            X[valid, 0], X[valid, 1], c=c_valid, alpha=1.0, zorder=10, label="Measured", **kwargs
         )
 
     if np.any(invalid):
         c_invalid = "gray" if c is None else c[invalid]
         ax.scatter(
-            X[invalid, 0], X[invalid, 1],
-            c=c_invalid, alpha=0.3, zorder=0, label="Imputed/Missing", **kwargs
+            X[invalid, 0],
+            X[invalid, 1],
+            c=c_invalid,
+            alpha=0.3,
+            zorder=0,
+            label="Imputed/Missing",
+            **kwargs,
         )
 
 
@@ -117,14 +121,10 @@ def _scatter_explicit(
     """Render scatter with marker-based mask distinction."""
     if np.any(valid):
         c_valid = None if c is None else c[valid]
-        ax.scatter(
-            X[valid, 0], X[valid, 1],
-            c=c_valid, marker="o", label="Measured", **kwargs
-        )
+        ax.scatter(X[valid, 0], X[valid, 1], c=c_valid, marker="o", label="Measured", **kwargs)
 
     if np.any(invalid):
         c_invalid = "gray" if c is None else c[invalid]
         ax.scatter(
-            X[invalid, 0], X[invalid, 1],
-            c=c_invalid, marker="x", label="Imputed/Missing", **kwargs
+            X[invalid, 0], X[invalid, 1], c=c_invalid, marker="x", label="Imputed/Missing", **kwargs
         )

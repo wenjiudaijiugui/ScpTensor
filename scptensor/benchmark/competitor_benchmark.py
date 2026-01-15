@@ -16,7 +16,6 @@ from scipy import sparse, stats
 from sklearn.decomposition import PCA
 from sklearn.impute import KNNImputer
 
-
 # =============================================================================
 # Context Manager for Resource Tracking
 # =============================================================================
@@ -170,9 +169,7 @@ class SklearnStandardScaler:
     name = "sklearn_standard"
 
     @staticmethod
-    def run(
-        X: np.ndarray, M: np.ndarray | None = None
-    ) -> tuple[np.ndarray, float, float]:
+    def run(X: np.ndarray, M: np.ndarray | None = None) -> tuple[np.ndarray, float, float]:
         """Run z-score standardization using sklearn.
 
         Parameters
@@ -314,9 +311,7 @@ class NumpyMeanImputer:
     name = "numpy_mean"
 
     @staticmethod
-    def run(
-        X: np.ndarray, M: np.ndarray | None = None
-    ) -> tuple[np.ndarray, float, float]:
+    def run(X: np.ndarray, M: np.ndarray | None = None) -> tuple[np.ndarray, float, float]:
         """Run mean imputation using numpy.
 
         Parameters
@@ -673,11 +668,7 @@ def get_competitors_by_operation(operation: str) -> dict[str, type]:
     }
 
     competitors = operation_map.get(operation, [])
-    return {
-        name: COMPETITOR_REGISTRY[name]
-        for name in competitors
-        if name in COMPETITOR_REGISTRY
-    }
+    return {name: COMPETITOR_REGISTRY[name] for name in competitors if name in COMPETITOR_REGISTRY}
 
 
 # =============================================================================
@@ -744,9 +735,7 @@ class ScanpyStyleOps:
         return X_normalized, runtime, memory
 
     @staticmethod
-    def log1p(
-        X: np.ndarray, M: np.ndarray | None = None
-    ) -> tuple[np.ndarray, float, float]:
+    def log1p(X: np.ndarray, M: np.ndarray | None = None) -> tuple[np.ndarray, float, float]:
         """Scanpy-style log1p transformation.
 
         Equivalent to sc.pp.log1p in scanpy.
@@ -927,6 +916,7 @@ class UmapLearnUMAP:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         X_valid = get_valid_data(X, M)
@@ -992,6 +982,7 @@ class ScanpyStyleUMAP:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         X_valid = get_valid_data(X, M)
@@ -1059,6 +1050,7 @@ class SklearnAgglomerativeClustering:
         tracker.start()
 
         import time
+
         start_time = time.time()
 
         X_valid = get_valid_data(X, M)
@@ -1068,9 +1060,7 @@ class SklearnAgglomerativeClustering:
             for i in range(X_valid.shape[1]):
                 X_valid[np.isnan(X_valid[:, i]), i] = col_means[i]
 
-        clustering = AgglomerativeClustering(
-            n_clusters=n_clusters, linkage=linkage
-        )
+        clustering = AgglomerativeClustering(n_clusters=n_clusters, linkage=linkage)
         labels = clustering.fit_predict(X_valid)
 
         runtime = time.time() - start_time
@@ -1085,10 +1075,12 @@ class SklearnAgglomerativeClustering:
 
 
 # Add new competitors to registry
-COMPETITOR_REGISTRY.update({
-    # UMAP
-    "umap_learn": UmapLearnUMAP,
-    "scanpy_umap": ScanpyStyleUMAP,
-    # Additional clustering
-    "sklearn_agglomerative": SklearnAgglomerativeClustering,
-})
+COMPETITOR_REGISTRY.update(
+    {
+        # UMAP
+        "umap_learn": UmapLearnUMAP,
+        "scanpy_umap": ScanpyStyleUMAP,
+        # Additional clustering
+        "sklearn_agglomerative": SklearnAgglomerativeClustering,
+    }
+)

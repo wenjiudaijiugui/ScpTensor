@@ -9,12 +9,12 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
-from scptensor.core.structures import Assay, ProvenanceLog, ScpContainer, ScpMatrix
 from scptensor.core.exceptions import (
     AssayNotFoundError,
     DimensionError,
     ValidationError,
 )
+from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
 # =============================================================================
 # Test Fixtures
@@ -85,9 +85,7 @@ def create_test_container(
     peptide_var = pl.DataFrame(
         {
             "_index": [f"peptide_{i}" for i in range(n_peptides)],
-            "protein_id": np.random.choice(
-                [f"protein_{i}" for i in range(n_proteins)], n_peptides
-            ),
+            "protein_id": np.random.choice([f"protein_{i}" for i in range(n_proteins)], n_peptides),
             "n_detected": np.random.randint(2, n_samples, n_peptides),
         }
     )
@@ -193,7 +191,7 @@ def test_filter_samples_by_polars_expression():
     container = create_test_container(n_samples=10)
 
     # Filter by expression - use polars_expression parameter
-    filtered = container.filter_samples(polars_expression=pl.col("QC_pass") == True)
+    filtered = container.filter_samples(polars_expression=pl.col("QC_pass"))
 
     # All samples that pass QC
     assert filtered.n_samples <= 10
@@ -247,9 +245,7 @@ def test_filter_samples_multiple_assays():
     # All assays should have 3 samples
     for assay_name, assay in filtered.assays.items():
         for layer_name, layer in assay.layers.items():
-            assert layer.X.shape[0] == 3, (
-                f"Assay {assay_name}, layer {layer_name} has wrong shape"
-            )
+            assert layer.X.shape[0] == 3, f"Assay {assay_name}, layer {layer_name} has wrong shape"
 
     print("✅ test_filter_samples_multiple_assays passed")
 
@@ -276,7 +272,7 @@ def test_filter_samples_error_no_criteria():
 
     try:
         container.filter_samples()
-        assert False, "Should have raised ValidationError"
+        raise AssertionError("Should have raised ValidationError")
     except ValidationError as e:
         assert "Must specify one of" in str(e)
 
@@ -289,7 +285,7 @@ def test_filter_samples_error_empty_result():
 
     try:
         container.filter_samples(sample_indices=[])
-        assert False, "Should have raised ValidationError"
+        raise AssertionError("Should have raised ValidationError")
     except ValidationError as e:
         assert "zero samples" in str(e)
 
@@ -303,7 +299,7 @@ def test_filter_samples_error_invalid_mask_size():
     try:
         wrong_mask = np.array([True, False, True])  # Wrong size
         container.filter_samples(boolean_mask=wrong_mask)
-        assert False, "Should have raised DimensionError"
+        raise AssertionError("Should have raised DimensionError")
     except DimensionError as e:
         assert "does not match" in str(e)
 
@@ -316,7 +312,7 @@ def test_filter_samples_error_unknown_id():
 
     try:
         container.filter_samples(["sample_0", "unknown_sample"])
-        assert False, "Should have raised ValueError"
+        raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         assert "not found" in str(e)
 
@@ -333,24 +329,21 @@ def test_filter_features_by_ids():
     container = create_test_container(n_proteins=20)
 
     # Filter to specific proteins
-    filtered = container.filter_features(
-        "proteins", ["protein_0", "protein_5", "protein_10"]
-    )
+    filtered = container.filter_features("proteins", ["protein_0", "protein_5", "protein_10"])
 
     assert filtered.assays["proteins"].n_features == 3
-    assert (
-        filtered.assays["proteins"].var["_index"].to_list()
-        == ["protein_0", "protein_5", "protein_10"]
-    )
+    assert filtered.assays["proteins"].var["_index"].to_list() == [
+        "protein_0",
+        "protein_5",
+        "protein_10",
+    ]
 
     # Check layers are filtered
     assert filtered.assays["proteins"].layers["X"].X.shape[1] == 3
     assert filtered.assays["proteins"].layers["log"].X.shape[1] == 3
 
     # Check other assay is unchanged
-    assert filtered.assays["peptides"].n_features == container.assays[
-        "peptides"
-    ].n_features
+    assert filtered.assays["peptides"].n_features == container.assays["peptides"].n_features
 
     # Check history
     assert len(filtered.history) == 1
@@ -368,10 +361,12 @@ def test_filter_features_by_indices():
     filtered = container.filter_features("proteins", feature_indices=indices)
 
     assert filtered.assays["proteins"].n_features == 4
-    assert (
-        filtered.assays["proteins"].var["_index"].to_list()
-        == ["protein_0", "protein_5", "protein_10", "protein_15"]
-    )
+    assert filtered.assays["proteins"].var["_index"].to_list() == [
+        "protein_0",
+        "protein_5",
+        "protein_10",
+        "protein_15",
+    ]
 
     print("✅ test_filter_features_by_indices passed")
 
@@ -394,9 +389,7 @@ def test_filter_features_by_polars_expression():
     container = create_test_container(n_proteins=20)
 
     # Filter by mean intensity
-    filtered = container.filter_features(
-        "proteins", pl.col("mean_intensity") > 20
-    )
+    filtered = container.filter_features("proteins", pl.col("mean_intensity") > 20)
 
     # Should have fewer features
     assert filtered.assays["proteins"].n_features <= 20
@@ -408,9 +401,7 @@ def test_filter_features_with_sparse_matrices():
     """Test filtering features with sparse matrices."""
     container = create_test_container(n_proteins=20, sparse=True)
 
-    filtered = container.filter_features(
-        "proteins", feature_indices=[0, 5, 10, 15, 19]
-    )
+    filtered = container.filter_features("proteins", feature_indices=[0, 5, 10, 15, 19])
 
     assert filtered.assays["proteins"].n_features == 5
     assert sp.issparse(filtered.assays["proteins"].layers["X"].X)
@@ -453,9 +444,7 @@ def test_filter_features_no_copy():
     """Test filtering features without copying data."""
     container = create_test_container(n_proteins=20)
 
-    filtered = container.filter_features(
-        "proteins", feature_indices=[0, 1, 2], copy=False
-    )
+    filtered = container.filter_features("proteins", feature_indices=[0, 1, 2], copy=False)
 
     # obs should be shared
     assert filtered.obs is container.obs
@@ -472,7 +461,7 @@ def test_filter_features_error_assay_not_found():
 
     try:
         container.filter_features("metabolites", feature_indices=[0, 1, 2])
-        assert False, "Should have raised AssayNotFoundError"
+        raise AssertionError("Should have raised AssayNotFoundError")
     except AssayNotFoundError as e:
         assert "metabolites" in str(e)
 
@@ -485,7 +474,7 @@ def test_filter_features_error_empty_result():
 
     try:
         container.filter_features("proteins", feature_indices=[])
-        assert False, "Should have raised ValidationError"
+        raise AssertionError("Should have raised ValidationError")
     except ValidationError as e:
         assert "zero features" in str(e)
 
@@ -499,7 +488,7 @@ def test_filter_features_error_invalid_mask_size():
     try:
         wrong_mask = np.array([True, False, True])  # Wrong size
         container.filter_features("proteins", boolean_mask=wrong_mask)
-        assert False, "Should have raised DimensionError"
+        raise AssertionError("Should have raised DimensionError")
     except DimensionError as e:
         assert "does not match" in str(e)
 
@@ -512,7 +501,7 @@ def test_filter_features_error_unknown_id():
 
     try:
         container.filter_features("proteins", ["protein_0", "unknown_protein"])
-        assert False, "Should have raised ValueError"
+        raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         assert "not found" in str(e)
 
@@ -552,7 +541,7 @@ def test_filtering_chain():
     container = create_test_container(n_samples=10, n_proteins=20)
 
     result = (
-        container.filter_samples(polars_expression=pl.col("QC_pass") == True)
+        container.filter_samples(polars_expression=pl.col("QC_pass"))
         .filter_features("proteins", polars_expression=pl.col("n_detected") > 5)
         .filter_samples(sample_indices=[0, 1])
     )
@@ -572,7 +561,7 @@ def test_filter_immutability():
     original_X = container.assays["proteins"].layers["X"].X.copy()
 
     # Filter
-    filtered = container.filter_samples(sample_indices=[0, 1, 2])
+    container.filter_samples(sample_indices=[0, 1, 2])
 
     # Original should be unchanged
     assert container.n_samples == original_n_samples

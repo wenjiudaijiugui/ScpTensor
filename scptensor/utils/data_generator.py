@@ -369,9 +369,7 @@ class ScpDataGenerator:
         )
         return batch_shifts[batch_indices]
 
-    def _add_heteroscedastic_noise(
-        self, X_clean: NDArray[np.float64]
-    ) -> NDArray[np.float64]:
+    def _add_heteroscedastic_noise(self, X_clean: NDArray[np.float64]) -> NDArray[np.float64]:
         """Add intensity-dependent heteroscedastic noise.
 
         Parameters
@@ -470,9 +468,7 @@ class ScpDataGenerator:
 
         return M
 
-    def _apply_random_missing(
-        self, M: NDArray[np.int8], target_mcar: int
-    ) -> NDArray[np.int8]:
+    def _apply_random_missing(self, M: NDArray[np.int8], target_mcar: int) -> NDArray[np.int8]:
         """Apply random missing (MCAR) to valid entries.
 
         Parameters

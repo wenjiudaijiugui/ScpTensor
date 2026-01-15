@@ -249,9 +249,7 @@ class CompetitorResultVisualizer:
 
         ax.set_xlabel("Operation", fontweight="bold")
         ax.set_ylabel("Speedup Factor (ScpTensor / Competitor)", fontweight="bold")
-        ax.set_title(
-            "ScpTensor Performance vs Competitors", fontsize=14, fontweight="bold"
-        )
+        ax.set_title("ScpTensor Performance vs Competitors", fontsize=14, fontweight="bold")
         ax.legend(title="Dataset")
         ax.grid(axis="y", alpha=0.3)
 
@@ -409,9 +407,7 @@ class CompetitorResultVisualizer:
 
         ax.set_xlabel("Operation", fontweight="bold")
         ax.set_ylabel("Output Correlation", fontweight="bold")
-        ax.set_title(
-            "Result Agreement: ScpTensor vs Competitors", fontsize=14, fontweight="bold"
-        )
+        ax.set_title("Result Agreement: ScpTensor vs Competitors", fontsize=14, fontweight="bold")
         ax.set_ylim(0, 1.1)
         ax.grid(axis="y", alpha=0.3)
         plt.xticks(rotation=45, ha="right")
@@ -456,12 +452,8 @@ class CompetitorResultVisualizer:
 
         # Plot 2: Runtime
         ax = axes[0, 1]
-        df_grouped = df.groupby("operation")[
-            ["scptensor_time_ms", "competitor_time_ms"]
-        ].mean()
-        df_grouped.plot(
-            kind="bar", ax=ax, rot=45, color=[_SCPTENSOR_COLOR, _COMPETITOR_COLOR]
-        )
+        df_grouped = df.groupby("operation")[["scptensor_time_ms", "competitor_time_ms"]].mean()
+        df_grouped.plot(kind="bar", ax=ax, rot=45, color=[_SCPTENSOR_COLOR, _COMPETITOR_COLOR])
         ax.set_xlabel("Operation", fontweight="bold")
         ax.set_ylabel("Runtime (ms)", fontweight="bold")
         ax.set_title("Mean Runtime", fontsize=12, fontweight="bold")

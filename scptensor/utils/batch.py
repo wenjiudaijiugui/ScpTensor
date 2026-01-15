@@ -6,7 +6,8 @@ large datasets in batches, which helps manage memory usage for big data.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import scipy.sparse as sp
@@ -97,16 +98,12 @@ class batch_iterator:
         n_batches, remainder = divmod(self.n_items, self.batch_size)
 
         for i in range(n_batches):
-            yield self._get_batch(
-                self.indices[i * self.batch_size : (i + 1) * self.batch_size]
-            )
+            yield self._get_batch(self.indices[i * self.batch_size : (i + 1) * self.batch_size])
 
         if not self.drop_last and remainder:
             yield self._get_batch(self.indices[n_batches * self.batch_size :])
 
-    def _get_batch(
-        self, indices: NDArray[np.int64]
-    ) -> NDArray[np.float64] | sp.spmatrix | Any:
+    def _get_batch(self, indices: NDArray[np.int64]) -> NDArray[np.float64] | sp.spmatrix | Any:
         """Extract a batch by indices."""
         if sp.issparse(self.data):
             return self.data[indices, :] if self.axis == 0 else self.data[:, indices]
@@ -353,7 +350,9 @@ class BatchProcessor:
             n_items = (
                 batch.shape[0]
                 if sp.issparse(batch)
-                else batch.shape[axis] if isinstance(batch, np.ndarray) else len(batch)
+                else batch.shape[axis]
+                if isinstance(batch, np.ndarray)
+                else len(batch)
             )
             batch_count += 1
             sample_count += n_items
@@ -362,7 +361,11 @@ class BatchProcessor:
         self.total_batches += batch_count
         self.total_samples += sample_count
         self._history.append(
-            {"batch_count": batch_count, "sample_count": sample_count, "batch_size": self.batch_size}
+            {
+                "batch_count": batch_count,
+                "sample_count": sample_count,
+                "batch_size": self.batch_size,
+            }
         )
 
         if not results:
@@ -473,13 +476,13 @@ if __name__ == "__main__":
     processor.reset_stats()
     assert processor.total_samples == 0
     assert processor.total_batches == 0
-    print(f"   Stats reset successfully")
+    print("   Stats reset successfully")
 
     # Test 11: Error handling
     print("\n11. Testing error handling...")
     try:
         list(batch_iterator(X_dense, batch_size=-1))
-        assert False, "Should have raised ValueError"
+        raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         print(f"   Correct error raised: {e}")
 

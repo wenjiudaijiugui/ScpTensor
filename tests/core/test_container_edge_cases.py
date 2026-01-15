@@ -4,12 +4,11 @@ Edge case tests for ScpContainer.
 This module tests edge cases, boundary conditions, and error handling for ScpContainer.
 """
 
-import pytest
 import numpy as np
 import polars as pl
-from copy import deepcopy
+import pytest
 
-from scptensor.core import ScpContainer, Assay, ScpMatrix, ProvenanceLog, AggregationLink, MaskCode
+from scptensor.core import AggregationLink, Assay, MaskCode, ProvenanceLog, ScpContainer, ScpMatrix
 
 
 class TestScpContainerEdgeCases:
@@ -105,10 +104,7 @@ class TestScpContainerSampleIdCol:
 
     def test_container_custom_sample_id_col(self):
         """Test ScpContainer with custom sample_id_col."""
-        obs = pl.DataFrame({
-            "_index": ["x1", "x2"],
-            "sample_id": ["S1", "S2"]
-        })
+        obs = pl.DataFrame({"_index": ["x1", "x2"], "sample_id": ["S1", "S2"]})
         var = pl.DataFrame({"_index": ["P1"]})
         X = np.random.rand(2, 1)
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
@@ -118,10 +114,7 @@ class TestScpContainerSampleIdCol:
 
     def test_container_sample_ids_property_uses_correct_col(self):
         """Test that sample_ids uses the correct column."""
-        obs = pl.DataFrame({
-            "_index": ["x1", "x2"],
-            "cell_id": ["C1", "C2"]
-        })
+        obs = pl.DataFrame({"_index": ["x1", "x2"], "cell_id": ["C1", "C2"]})
         var = pl.DataFrame({"_index": ["P1"]})
         X = np.random.rand(2, 1)
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
@@ -191,7 +184,7 @@ class TestScpContainerHistory:
                 timestamp="2025-01-01T00:00:00",
                 action="import",
                 params={},
-                description="Initial import"
+                description="Initial import",
             )
         ]
         container = ScpContainer(obs=obs, assays={}, history=history)
@@ -212,11 +205,7 @@ class TestScpContainerHistory:
         """Test log_operation with software version."""
         obs = pl.DataFrame({"_index": ["S1"]})
         container = ScpContainer(obs=obs, assays={})
-        container.log_operation(
-            "normalize",
-            {"method": "log"},
-            software_version="0.1.0"
-        )
+        container.log_operation("normalize", {"method": "log"}, software_version="0.1.0")
         assert container.history[0].software_version == "0.1.0"
 
     def test_log_operation_without_description(self):
@@ -337,16 +326,11 @@ class TestScpContainerLinks:
         assay1 = Assay(var=var1, layers={"X": ScpMatrix(X=np.random.rand(1, 2))})
         assay2 = Assay(var=var2, layers={"X": ScpMatrix(X=np.random.rand(1, 3))})
 
-        linkage = pl.DataFrame({
-            "source_id": ["PEP1", "PEP2"],
-            "target_id": ["P1", "P2"]
-        })
+        linkage = pl.DataFrame({"source_id": ["PEP1", "PEP2"], "target_id": ["P1", "P2"]})
         link = AggregationLink(source_assay="peptides", target_assay="proteins", linkage=linkage)
 
         container = ScpContainer(
-            obs=obs,
-            assays={"proteins": assay1, "peptides": assay2},
-            links=[link]
+            obs=obs, assays={"proteins": assay1, "peptides": assay2}, links=[link]
         )
         assert len(container.links) == 1
         assert container.links[0].source_assay == "peptides"
@@ -357,11 +341,10 @@ class TestScpContainerLinks:
         var = pl.DataFrame({"_index": ["P1"]})
         assay = Assay(var=var, layers={"X": ScpMatrix(X=np.random.rand(1, 1))})
 
-        linkage = pl.DataFrame({
-            "source_id": ["PEP1"],
-            "target_id": ["P1"]
-        })
-        link = AggregationLink(source_assay="missing_peptides", target_assay="proteins", linkage=linkage)
+        linkage = pl.DataFrame({"source_id": ["PEP1"], "target_id": ["P1"]})
+        link = AggregationLink(
+            source_assay="missing_peptides", target_assay="proteins", linkage=linkage
+        )
 
         with pytest.raises(ValueError, match="source assay 'missing_peptides' not found"):
             ScpContainer(obs=obs, assays={"proteins": assay}, links=[link])
@@ -372,11 +355,10 @@ class TestScpContainerLinks:
         var = pl.DataFrame({"_index": ["PEP1"]})
         assay = Assay(var=var, layers={"X": ScpMatrix(X=np.random.rand(1, 1))})
 
-        linkage = pl.DataFrame({
-            "source_id": ["PEP1"],
-            "target_id": ["P1"]
-        })
-        link = AggregationLink(source_assay="peptides", target_assay="missing_proteins", linkage=linkage)
+        linkage = pl.DataFrame({"source_id": ["PEP1"], "target_id": ["P1"]})
+        link = AggregationLink(
+            source_assay="peptides", target_assay="missing_proteins", linkage=linkage
+        )
 
         with pytest.raises(ValueError, match="target assay 'missing_proteins' not found"):
             ScpContainer(obs=obs, assays={"peptides": assay}, links=[link])
@@ -387,11 +369,7 @@ class TestScpContainerWithMetadata:
 
     def test_container_with_numeric_metadata(self):
         """Test container with numeric metadata columns."""
-        obs = pl.DataFrame({
-            "_index": ["S1", "S2"],
-            "age": [25, 30],
-            "score": [0.5, 0.8]
-        })
+        obs = pl.DataFrame({"_index": ["S1", "S2"], "age": [25, 30], "score": [0.5, 0.8]})
         var = pl.DataFrame({"_index": ["P1"]})
         X = np.random.rand(2, 1)
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
@@ -400,11 +378,9 @@ class TestScpContainerWithMetadata:
 
     def test_container_with_boolean_metadata(self):
         """Test container with boolean metadata columns."""
-        obs = pl.DataFrame({
-            "_index": ["S1", "S2"],
-            "is_control": [True, False],
-            "passed_qc": [True, True]
-        })
+        obs = pl.DataFrame(
+            {"_index": ["S1", "S2"], "is_control": [True, False], "passed_qc": [True, True]}
+        )
         var = pl.DataFrame({"_index": ["P1"]})
         X = np.random.rand(2, 1)
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
@@ -413,11 +389,13 @@ class TestScpContainerWithMetadata:
 
     def test_container_with_string_metadata(self):
         """Test container with string metadata columns."""
-        obs = pl.DataFrame({
-            "_index": ["S1", "S2"],
-            "batch": ["batch1", "batch2"],
-            "condition": ["control", "treatment"]
-        })
+        obs = pl.DataFrame(
+            {
+                "_index": ["S1", "S2"],
+                "batch": ["batch1", "batch2"],
+                "condition": ["control", "treatment"],
+            }
+        )
         var = pl.DataFrame({"_index": ["P1"]})
         X = np.random.rand(2, 1)
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
@@ -426,13 +404,15 @@ class TestScpContainerWithMetadata:
 
     def test_container_with_mixed_metadata_types(self):
         """Test container with mixed types in obs."""
-        obs = pl.DataFrame({
-            "_index": ["S1", "S2"],
-            "batch": ["B1", "B2"],
-            "n_proteins": [100, 150],
-            "is_complete": [True, False],
-            "quality_score": [0.85, 0.92]
-        })
+        obs = pl.DataFrame(
+            {
+                "_index": ["S1", "S2"],
+                "batch": ["B1", "B2"],
+                "n_proteins": [100, 150],
+                "is_complete": [True, False],
+                "quality_score": [0.85, 0.92],
+            }
+        )
         var = pl.DataFrame({"_index": ["P1"]})
         X = np.random.rand(2, 1)
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
@@ -457,6 +437,7 @@ class TestScpContainerMultipleAssays:
     def test_container_with_sparse_and_dense_assays(self):
         """Test container with mix of sparse and dense assays."""
         from scipy import sparse
+
         obs = pl.DataFrame({"_index": ["S1", "S2"]})
         var1 = pl.DataFrame({"_index": ["P1"]})
         var2 = pl.DataFrame({"_index": ["P2"]})

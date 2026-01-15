@@ -125,9 +125,7 @@ def ppca(
     # Check for missing values
     missing_mask = np.isnan(X_dense)
     if not np.any(missing_mask):
-        new_matrix = ScpMatrix(
-            X=X_dense, M=_update_imputed_mask(input_matrix.M, missing_mask)
-        )
+        new_matrix = ScpMatrix(X=X_dense, M=_update_imputed_mask(input_matrix.M, missing_mask))
         layer_name = new_layer_name or "imputed_ppca"
         assay.add_layer(layer_name, new_matrix)
         container.log_operation(
@@ -170,9 +168,9 @@ def ppca(
         W_new = X_centered.T @ Z.T @ linalg.inv(S)
         X_reconstructed = (W_new @ Z).T
         diff = X_centered - X_reconstructed
-        sigma2_new = (
-            np.sum(diff**2) + n_samples * sigma2 * np.trace(Mx)
-        ) / (n_samples * n_features)
+        sigma2_new = (np.sum(diff**2) + n_samples * sigma2 * np.trace(Mx)) / (
+            n_samples * n_features
+        )
 
         # Check convergence
         W_diff = np.linalg.norm(W_new - W, "fro") / (np.linalg.norm(W, "fro") + 1e-10)
@@ -205,9 +203,7 @@ def ppca(
         X_imputed[i, missing] = W_miss @ z + mu_miss
 
     # Create new layer
-    new_matrix = ScpMatrix(
-        X=X_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask)
-    )
+    new_matrix = ScpMatrix(X=X_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask))
     layer_name = new_layer_name or "imputed_ppca"
     assay.add_layer(layer_name, new_matrix)
 

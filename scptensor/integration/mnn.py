@@ -15,8 +15,7 @@ import scipy.sparse as sp
 from sklearn.decomposition import PCA
 from sklearn.neighbors import NearestNeighbors
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
-from scptensor.core.exceptions import ScpValueError
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
@@ -113,8 +112,7 @@ def mnn_correct(
     obs_df = container.obs
     if batch_key not in obs_df.columns:
         raise ScpValueError(
-            f"Batch key '{batch_key}' not found in obs. "
-            f"Available columns: {list(obs_df.columns)}",
+            f"Batch key '{batch_key}' not found in obs. Available columns: {list(obs_df.columns)}",
             parameter="batch_key",
             value=batch_key,
         )
@@ -393,9 +391,7 @@ def _compute_correction_vectors(
 
     correction_dict = {}
     for cell_idx, pairs in cell_pairs.items():
-        correction, total_weight = _compute_weighted_correction(
-            X, X_pca, pairs, sigma
-        )
+        correction, total_weight = _compute_weighted_correction(X, X_pca, pairs, sigma)
         correction_dict[cell_idx] = correction / total_weight if total_weight > 0 else correction
 
     return correction_dict
@@ -505,10 +501,12 @@ if __name__ == "__main__":
 
     # Create container
     var = pl.DataFrame({"_index": [f"prot_{i}" for i in range(n_features)]})
-    obs = pl.DataFrame({
-        "_index": [f"cell_{i}" for i in range(2 * n_samples_per_batch)],
-        "batch": ["batch1"] * n_samples_per_batch + ["batch2"] * n_samples_per_batch,
-    })
+    obs = pl.DataFrame(
+        {
+            "_index": [f"cell_{i}" for i in range(2 * n_samples_per_batch)],
+            "batch": ["batch1"] * n_samples_per_batch + ["batch2"] * n_samples_per_batch,
+        }
+    )
 
     assay = Assay(var=var)
     assay.add_layer("raw", ScpMatrix(X=X, M=None))
@@ -564,14 +562,16 @@ if __name__ == "__main__":
     X_batch3 = X_base + np.random.randn(n_samples_per_batch, n_features) * 0.1 + 1.0
     X3 = np.vstack([X_batch1, X_batch2, X_batch3])
 
-    obs3 = pl.DataFrame({
-        "_index": [f"cell_{i}" for i in range(3 * n_samples_per_batch)],
-        "batch": (
-            ["batch1"] * n_samples_per_batch
-            + ["batch2"] * n_samples_per_batch
-            + ["batch3"] * n_samples_per_batch
-        ),
-    })
+    obs3 = pl.DataFrame(
+        {
+            "_index": [f"cell_{i}" for i in range(3 * n_samples_per_batch)],
+            "batch": (
+                ["batch1"] * n_samples_per_batch
+                + ["batch2"] * n_samples_per_batch
+                + ["batch3"] * n_samples_per_batch
+            ),
+        }
+    )
 
     assay3 = Assay(var=var)
     assay3.add_layer("raw", ScpMatrix(X=X3, M=None))

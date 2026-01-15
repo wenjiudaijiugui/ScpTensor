@@ -4,7 +4,7 @@ This module provides metrics to assess batch correction and integration
 methods for single-cell proteomics data.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray

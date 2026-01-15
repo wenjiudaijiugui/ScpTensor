@@ -7,14 +7,14 @@ including correlation matrices, partial correlation, and cosine similarity.
 import numpy as np
 import pytest
 import scipy.sparse as sp
-from scipy.stats import pearsonr, spearmanr as scipy_spearmanr
+from scipy.stats import spearmanr as scipy_spearmanr
 
 from scptensor.utils.stats import (
     _ensure_dense,
     correlation_matrix,
+    cosine_similarity,
     partial_correlation,
     spearman_correlation,
-    cosine_similarity,
 )
 
 
@@ -106,7 +106,7 @@ class TestCorrelationMatrix:
         """Test Spearman correlation with monotonic relationship."""
         np.random.seed(42)
         x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], dtype=float)
-        y = x ** 2  # Monotonic but not linear
+        y = x**2  # Monotonic but not linear
         data = np.column_stack([x, y])
         corr = correlation_matrix(data, method="spearman")
         # Spearman should capture the monotonic relationship
@@ -233,11 +233,13 @@ class TestPartialCorrelation:
         """Test handling of singular covariance matrix."""
         np.random.seed(42)
         # Create perfectly collinear data
-        X = np.column_stack([
-            np.random.randn(50),
-            np.random.randn(50),
-            np.random.randn(50) * 0,  # Zero variance column
-        ])
+        X = np.column_stack(
+            [
+                np.random.randn(50),
+                np.random.randn(50),
+                np.random.randn(50) * 0,  # Zero variance column
+            ]
+        )
         pc = partial_correlation(X, 0, 1, conditioning_set={2})
         assert isinstance(pc, float)
         assert -1.0 <= pc <= 1.0
@@ -315,12 +317,15 @@ class TestCosineSimilarity:
     @pytest.fixture
     def simple_vectors(self):
         """Create simple test vectors."""
-        return np.array([
-            [1, 0, 0],
-            [0, 1, 0],
-            [1, 1, 0],
-            [0, 0, 1],
-        ], dtype=float)
+        return np.array(
+            [
+                [1, 0, 0],
+                [0, 1, 0],
+                [1, 1, 0],
+                [0, 0, 1],
+            ],
+            dtype=float,
+        )
 
     def test_cosine_similarity_shape(self, simple_vectors):
         """Test that similarity matrix has correct shape."""

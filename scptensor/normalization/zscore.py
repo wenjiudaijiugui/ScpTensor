@@ -11,7 +11,6 @@ References:
     proteomics data. Expert Review of Proteomics.
 """
 
-
 import numpy as np
 
 from scptensor.core.exceptions import (

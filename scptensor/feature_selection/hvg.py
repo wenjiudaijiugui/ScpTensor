@@ -9,7 +9,6 @@ from typing import Literal
 import numpy as np
 import polars as pl
 from scipy import sparse
-from scipy.sparse import issparse
 
 from scptensor.core.structures import Assay, ScpContainer
 from scptensor.feature_selection._shared import (
@@ -117,7 +116,7 @@ if __name__ == "__main__":
     for i in range(10):
         X_test[:, i] = np.random.gamma(shape=0.5 + i * 0.1, scale=10, size=n_samples)
 
-    from scptensor.core.structures import Assay, ScpMatrix, ScpContainer
+    from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
     var_test = pl.DataFrame({"_index": [f"feature_{i}" for i in range(n_features)]})
     obs_test = pl.DataFrame({"_index": [f"sample_{i}" for i in range(n_samples)]})

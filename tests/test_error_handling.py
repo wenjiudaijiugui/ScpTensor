@@ -9,16 +9,16 @@ import numpy as np
 import polars as pl
 import pytest
 
-from scptensor.core.structures import ScpContainer, Assay, ScpMatrix, MaskCode
 from scptensor.core.exceptions import (
     AssayNotFoundError,
-    LayerNotFoundError,
-    ValueError as ScpValueError,
-    ValidationError,
     DimensionError,
-    MissingDependencyError,
+    LayerNotFoundError,
+    ValidationError,
 )
-
+from scptensor.core.exceptions import (
+    ValueError as ScpValueError,
+)
+from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
 # =============================================================================
 # Fixtures
@@ -39,15 +39,19 @@ def sample_container():
     X_missing[missing_mask] = np.nan
 
     # Create obs
-    obs = pl.DataFrame({
-        "_index": [f"cell_{i}" for i in range(n_samples)],
-        "batch": ["batch1"] * 25 + ["batch2"] * 25,
-    })
+    obs = pl.DataFrame(
+        {
+            "_index": [f"cell_{i}" for i in range(n_samples)],
+            "batch": ["batch1"] * 25 + ["batch2"] * 25,
+        }
+    )
 
     # Create var
-    var = pl.DataFrame({
-        "_index": [f"prot_{i}" for i in range(n_features)],
-    })
+    var = pl.DataFrame(
+        {
+            "_index": [f"prot_{i}" for i in range(n_features)],
+        }
+    )
 
     # Create assay
     assay = Assay(var=var)
@@ -65,14 +69,18 @@ def complete_container():
 
     X = np.random.randn(n_samples, n_features) * 0.5 + 2.0
 
-    obs = pl.DataFrame({
-        "_index": [f"cell_{i}" for i in range(n_samples)],
-        "batch": ["batch1"] * 25 + ["batch2"] * 25,
-    })
+    obs = pl.DataFrame(
+        {
+            "_index": [f"cell_{i}" for i in range(n_samples)],
+            "batch": ["batch1"] * 25 + ["batch2"] * 25,
+        }
+    )
 
-    var = pl.DataFrame({
-        "_index": [f"prot_{i}" for i in range(n_features)],
-    })
+    var = pl.DataFrame(
+        {
+            "_index": [f"prot_{i}" for i in range(n_features)],
+        }
+    )
 
     assay = Assay(var=var)
     assay.add_layer("raw", ScpMatrix(X=X, M=None))
@@ -133,7 +141,7 @@ class TestNormalizationErrors:
         from scptensor.normalization.zscore import zscore
 
         with pytest.raises(ValidationError) as exc_info:
-            zscore(sample_container, base_layer_name='raw')
+            zscore(sample_container, base_layer_name="raw")
         assert "complete" in str(exc_info.value).lower()
 
 
@@ -197,7 +205,9 @@ class TestImputeErrors:
         from scptensor.impute.svd import svd_impute
 
         with pytest.raises(ScpValueError) as exc_info:
-            svd_impute(sample_container, assay_name="protein", base_layer="raw", init_method="invalid")
+            svd_impute(
+                sample_container, assay_name="protein", base_layer="raw", init_method="invalid"
+            )
         assert "init_method" in str(exc_info.value).lower()
 
 

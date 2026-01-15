@@ -6,17 +6,16 @@ on key operations in the ScpTensor library.
 """
 
 import time
+
 import numpy as np
 import numpy.random as npr
 
 from scptensor.core.jit_ops import (
-    knn_weighted_impute,
-    knn_find_valid_neighbors,
-    ppca_initialize_with_col_means,
-    impute_missing_with_col_means_jit,
-    mean_axis_no_nan,
-    var_axis_no_nan,
     NUMBA_AVAILABLE,
+    impute_missing_with_col_means_jit,
+    knn_weighted_impute,
+    mean_axis_no_nan,
+    ppca_initialize_with_col_means,
 )
 
 print("=" * 60)
@@ -57,7 +56,9 @@ distances_small = np.abs(npr.randn(n_vals_small)) + 0.1
 mean_time, std_time, result = time_function(
     knn_weighted_impute, neighbor_values_small, distances_small, 5, True, n_runs=1000
 )
-print(f"Small dataset (n={n_vals_small}): {mean_time*1e6:.2f} +/- {std_time*1e6:.2f} microseconds")
+print(
+    f"Small dataset (n={n_vals_small}): {mean_time * 1e6:.2f} +/- {std_time * 1e6:.2f} microseconds"
+)
 
 # Large dataset
 n_vals_large = 1000
@@ -67,7 +68,9 @@ distances_large = np.abs(npr.randn(n_vals_large)) + 0.1
 mean_time, std_time, result = time_function(
     knn_weighted_impute, neighbor_values_large, distances_large, 100, True, n_runs=100
 )
-print(f"Large dataset (n={n_vals_large}): {mean_time*1e3:.2f} +/- {std_time*1e3:.2f} milliseconds")
+print(
+    f"Large dataset (n={n_vals_large}): {mean_time * 1e3:.2f} +/- {std_time * 1e3:.2f} milliseconds"
+)
 
 
 # Benchmark 2: Column mean initialization
@@ -83,12 +86,14 @@ X_small[missing_mask_small] = np.nan
 col_means_small = np.nanmean(X_small, axis=0)
 col_means_small[np.isnan(col_means_small)] = 0.0
 
+
 def pure_python_init(X, mask, means):
     """Pure Python version for comparison."""
     X_copy = X.copy()
     for j in range(X.shape[1]):
         X_copy[mask[:, j], j] = means[j]
     return X_copy
+
 
 mean_time_jit, std_time_jit, _ = time_function(
     ppca_initialize_with_col_means,
@@ -107,8 +112,8 @@ mean_time_py, std_time_py, _ = time_function(
 
 speedup = mean_time_py / mean_time_jit
 print(f"Small matrix ({n_rows_small}x{n_cols_small}):")
-print(f"  JIT: {mean_time_jit*1e3:.3f} +/- {std_time_jit*1e3:.3f} ms")
-print(f"  Python: {mean_time_py*1e3:.3f} +/- {std_time_py*1e3:.3f} ms")
+print(f"  JIT: {mean_time_jit * 1e3:.3f} +/- {std_time_jit * 1e3:.3f} ms")
+print(f"  Python: {mean_time_py * 1e3:.3f} +/- {std_time_py * 1e3:.3f} ms")
 print(f"  Speedup: {speedup:.2f}x")
 
 # Large matrix
@@ -136,8 +141,8 @@ mean_time_py, std_time_py, _ = time_function(
 
 speedup = mean_time_py / mean_time_jit
 print(f"Large matrix ({n_rows_large}x{n_cols_large}):")
-print(f"  JIT: {mean_time_jit*1e3:.3f} +/- {std_time_jit*1e3:.3f} ms")
-print(f"  Python: {mean_time_py*1e3:.3f} +/- {std_time_py*1e3:.3f} ms")
+print(f"  JIT: {mean_time_jit * 1e3:.3f} +/- {std_time_jit * 1e3:.3f} ms")
+print(f"  Python: {mean_time_py * 1e3:.3f} +/- {std_time_py * 1e3:.3f} ms")
 print(f"  Speedup: {speedup:.2f}x")
 
 
@@ -146,12 +151,14 @@ print("\n" + "-" * 60)
 print("Benchmark 3: Full Column Mean Imputation")
 print("-" * 60)
 
+
 def pure_python_col_means(X):
     """Pure Python version for comparison."""
     col_means = np.nanmean(X, axis=0)
     col_means[np.isnan(col_means)] = 0.0
     for j in range(X.shape[1]):
         X[np.isnan(X[:, j]), j] = col_means[j]
+
 
 mean_time_jit, std_time_jit, _ = time_function(
     impute_missing_with_col_means_jit,
@@ -166,8 +173,8 @@ mean_time_py, std_time_py, _ = time_function(
 
 speedup = mean_time_py / mean_time_jit
 print(f"Small matrix ({n_rows_small}x{n_cols_small}):")
-print(f"  JIT: {mean_time_jit*1e3:.3f} +/- {std_time_jit*1e3:.3f} ms")
-print(f"  Python: {mean_time_py*1e3:.3f} +/- {std_time_py*1e3:.3f} ms")
+print(f"  JIT: {mean_time_jit * 1e3:.3f} +/- {std_time_jit * 1e3:.3f} ms")
+print(f"  Python: {mean_time_py * 1e3:.3f} +/- {std_time_py * 1e3:.3f} ms")
 print(f"  Speedup: {speedup:.2f}x")
 
 
@@ -191,8 +198,8 @@ mean_time_np, std_time_np, _ = time_function(
 
 speedup = mean_time_np / mean_time_jit
 print(f"Mean along axis 0 ({n_rows_small}x{n_cols_small}):")
-print(f"  JIT: {mean_time_jit*1e6:.2f} +/- {std_time_jit*1e6:.2f} microseconds")
-print(f"  NumPy: {mean_time_np*1e6:.2f} +/- {std_time_np*1e6:.2f} microseconds")
+print(f"  JIT: {mean_time_jit * 1e6:.2f} +/- {std_time_jit * 1e6:.2f} microseconds")
+print(f"  NumPy: {mean_time_np * 1e6:.2f} +/- {std_time_np * 1e6:.2f} microseconds")
 print(f"  Speedup: {speedup:.2f}x")
 
 

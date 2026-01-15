@@ -96,9 +96,7 @@ def select_by_model_importance(
     """
     VALID_METHODS = ("random_forest", "variance_threshold")
     if method not in VALID_METHODS:
-        raise ValueError(
-            f"method must be one of {VALID_METHODS}, got '{method}'"
-        )
+        raise ValueError(f"method must be one of {VALID_METHODS}, got '{method}'")
 
     assay = _validate_assay_layer(container, assay_name, layer)
     X = assay.layers[layer].X
@@ -208,8 +206,8 @@ def _random_forest_importance(
         Feature importance scores.
     """
     try:
-        from sklearn.ensemble import RandomForestClassifier
         from sklearn.cluster import KMeans
+        from sklearn.ensemble import RandomForestClassifier
     except ImportError as e:
         raise ImportError(
             "scikit-learn is required for random_forest method. "
@@ -313,7 +311,7 @@ def select_by_pca_loadings(
         ) from e
 
     pca = PCA(n_components=n_components, random_state=42)
-    X_pca = pca.fit_transform(X_centered)
+    pca.fit_transform(X_centered)
 
     # Weighted sum of absolute loadings
     loadings = np.abs(pca.components_.T)  # (n_features, n_components)
@@ -360,7 +358,7 @@ if __name__ == "__main__":
     X_test[:, :10] *= 3
     X_test[:, 10:20] *= 2
 
-    from scptensor.core.structures import Assay, ScpMatrix, ScpContainer
+    from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
     var_test = pl.DataFrame({"_index": [f"feature_{i}" for i in range(n_features)]})
     obs_test = pl.DataFrame({"_index": [f"sample_{i}" for i in range(n_samples)]})

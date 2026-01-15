@@ -9,10 +9,10 @@ import pytest
 import scipy.sparse as sp
 
 from scptensor.utils.batch import (
-    batch_iterator,
+    BatchProcessor,
     apply_by_batch,
     batch_apply_along_axis,
-    BatchProcessor,
+    batch_iterator,
 )
 
 
@@ -79,7 +79,9 @@ class TestBatchIterator:
     def test_batch_iterator_shuffle(self, sample_data):
         """Test shuffling of batches."""
         batches_no_shuffle = list(batch_iterator(sample_data, batch_size=32, shuffle=False))
-        batches_shuffle = list(batch_iterator(sample_data, batch_size=32, shuffle=True, random_seed=42))
+        batches_shuffle = list(
+            batch_iterator(sample_data, batch_size=32, shuffle=True, random_seed=42)
+        )
         assert len(batches_no_shuffle) == len(batches_shuffle)
         # Content should be different due to shuffling
         # (except by chance)
@@ -92,7 +94,7 @@ class TestBatchIterator:
         """Test that random seed produces consistent shuffling."""
         batches1 = list(batch_iterator(sample_data, batch_size=32, shuffle=True, random_seed=42))
         batches2 = list(batch_iterator(sample_data, batch_size=32, shuffle=True, random_seed=42))
-        for b1, b2 in zip(batches1, batches2):
+        for b1, b2 in zip(batches1, batches2, strict=False):
             assert np.array_equal(b1, b2)
 
     def test_batch_iterator_sparse_matrix(self, sample_sparse):
@@ -140,6 +142,7 @@ class TestBatchIterator:
 
     def test_batch_iterator_unsupported_type(self):
         """Test with unsupported data type."""
+
         # Using a generator (no __len__)
         def gen():
             yield 1
@@ -192,6 +195,7 @@ class TestApplyByBatch:
 
     def test_apply_by_batch_basic(self, sample_data):
         """Test basic batch application."""
+
         def double_fn(x):
             return x * 2
 
@@ -201,6 +205,7 @@ class TestApplyByBatch:
 
     def test_apply_by_batch_concat_true(self, sample_data):
         """Test with concat=True (default)."""
+
         def identity_fn(x):
             return x
 
@@ -210,6 +215,7 @@ class TestApplyByBatch:
 
     def test_apply_by_batch_concat_false(self, sample_data):
         """Test with concat=False."""
+
         def identity_fn(x):
             return x
 
@@ -219,6 +225,7 @@ class TestApplyByBatch:
 
     def test_apply_by_batch_with_kwargs(self, sample_data):
         """Test passing kwargs to function."""
+
         def add_value(x, value=0):
             return x + value
 
@@ -227,6 +234,7 @@ class TestApplyByBatch:
 
     def test_apply_by_batch_axis_1(self, sample_data):
         """Test application along axis 1."""
+
         def identity_fn(x):
             return x
 
@@ -235,6 +243,7 @@ class TestApplyByBatch:
 
     def test_apply_by_batch_sparse_matrix(self, sample_sparse):
         """Test with sparse matrix."""
+
         def identity_fn(x):
             return x
 
@@ -267,6 +276,7 @@ class TestApplyByBatch:
 
     def test_apply_by_batch_empty_data(self):
         """Test with empty data."""
+
         def identity_fn(x):
             return x
 
@@ -275,6 +285,7 @@ class TestApplyByBatch:
 
     def test_apply_by_batch_shape_change(self, sample_data):
         """Test function that changes shape."""
+
         def first_two_cols(x):
             return x[:, :2]
 
@@ -283,6 +294,7 @@ class TestApplyByBatch:
 
     def test_apply_by_batch_scalar_output(self, sample_data):
         """Test function that returns scalar per batch."""
+
         def batch_sum(x):
             return np.sum(x)
 
@@ -292,6 +304,7 @@ class TestApplyByBatch:
 
     def test_apply_by_batch_preserves_order(self, sample_data):
         """Test that order of elements is preserved."""
+
         def add_index(x, start_idx=0):
             # Add index-dependent value to verify order
             n = x.shape[0]
@@ -338,10 +351,13 @@ class TestBatchApplyAlongAxis:
 
     def test_batch_apply_along_axis_with_kwargs(self, sample_data):
         """Test passing kwargs to function."""
+
         def weighted_sum(x, weight=1.0):
             return np.sum(x) * weight
 
-        result = batch_apply_along_axis(weighted_sum, axis=1, data=sample_data, batch_size=30, weight=2.0)
+        result = batch_apply_along_axis(
+            weighted_sum, axis=1, data=sample_data, batch_size=30, weight=2.0
+        )
         assert isinstance(result, np.ndarray)
 
     def test_batch_apply_along_axis_sparse_matrix(self, sample_data):
@@ -352,13 +368,10 @@ class TestBatchApplyAlongAxis:
 
     def test_batch_apply_along_axis_dtype(self, sample_data):
         """Test dtype parameter."""
-        result = batch_apply_along_axis(np.sum, axis=1, data=sample_data, batch_size=30, dtype=np.float32)
+        result = batch_apply_along_axis(
+            np.sum, axis=1, data=sample_data, batch_size=30, dtype=np.float32
+        )
         assert result.dtype == np.float32
-
-    def test_batch_apply_along_axis_returns_array(self, sample_data):
-        """Test that result is always an array."""
-        result = batch_apply_along_axis(np.sum, axis=1, data=sample_data, batch_size=30)
-        assert isinstance(result, np.ndarray)
 
     def test_batch_apply_along_axis_small_batch_size(self, sample_data):
         """Test with very small batch size."""
@@ -372,6 +385,7 @@ class TestBatchApplyAlongAxis:
 
     def test_batch_apply_along_axis_2d_output(self, sample_data):
         """Test function that returns 2D array."""
+
         def copy_and_scale(x):
             return x * 2
 
@@ -404,6 +418,7 @@ class TestBatchProcessor:
 
     def test_batch_processor_process(self, sample_data):
         """Test basic processing."""
+
         def double_fn(x):
             return x * 2
 
@@ -417,6 +432,7 @@ class TestBatchProcessor:
 
     def test_batch_processor_shuffle(self, sample_data):
         """Test processing with shuffling."""
+
         def identity_fn(x):
             return x
 
@@ -428,6 +444,7 @@ class TestBatchProcessor:
 
     def test_batch_processor_drop_last(self, sample_data):
         """Test processing with drop_last."""
+
         def identity_fn(x):
             return x
 
@@ -440,6 +457,7 @@ class TestBatchProcessor:
 
     def test_batch_processor_with_kwargs(self, sample_data):
         """Test passing kwargs to function."""
+
         def add_value(x, value=0):
             return x + value
 
@@ -450,6 +468,7 @@ class TestBatchProcessor:
 
     def test_batch_processor_axis_1(self, sample_data):
         """Test processing along axis 1."""
+
         def identity_fn(x):
             return x
 
@@ -460,6 +479,7 @@ class TestBatchProcessor:
 
     def test_batch_processor_stats(self, sample_data):
         """Test get_stats method."""
+
         def identity_fn(x):
             return x
 
@@ -472,6 +492,7 @@ class TestBatchProcessor:
 
     def test_batch_processor_reset_stats(self, sample_data):
         """Test reset_stats method."""
+
         def identity_fn(x):
             return x
 
@@ -484,6 +505,7 @@ class TestBatchProcessor:
 
     def test_batch_processor_multiple_calls(self, sample_data):
         """Test multiple processing calls accumulate stats."""
+
         def identity_fn(x):
             return x
 
@@ -496,6 +518,7 @@ class TestBatchProcessor:
 
     def test_batch_processor_sparse_matrix(self, sample_data):
         """Test with sparse matrix."""
+
         def identity_fn(x):
             return x
 
@@ -508,6 +531,7 @@ class TestBatchProcessor:
 
     def test_batch_processor_list_data(self):
         """Test with list data."""
+
         def identity_fn(x):
             return x
 
@@ -523,6 +547,7 @@ class TestBatchProcessor:
 
     def test_batch_processor_empty_data(self):
         """Test with empty data."""
+
         def identity_fn(x):
             return x
 
@@ -533,6 +558,7 @@ class TestBatchProcessor:
 
     def test_batch_processor_history_tracking(self, sample_data):
         """Test that history is tracked."""
+
         def identity_fn(x):
             return x
 
@@ -546,6 +572,7 @@ class TestBatchProcessor:
 
     def test_batch_processor_reset_clears_history(self, sample_data):
         """Test that reset clears history."""
+
         def identity_fn(x):
             return x
 

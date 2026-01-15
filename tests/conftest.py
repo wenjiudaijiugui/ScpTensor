@@ -4,9 +4,6 @@ This module provides reusable fixtures for testing ScpTensor core structures.
 Fixtures are organized by data structure: obs, var, matrices, assays, and containers.
 """
 
-from collections.abc import Callable
-from typing import Any
-
 import numpy as np
 import polars as pl
 import pytest
@@ -16,7 +13,6 @@ from scptensor.core import (
     AggregationLink,
     Assay,
     MaskCode,
-    ProvenanceLog,
     ScpContainer,
     ScpMatrix,
 )
@@ -31,11 +27,13 @@ def sample_obs() -> pl.DataFrame:
     pl.DataFrame
         DataFrame with sample IDs, batch assignments, and group labels.
     """
-    return pl.DataFrame({
-        "_index": ["S1", "S2", "S3", "S4", "S5"],
-        "batch": ["batch1", "batch1", "batch2", "batch2", "batch1"],
-        "group": ["A", "A", "B", "B", "A"]
-    })
+    return pl.DataFrame(
+        {
+            "_index": ["S1", "S2", "S3", "S4", "S5"],
+            "batch": ["batch1", "batch1", "batch2", "batch2", "batch1"],
+            "group": ["A", "A", "B", "B", "A"],
+        }
+    )
 
 
 @pytest.fixture
@@ -47,11 +45,13 @@ def sample_var() -> pl.DataFrame:
     pl.DataFrame
         DataFrame with feature IDs, protein names, and chromosome locations.
     """
-    return pl.DataFrame({
-        "_index": ["P1", "P2", "P3", "P4", "P5"],
-        "protein_name": ["Protein1", "Protein2", "Protein3", "Protein4", "Protein5"],
-        "chromosome": ["chr1", "chr2", "chr3", "chr1", "chr2"]
-    })
+    return pl.DataFrame(
+        {
+            "_index": ["P1", "P2", "P3", "P4", "P5"],
+            "protein_name": ["Protein1", "Protein2", "Protein3", "Protein4", "Protein5"],
+            "chromosome": ["chr1", "chr2", "chr3", "chr1", "chr2"],
+        }
+    )
 
 
 @pytest.fixture
@@ -198,10 +198,7 @@ def sample_assay_with_mask(
     Assay
         Assay with masked 'raw' layer.
     """
-    return Assay(
-        var=sample_var,
-        layers={"raw": ScpMatrix(X=sample_dense_X, M=sample_mask_M)}
-    )
+    return Assay(var=sample_var, layers={"raw": ScpMatrix(X=sample_dense_X, M=sample_mask_M)})
 
 
 @pytest.fixture
@@ -230,8 +227,8 @@ def sample_assay_multi_layer(
         layers={
             "raw": ScpMatrix(X=sample_dense_X),
             "log": ScpMatrix(X=X_log),
-            "normalized": ScpMatrix(X=X_norm)
-        }
+            "normalized": ScpMatrix(X=X_norm),
+        },
     )
 
 
@@ -280,10 +277,7 @@ def sample_container_multi_assay(
     var_peptide = pl.DataFrame({"_index": [f"PEP{i}" for i in range(10)]})
     X_peptide = np.random.default_rng(42).random((5, 10))
     assay2 = Assay(var=var_peptide, layers={"X": ScpMatrix(X=X_peptide)})
-    return ScpContainer(
-        obs=sample_obs,
-        assays={"proteins": assay1, "peptides": assay2}
-    )
+    return ScpContainer(obs=sample_obs, assays={"proteins": assay1, "peptides": assay2})
 
 
 @pytest.fixture
@@ -295,15 +289,13 @@ def sample_aggregation_link() -> AggregationLink:
     AggregationLink
         Link mapping peptides to their parent proteins.
     """
-    linkage = pl.DataFrame({
-        "source_id": ["PEP1", "PEP2", "PEP3", "PEP4", "PEP5"],
-        "target_id": ["PROT1", "PROT1", "PROT2", "PROT2", "PROT3"]
-    })
-    return AggregationLink(
-        source_assay="peptides",
-        target_assay="proteins",
-        linkage=linkage
+    linkage = pl.DataFrame(
+        {
+            "source_id": ["PEP1", "PEP2", "PEP3", "PEP4", "PEP5"],
+            "target_id": ["PROT1", "PROT1", "PROT2", "PROT2", "PROT3"],
+        }
     )
+    return AggregationLink(source_assay="peptides", target_assay="proteins", linkage=linkage)
 
 
 @pytest.fixture
@@ -382,5 +374,5 @@ def mask_code_names() -> dict[int, str]:
         3: "FILTERED",
         4: "OUTLIER",
         5: "IMPUTED",
-        6: "UNCERTAIN"
+        6: "UNCERTAIN",
     }

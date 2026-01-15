@@ -201,10 +201,7 @@ class ParameterGrid:
         keys = list(param_lists.keys())
         values = list(param_lists.values())
 
-        return [
-            dict(zip(keys, combo, strict=False))
-            for combo in itertools.product(*values)
-        ]
+        return [dict(zip(keys, combo, strict=False)) for combo in itertools.product(*values)]
 
     def _generate_random(self, n_samples: int) -> list[dict[str, Any]]:
         """Generate random parameter combinations.

@@ -4,7 +4,6 @@ Tests for ScpMatrix core structure.
 This module contains tests for ScpMatrix functionality.
 """
 
-import pytest
 import numpy as np
 from scipy import sparse
 
@@ -124,14 +123,14 @@ class TestScpMatrixBasic:
 
     def test_matrix_with_metadata(self):
         """Test ScpMatrix with metadata."""
-        from scptensor.core import ScpMatrix, MatrixMetadata
+        from scptensor.core import MatrixMetadata, ScpMatrix
 
         X = np.random.rand(5, 3)
         confidence_scores = np.random.rand(5, 3)
         metadata = MatrixMetadata(
             confidence_scores=confidence_scores,
             detection_limits=np.zeros((5, 3)),
-            creation_info={"method": "test"}
+            creation_info={"method": "test"},
         )
         matrix = ScpMatrix(X=X, metadata=metadata)
 

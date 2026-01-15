@@ -1,16 +1,13 @@
 """Efficient results visualization for benchmarking with multiple output formats."""
 
-from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from .core import BenchmarkResults
-
 
 # =============================================================================
 # Constants
@@ -388,9 +385,7 @@ class ResultsVisualizer:
         plt.show()
         return ""
 
-    def method_rankings_table(
-        self, results: BenchmarkResults, save_path: str | None = None
-    ) -> str:
+    def method_rankings_table(self, results: BenchmarkResults, save_path: str | None = None) -> str:
         """Create a comprehensive method rankings table visualization.
 
         Parameters
@@ -424,9 +419,7 @@ class ResultsVisualizer:
         )
 
         max_runtime = comparison_df["mean_runtime_seconds"].max()
-        comparison_df["speed_score"] = 1 - (
-            comparison_df["mean_runtime_seconds"] / max_runtime
-        )
+        comparison_df["speed_score"] = 1 - (comparison_df["mean_runtime_seconds"] / max_runtime)
 
         comparison_df["overall_score"] = (
             comparison_df["biological_score"] * 0.4
@@ -522,13 +515,13 @@ class ResultsVisualizer:
             mode="markers+text",
             text=comparison_df.index,
             textposition="top center",
-            marker=dict(
-                size=comparison_df["mean_data_recovery_rate"] * 20,
-                color=comparison_df["mean_batch_mixing_score"],
-                colorscale="Viridis",
-                showscale=True,
-                colorbar=dict(title="Batch Mixing Score", x=1.02),
-            ),
+            marker={
+                "size": comparison_df["mean_data_recovery_rate"] * 20,
+                "color": comparison_df["mean_batch_mixing_score"],
+                "colorscale": "Viridis",
+                "showscale": True,
+                "colorbar": {"title": "Batch Mixing Score", "x": 1.02},
+            },
             name="Methods",
         )
         fig.add_trace(scatter, row=1, col=1)
@@ -540,13 +533,13 @@ class ResultsVisualizer:
             mode="markers+text",
             text=comparison_df.index,
             textposition="top center",
-            marker=dict(
-                size=15,
-                color=comparison_df["mean_runtime_seconds"],
-                colorscale="Plasma",
-                showscale=True,
-                colorbar=dict(title="Runtime (s)", x=1.02),
-            ),
+            marker={
+                "size": 15,
+                "color": comparison_df["mean_runtime_seconds"],
+                "colorscale": "Plasma",
+                "showscale": True,
+                "colorbar": {"title": "Runtime (s)", "x": 1.02},
+            },
             name="Methods",
         )
         fig.add_trace(tradeoff, row=1, col=2)
@@ -584,8 +577,8 @@ class ResultsVisualizer:
         ].round(3)
 
         table = go.Table(
-            header=dict(values=["Method"] + list(table_data.columns)),
-            cells=dict(values=[table_data.index] + [table_data[col] for col in table_data.columns]),
+            header={"values": ["Method"] + list(table_data.columns)},
+            cells={"values": [table_data.index] + [table_data[col] for col in table_data.columns]},
         )
         fig.add_trace(table, row=2, col=2)
 
@@ -614,9 +607,7 @@ class ResultsVisualizer:
 # =============================================================================
 
 
-def _calculate_pareto_frontier(
-    costs: np.ndarray, benefits: np.ndarray
-) -> np.ndarray:
+def _calculate_pareto_frontier(costs: np.ndarray, benefits: np.ndarray) -> np.ndarray:
     """Efficiently calculate Pareto frontier indices.
 
     Parameters

@@ -5,7 +5,6 @@ Reference:
     for differential expression analysis of RNA-seq data. Genome Biology, 11(3), R25.
 """
 
-
 import numpy as np
 
 from scptensor.core.exceptions import (
@@ -160,7 +159,7 @@ def tmm_normalization(
 
         # Weighted mean of M values
         weighted_M = np.sum(weights * M_trimmed) / np.sum(weights)
-        scaling_factors[i] = 2 ** weighted_M
+        scaling_factors[i] = 2**weighted_M
 
     # Apply scaling factors (broadcasting)
     X_normalized = X / scaling_factors[:, np.newaxis]

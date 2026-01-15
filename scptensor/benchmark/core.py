@@ -349,9 +349,7 @@ class BenchmarkResults:
             batch_mixing = np.array([r.technical_scores.batch_mixing_score for r in method_runs])
 
             bio_scores = [
-                r.biological_scores.group_separation
-                for r in method_runs
-                if r.biological_scores
+                r.biological_scores.group_separation for r in method_runs if r.biological_scores
             ]
             group_sep = np.nanmean(bio_scores) if bio_scores else np.nan
 
@@ -397,9 +395,7 @@ class BenchmarkResults:
             axis=1,
         )
 
-    def export_data(
-        self, format: str = "csv", filepath: str | None = None
-    ) -> str:
+    def export_data(self, format: str = "csv", filepath: str | None = None) -> str:
         """Export results data.
 
         Parameters
@@ -432,7 +428,9 @@ class BenchmarkResults:
         }
 
         if format not in export_handlers:
-            raise ValueError(f"Unsupported export format: {format}. Choose from {list(export_handlers)}")
+            raise ValueError(
+                f"Unsupported export format: {format}. Choose from {list(export_handlers)}"
+            )
 
         export_handlers[format](filepath)
         return filepath

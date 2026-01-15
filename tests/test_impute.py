@@ -26,11 +26,11 @@ from scptensor.core.exceptions import (
     AssayNotFoundError,
     DimensionError,
     LayerNotFoundError,
-    ScpTensorError,
+)
+from scptensor.core.exceptions import (
     ValueError as ScpValueError,
 )
 from scptensor.impute import knn, missforest, ppca, svd_impute
-
 
 # =============================================================================
 # Fixtures
@@ -223,9 +223,7 @@ class TestKNNImputation:
         """Test KNN with uniform weights."""
         container, _, _ = impute_container
 
-        result = knn(
-            container, assay_name="protein", base_layer="raw", k=5, weights="uniform"
-        )
+        result = knn(container, assay_name="protein", base_layer="raw", k=5, weights="uniform")
         X_imputed = result.assays["protein"].layers["imputed_knn"].X
 
         assert not np.any(np.isnan(X_imputed))
@@ -234,9 +232,7 @@ class TestKNNImputation:
         """Test KNN with distance weights."""
         container, _, _ = impute_container
 
-        result = knn(
-            container, assay_name="protein", base_layer="raw", k=5, weights="distance"
-        )
+        result = knn(container, assay_name="protein", base_layer="raw", k=5, weights="distance")
         X_imputed = result.assays["protein"].layers["imputed_knn"].X
 
         assert not np.any(np.isnan(X_imputed))
@@ -656,7 +652,7 @@ class TestMissForestImputation:
         """Test MissForest verbose output."""
         container, _, _ = impute_container
 
-        result = missforest(
+        missforest(
             container,
             assay_name="protein",
             base_layer="raw",
@@ -1514,7 +1510,7 @@ class TestImputationEdgeCases:
             original_X = original_X.toarray()
 
         # Run imputation
-        result = knn(container, assay_name="protein", base_layer="raw", k=5)
+        knn(container, assay_name="protein", base_layer="raw", k=5)
 
         # Original should be unchanged
         X_after = container.assays["protein"].layers["raw"].X

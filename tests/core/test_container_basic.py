@@ -4,8 +4,6 @@ This module contains fundamental tests for ScpContainer functionality including
 creation, validation, property access, and history tracking.
 """
 
-from typing import Any
-
 import numpy as np
 import polars as pl
 import pytest
@@ -125,9 +123,7 @@ class TestScpContainerBasic:
         initial_history_len = len(container.history)
 
         container.log_operation(
-            action="test_operation",
-            params={"param1": "value1"},
-            description="Test operation"
+            action="test_operation", params={"param1": "value1"}, description="Test operation"
         )
 
         assert len(container.history) == initial_history_len + 1
@@ -198,11 +194,9 @@ class TestScpContainerBasic:
 
     def test_container_with_metadata(self) -> None:
         """Test container with additional metadata columns in obs."""
-        obs = pl.DataFrame({
-            "_index": ["S1", "S2"],
-            "group": ["A", "B"],
-            "batch": ["batch1", "batch2"]
-        })
+        obs = pl.DataFrame(
+            {"_index": ["S1", "S2"], "group": ["A", "B"], "batch": ["batch1", "batch2"]}
+        )
         var = pl.DataFrame({"_index": ["P1"]})
         X = np.random.default_rng(42).random((2, 1))
         matrix = ScpMatrix(X=X)

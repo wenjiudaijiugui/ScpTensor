@@ -17,10 +17,9 @@ from scipy import sparse
 from scptensor.cluster import run_kmeans
 from scptensor.cluster.basic import kmeans as basic_kmeans
 from scptensor.cluster.graph import leiden
-from scptensor.core import ScpContainer, Assay, ScpMatrix
+from scptensor.core import Assay, ScpContainer, ScpMatrix
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
 from scptensor.core.exceptions import ValueError as ScpValueError
-
 
 # =============================================================================
 # Fixtures for clustering tests
@@ -84,9 +83,7 @@ def multi_assay_container(sample_obs):
     var_umap = pl.DataFrame({"_index": ["UMAP1", "UMAP2"]})
     assay_umap = Assay(var=var_umap, layers={"X": ScpMatrix(X=X_umap)})
 
-    return ScpContainer(
-        obs=sample_obs, assays={"pca": assay_pca, "umap": assay_umap}
-    )
+    return ScpContainer(obs=sample_obs, assays={"pca": assay_pca, "umap": assay_umap})
 
 
 @pytest.fixture
@@ -150,9 +147,7 @@ class TestRunKmeans:
 
     def test_run_kmeans_with_key_added(self, pca_container):
         """Test K-means with key_added parameter to add labels to obs."""
-        result = run_kmeans(
-            pca_container, n_clusters=3, key_added="kmeans_labels"
-        )
+        result = run_kmeans(pca_container, n_clusters=3, key_added="kmeans_labels")
 
         # Check column was added to obs
         assert "kmeans_labels" in result.obs.columns
@@ -187,8 +182,12 @@ class TestRunKmeans:
 
     def test_run_kmeans_random_state(self, pca_container):
         """Test K-means reproducibility with random_state."""
-        result1 = run_kmeans(pca_container, n_clusters=3, random_state=42, new_assay_name="cluster_kmeans_1")
-        result2 = run_kmeans(pca_container, n_clusters=3, random_state=42, new_assay_name="cluster_kmeans_2")
+        result1 = run_kmeans(
+            pca_container, n_clusters=3, random_state=42, new_assay_name="cluster_kmeans_1"
+        )
+        result2 = run_kmeans(
+            pca_container, n_clusters=3, random_state=42, new_assay_name="cluster_kmeans_2"
+        )
 
         labels1 = result1.assays["cluster_kmeans_1"].layers["binary"].X
         labels2 = result2.assays["cluster_kmeans_2"].layers["binary"].X
@@ -261,9 +260,7 @@ class TestRunKmeans:
         )
 
         assert "cluster_kmeans" in result.assays
-        assert (
-            result.history[-1].params["source_layer"] == "normalized"
-        )
+        assert result.history[-1].params["source_layer"] == "normalized"
 
 
 # =============================================================================
@@ -444,9 +441,7 @@ class TestBasicKmeans:
 class TestLeiden:
     """Tests for leiden function from graph.py."""
 
-    @pytest.mark.skip(
-        reason="Requires optional dependencies: leidenalg and python-igraph"
-    )
+    @pytest.mark.skip(reason="Requires optional dependencies: leidenalg and python-igraph")
     def test_leiden_basic(self, pca_container):
         """Test basic Leiden clustering functionality."""
         result = leiden(pca_container, resolution=1.0)
@@ -459,9 +454,7 @@ class TestLeiden:
         labels = result.obs[expected_col].to_list()
         assert all(isinstance(label, str) for label in labels)
 
-    @pytest.mark.skip(
-        reason="Requires optional dependencies: leidenalg and python-igraph"
-    )
+    @pytest.mark.skip(reason="Requires optional dependencies: leidenalg and python-igraph")
     def test_leiden_different_resolution(self, pca_container):
         """Test Leiden with different resolution parameters."""
         for res in [0.5, 1.0, 2.0]:
@@ -469,18 +462,14 @@ class TestLeiden:
             expected_col = f"leiden_r{res}"
             assert expected_col in result.obs.columns
 
-    @pytest.mark.skip(
-        reason="Requires optional dependencies: leidenalg and python-igraph"
-    )
+    @pytest.mark.skip(reason="Requires optional dependencies: leidenalg and python-igraph")
     def test_leiden_different_n_neighbors(self, pca_container):
         """Test Leiden with different n_neighbors values."""
         for n in [5, 10, 15, 20]:
             result = leiden(pca_container, n_neighbors=n)
             assert "leiden_r1.0" in result.obs.columns
 
-    @pytest.mark.skip(
-        reason="Requires optional dependencies: leidenalg and python-igraph"
-    )
+    @pytest.mark.skip(reason="Requires optional dependencies: leidenalg and python-igraph")
     def test_leiden_random_state_reproducibility(self, pca_container):
         """Test Leiden reproducibility with random_state."""
         result1 = leiden(pca_container, random_state=42)
@@ -492,18 +481,14 @@ class TestLeiden:
         # Leiden should be deterministic with same seed
         assert labels1 == labels2
 
-    @pytest.mark.skip(
-        reason="Requires optional dependencies: leidenalg and python-igraph"
-    )
+    @pytest.mark.skip(reason="Requires optional dependencies: leidenalg and python-igraph")
     def test_leiden_sparse_matrix(self, sparse_pca_container):
         """Test Leiden with sparse input matrix."""
         result = leiden(sparse_pca_container, n_neighbors=3)
 
         assert "leiden_r1.0" in result.obs.columns
 
-    @pytest.mark.skip(
-        reason="Requires optional dependencies: leidenalg and python-igraph"
-    )
+    @pytest.mark.skip(reason="Requires optional dependencies: leidenalg and python-igraph")
     def test_leiden_history_logging(self, pca_container):
         """Test that Leiden operation is logged in history."""
         initial_history_len = len(pca_container.history)
@@ -584,9 +569,7 @@ class TestLeiden:
 
         assert "nonexistent" in str(exc_info.value)
 
-    @pytest.mark.skip(
-        reason="Requires optional dependencies: leidenalg and python-igraph"
-    )
+    @pytest.mark.skip(reason="Requires optional dependencies: leidenalg and python-igraph")
     def test_leiden_custom_assay_and_layer(self, multi_assay_container):
         """Test Leiden on custom assay and layer."""
         result = leiden(
@@ -598,9 +581,7 @@ class TestLeiden:
 
         assert "leiden_r1.0" in result.obs.columns
 
-    @pytest.mark.skip(
-        reason="Requires optional dependencies: leidenalg and python-igraph"
-    )
+    @pytest.mark.skip(reason="Requires optional dependencies: leidenalg and python-igraph")
     def test_leiden_n_neighbors_larger_than_samples(self, pca_container):
         """Test Leiden with n_neighbors > n_samples."""
         # sklearn kneighbors_graph handles this by capping at n_samples - 1

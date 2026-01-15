@@ -37,10 +37,12 @@ if __name__ == "__main__":
 
     # Create container
     var = pl.DataFrame({"_index": [f"pc_{i}" for i in range(n_features)]})
-    obs = pl.DataFrame({
-        "_index": [f"cell_{i}" for i in range(2 * n_samples_per_batch)],
-        "batch": ["batch1"] * n_samples_per_batch + ["batch2"] * n_samples_per_batch,
-    })
+    obs = pl.DataFrame(
+        {
+            "_index": [f"cell_{i}" for i in range(2 * n_samples_per_batch)],
+            "batch": ["batch1"] * n_samples_per_batch + ["batch2"] * n_samples_per_batch,
+        }
+    )
 
     assay = Assay(var=var)
     assay.add_layer("pca", ScpMatrix(X=X, M=None))

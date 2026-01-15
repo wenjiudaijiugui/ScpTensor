@@ -15,18 +15,20 @@ Mask Codes:
 from __future__ import annotations
 
 import numpy as np
-from typing import Optional, Tuple
 
 try:
     from numba import jit
+
     NUMBA_AVAILABLE = True
 except ImportError:
     NUMBA_AVAILABLE = False
 
     def jit(nopython: bool = False, cache: bool = False):  # type: ignore[misc]
         """Fallback decorator when numba is not available."""
+
         def decorator(func):
             return func
+
         return decorator
 
 
@@ -35,11 +37,9 @@ except ImportError:
 # =============================================================================
 
 if NUMBA_AVAILABLE:
+
     @jit(nopython=True, cache=True)
-    def euclidean_distance_no_nan(
-        x: np.ndarray,
-        y: np.ndarray
-    ) -> float:
+    def euclidean_distance_no_nan(x: np.ndarray, y: np.ndarray) -> float:
         """Compute Euclidean distance between two vectors, ignoring NaN values.
 
         Parameters
@@ -73,10 +73,7 @@ if NUMBA_AVAILABLE:
             return np.inf
 
     @jit(nopython=True, cache=True)
-    def pairwise_euclidean_distances_no_nan(
-        X: np.ndarray,
-        Y: np.ndarray
-    ) -> np.ndarray:
+    def pairwise_euclidean_distances_no_nan(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
         """Compute pairwise Euclidean distances between two matrices, ignoring NaNs.
 
         Parameters
@@ -119,10 +116,7 @@ if NUMBA_AVAILABLE:
         return distances
 
     @jit(nopython=True, cache=True)
-    def nan_euclidean_distance_row_to_matrix(
-        x: np.ndarray,
-        Y: np.ndarray
-    ) -> np.ndarray:
+    def nan_euclidean_distance_row_to_matrix(x: np.ndarray, Y: np.ndarray) -> np.ndarray:
         """Compute distance from one vector to all rows of a matrix, handling NaNs.
 
         Parameters
@@ -162,10 +156,7 @@ if NUMBA_AVAILABLE:
         return distances
 
     @jit(nopython=True, cache=True)
-    def nan_euclidean_distance_matrix_to_matrix(
-        X: np.ndarray,
-        Y: np.ndarray
-    ) -> np.ndarray:
+    def nan_euclidean_distance_matrix_to_matrix(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
         """Compute pairwise distances between all rows of X and Y, handling NaNs.
 
         Optimized for batch processing where X is typically smaller than Y.
@@ -215,6 +206,7 @@ if NUMBA_AVAILABLE:
 # =============================================================================
 
 if NUMBA_AVAILABLE:
+
     @jit(nopython=True, cache=True)
     def count_mask_codes(M: np.ndarray) -> np.ndarray:
         """Fast count of each mask code in the mask matrix.
@@ -241,7 +233,9 @@ if NUMBA_AVAILABLE:
         return counts
 
     @jit(nopython=True, cache=True)
-    def find_missing_indices(M: np.ndarray, mask_codes: Tuple[int, ...]) -> Tuple[np.ndarray, np.ndarray]:
+    def find_missing_indices(
+        M: np.ndarray, mask_codes: tuple[int, ...]
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Find indices of values matching specified mask codes.
 
         Parameters
@@ -284,12 +278,9 @@ if NUMBA_AVAILABLE:
 # =============================================================================
 
 if NUMBA_AVAILABLE:
+
     @jit(nopython=True, cache=True)
-    def apply_mask_threshold(
-        X: np.ndarray,
-        threshold: float,
-        comparison: int
-    ) -> np.ndarray:
+    def apply_mask_threshold(X: np.ndarray, threshold: float, comparison: int) -> np.ndarray:
         """Apply threshold comparison to create boolean mask.
 
         Parameters
@@ -326,11 +317,7 @@ if NUMBA_AVAILABLE:
         return mask
 
     @jit(nopython=True, cache=True)
-    def count_above_threshold(
-        X: np.ndarray,
-        threshold: float,
-        axis: int
-    ) -> np.ndarray:
+    def count_above_threshold(X: np.ndarray, threshold: float, axis: int) -> np.ndarray:
         """Count values above threshold along specified axis.
 
         Parameters
@@ -372,10 +359,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def filter_by_threshold_count(
-        X: np.ndarray,
-        threshold: float,
-        min_count: int,
-        axis: int
+        X: np.ndarray, threshold: float, min_count: int, axis: int
     ) -> np.ndarray:
         """Create a boolean mask for rows/columns with enough values above threshold.
 
@@ -405,6 +389,7 @@ if NUMBA_AVAILABLE:
 # =============================================================================
 
 if NUMBA_AVAILABLE:
+
     @jit(nopython=True, cache=True)
     def mean_no_nan(arr: np.ndarray) -> float:
         """Compute mean of array, ignoring NaN values.
@@ -569,12 +554,10 @@ if NUMBA_AVAILABLE:
 # =============================================================================
 
 if NUMBA_AVAILABLE:
+
     @jit(nopython=True, cache=True)
     def fill_missing_with_value(
-        X: np.ndarray,
-        M: np.ndarray,
-        fill_value: float,
-        fill_mask_code: int
+        X: np.ndarray, M: np.ndarray, fill_value: float, fill_mask_code: int
     ) -> None:
         """Fill missing values in-place with a constant value.
 
@@ -597,10 +580,7 @@ if NUMBA_AVAILABLE:
                     X[i, j] = fill_value
 
     @jit(nopython=True, cache=True)
-    def fill_nan_with_value(
-        X: np.ndarray,
-        fill_value: float
-    ) -> None:
+    def fill_nan_with_value(X: np.ndarray, fill_value: float) -> None:
         """Fill NaN values in-place with a constant value.
 
         Parameters
@@ -683,11 +663,10 @@ if NUMBA_AVAILABLE:
 # =============================================================================
 
 if NUMBA_AVAILABLE:
+
     @jit(nopython=True, cache=True)
     def compute_euclidean_distance(
-        X: np.ndarray,
-        y: np.ndarray,
-        mask_codes: Optional[np.ndarray] = None
+        X: np.ndarray, y: np.ndarray, mask_codes: np.ndarray | None = None
     ) -> np.ndarray:
         """Compute Euclidean distance between each row of X and vector y.
 
@@ -748,16 +727,19 @@ else:
     def pairwise_euclidean_distances_no_nan(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
         """Fallback pairwise distances (pure NumPy)."""
         from sklearn.metrics.pairwise import nan_euclidean_distances
+
         return nan_euclidean_distances(X, Y)
 
     def nan_euclidean_distance_row_to_matrix(x: np.ndarray, Y: np.ndarray) -> np.ndarray:
         """Fallback row to matrix distance (pure NumPy)."""
         from sklearn.metrics.pairwise import nan_euclidean_distances
+
         return nan_euclidean_distances(x.reshape(1, -1), Y)[0]
 
     def nan_euclidean_distance_matrix_to_matrix(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
         """Fallback matrix to matrix distance (pure NumPy)."""
         from sklearn.metrics.pairwise import nan_euclidean_distances
+
         return nan_euclidean_distances(X, Y)
 
     # Mask functions
@@ -769,7 +751,9 @@ else:
                 counts[code] += 1
         return counts
 
-    def find_missing_indices(M: np.ndarray, mask_codes: Tuple[int, ...] = (1, 2)) -> Tuple[np.ndarray, np.ndarray]:
+    def find_missing_indices(
+        M: np.ndarray, mask_codes: tuple[int, ...] = (1, 2)
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Fallback find missing indices (pure Python)."""
         mask = np.isin(M, list(mask_codes))
         return np.where(mask)
@@ -778,19 +762,21 @@ else:
     def apply_mask_threshold(X: np.ndarray, threshold: float, comparison: int) -> np.ndarray:
         """Fallback threshold application (pure NumPy)."""
         if comparison == 0:
-            return X < threshold
+            return threshold > X
         elif comparison == 1:
-            return X <= threshold
+            return threshold >= X
         elif comparison == 2:
-            return X > threshold
+            return threshold < X
         else:
-            return X >= threshold
+            return threshold <= X
 
     def count_above_threshold(X: np.ndarray, threshold: float, axis: int) -> np.ndarray:
         """Fallback count above threshold (pure NumPy)."""
-        return np.sum(X > threshold, axis=axis)
+        return np.sum(threshold < X, axis=axis)
 
-    def filter_by_threshold_count(X: np.ndarray, threshold: float, min_count: int, axis: int) -> np.ndarray:
+    def filter_by_threshold_count(
+        X: np.ndarray, threshold: float, min_count: int, axis: int
+    ) -> np.ndarray:
         """Fallback filter by threshold count (pure NumPy)."""
         counts = count_above_threshold(X, threshold, axis)
         return counts >= min_count
@@ -813,9 +799,11 @@ else:
         return np.nanvar(X, axis=axis, ddof=1)
 
     # Matrix manipulation
-    def fill_missing_with_value(X: np.ndarray, M: np.ndarray, fill_value: float, fill_mask_code: int) -> None:
+    def fill_missing_with_value(
+        X: np.ndarray, M: np.ndarray, fill_value: float, fill_mask_code: int
+    ) -> None:
         """Fallback fill (pure NumPy)."""
-        mask = M == fill_mask_code
+        mask = fill_mask_code == M
         X[mask] = fill_value
 
     def fill_nan_with_value(X: np.ndarray, fill_value: float) -> None:
@@ -833,7 +821,9 @@ else:
         np.copyto(X, col_means, where=np.isnan(X))
 
     # Legacy
-    def compute_euclidean_distance(X: np.ndarray, y: np.ndarray, mask_codes: Optional[np.ndarray] = None) -> np.ndarray:
+    def compute_euclidean_distance(
+        X: np.ndarray, y: np.ndarray, mask_codes: np.ndarray | None = None
+    ) -> np.ndarray:
         """Fallback distance computation (pure NumPy)."""
         return np.sqrt(np.sum((X - y) ** 2, axis=1))
 
@@ -910,6 +900,7 @@ else:
     ) -> tuple[float, float, float]:
         """Fallback t-test (uses scipy)."""
         from scipy import stats
+
         result = stats.ttest_ind(x, y, equal_var=False)
         mean_diff = np.mean(x) - np.mean(y)
         return float(result.statistic), float(result.pvalue), float(mean_diff)
@@ -920,6 +911,7 @@ else:
     ) -> tuple[float, float]:
         """Fallback Mann-Whitney (uses scipy)."""
         from scipy import stats
+
         try:
             result = stats.mannwhitneyu(x, y, alternative="two-sided")
             return float(result.statistic), float(result.pvalue)
@@ -932,6 +924,7 @@ else:
 # =============================================================================
 
 if NUMBA_AVAILABLE:
+
     @jit(nopython=True, cache=True)
     def knn_weighted_impute(
         neighbor_values: np.ndarray,
@@ -1052,6 +1045,7 @@ if NUMBA_AVAILABLE:
 # =============================================================================
 
 if NUMBA_AVAILABLE:
+
     @jit(nopython=True, cache=True)
     def ppca_initialize_with_col_means(
         X: np.ndarray,
@@ -1117,6 +1111,7 @@ if NUMBA_AVAILABLE:
 # =============================================================================
 
 if NUMBA_AVAILABLE:
+
     @jit(nopython=True, cache=True)
     def vectorized_ttest_row(
         x: np.ndarray,
@@ -1167,8 +1162,8 @@ if NUMBA_AVAILABLE:
             diff = y[i] - mean2
             var2 += diff * diff
 
-        var1 /= (n1 - 1)
-        var2 /= (n2 - 1)
+        var1 /= n1 - 1
+        var2 /= n2 - 1
 
         # Welch's t-test
         se = np.sqrt(var1 / n1 + var2 / n2)
@@ -1296,9 +1291,9 @@ if __name__ == "__main__":
     X_test = np.array([[1.0, 2.0], [3.0, 4.0]])
     mask = apply_mask_threshold(X_test, 2.5, 2)  # Greater than
     print(f"Threshold mask: {mask}")
-    assert mask[0, 0] == False
-    assert mask[0, 1] == False
-    assert mask[1, 0] == True
+    assert not mask[0, 0]
+    assert not mask[0, 1]
+    assert mask[1, 0]
     print("apply_mask_threshold: PASS")
 
     # Test fill_nan_with_value
@@ -1324,7 +1319,7 @@ if __name__ == "__main__":
     mean_val = mean_no_nan(arr)
     var_val = var_no_nan(arr)
     print(f"Mean (no NaN): {mean_val:.4f}, Var: {var_val:.4f}")
-    assert abs(mean_val - 7.0/3.0) < 1e-10
+    assert abs(mean_val - 7.0 / 3.0) < 1e-10
     print("mean_no_nan/var_no_nan: PASS")
 
     # Test mean_axis_no_nan
@@ -1342,9 +1337,9 @@ if __name__ == "__main__":
     mask = filter_by_threshold_count(X_filter, 0.5, 1, axis=1)
     print(f"Filter mask: {mask}")
     # Row 0 has 2 values > 0.5, row 1 has 2, row 2 has 0
-    assert mask[0] == True
-    assert mask[1] == True
-    assert mask[2] == False
+    assert mask[0]
+    assert mask[1]
+    assert not mask[2]
     print("filter_by_threshold_count: PASS")
 
     # Test fill_missing_with_value
@@ -1362,14 +1357,18 @@ if __name__ == "__main__":
     distances = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
 
     # Uniform weighting
-    result_uniform = knn_weighted_impute(neighbor_values, distances, k=3, use_distance_weights=False)
+    result_uniform = knn_weighted_impute(
+        neighbor_values, distances, k=3, use_distance_weights=False
+    )
     expected_uniform = np.mean(neighbor_values[:3])
     print(f"KNN uniform imputation: {result_uniform:.4f} (expected: {expected_uniform:.4f})")
     assert abs(result_uniform - expected_uniform) < 1e-10
     print("knn_weighted_impute (uniform): PASS")
 
     # Distance weighting
-    result_weighted = knn_weighted_impute(neighbor_values, distances, k=3, use_distance_weights=True)
+    result_weighted = knn_weighted_impute(
+        neighbor_values, distances, k=3, use_distance_weights=True
+    )
     print(f"KNN weighted imputation: {result_weighted:.4f}")
     # Weighted average should be closer to nearer neighbors
     assert 1.0 < result_weighted < 3.0
@@ -1379,7 +1378,9 @@ if __name__ == "__main__":
     X_test = np.array([[1.0, 2.0, 3.0], [4.0, np.nan, 6.0], [7.0, 8.0, 9.0], [10.0, 11.0, np.nan]])
     potential_neighbors = np.array([0, 1, 2, 3])
     potential_dists = np.array([0.1, 0.2, 0.3, 0.4])
-    valid_idx, valid_dists, n_valid = knn_find_valid_neighbors(X_test, potential_neighbors, potential_dists, feature_idx=1, k=3)
+    valid_idx, valid_dists, n_valid = knn_find_valid_neighbors(
+        X_test, potential_neighbors, potential_dists, feature_idx=1, k=3
+    )
     print(f"Found {n_valid} valid neighbors for feature 1")
     # Sample at index 1 has NaN at feature 1, so only 3 valid neighbors (0, 2, 3)
     assert n_valid == 3

@@ -4,11 +4,11 @@ Edge case tests for ScpMatrix.
 This module tests edge cases, boundary conditions, and error handling for ScpMatrix.
 """
 
-import pytest
 import numpy as np
+import pytest
 from scipy import sparse
 
-from scptensor.core import ScpMatrix, MatrixMetadata, MaskCode
+from scptensor.core import MaskCode, MatrixMetadata, ScpMatrix
 
 
 class TestScpMatrixEdgeCases:
@@ -236,7 +236,7 @@ class TestScpMatrixMetadata:
             detection_limits=np.ones((3, 3)) * 0.5,
             imputation_quality=np.random.rand(3, 3),
             outlier_scores=np.random.rand(3, 3),
-            creation_info={"method": "full_test"}
+            creation_info={"method": "full_test"},
         )
         matrix = ScpMatrix(X=X, metadata=metadata)
         assert matrix.metadata.confidence_scores is not None

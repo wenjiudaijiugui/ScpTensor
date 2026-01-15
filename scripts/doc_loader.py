@@ -20,7 +20,7 @@ import re
 import sys
 from enum import Enum
 from pathlib import Path
-from typing import Final, ClassVar
+from typing import Final
 
 # Document registry with relative paths
 DOCS: Final = {
@@ -240,7 +240,9 @@ def search_in_document(
     if not matches:
         return f"No matches for: '{pattern}'"
 
-    total_suffix = f"\n... (first {max_results} of {len(matches)})" if len(matches) >= max_results else ""
+    total_suffix = (
+        f"\n... (first {max_results} of {len(matches)})" if len(matches) >= max_results else ""
+    )
     return f"Found {len(matches)} matches for '{pattern}':\n\n" + "\n".join(matches) + total_suffix
 
 
@@ -366,9 +368,15 @@ def save_content(content: str, output_path: Path) -> None:
 
 def print_usage() -> None:
     """Display comprehensive usage information."""
-    print_color("╔══════════════════════════════════════════════════════════════════╗", AnsiColor.BOLD)
-    print_color("║         ScpTensor Design Document Loader - User Guide            ║", AnsiColor.BOLD)
-    print_color("╚══════════════════════════════════════════════════════════════════╝", AnsiColor.BOLD)
+    print_color(
+        "╔══════════════════════════════════════════════════════════════════╗", AnsiColor.BOLD
+    )
+    print_color(
+        "║         ScpTensor Design Document Loader - User Guide            ║", AnsiColor.BOLD
+    )
+    print_color(
+        "╚══════════════════════════════════════════════════════════════════╝", AnsiColor.BOLD
+    )
     print()
     print(__doc__)
     print("=" * 70)

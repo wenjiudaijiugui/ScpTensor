@@ -10,21 +10,19 @@ This module contains comprehensive tests for benchmark core classes:
 
 import numpy as np
 import pandas as pd
-import pytest
 import polars as pl
-from scipy import sparse
+import pytest
 
 from scptensor.benchmark.core import (
-    TechnicalMetrics,
+    BenchmarkResults,
     BiologicalMetrics,
     ComputationalMetrics,
     MethodRunResult,
-    BenchmarkResults,
+    TechnicalMetrics,
 )
 from scptensor.benchmark.metrics import MetricsEngine
 from scptensor.benchmark.synthetic_data import SyntheticDataset, create_benchmark_datasets
-from scptensor.core import ScpContainer, Assay, ScpMatrix
-
+from scptensor.core import Assay, ScpContainer, ScpMatrix
 
 # =============================================================================
 # Fixtures
@@ -38,23 +36,29 @@ def sample_container():
     n_samples = 50
     n_features = 100
 
-    obs = pl.DataFrame({
-        "_index": [f"S{i:03d}" for i in range(n_samples)],
-        "batch": [f"Batch{i % 3}" for i in range(n_samples)],
-        "group": [f"Group{i % 2}" for i in range(n_samples)],
-    })
+    obs = pl.DataFrame(
+        {
+            "_index": [f"S{i:03d}" for i in range(n_samples)],
+            "batch": [f"Batch{i % 3}" for i in range(n_samples)],
+            "group": [f"Group{i % 2}" for i in range(n_samples)],
+        }
+    )
 
-    var = pl.DataFrame({
-        "_index": [f"P{i:04d}" for i in range(n_features)],
-        "protein_id": [f"P{i:04d}" for i in range(n_features)],
-    })
+    var = pl.DataFrame(
+        {
+            "_index": [f"P{i:04d}" for i in range(n_features)],
+            "protein_id": [f"P{i:04d}" for i in range(n_features)],
+        }
+    )
 
     # Create data with some missing values
     X = np.random.rand(n_samples, n_features) * 10
     M = np.zeros((n_samples, n_features), dtype=np.int8)
 
     # Add some missing values
-    missing_indices = np.random.choice(n_samples * n_features, size=int(n_samples * n_features * 0.3), replace=False)
+    missing_indices = np.random.choice(
+        n_samples * n_features, size=int(n_samples * n_features * 0.3), replace=False
+    )
     rows = missing_indices // n_features
     cols = missing_indices % n_features
     M[rows, cols] = np.random.choice([1, 2], size=len(rows))  # MBR or LOD
@@ -697,6 +701,7 @@ class TestBenchmarkResults:
 
         # Verify file was created
         import os
+
         assert os.path.exists(filepath)
 
     def test_benchmark_results_get_parameter_sensitivity(self, sample_container):

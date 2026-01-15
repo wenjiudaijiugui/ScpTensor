@@ -16,14 +16,13 @@ import numpy.testing as npt
 import polars as pl
 import pytest
 import scipy.sparse as sp
-from scipy import stats
 
-from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.core.exceptions import (
     AssayNotFoundError,
     LayerNotFoundError,
     ValidationError,
 )
+from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.diff_expr.core import (
     DiffExprResult,
     adjust_fdr,
@@ -33,7 +32,6 @@ from scptensor.diff_expr.core import (
     diff_expr_ttest,
     pd_isna,
 )
-
 
 # =============================================================================
 # Helper Functions
@@ -74,17 +72,21 @@ def create_diff_expr_test_container(
     while len(groups) < n_samples:
         groups.append(groups[-1])
 
-    obs = pl.DataFrame({
-        "_index": [f"sample_{i}" for i in range(n_samples)],
-        "group": groups,
-        "batch": rng.choice(["A", "B"], n_samples),
-    })
+    obs = pl.DataFrame(
+        {
+            "_index": [f"sample_{i}" for i in range(n_samples)],
+            "group": groups,
+            "batch": rng.choice(["A", "B"], n_samples),
+        }
+    )
 
     # Create feature metadata
-    var = pl.DataFrame({
-        "_index": [f"protein_{i}" for i in range(n_features)],
-        "protein_name": [f"Protein{i}" for i in range(n_features)],
-    })
+    var = pl.DataFrame(
+        {
+            "_index": [f"protein_{i}" for i in range(n_features)],
+            "protein_name": [f"Protein{i}" for i in range(n_features)],
+        }
+    )
 
     # Create data matrix
     X = rng.exponential(10, size=(n_samples, n_features))
@@ -108,11 +110,7 @@ def create_diff_expr_test_container(
         X = sp.csr_matrix(X)
 
     # Create assay
-    assay = Assay(
-        var=var,
-        layers={"X": ScpMatrix(X=X)},
-        feature_id_col="_index"
-    )
+    assay = Assay(var=var, layers={"X": ScpMatrix(X=X)}, feature_id_col="_index")
 
     return ScpContainer(obs=obs, assays={"proteins": assay})
 
@@ -125,11 +123,7 @@ def create_three_group_container(
 ) -> ScpContainer:
     """Create a container with 3 groups for ANOVA/Kruskal tests."""
     return create_diff_expr_test_container(
-        n_samples=n_samples,
-        n_features=n_features,
-        n_groups=3,
-        seed=seed,
-        with_nan=with_nan
+        n_samples=n_samples, n_features=n_features, n_groups=3, seed=seed, with_nan=with_nan
     )
 
 
@@ -348,16 +342,20 @@ class TestDiffExprTTest:
                 group2="group_1",
             )
 
-        assert "nonexistent" in str(exc_info.value).lower() or "group" in str(exc_info.value).lower()
+        assert (
+            "nonexistent" in str(exc_info.value).lower() or "group" in str(exc_info.value).lower()
+        )
 
     def test_ttest_insufficient_samples(self):
         """Test error with insufficient samples per group."""
         # Create container with very few samples in one group
         rng = np.random.default_rng(42)
-        obs = pl.DataFrame({
-            "_index": [f"sample_{i}" for i in range(5)],
-            "group": ["A", "A", "A", "B", "C"],  # B and C have only 1 sample each
-        })
+        obs = pl.DataFrame(
+            {
+                "_index": [f"sample_{i}" for i in range(5)],
+                "group": ["A", "A", "A", "B", "C"],  # B and C have only 1 sample each
+            }
+        )
         var = pl.DataFrame({"_index": [f"P{i}" for i in range(5)]})
         X = rng.exponential(10, size=(5, 5))
         assay = Assay(var=var, layers={"X": ScpMatrix(X=X)})
@@ -377,9 +375,7 @@ class TestDiffExprTTest:
 
     def test_ttest_with_sparse_matrix(self):
         """Test t-test with sparse matrix data."""
-        container = create_diff_expr_test_container(
-            n_samples=20, n_features=10, sparse=True
-        )
+        container = create_diff_expr_test_container(n_samples=20, n_features=10, sparse=True)
 
         result = diff_expr_ttest(
             container=container,
@@ -393,9 +389,7 @@ class TestDiffExprTTest:
 
     def test_ttest_missing_strategy_ignore(self):
         """Test t-test with missing values (ignore strategy)."""
-        container = create_diff_expr_test_container(
-            n_samples=20, n_features=10, with_nan=True
-        )
+        container = create_diff_expr_test_container(n_samples=20, n_features=10, with_nan=True)
 
         result = diff_expr_ttest(
             container=container,
@@ -413,9 +407,7 @@ class TestDiffExprTTest:
 
     def test_ttest_missing_strategy_zero(self):
         """Test t-test with missing values (zero strategy)."""
-        container = create_diff_expr_test_container(
-            n_samples=20, n_features=10, with_nan=True
-        )
+        container = create_diff_expr_test_container(n_samples=20, n_features=10, with_nan=True)
 
         result = diff_expr_ttest(
             container=container,
@@ -515,9 +507,7 @@ class TestDiffExprMannWhitney:
 
     def test_mannwhitney_greater_alternative(self):
         """Test Mann-Whitney U test with greater alternative."""
-        container = create_diff_expr_test_container(
-            n_samples=20, n_features=10, effect_size=2.0
-        )
+        container = create_diff_expr_test_container(n_samples=20, n_features=10, effect_size=2.0)
 
         result = diff_expr_mannwhitney(
             container=container,
@@ -594,9 +584,7 @@ class TestDiffExprMannWhitney:
 
     def test_mannwhitney_with_missing_values(self):
         """Test Mann-Whitney with missing values."""
-        container = create_diff_expr_test_container(
-            n_samples=20, n_features=10, with_nan=True
-        )
+        container = create_diff_expr_test_container(n_samples=20, n_features=10, with_nan=True)
 
         result = diff_expr_mannwhitney(
             container=container,
@@ -696,10 +684,12 @@ class TestDiffExprANOVA:
         """Test error with fewer than 2 groups."""
         # Create container with only 1 group
         rng = np.random.default_rng(42)
-        obs = pl.DataFrame({
-            "_index": [f"sample_{i}" for i in range(10)],
-            "group": ["A"] * 10,
-        })
+        obs = pl.DataFrame(
+            {
+                "_index": [f"sample_{i}" for i in range(10)],
+                "group": ["A"] * 10,
+            }
+        )
         var = pl.DataFrame({"_index": [f"P{i}" for i in range(5)]})
         X = rng.exponential(10, size=(10, 5))
         assay = Assay(var=var, layers={"X": ScpMatrix(X=X)})
@@ -718,10 +708,12 @@ class TestDiffExprANOVA:
         """Test error with insufficient samples in a group."""
         # Create container where one group has too few samples
         rng = np.random.default_rng(42)
-        obs = pl.DataFrame({
-            "_index": [f"sample_{i}" for i in range(5)],
-            "group": ["A", "A", "B", "B", "C"],  # Group C has only 1 sample
-        })
+        obs = pl.DataFrame(
+            {
+                "_index": [f"sample_{i}" for i in range(5)],
+                "group": ["A", "A", "B", "B", "C"],  # Group C has only 1 sample
+            }
+        )
         var = pl.DataFrame({"_index": [f"P{i}" for i in range(5)]})
         X = rng.exponential(10, size=(5, 5))
         assay = Assay(var=var, layers={"X": ScpMatrix(X=X)})
@@ -754,9 +746,7 @@ class TestDiffExprANOVA:
 
     def test_anova_with_missing_values(self):
         """Test ANOVA with missing values."""
-        container = create_three_group_container(
-            n_samples=30, n_features=10, with_nan=True
-        )
+        container = create_three_group_container(n_samples=30, n_features=10, with_nan=True)
 
         result = diff_expr_anova(
             container=container,
@@ -837,10 +827,12 @@ class TestDiffExprKruskal:
     def test_kruskal_insufficient_groups(self):
         """Test error with fewer than 2 groups."""
         rng = np.random.default_rng(42)
-        obs = pl.DataFrame({
-            "_index": [f"sample_{i}" for i in range(10)],
-            "group": ["A"] * 10,
-        })
+        obs = pl.DataFrame(
+            {
+                "_index": [f"sample_{i}" for i in range(10)],
+                "group": ["A"] * 10,
+            }
+        )
         var = pl.DataFrame({"_index": [f"P{i}" for i in range(5)]})
         X = rng.exponential(10, size=(10, 5))
         assay = Assay(var=var, layers={"X": ScpMatrix(X=X)})
@@ -872,9 +864,7 @@ class TestDiffExprKruskal:
 
     def test_kruskal_with_missing_values(self):
         """Test Kruskal-Wallis with missing values."""
-        container = create_three_group_container(
-            n_samples=30, n_features=10, with_nan=True
-        )
+        container = create_three_group_container(n_samples=30, n_features=10, with_nan=True)
 
         result = diff_expr_kruskal(
             container=container,
@@ -1062,12 +1052,12 @@ class TestPdIsna:
         result = pd_isna(arr)
 
         # Should detect NaN-like strings
-        assert result[0] == False
-        assert result[1] == False
-        assert result[2] == True  # "NaN"
-        assert result[3] == True  # "nan"
-        assert result[4] == True  # "NA"
-        assert result[5] == False
+        assert not result[0]
+        assert not result[1]
+        assert result[2]  # "NaN"
+        assert result[3]  # "nan"
+        assert result[4]  # "NA"
+        assert not result[5]
 
     def test_pd_isna_integer(self):
         """Test pd_isna with integer array."""
@@ -1075,21 +1065,21 @@ class TestPdIsna:
         result = pd_isna(arr)
 
         # No NaN in integer array
-        assert np.all(result == False)
+        assert np.all(not result)
 
     def test_pd_isna_all_nan(self):
         """Test pd_isna with all NaN values."""
         arr = np.array([np.nan, np.nan, np.nan])
         result = pd_isna(arr)
 
-        assert np.all(result == True)
+        assert np.all(result)
 
     def test_pd_isna_no_nan(self):
         """Test pd_isna with no NaN values."""
         arr = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         result = pd_isna(arr)
 
-        assert np.all(result == False)
+        assert np.all(not result)
 
 
 # =============================================================================
@@ -1130,9 +1120,7 @@ class TestDiffExprIntegration:
 
     def test_compare_ttest_vs_mannwhitney(self):
         """Compare t-test and Mann-Whitney results."""
-        container = create_diff_expr_test_container(
-            n_samples=30, n_features=10, seed=42
-        )
+        container = create_diff_expr_test_container(n_samples=30, n_features=10, seed=42)
 
         result_ttest = diff_expr_ttest(
             container=container,
@@ -1157,10 +1145,9 @@ class TestDiffExprIntegration:
         # (not exact match due to different statistical assumptions)
         valid_mask = ~np.isnan(result_ttest.p_values) & ~np.isnan(result_mw.p_values)
         if np.sum(valid_mask) > 3:
-            corr = np.corrcoef(
-                result_ttest.p_values[valid_mask],
-                result_mw.p_values[valid_mask]
-            )[0, 1]
+            corr = np.corrcoef(result_ttest.p_values[valid_mask], result_mw.p_values[valid_mask])[
+                0, 1
+            ]
             # Should have some correlation
             assert corr > 0.3
 

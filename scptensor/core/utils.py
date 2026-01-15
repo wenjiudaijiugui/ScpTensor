@@ -86,6 +86,7 @@ def compute_umap(
 
     try:
         from umap import UMAP
+
         return UMAP(n_components=n_components, random_state=random_state, **kwargs).fit_transform(X)
     except ImportError:
         # Fallback: normalized random projection
@@ -111,6 +112,7 @@ def requires_dependency(package_name: str, install_hint: str) -> Callable:
     Returns:
         Decorator function that checks for dependency before execution.
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -119,7 +121,9 @@ def requires_dependency(package_name: str, install_hint: str) -> Callable:
             except ImportError:
                 raise MissingDependencyError(package_name)
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 

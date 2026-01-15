@@ -22,7 +22,6 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 
@@ -30,9 +29,10 @@ import numpy as np
 # Import benchmark classes (deferred to avoid circular imports)
 def _get_classes():
     """Import benchmark classes at runtime to avoid circular imports."""
-    from scptensor.benchmark.competitor_suite import CompetitorBenchmarkSuite, ComparisonResult
+    from scptensor.benchmark.competitor_suite import ComparisonResult, CompetitorBenchmarkSuite
     from scptensor.benchmark.competitor_viz import CompetitorResultVisualizer
     from scptensor.benchmark.synthetic_data import SyntheticDataset
+
     return CompetitorBenchmarkSuite, ComparisonResult, CompetitorResultVisualizer, SyntheticDataset
 
 
@@ -170,7 +170,7 @@ def create_datasets(
 
     # Standard benchmark sizes
     configs = [
-        (50, 200, 2, 2, 0.3, 42),    # Small
+        (50, 200, 2, 2, 0.3, 42),  # Small
         (100, 500, 3, 3, 0.3, 123),  # Medium
         (200, 1000, 4, 4, 0.35, 456),  # Large
     ]
@@ -230,21 +230,22 @@ def print_result_summary(result) -> None:
     """
     speedup_str = f"{result.speedup_factor:.2f}x"
     if result.speedup_factor > 1.2:
-        verdict = "ScpTensor WINS"
         symbol = "+"
     elif result.speedup_factor < 0.8:
-        verdict = "Competitor WINS"
         symbol = "-"
     else:
-        verdict = "Similar performance"
         symbol = "="
 
-    print(f"  {symbol} {result.competitor_name:20s}: "
-          f"Speedup: {speedup_str:>8s}, "
-          f"Memory: {result.memory_ratio:.2f}x, "
-          f"Accuracy: {result.accuracy_correlation:.3f}")
-    print(f"     Runtime: ScpTensor={result.scptensor_time*1000:.1f}ms, "
-          f"Competitor={result.competitor_time*1000:.1f}ms")
+    print(
+        f"  {symbol} {result.competitor_name:20s}: "
+        f"Speedup: {speedup_str:>8s}, "
+        f"Memory: {result.memory_ratio:.2f}x, "
+        f"Accuracy: {result.accuracy_correlation:.3f}"
+    )
+    print(
+        f"     Runtime: ScpTensor={result.scptensor_time * 1000:.1f}ms, "
+        f"Competitor={result.competitor_time * 1000:.1f}ms"
+    )
 
 
 def run_benchmark_suite(
@@ -328,9 +329,9 @@ def run_benchmark_suite(
                 "max_speedup": float(np.max(speedups)),
                 "mean_memory_ratio": float(np.mean(memory_ratios)),
                 "mean_accuracy": float(np.mean(accuracies)),
-                "winner": "scptensor" if np.mean(speedups) > 1.1 else (
-                    "competitor" if np.mean(speedups) < 0.9 else "mixed"
-                ),
+                "winner": "scptensor"
+                if np.mean(speedups) > 1.1
+                else ("competitor" if np.mean(speedups) < 0.9 else "mixed"),
             }
 
     return results_dict, summaries_dict
@@ -387,9 +388,7 @@ def save_results(
     serializable["_metadata"] = {
         "timestamp": datetime.now().isoformat(),
         "n_datasets": len(datasets),
-        "dataset_sizes": [
-            (d.n_samples, d.assays["protein"].n_features) for d in datasets
-        ],
+        "dataset_sizes": [(d.n_samples, d.assays["protein"].n_features) for d in datasets],
     }
 
     results_file = output_dir / "competitor_benchmark_results.json"
@@ -437,24 +436,24 @@ def main() -> int:
 
     print_header("ScpTensor Competitor Benchmark")
 
-    print(f"\nConfiguration:")
+    print("\nConfiguration:")
     print(f"  Mode: {'Quick' if args.quick else 'Full'}")
     print(f"  Output directory: {args.output_dir}")
     print(f"  Operations: {args.operations or 'All'}")
     print(f"  Repeats: {args.n_repeats}")
 
     # Create datasets
-    print(f"\nGenerating datasets...")
+    print("\nGenerating datasets...")
     start_time = time.time()
     datasets = create_datasets(quick=args.quick, custom_size=args.dataset_sizes)
     dataset_time = time.time() - start_time
     print(f"  Created {len(datasets)} dataset(s) in {dataset_time:.2f}s")
 
     for i, d in enumerate(datasets):
-        print(f"    {i+1}. {d.n_samples} samples x {d.assays['protein'].n_features} features")
+        print(f"    {i + 1}. {d.n_samples} samples x {d.assays['protein'].n_features} features")
 
     # Run benchmarks
-    print(f"\nRunning benchmarks...")
+    print("\nRunning benchmarks...")
     benchmark_start = time.time()
 
     try:
@@ -467,6 +466,7 @@ def main() -> int:
     except Exception as e:
         print(f"\nERROR during benchmarking: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -480,7 +480,7 @@ def main() -> int:
 
     # Generate visualizations
     if not args.no_plots:
-        print(f"\nGenerating visualizations...")
+        print("\nGenerating visualizations...")
         try:
             CompetitorResultVisualizer = _get_classes()[2]
             viz = CompetitorResultVisualizer()
@@ -496,6 +496,7 @@ def main() -> int:
         except Exception as e:
             print(f"WARNING: Could not generate all plots: {e}")
             import traceback
+
             traceback.print_exc()
 
     # Print summary

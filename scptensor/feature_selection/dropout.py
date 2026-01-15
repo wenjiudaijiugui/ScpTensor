@@ -13,7 +13,6 @@ from scipy import sparse
 
 from scptensor.core.structures import Assay, ScpContainer
 from scptensor.feature_selection._shared import (
-    _subset_or_annotate,
     _validate_assay_layer,
 )
 
@@ -271,7 +270,7 @@ def get_dropout_stats(
         M = M.toarray()
 
     n_samples = X.shape[0]
-    n_features = X.shape[1]
+    X.shape[1]
 
     # Compute detection mask
     detected_mask = (X != 0) & ~np.isnan(X)
@@ -311,7 +310,7 @@ if __name__ == "__main__":
     X_test[:5, 20:] = 0
     X_test[10:15, 5:10] = np.nan
 
-    from scptensor.core.structures import Assay, ScpMatrix, ScpContainer
+    from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
     var_test = pl.DataFrame({"_index": [f"feature_{i}" for i in range(n_features)]})
     obs_test = pl.DataFrame({"_index": [f"sample_{i}" for i in range(n_samples)]})
@@ -325,25 +324,19 @@ if __name__ == "__main__":
 
     # Test 1: Basic dropout filtering
     print("\nTest 1: Dropout filtering (max_rate=0.4)")
-    result = select_by_dropout(
-        container_test, max_dropout_rate=0.4, subset=True
-    )
+    result = select_by_dropout(container_test, max_dropout_rate=0.4, subset=True)
     assert result.assays["protein"].n_features < n_features
     print(f"  Passed: {result.assays['protein'].n_features} features remaining")
 
     # Test 2: min_detected constraint
     print("\nTest 2: min_detected=50")
-    result2 = select_by_dropout(
-        container_test, min_detected=50, subset=True
-    )
+    result2 = select_by_dropout(container_test, min_detected=50, subset=True)
     assert result2.assays["protein"].n_features < n_features
     print(f"  Passed: {result2.assays['protein'].n_features} features remaining")
 
     # Test 3: Annotation mode
     print("\nTest 3: Annotation mode")
-    result3 = select_by_dropout(
-        container_test, max_dropout_rate=0.2, subset=False
-    )
+    result3 = select_by_dropout(container_test, max_dropout_rate=0.2, subset=False)
     assert "pass_dropout_filter" in result3.assays["protein"].var.columns
     n_pass = result3.assays["protein"].var["pass_dropout_filter"].sum()
     assert n_pass < n_features, f"Expected some features to fail, got {n_pass}/{n_features}"

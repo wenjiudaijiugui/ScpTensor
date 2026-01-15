@@ -66,9 +66,7 @@ class PlotStyle:
         import matplotlib.pyplot as plt
 
         if theme not in THEMES:
-            raise ValueError(
-                f"Unknown theme: {theme}. Choose from {list(THEMES.keys())}"
-            )
+            raise ValueError(f"Unknown theme: {theme}. Choose from {list(THEMES.keys())}")
 
         styles = THEMES[theme]
         plt.style.use(styles)
@@ -104,9 +102,7 @@ class PlotStyle:
         if custom is not None:
             return custom
         if purpose not in _VALID_PURPOSES:
-            raise ValueError(
-                f"Unknown purpose: {purpose}. Choose from {_VALID_PURPOSES}"
-            )
+            raise ValueError(f"Unknown purpose: {purpose}. Choose from {_VALID_PURPOSES}")
         return CMAP_PROTEOMICS[purpose]
 
 
