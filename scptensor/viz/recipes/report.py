@@ -124,6 +124,88 @@ class ReportTheme:
         )
 
 
+def _render_overview_panel(
+    ax: plt.Axes,
+    container: "ScpContainer",
+) -> None:
+    """Render data overview panel with summary statistics.
+
+    Parameters
+    ----------
+    ax : plt.Axes
+        Matplotlib axes to render on
+    container : ScpContainer
+        Input data container
+    """
+    ax.axis("off")
+    ax.set_title("Data Overview", fontsize=12, fontweight="bold", pad=10)
+
+    # Gather statistics
+    n_samples = container.n_samples
+    n_assays = len(container.assays)
+
+    # Get first assay
+    assay_names = list(container.assays.keys())
+    if assay_names:
+        assay_name = assay_names[0]
+        assay = container.assays[assay_name]
+        n_features = assay.n_features
+
+        # Get first layer
+        layer_names = list(assay.layers.keys())
+        if layer_names:
+            X = assay.layers[layer_names[0]].X
+
+            # Calculate missing rate
+            import numpy as np
+            if hasattr(X, "toarray"):
+                X_arr = X.toarray()
+            else:
+                X_arr = X
+            missing_rate = np.isnan(X_arr).sum() / X_arr.size * 100
+        else:
+            n_features = 0
+            missing_rate = 0
+    else:
+        n_features = 0
+        missing_rate = 0
+
+    # Build summary table data
+    data = [
+        ["Metric", "Value"],
+        ["Samples", f"{n_samples:,}"],
+        ["Features", f"{n_features:,}"],
+        ["Assays", str(n_assays)],
+        ["Missing Rate", f"{missing_rate:.1f}%"],
+    ]
+
+    # Create table
+    table = ax.table(
+        cellText=data,
+        cellLoc="left",
+        loc="center",
+        bbox=[0.2, 0.1, 0.6, 0.8],
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1, 2)
+
+    # Style header row
+    for i in range(2):
+        cell = table[(0, i)]
+        cell.set_facecolor("#4477AA")
+        cell.set_text_props(weight="bold", color="white")
+
+    # Style data rows
+    for i in range(1, len(data)):
+        for j in range(2):
+            cell = table[(i, j)]
+            if j == 0:
+                cell.set_facecolor("#EE6666")
+            else:
+                cell.set_facecolor("#EEEEEE")
+
+
 def generate_analysis_report(
     container: "ScpContainer",
     assay_name: str = "proteins",
@@ -202,8 +284,12 @@ def generate_analysis_report(
         fontweight="bold",
     )
 
+    # Panel 1: Data Overview
+    ax1 = fig.add_subplot(gs[0, 0])
+    _render_overview_panel(ax1, container)
+
     # Placeholder panels (will be implemented in later tasks)
-    for i in range(9):
+    for i in range(1, 9):
         ax = fig.add_subplot(gs[i])
         ax.text(0.5, 0.5, f"Panel {i+1}", ha="center", va="center")
         ax.set_xticks([])
