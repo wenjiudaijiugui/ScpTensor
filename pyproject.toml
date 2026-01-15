@@ -163,6 +163,9 @@ known-first-party = ["scptensor"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["N", "S"]  # Allow relaxed naming and security in tests
 
+# Scientific computing naming conventions (X, M are standard for data/mask matrices)
+"scptensor/core/structures.py" = ["N802", "N803", "N806"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = false

@@ -205,7 +205,23 @@ class Assay:
         var: pl.DataFrame,
         layers: dict[str, ScpMatrix] | None = None,
         feature_id_col: str = "_index",
-    ):
+    ) -> None:
+        """Initialize an Assay with feature metadata and data layers.
+
+        Parameters
+        ----------
+        var : pl.DataFrame
+            Feature metadata DataFrame. Must contain a unique identifier column.
+        layers : dict[str, ScpMatrix] | None, default None
+            Dictionary of named data layers. If None, initializes empty dict.
+        feature_id_col : str, default "_index"
+            Column name in var serving as unique feature identifier.
+
+        Raises
+        ------
+        ValueError
+            If feature_id_col is not found in var columns or is not unique.
+        """
         self.feature_id_col = feature_id_col
 
         if feature_id_col not in var.columns:
@@ -220,7 +236,13 @@ class Assay:
         self._validate()
 
     def _validate(self) -> None:
-        """Validate all layers have matching feature dimensions."""
+        """Validate all layers have matching feature dimensions.
+
+        Raises
+        ------
+        ValueError
+            If any layer has feature count different from assay n_features.
+        """
         for name, matrix in self.layers.items():
             if matrix.X.shape[1] != self.n_features:
                 raise ValueError(
@@ -229,46 +251,81 @@ class Assay:
 
     @property
     def n_features(self) -> int:
-        """Number of features in this assay."""
+        """Number of features in this assay.
+
+        Returns
+        -------
+        int
+            Count of features in the assay.
+        """
         return self.var.height
 
     @property
     def feature_ids(self) -> pl.Series:
-        """Unique feature identifiers."""
+        """Unique feature identifiers.
+
+        Returns
+        -------
+        pl.Series
+            Series containing feature IDs from the feature_id_col column.
+        """
         return self.var[self.feature_id_col]
 
     @property
     def X(self) -> np.ndarray | sp.spmatrix | None:
-        """Shortcut to access the 'X' layer matrix if it exists."""
+        """Shortcut to access the 'X' layer matrix if it exists.
+
+        Returns
+        -------
+        np.ndarray | sp.spmatrix | None
+            Data matrix from the 'X' layer, or None if layer doesn't exist.
+        """
         layer = self.layers.get("X")
         return layer.X if layer else None
 
     def add_layer(self, name: str, matrix: ScpMatrix) -> None:
         """Add a new data layer to this assay.
 
-        Args:
-            name: Layer name (e.g., 'raw', 'log', 'imputed')
-            matrix: Matrix object with matching feature dimension
+        Parameters
+        ----------
+        name : str
+            Layer name (e.g., 'raw', 'log', 'imputed').
+        matrix : ScpMatrix
+            Matrix object with matching feature dimension.
 
-        Raises:
-            ValueError: If feature dimensions don't match
+        Raises
+        ------
+        ValueError
+            If matrix feature count doesn't match assay n_features.
         """
         if matrix.X.shape[1] != self.n_features:
             raise ValueError(f"Layer has {matrix.X.shape[1]} features, Assay has {self.n_features}")
         self.layers[name] = matrix
 
     def __repr__(self) -> str:
+        """Return string representation of the assay.
+
+        Returns
+        -------
+        str
+            String showing feature count and layer names.
+        """
         return f"<Assay n_features={self.n_features}, layers={list(self.layers.keys())}>"
 
     def subset(self, feature_indices: list[int] | np.ndarray, copy_data: bool = True) -> Assay:
         """Return a new Assay with a subset of features.
 
-        Args:
-            feature_indices: Indices of features to keep
-            copy_data: Whether to copy underlying data (default: True)
+        Parameters
+        ----------
+        feature_indices : list[int] | np.ndarray
+            Indices of features to keep.
+        copy_data : bool, default True
+            Whether to copy underlying data.
 
-        Returns:
-            New Assay with subsetted features and layers
+        Returns
+        -------
+        Assay
+            New Assay with subsetted features and layers.
         """
         new_var = self.var[feature_indices, :]
         new_layers: dict[str, ScpMatrix] = {}
@@ -315,7 +372,27 @@ class ScpContainer:
         links: list[AggregationLink] | None = None,
         history: list[ProvenanceLog] | None = None,
         sample_id_col: str = "_index",
-    ):
+    ) -> None:
+        """Initialize a ScpContainer with sample metadata and assays.
+
+        Parameters
+        ----------
+        obs : pl.DataFrame
+            Sample metadata DataFrame. Must contain unique sample IDs.
+        assays : dict[str, Assay] | None, default None
+            Dictionary of named assays. If None, initializes empty dict.
+        links : list[AggregationLink] | None, default None
+            List of aggregation relationships between assays.
+        history : list[ProvenanceLog] | None, default None
+            Provenance log of operations. If None, initializes empty list.
+        sample_id_col : str, default "_index"
+            Column name in obs serving as unique sample identifier.
+
+        Raises
+        ------
+        ValueError
+            If sample_id_col is not found in obs columns or is not unique.
+        """
         self.sample_id_col = sample_id_col
 
         if sample_id_col not in obs.columns:
@@ -619,7 +696,6 @@ class ScpContainer:
         polars_expression,
     ) -> np.ndarray:
         """Resolve various input formats to sample indices array."""
-        indices: np.ndarray
 
         # Polars expression
         expr: pl.Expr | None = None
@@ -681,7 +757,6 @@ class ScpContainer:
         polars_expression,
     ) -> np.ndarray:
         """Resolve various input formats to feature indices array."""
-        indices: np.ndarray
 
         # Polars expression
         expr: pl.Expr | None = None
@@ -883,3 +958,103 @@ class ScpContainer:
             return load_hdf5(path)
         else:
             raise ValueError(f"Unsupported file format: {suffix}. Use .h5")
+
+    # ==========================================================================
+    # Convenience methods
+    # ==========================================================================
+
+    def list_assays(self) -> list[str]:
+        """Return list of assay names in the container.
+
+        Returns
+        -------
+        list[str]
+            List of assay names.
+
+        Examples
+        --------
+        >>> container.list_assays()
+        ['proteins', 'peptides']
+        """
+        return list(self.assays.keys())
+
+    def list_layers(self, assay_name: str) -> list[str]:
+        """Return list of layer names for a specified assay.
+
+        Parameters
+        ----------
+        assay_name : str
+            Name of the assay to query.
+
+        Returns
+        -------
+        list[str]
+            List of layer names in the specified assay.
+
+        Raises
+        ------
+        KeyError
+            If assay_name does not exist in the container.
+
+        Examples
+        --------
+        >>> container.list_layers("proteins")
+        ['raw', 'log', 'normalized']
+        """
+        if assay_name not in self.assays:
+            available = ", ".join(f"'{k}'" for k in self.assays)
+            raise KeyError(
+                f"Assay '{assay_name}' not found. "
+                f"Available assays: {available}. "
+                f"Use list_assays() to see all available assays."
+            )
+        return list(self.assays[assay_name].layers.keys())
+
+    def summary(self) -> str:
+        """Return a formatted summary of the container contents.
+
+        Returns
+        -------
+        str
+            Multi-line string summarizing the container structure including
+            sample count, assay count, and per-assay details.
+
+        Examples
+        --------
+        >>> print(container.summary())
+        ScpContainer with 100 samples
+        Assays: 2
+          - proteins: 5000 features, 3 layers
+          - peptides: 20000 features, 1 layer
+        """
+        lines = [
+            f"ScpContainer with {self.n_samples} samples",
+            f"Assays: {len(self.assays)}",
+        ]
+        for name, assay in self.assays.items():
+            layers_count = len(assay.layers)
+            lines.append(f"  - {name}: {assay.n_features} features, {layers_count} layers")
+        return "\n".join(lines)
+
+    def _repr_html_(self) -> str:
+        """Return HTML representation for Jupyter notebook display.
+
+        Returns
+        -------
+        str
+            HTML string for rich display in Jupyter notebooks.
+
+        Examples
+        --------
+        >>> container  # In Jupyter, displays rich HTML output
+        """
+        lines = ["<div style='font-family: monospace;'>"]
+        lines.append(f"<strong>ScpContainer</strong> with {self.n_samples} samples<br>")
+        lines.append(f"<strong>Assays:</strong> {len(self.assays)}<br>")
+        for name, assay in self.assays.items():
+            layers_count = len(assay.layers)
+            lines.append(
+                f"&nbsp;&nbsp;* {name}: {assay.n_features} features, {layers_count} layers<br>"
+            )
+        lines.append("</div>")
+        return "".join(lines)
