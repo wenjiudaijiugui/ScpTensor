@@ -23,7 +23,7 @@ from scptensor.impute._utils import _update_imputed_mask
 
 
 @overload
-def svd_impute(
+def impute_svd(
     container: ScpContainer,
     assay_name: str,
     source_layer: str,
@@ -35,7 +35,7 @@ def svd_impute(
 ) -> ScpContainer: ...
 
 
-def svd_impute(
+def impute_svd(
     container: ScpContainer,
     assay_name: str,
     source_layer: str,
@@ -95,8 +95,8 @@ def svd_impute(
 
     Examples
     --------
-    >>> from scptensor import svd_impute
-    >>> result = svd_impute(container, "proteins", n_components=10)
+    >>> from scptensor import impute_svd
+    >>> result = impute_svd(container, "proteins", n_components=10)
     >>> "imputed_svd" in result.assays["proteins"].layers
     True
     """
@@ -242,6 +242,24 @@ def svd_impute(
     return container
 
 
+# Backward compatibility alias
+def svd_impute(*args, **kwargs):
+    """Deprecated: Use impute_svd instead.
+
+    This function is maintained for backward compatibility and will be
+    removed in version 1.0.0.
+    """
+    import warnings
+
+    warnings.warn(
+        "'svd_impute' is deprecated, use 'impute_svd' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return impute_svd(*args, **kwargs)
+
+
 if __name__ == "__main__":
     # Test: Basic functionality
     print("Testing SVD imputation...")
@@ -275,7 +293,7 @@ if __name__ == "__main__":
     container = ScpContainer(obs=obs, assays={"protein": assay})
 
     # Test SVD imputation
-    result = svd_impute(
+    result = impute_svd(
         container, assay_name="protein", source_layer="raw", n_components=5, max_iter=50
     )
 
@@ -319,7 +337,7 @@ if __name__ == "__main__":
     assay2.add_layer("raw", ScpMatrix(X=X_missing, M=M_initial))
     container2 = ScpContainer(obs=obs, assays={"protein": assay2})
 
-    result2 = svd_impute(
+    result2 = impute_svd(
         container2, assay_name="protein", source_layer="raw", n_components=5, max_iter=50
     )
 
@@ -342,7 +360,7 @@ if __name__ == "__main__":
     assay3.add_layer("raw", ScpMatrix(X=X_missing, M=None))
     container3 = ScpContainer(obs=obs, assays={"protein": assay3})
 
-    result3 = svd_impute(
+    result3 = impute_svd(
         container3,
         assay_name="protein",
         source_layer="raw",
@@ -368,7 +386,7 @@ if __name__ == "__main__":
     assay4.add_layer("raw", ScpMatrix(X=X_sparse, M=None))
     container4 = ScpContainer(obs=obs, assays={"protein": assay4})
 
-    result4 = svd_impute(
+    result4 = impute_svd(
         container4,
         assay_name="protein",
         source_layer="raw",
@@ -387,7 +405,7 @@ if __name__ == "__main__":
 
     try:
         # Invalid assay
-        svd_impute(container, assay_name="nonexistent", source_layer="raw")
+        impute_svd(container, assay_name="nonexistent", source_layer="raw")
         raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         assert "not found" in str(e)
@@ -395,7 +413,7 @@ if __name__ == "__main__":
 
     try:
         # Invalid layer
-        svd_impute(container, assay_name="protein", source_layer="nonexistent")
+        impute_svd(container, assay_name="protein", source_layer="nonexistent")
         raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         assert "not found" in str(e)
@@ -416,7 +434,7 @@ if __name__ == "__main__":
 
     try:
         # Invalid init_method
-        svd_impute(container, assay_name="protein", source_layer="raw", init_method="invalid")
+        impute_svd(container, assay_name="protein", source_layer="raw", init_method="invalid")
         raise AssertionError("Should have raised ValueError")
     except ValueError as e:
         assert "init_method" in str(e)

@@ -339,7 +339,7 @@ class TestKNNImputation:
         result = knn(container, assay_name="protein", source_layer="raw", k=5)
 
         assert len(result.history) == initial_history_len + 1
-        assert result.history[-1].action == "knn"
+        assert result.history[-1].action == "impute_knn"
 
     def test_knn_oversample_factor(self, impute_container):
         """Test KNN with different oversample factors."""

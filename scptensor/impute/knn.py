@@ -15,7 +15,7 @@ from scptensor.impute._utils import _update_imputed_mask
 
 
 @overload
-def knn(
+def impute_knn(
     container: ScpContainer,
     assay_name: str,
     source_layer: str,
@@ -27,7 +27,7 @@ def knn(
 ) -> ScpContainer: ...
 
 
-def knn(
+def impute_knn(
     container: ScpContainer,
     assay_name: str,
     source_layer: str,
@@ -84,8 +84,8 @@ def knn(
 
     Examples
     --------
-    >>> from scptensor import knn
-    >>> result = knn(container, "proteins", k=5, weights="distance")
+    >>> from scptensor import impute_knn
+    >>> result = impute_knn(container, "proteins", k=5, weights="distance")
     >>> "imputed_knn" in result.assays["proteins"].layers
     True
     """
@@ -231,7 +231,7 @@ def knn(
     assay.add_layer(layer_name, new_matrix)
 
     container.log_operation(
-        action="knn",
+        action="impute_knn",
         params={
             "assay": assay_name,
             "source_layer": source_layer,
@@ -244,3 +244,21 @@ def knn(
     )
 
     return container
+
+
+# Backward compatibility alias
+def knn(*args, **kwargs):
+    """Deprecated: Use impute_knn instead.
+
+    This function is maintained for backward compatibility and will be
+    removed in version 1.0.0.
+    """
+    import warnings
+
+    warnings.warn(
+        "'knn' is deprecated, use 'impute_knn' instead. "
+        "This will be removed in version 1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return impute_knn(*args, **kwargs)
