@@ -229,6 +229,7 @@ known-first-party = ["scptensor"]
 "scptensor/referee/*.py" = ["N803", "N806"]
 # Visualization: X, M are standard matrix names
 "scptensor/viz/*.py" = ["N803", "N806", "SIM105", "B007", "F841"]
+"scptensor/viz/base/*.py" = ["N803", "N806"]
 # Standardization: TYPE_CHECKING imports may be flagged as unused
 "scptensor/standardization/__init__.py" = ["F401"]
 # Utils modules: X, M, etc. are standard matrix names

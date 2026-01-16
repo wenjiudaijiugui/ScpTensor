@@ -385,8 +385,8 @@ def save_results(
         for op, results in results_dict.items()
     }
 
-    serializable["_summary"] = summaries_dict  # type: ignore[assignment]
-    serializable["_metadata"] = {  # type: ignore[assignment]
+    serializable["_summary"] = summaries_dict
+    serializable["_metadata"] = {
         "timestamp": datetime.now().isoformat(),
         "n_datasets": len(datasets),
         "dataset_sizes": [(d.n_samples, d.assays["protein"].n_features) for d in datasets],

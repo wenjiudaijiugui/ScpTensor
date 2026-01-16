@@ -1505,7 +1505,7 @@ def plot_cv_comparison(
 
         batch_cv_values = []
         for j in range(n_features):
-            valid_vals = batch_X[:, j][batch_valid[:, j]]  # type: ignore[index]
+            valid_vals = batch_X[:, j][batch_valid[:, j]]
             if len(valid_vals) > 1:
                 mean_val = np.mean(valid_vals)
                 if mean_val > 0:
@@ -1522,8 +1522,8 @@ def plot_cv_comparison(
         batch_means = []
         for batch_label in unique_batches:
             batch_mask = batches == batch_label
-            batch_valid = valid_mask[batch_mask, j]
-            valid_vals = X[batch_mask, j][batch_valid]  # type: ignore[index]
+            batch_valid = valid_mask[batch_mask, j]  # type: ignore[index]
+            valid_vals = X[batch_mask, j][batch_valid]
 
             if len(valid_vals) > 0:
                 batch_means.append(np.mean(valid_vals))
@@ -1630,7 +1630,7 @@ def plot_cv_comparison(
         ax.text(
             0.02,
             0.98,
-            f"{interpretation}\nBetween/Within Ratio: {ratio:.2f}",  # type: ignore[arg-type]
+            f"{interpretation}\nBetween/Within Ratio: {ratio:.2f}",
             transform=ax.transAxes,
             ha="left",
             va="top",

@@ -75,8 +75,8 @@ def _compute_mean_var(
         # Use sparse-aware mean to avoid dense conversion
         mean = np.asarray(X.mean(axis=axis)).ravel()
         # For variance: E[X^2] - E[X]^2
-        X_squared = X.copy()
-        X_squared.data **= 2
+        # Use X * X element-wise multiplication
+        X_squared = X * X
         mean_sq = np.asarray(X_squared.mean(axis=axis)).ravel()
         var = mean_sq - mean**2
         var = np.maximum(var, 0)  # Ensure non-negative
