@@ -1,7 +1,5 @@
 """Median scaling normalization for ScpTensor."""
 
-from typing import overload
-
 import numpy as np
 
 from scptensor.core.exceptions import (
@@ -9,15 +7,6 @@ from scptensor.core.exceptions import (
     LayerNotFoundError,
 )
 from scptensor.core.structures import ScpContainer, ScpMatrix
-
-
-@overload
-def norm_median_scale(
-    container: ScpContainer,
-    assay_name: str,
-    source_layer: str,
-    new_layer_name: str = "median_scaling",
-) -> ScpContainer: ...
 
 
 def norm_median_scale(

@@ -120,7 +120,7 @@ class LayerNotFoundError(ScpTensorError):
         elif hint:
             message += f". {hint}"
         elif available_layers:
-            available_list = ", ".join(f"'{l}'" for l in sorted(available_layers))
+            available_list = ", ".join(f"'{layer}'" for layer in sorted(available_layers))
             message += f". Available layers: {available_list}"
 
         super().__init__(message)
@@ -211,7 +211,9 @@ if __name__ == "__main__":
 
     # Test: LayerNotFoundError with hint
     try:
-        raise LayerNotFoundError("normalized", assay_name="proteins", hint="Available layers: raw, log")
+        raise LayerNotFoundError(
+            "normalized", assay_name="proteins", hint="Available layers: raw, log"
+        )
     except LayerNotFoundError as e:
         assert e.layer_name == "normalized"
         assert "Available layers" in str(e)

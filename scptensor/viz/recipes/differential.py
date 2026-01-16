@@ -472,19 +472,20 @@ def rank_genes_groups_stacked_violin(
     # Color violins by gene rank
     cmap_obj = plt.get_cmap(cmap)
     colors = cmap_obj(np.linspace(0, 1, n_top))
+    bodies = parts["bodies"]  # type: ignore[index]
     for i in range(n_top):
         # Color group1 violin
-        if i < len(parts["bodies"]) // 2:
-            parts["bodies"][i].set_facecolor(colors[i])
-            parts["bodies"][i].set_edgecolor("black")
-            parts["bodies"][i].set_alpha(0.7)
+        if i < len(bodies) // 2:  # type: ignore[arg-type]
+            bodies[i].set_facecolor(colors[i])
+            bodies[i].set_edgecolor("black")
+            bodies[i].set_alpha(0.7)
 
         # Color group2 violin
         j = i + n_top
-        if j < len(parts["bodies"]):
-            parts["bodies"][j].set_facecolor(colors[i])
-            parts["bodies"][j].set_edgecolor("black")
-            parts["bodies"][j].set_alpha(0.7)
+        if j < len(bodies):  # type: ignore[arg-type]
+            bodies[j].set_facecolor(colors[i])
+            bodies[j].set_edgecolor("black")
+            bodies[j].set_alpha(0.7)
 
     # Configure axes
     ax.set_yticks(np.arange(n_top) * 2 + 1.25)
@@ -822,6 +823,7 @@ def volcano(
 
     # Finalize
     fig = layout.finalize(tight=True)
+    assert fig is not None, "finalize() should never return None"
     fig.suptitle(f"Differential Expression: {group1} vs {group2}", fontsize=14, y=0.98)
 
     if show:

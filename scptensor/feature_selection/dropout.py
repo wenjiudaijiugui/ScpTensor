@@ -80,9 +80,9 @@ def select_by_dropout(
 
     # Convert to dense if sparse
     if sparse.issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
     if M is not None and sparse.issparse(M):
-        M = M.toarray()
+        M = M.toarray()  # type: ignore[union-attr]
 
     # Compute dropout statistics
     n_detected, dropout_rate = _compute_dropout_with_intensity(X, M)
@@ -210,7 +210,7 @@ def _subset_or_annotate_dropout(
         new_container = container.__class__(
             obs=container.obs, assays=new_assays, history=list(container.history)
         )
-        n_pass = np.sum(bool_mask)
+        n_pass = int(np.sum(bool_mask))  # type: ignore[assignment]
         description = f"Annotated {n_pass}/{assay.n_features} features passing filter."
 
     new_container.log_operation(
@@ -265,9 +265,9 @@ def get_dropout_stats(
 
     # Convert to dense if sparse
     if sparse.issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
     if M is not None and sparse.issparse(M):
-        M = M.toarray()
+        M = M.toarray()  # type: ignore[union-attr]
 
     n_samples = X.shape[0]
     X.shape[1]

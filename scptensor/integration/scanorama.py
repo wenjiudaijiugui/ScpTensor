@@ -204,7 +204,7 @@ def integrate_scanorama(
 def _prepare_scanorama_data(X: np.ndarray | sp.spmatrix) -> np.ndarray:
     """Convert sparse to dense and impute NaN values."""
     if sp.issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
     X = np.asarray(X)
 
     if np.isnan(X).any():

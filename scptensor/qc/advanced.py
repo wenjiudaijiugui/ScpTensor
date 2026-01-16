@@ -181,7 +181,7 @@ def filter_features_missing(
     # Calculate missing rate for each feature
     if sp.issparse(X):
         X.shape[0]
-        n_detected = X.getnnz(axis=0)  # Number of non-zero entries per column
+        n_detected = X.getnnz(axis=0)  # type: ignore[union-attr]  # Number of non-zero entries per column
     else:
         n_detected = np.sum(detection_threshold < X, axis=0)
 
@@ -301,7 +301,7 @@ def filter_features_variance(
     # Calculate variance for each feature
     if sp.issparse(X):
         # For sparse matrices, use efficient variance computation
-        X = X.tocsc()
+        X = X.tocsc()  # type: ignore[union-attr]
         mean = np.array(X.mean(axis=0)).flatten()
         mean_sq = np.array(X.power(2).mean(axis=0)).flatten()
         variance = mean_sq - mean**2
@@ -434,7 +434,7 @@ def filter_features_prevalence(
 
     # Calculate prevalence for each feature
     if sp.issparse(X):
-        prevalence = np.array(X.getnnz(axis=0)).flatten()
+        prevalence = np.array(X.getnnz(axis=0)).flatten()  # type: ignore[union-attr]
     else:
         prevalence = np.sum(detection_threshold < X, axis=0)
 
@@ -675,7 +675,7 @@ def filter_samples_missing(
 
     # Calculate missing rate per sample
     if sp.issparse(X):
-        n_detected = np.array(X.getnnz(axis=1)).flatten()
+        n_detected = np.array(X.getnnz(axis=1)).flatten()  # type: ignore[union-attr]
     else:
         n_detected = np.sum(detection_threshold < X, axis=1)
 
@@ -803,7 +803,7 @@ def detect_contaminants(
 
     # Calculate prevalence for each potential contaminant
     if sp.issparse(X):
-        prevalence = np.array(X.getnnz(axis=0)).flatten()
+        prevalence = np.array(X.getnnz(axis=0)).flatten()  # type: ignore[union-attr]
     else:
         prevalence = np.sum(detection_threshold < X, axis=0)
 
@@ -812,7 +812,7 @@ def detect_contaminants(
 
     # Calculate contaminant content per sample (vectorized)
     if sp.issparse(X):
-        X_dense = X.toarray()
+        X_dense = X.toarray()  # type: ignore[union-attr]
     else:
         X_dense = X
 
@@ -943,7 +943,7 @@ def detect_doublets(
 
     # Handle sparse matrices
     if sp.issparse(X):
-        X_for_analysis = X.toarray()
+        X_for_analysis = X.toarray()  # type: ignore[union-attr]
     else:
         X_for_analysis = X
 
@@ -1087,8 +1087,8 @@ def calculate_qc_metrics(
     n_samples, n_features = X.shape
 
     if sp.issparse(X):
-        X_csr = X.tocsr()
-        X_csc = X.tocsc()
+        X_csr = X.tocsr()  # type: ignore[union-attr]
+        X_csc = X.tocsc()  # type: ignore[union-attr]
 
         # Sample metrics - vectorized where possible
         n_detected_samples = np.diff(X_csr.indptr)

@@ -22,6 +22,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -364,7 +365,7 @@ def save_results(
     output_dir.mkdir(exist_ok=True, parents=True)
 
     # Convert results to serializable format
-    serializable = {
+    serializable: dict[str, Any] = {
         op: [
             {
                 "operation": r.operation,
@@ -384,8 +385,8 @@ def save_results(
         for op, results in results_dict.items()
     }
 
-    serializable["_summary"] = summaries_dict
-    serializable["_metadata"] = {
+    serializable["_summary"] = summaries_dict  # type: ignore[assignment]
+    serializable["_metadata"] = {  # type: ignore[assignment]
         "timestamp": datetime.now().isoformat(),
         "n_datasets": len(datasets),
         "dataset_sizes": [(d.n_samples, d.assays["protein"].n_features) for d in datasets],

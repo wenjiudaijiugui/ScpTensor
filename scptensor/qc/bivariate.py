@@ -90,7 +90,7 @@ def compute_pairwise_correlation(
 
     # Handle sparse matrices
     if sp.issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
 
     # Replace values below threshold with NaN for proper correlation
     X_copy = X.copy()
@@ -133,9 +133,7 @@ def compute_pairwise_correlation(
     corr_list = corr_matrix.tolist()
     # Replicate for all samples to match DataFrame height
     corr_list_replicated = [corr_list] * n_samples
-    new_obs = container.obs.with_columns(
-        pl.Series("pairwise_correlation", corr_list_replicated)
-    )
+    new_obs = container.obs.with_columns(pl.Series("pairwise_correlation", corr_list_replicated))
 
     new_container = ScpContainer(
         obs=new_obs,
@@ -158,7 +156,9 @@ def detect_outlier_samples(
     container: ScpContainer,
     assay_name: str = "protein",
     layer_name: str = "raw",
-    method: Literal["median_absolute_deviation", "zscore", "iqr", "isolation"] = "median_absolute_deviation",
+    method: Literal[
+        "median_absolute_deviation", "zscore", "iqr", "isolation"
+    ] = "median_absolute_deviation",
     threshold: float = 3.0,
     metric: Literal["mean_correlation", "median_distance", "total_intensity"] = "mean_correlation",
     random_state: int = 42,
@@ -257,7 +257,7 @@ def detect_outlier_samples(
 
     # Handle sparse matrices
     if sp.issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
 
     n_samples = X.shape[0]
 
@@ -415,7 +415,7 @@ def compute_sample_similarity_network(
 
     # Handle sparse matrices
     if sp.issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
 
     # Replace NaN with 0 for distance calculation
     X_clean = np.nan_to_num(X, nan=0.0)

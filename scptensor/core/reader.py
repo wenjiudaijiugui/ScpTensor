@@ -1,9 +1,9 @@
-from typing import Literal, NoReturn
+from typing import Literal
 
 from .structures import ScpContainer
 
 
-def _clean_cols() -> NoReturn:
+def _clean_cols() -> None:
     """Placeholder function for column cleaning logic."""
     pass
 
@@ -25,4 +25,4 @@ def reader(
     Returns:
         ScpContainer: Loaded data container.
     """
-    ...
+    raise NotImplementedError("reader function is not yet implemented.")

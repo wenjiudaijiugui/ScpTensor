@@ -5,14 +5,12 @@ selective export, history preservation, and edge cases.
 """
 
 from datetime import datetime
-from pathlib import Path
 
 import numpy as np
 import polars as pl
-import pytest
 from scipy import sparse
 
-from scptensor import Assay, load_hdf5, save_hdf5, ScpContainer, ProvenanceLog, ScpMatrix
+from scptensor import Assay, ProvenanceLog, ScpContainer, ScpMatrix, load_hdf5, save_hdf5
 
 
 class TestRoundTripWithMasks:
@@ -27,18 +25,22 @@ class TestRoundTripWithMasks:
         M.data = np.where(np.random.rand(len(M.data)) > 0.5, 1, 0)
 
         matrix = ScpMatrix(X=X, M=M)
-        var = pl.DataFrame({
-            "_index": [f"P{i}" for i in range(n_features)],
-            "feature": [f"P{i}" for i in range(n_features)],
-            "mean": np.random.rand(n_features)
-        })
+        var = pl.DataFrame(
+            {
+                "_index": [f"P{i}" for i in range(n_features)],
+                "feature": [f"P{i}" for i in range(n_features)],
+                "mean": np.random.rand(n_features),
+            }
+        )
         assay = Assay(var=var, layers={"X": matrix})
 
-        obs = pl.DataFrame({
-            "_index": [f"S{i}" for i in range(n_samples)],
-            "sample": [f"S{i}" for i in range(n_samples)],
-            "group": np.random.choice(["A", "B"], n_samples)
-        })
+        obs = pl.DataFrame(
+            {
+                "_index": [f"S{i}" for i in range(n_samples)],
+                "sample": [f"S{i}" for i in range(n_samples)],
+                "group": np.random.choice(["A", "B"], n_samples),
+            }
+        )
         container = ScpContainer(obs=obs, assays={"proteins": assay})
 
         # Save and load
@@ -65,18 +67,22 @@ class TestRoundTripWithMasks:
         M = np.random.choice([0, 1, 2, 3], size=(n_samples, n_features))
 
         matrix = ScpMatrix(X=X, M=M)
-        var = pl.DataFrame({
-            "_index": [f"P{i}" for i in range(n_features)],
-            "feature": [f"P{i}" for i in range(n_features)],
-            "mean": np.random.rand(n_features)
-        })
+        var = pl.DataFrame(
+            {
+                "_index": [f"P{i}" for i in range(n_features)],
+                "feature": [f"P{i}" for i in range(n_features)],
+                "mean": np.random.rand(n_features),
+            }
+        )
         assay = Assay(var=var, layers={"X": matrix})
 
-        obs = pl.DataFrame({
-            "_index": [f"S{i}" for i in range(n_samples)],
-            "sample": [f"S{i}" for i in range(n_samples)],
-            "group": np.random.choice(["A", "B"], n_samples)
-        })
+        obs = pl.DataFrame(
+            {
+                "_index": [f"S{i}" for i in range(n_samples)],
+                "sample": [f"S{i}" for i in range(n_samples)],
+                "group": np.random.choice(["A", "B"], n_samples),
+            }
+        )
         container = ScpContainer(obs=obs, assays={"proteins": assay})
 
         # Save and load
@@ -97,18 +103,22 @@ class TestRoundTripWithMasks:
         X = np.random.randn(n_samples, n_features)
 
         matrix = ScpMatrix(X=X, M=None)
-        var = pl.DataFrame({
-            "_index": [f"P{i}" for i in range(n_features)],
-            "feature": [f"P{i}" for i in range(n_features)],
-            "mean": np.random.rand(n_features)
-        })
+        var = pl.DataFrame(
+            {
+                "_index": [f"P{i}" for i in range(n_features)],
+                "feature": [f"P{i}" for i in range(n_features)],
+                "mean": np.random.rand(n_features),
+            }
+        )
         assay = Assay(var=var, layers={"X": matrix})
 
-        obs = pl.DataFrame({
-            "_index": [f"S{i}" for i in range(n_samples)],
-            "sample": [f"S{i}" for i in range(n_samples)],
-            "group": ["A"] * n_samples
-        })
+        obs = pl.DataFrame(
+            {
+                "_index": [f"S{i}" for i in range(n_samples)],
+                "sample": [f"S{i}" for i in range(n_samples)],
+                "group": ["A"] * n_samples,
+            }
+        )
         container = ScpContainer(obs=obs, assays={"proteins": assay})
 
         # Save and load
@@ -128,39 +138,38 @@ class TestMultiAssayRoundTrip:
     def test_multi_assay_export_import(self, tmp_path):
         """Test container with multiple assays preserves all data."""
         n_samples = 30
-        obs = pl.DataFrame({
-            "_index": [f"S{i}" for i in range(n_samples)],
-            "sample": [f"S{i}" for i in range(n_samples)],
-            "batch": np.random.choice(["B1", "B2"], n_samples)
-        })
+        obs = pl.DataFrame(
+            {
+                "_index": [f"S{i}" for i in range(n_samples)],
+                "sample": [f"S{i}" for i in range(n_samples)],
+                "batch": np.random.choice(["B1", "B2"], n_samples),
+            }
+        )
 
         # Create two assays
         assay1 = Assay(
-            var=pl.DataFrame({
-                "_index": [f"P{i}" for i in range(50)],
-                "feature": [f"P{i}" for i in range(50)],
-                "mean": np.random.rand(50)
-            }),
-            layers={
-                "X": ScpMatrix(X=np.random.randn(n_samples, 50))
-            }
+            var=pl.DataFrame(
+                {
+                    "_index": [f"P{i}" for i in range(50)],
+                    "feature": [f"P{i}" for i in range(50)],
+                    "mean": np.random.rand(50),
+                }
+            ),
+            layers={"X": ScpMatrix(X=np.random.randn(n_samples, 50))},
         )
 
         assay2 = Assay(
-            var=pl.DataFrame({
-                "_index": [f"M{i}" for i in range(30)],
-                "feature": [f"M{i}" for i in range(30)],
-                "mean": np.random.rand(30)
-            }),
-            layers={
-                "X": ScpMatrix(X=np.random.randn(n_samples, 30))
-            }
+            var=pl.DataFrame(
+                {
+                    "_index": [f"M{i}" for i in range(30)],
+                    "feature": [f"M{i}" for i in range(30)],
+                    "mean": np.random.rand(30),
+                }
+            ),
+            layers={"X": ScpMatrix(X=np.random.randn(n_samples, 30))},
         )
 
-        container = ScpContainer(
-            obs=obs,
-            assays={"proteins": assay1, "metabolites": assay2}
-        )
+        container = ScpContainer(obs=obs, assays={"proteins": assay1, "metabolites": assay2})
 
         # Save and load
         path = tmp_path / "test_multi_assay.h5"
@@ -181,30 +190,36 @@ class TestSelectiveExport:
     def test_selective_assay_export(self, tmp_path):
         """Test exporting only specific assays."""
         n_samples = 20
-        obs = pl.DataFrame({
-            "_index": [f"S{i}" for i in range(n_samples)],
-            "sample": [f"S{i}" for i in range(n_samples)],
-            "batch": ["B1"] * n_samples
-        })
+        obs = pl.DataFrame(
+            {
+                "_index": [f"S{i}" for i in range(n_samples)],
+                "sample": [f"S{i}" for i in range(n_samples)],
+                "batch": ["B1"] * n_samples,
+            }
+        )
 
         container = ScpContainer(
             obs=obs,
             assays={
                 "assay1": Assay(
-                    var=pl.DataFrame({
-                        "_index": [f"A{i}" for i in range(10)],
-                        "feature": [f"A{i}" for i in range(10)]
-                    }),
-                    layers={"X": ScpMatrix(X=np.random.randn(n_samples, 10))}
+                    var=pl.DataFrame(
+                        {
+                            "_index": [f"A{i}" for i in range(10)],
+                            "feature": [f"A{i}" for i in range(10)],
+                        }
+                    ),
+                    layers={"X": ScpMatrix(X=np.random.randn(n_samples, 10))},
                 ),
                 "assay2": Assay(
-                    var=pl.DataFrame({
-                        "_index": [f"B{i}" for i in range(10)],
-                        "feature": [f"B{i}" for i in range(10)]
-                    }),
-                    layers={"X": ScpMatrix(X=np.random.randn(n_samples, 10))}
+                    var=pl.DataFrame(
+                        {
+                            "_index": [f"B{i}" for i in range(10)],
+                            "feature": [f"B{i}" for i in range(10)],
+                        }
+                    ),
+                    layers={"X": ScpMatrix(X=np.random.randn(n_samples, 10))},
                 ),
-            }
+            },
         )
 
         # Export only assay1
@@ -220,23 +235,27 @@ class TestSelectiveExport:
     def test_selective_layer_export(self, tmp_path):
         """Test exporting only specific layers."""
         n_samples, n_features = 20, 30
-        obs = pl.DataFrame({
-            "_index": [f"S{i}" for i in range(n_samples)],
-            "sample": [f"S{i}" for i in range(n_samples)],
-            "batch": ["B1"] * n_samples
-        })
+        obs = pl.DataFrame(
+            {
+                "_index": [f"S{i}" for i in range(n_samples)],
+                "sample": [f"S{i}" for i in range(n_samples)],
+                "batch": ["B1"] * n_samples,
+            }
+        )
 
         assay = Assay(
-            var=pl.DataFrame({
-                "_index": [f"P{i}" for i in range(n_features)],
-                "feature": [f"P{i}" for i in range(n_features)],
-                "mean": np.random.rand(n_features)
-            }),
+            var=pl.DataFrame(
+                {
+                    "_index": [f"P{i}" for i in range(n_features)],
+                    "feature": [f"P{i}" for i in range(n_features)],
+                    "mean": np.random.rand(n_features),
+                }
+            ),
             layers={
                 "X": ScpMatrix(X=np.random.randn(n_samples, n_features)),
                 "log": ScpMatrix(X=np.random.randn(n_samples, n_features)),
                 "scaled": ScpMatrix(X=np.random.randn(n_samples, n_features)),
-            }
+            },
         )
 
         container = ScpContainer(obs=obs, assays={"proteins": assay})
@@ -260,18 +279,22 @@ class TestHistoryPreservation:
         """Test that operation history is preserved."""
         n_samples, n_features = 20, 30
         container = ScpContainer(
-            obs=pl.DataFrame({
-                "_index": [f"S{i}" for i in range(n_samples)],
-                "sample": [f"S{i}" for i in range(n_samples)],
-                "batch": ["B1"] * n_samples
-            }),
+            obs=pl.DataFrame(
+                {
+                    "_index": [f"S{i}" for i in range(n_samples)],
+                    "sample": [f"S{i}" for i in range(n_samples)],
+                    "batch": ["B1"] * n_samples,
+                }
+            ),
             assays={
                 "proteins": Assay(
-                    var=pl.DataFrame({
-                        "_index": [f"P{i}" for i in range(n_features)],
-                        "feature": [f"P{i}" for i in range(n_features)]
-                    }),
-                    layers={"X": ScpMatrix(X=np.random.randn(n_samples, n_features))}
+                    var=pl.DataFrame(
+                        {
+                            "_index": [f"P{i}" for i in range(n_features)],
+                            "feature": [f"P{i}" for i in range(n_features)],
+                        }
+                    ),
+                    layers={"X": ScpMatrix(X=np.random.randn(n_samples, n_features))},
                 )
             },
             history=[
@@ -280,16 +303,16 @@ class TestHistoryPreservation:
                     action="normalize",
                     params={"method": "log"},
                     software_version="0.1.0",
-                    description="Log normalization"
+                    description="Log normalization",
                 ),
                 ProvenanceLog(
                     timestamp=datetime.now().isoformat(),
                     action="impute",
                     params={"method": "knn", "k": 5},
                     software_version="0.1.0",
-                    description="KNN imputation"
+                    description="KNN imputation",
                 ),
-            ]
+            ],
         )
 
         # Save and load
@@ -308,18 +331,22 @@ class TestHistoryPreservation:
         """Test export with save_history=False."""
         n_samples, n_features = 20, 30
         container = ScpContainer(
-            obs=pl.DataFrame({
-                "_index": [f"S{i}" for i in range(n_samples)],
-                "sample": [f"S{i}" for i in range(n_samples)],
-                "batch": ["B1"] * n_samples
-            }),
+            obs=pl.DataFrame(
+                {
+                    "_index": [f"S{i}" for i in range(n_samples)],
+                    "sample": [f"S{i}" for i in range(n_samples)],
+                    "batch": ["B1"] * n_samples,
+                }
+            ),
             assays={
                 "proteins": Assay(
-                    var=pl.DataFrame({
-                        "_index": [f"P{i}" for i in range(n_features)],
-                        "feature": [f"P{i}" for i in range(n_features)]
-                    }),
-                    layers={"X": ScpMatrix(X=np.random.randn(n_samples, n_features))}
+                    var=pl.DataFrame(
+                        {
+                            "_index": [f"P{i}" for i in range(n_features)],
+                            "feature": [f"P{i}" for i in range(n_features)],
+                        }
+                    ),
+                    layers={"X": ScpMatrix(X=np.random.randn(n_samples, n_features))},
                 )
             },
             history=[
@@ -327,9 +354,9 @@ class TestHistoryPreservation:
                     timestamp=datetime.now().isoformat(),
                     action="test_action",
                     params={},
-                    software_version="0.1.0"
+                    software_version="0.1.0",
                 )
-            ]
+            ],
         )
 
         # Save without history
@@ -347,10 +374,7 @@ class TestEdgeCases:
 
     def test_empty_container_export(self, tmp_path):
         """Test export of minimal empty container."""
-        container = ScpContainer(
-            obs=pl.DataFrame({"_index": [], "sample": []}),
-            assays={}
-        )
+        container = ScpContainer(obs=pl.DataFrame({"_index": [], "sample": []}), assays={})
 
         path = tmp_path / "test_empty.h5"
         save_hdf5(container, path)
@@ -365,25 +389,29 @@ class TestEdgeCases:
         """Test export of larger dataset."""
         n_samples, n_features = 500, 1000
         container = ScpContainer(
-            obs=pl.DataFrame({
-                "_index": [f"S{i}" for i in range(n_samples)],
-                "sample": [f"S{i}" for i in range(n_samples)],
-                "batch": np.random.choice(["B1", "B2", "B3"], n_samples)
-            }),
+            obs=pl.DataFrame(
+                {
+                    "_index": [f"S{i}" for i in range(n_samples)],
+                    "sample": [f"S{i}" for i in range(n_samples)],
+                    "batch": np.random.choice(["B1", "B2", "B3"], n_samples),
+                }
+            ),
             assays={
                 "proteins": Assay(
-                    var=pl.DataFrame({
-                        "_index": [f"P{i}" for i in range(n_features)],
-                        "feature": [f"P{i}" for i in range(n_features)],
-                        "mean": np.random.rand(n_features)
-                    }),
+                    var=pl.DataFrame(
+                        {
+                            "_index": [f"P{i}" for i in range(n_features)],
+                            "feature": [f"P{i}" for i in range(n_features)],
+                            "mean": np.random.rand(n_features),
+                        }
+                    ),
                     layers={
-                        "X": ScpMatrix(X=sparse.random(
-                            n_samples, n_features, density=0.1, format="csr"
-                        ))
-                    }
+                        "X": ScpMatrix(
+                            X=sparse.random(n_samples, n_features, density=0.1, format="csr")
+                        )
+                    },
                 )
-            }
+            },
         )
 
         path = tmp_path / "test_large.h5"
@@ -399,22 +427,26 @@ class TestEdgeCases:
         """Test handling of special characters in string columns."""
         n_samples, n_features = 10, 15
         container = ScpContainer(
-            obs=pl.DataFrame({
-                "_index": [f"S{i}_{j}" for i, j in enumerate(range(n_samples))],
-                "sample": [f"S{i}_{j}" for i, j in enumerate(range(n_samples))],
-                "group": ["group-A", "group/B", "group\\C"] + ["D"] * (n_samples - 3),
-                "unicode": ["样本", "données", "Данные"] + ["E"] * (n_samples - 3)
-            }),
+            obs=pl.DataFrame(
+                {
+                    "_index": [f"S{i}_{j}" for i, j in enumerate(range(n_samples))],
+                    "sample": [f"S{i}_{j}" for i, j in enumerate(range(n_samples))],
+                    "group": ["group-A", "group/B", "group\\C"] + ["D"] * (n_samples - 3),
+                    "unicode": ["样本", "données", "Данные"] + ["E"] * (n_samples - 3),
+                }
+            ),
             assays={
                 "proteins": Assay(
-                    var=pl.DataFrame({
-                        "_index": [f"P{i};value" for i in range(n_features)],
-                        "feature": [f"P{i};value" for i in range(n_features)],
-                        "desc": ["protein|test"] * n_features
-                    }),
-                    layers={"X": ScpMatrix(X=np.random.randn(n_samples, n_features))}
+                    var=pl.DataFrame(
+                        {
+                            "_index": [f"P{i};value" for i in range(n_features)],
+                            "feature": [f"P{i};value" for i in range(n_features)],
+                            "desc": ["protein|test"] * n_features,
+                        }
+                    ),
+                    layers={"X": ScpMatrix(X=np.random.randn(n_samples, n_features))},
                 )
-            }
+            },
         )
 
         path = tmp_path / "test_special_chars.h5"
@@ -430,21 +462,25 @@ class TestEdgeCases:
         """Test different compression levels."""
         n_samples, n_features = 100, 200
         container = ScpContainer(
-            obs=pl.DataFrame({
-                "_index": [f"S{i}" for i in range(n_samples)],
-                "sample": [f"S{i}" for i in range(n_samples)],
-                "batch": ["B1"] * n_samples
-            }),
+            obs=pl.DataFrame(
+                {
+                    "_index": [f"S{i}" for i in range(n_samples)],
+                    "sample": [f"S{i}" for i in range(n_samples)],
+                    "batch": ["B1"] * n_samples,
+                }
+            ),
             assays={
                 "proteins": Assay(
-                    var=pl.DataFrame({
-                        "_index": [f"P{i}" for i in range(n_features)],
-                        "feature": [f"P{i}" for i in range(n_features)],
-                        "mean": np.random.rand(n_features)
-                    }),
-                    layers={"X": ScpMatrix(X=np.random.randn(n_samples, n_features))}
+                    var=pl.DataFrame(
+                        {
+                            "_index": [f"P{i}" for i in range(n_features)],
+                            "feature": [f"P{i}" for i in range(n_features)],
+                            "mean": np.random.rand(n_features),
+                        }
+                    ),
+                    layers={"X": ScpMatrix(X=np.random.randn(n_samples, n_features))},
                 )
-            }
+            },
         )
 
         # Test different compression levels
@@ -454,6 +490,5 @@ class TestEdgeCases:
 
             loaded = load_hdf5(path)
             np.testing.assert_array_almost_equal(
-                loaded.assays["proteins"].layers["X"].X,
-                container.assays["proteins"].layers["X"].X
+                loaded.assays["proteins"].layers["X"].X, container.assays["proteins"].layers["X"].X
             )

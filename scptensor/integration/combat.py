@@ -90,7 +90,7 @@ def integrate_combat(
     input_was_sparse = is_sparse_matrix(X)
 
     # Convert to dense for ComBat computation
-    X_dense = X.toarray() if input_was_sparse else np.asarray(X)
+    X_dense = X.toarray() if input_was_sparse else np.asarray(X)  # type: ignore[union-attr]
 
     # Validate batch_key
     obs_df = container.obs

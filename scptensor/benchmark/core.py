@@ -156,9 +156,7 @@ class MethodRunResult:
             "runtime_seconds": self.runtime_seconds,
             "memory_usage_mb": self.memory_usage_mb,
             "technical_scores": asdict(self.technical_scores),
-            "biological_scores": asdict(self.biological_scores)
-            if self.biological_scores
-            else None,
+            "biological_scores": asdict(self.biological_scores) if self.biological_scores else None,
             "computational_scores": asdict(self.computational_scores),
             "random_seed": self.random_seed,
             "timestamp": self.timestamp,

@@ -218,8 +218,7 @@ def qc_score(
         for key, value in weights.items():
             if key not in default_weights:
                 raise ScpValueError(
-                    f"Unknown weight key '{key}'. "
-                    f"Valid keys: {list(default_weights.keys())}",
+                    f"Unknown weight key '{key}'. Valid keys: {list(default_weights.keys())}",
                     parameter="weights",
                     value=weights,
                 )
@@ -240,7 +239,7 @@ def qc_score(
 
     # Handle sparse matrices
     if sp.issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
 
     # Replace values below threshold with NaN for calculations
     X_detected = X.copy()
@@ -369,7 +368,7 @@ def compute_feature_variance(
 
     # Handle sparse matrices
     if sp.issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
 
     n_features = X.shape[1]
 
@@ -414,8 +413,7 @@ def compute_feature_variance(
     new_assay.var = new_var
 
     new_assays = {
-        name: new_assay if name == assay_name else a
-        for name, a in container.assays.items()
+        name: new_assay if name == assay_name else a for name, a in container.assays.items()
     }
 
     new_container = ScpContainer(
@@ -496,7 +494,7 @@ def compute_feature_missing_rate(
 
     # Calculate detection for each feature
     if sp.issparse(X):
-        n_detected = np.array(X.getnnz(axis=0)).flatten()
+        n_detected = np.array(X.getnnz(axis=0)).flatten()  # type: ignore[union-attr]
     else:
         n_detected = np.sum(detection_threshold < X, axis=0)
 
@@ -518,8 +516,7 @@ def compute_feature_missing_rate(
     new_assay.var = new_var
 
     new_assays = {
-        name: new_assay if name == assay_name else a
-        for name, a in container.assays.items()
+        name: new_assay if name == assay_name else a for name, a in container.assays.items()
     }
 
     new_container = ScpContainer(
@@ -538,4 +535,3 @@ def compute_feature_missing_rate(
     )
 
     return new_container
-

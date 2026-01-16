@@ -1,7 +1,5 @@
 """MissForest imputation for single-cell proteomics data."""
 
-from typing import overload
-
 import numpy as np
 import sklearn.ensemble
 
@@ -13,21 +11,6 @@ from scptensor.core.exceptions import (
 from scptensor.core.jit_ops import impute_missing_with_col_means_jit
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
-
-
-@overload
-def impute_mf(
-    container: ScpContainer,
-    assay_name: str,
-    source_layer: str,
-    new_layer_name: str = "imputed_missforest",
-    max_iter: int = 10,
-    n_estimators: int = 100,
-    max_depth: int | None = None,
-    n_jobs: int = -1,
-    random_state: int = 42,
-    verbose: int = 0,
-) -> ScpContainer: ...
 
 
 def impute_mf(

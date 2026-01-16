@@ -410,10 +410,10 @@ def create_method_configs() -> dict[str, MethodConfig]:
     from scptensor.integration.combat import integrate_combat
     from scptensor.normalization import (
         norm_global_median,
+        norm_quartile,
         norm_sample_mean,
         norm_sample_median,
         norm_tmm,
-        norm_quartile,
     )
 
     norm_grids = create_normalization_parameter_grids()

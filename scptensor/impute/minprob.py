@@ -8,8 +8,6 @@ References:
     .. [2] Lazar C, et al. BMC Bioinformatics 2016;17:175.
 """
 
-from typing import overload
-
 import numpy as np
 import scipy.sparse as sp
 
@@ -20,17 +18,6 @@ from scptensor.core.exceptions import (
 )
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
-
-
-@overload
-def impute_minprob(
-    container: ScpContainer,
-    assay_name: str,
-    source_layer: str,
-    new_layer_name: str = "imputed_minprob",
-    sigma: float = 2.0,
-    random_state: int | None = None,
-) -> ScpContainer: ...
 
 
 def impute_minprob(
@@ -145,7 +132,7 @@ def impute_minprob(
     # Get data
     input_matrix = assay.layers[source_layer]
     X_original = input_matrix.X
-    X_dense = X_original.toarray() if sp.issparse(X_original) else X_original.copy()
+    X_dense = X_original.toarray() if sp.issparse(X_original) else X_original.copy()  # type: ignore[union-attr]
 
     # Check for missing values
     missing_mask = np.isnan(X_dense)
@@ -226,16 +213,6 @@ def impute_minprob(
     )
 
     return container
-
-
-@overload
-def impute_mindet(
-    container: ScpContainer,
-    assay_name: str,
-    source_layer: str,
-    new_layer_name: str = "imputed_mindet",
-    sigma: float = 1.0,
-) -> ScpContainer: ...
 
 
 def impute_mindet(
@@ -340,7 +317,7 @@ def impute_mindet(
     # Get data
     input_matrix = assay.layers[source_layer]
     X_original = input_matrix.X
-    X_dense = X_original.toarray() if sp.issparse(X_original) else X_original.copy()
+    X_dense = X_original.toarray() if sp.issparse(X_original) else X_original.copy()  # type: ignore[union-attr]
 
     # Check for missing values
     missing_mask = np.isnan(X_dense)
@@ -512,8 +489,8 @@ if __name__ == "__main__":
     )
 
     M_result2 = result2.assays["protein"].layers["imputed_minprob"].M
-    assert np.all(M_result2[missing_mask] == MaskCode.IMPUTED)
-    assert np.all(M_result2[~missing_mask] == MaskCode.VALID)
+    assert np.all(M_result2[missing_mask] == MaskCode.IMPUTED)  # type: ignore[index]
+    assert np.all(M_result2[~missing_mask] == MaskCode.VALID)  # type: ignore[index]
     print("  Existing mask correctly updated")
 
     print("\nTesting different sigma values...")

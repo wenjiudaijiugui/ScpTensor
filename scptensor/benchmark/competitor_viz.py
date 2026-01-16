@@ -254,7 +254,7 @@ class CompetitorResultVisualizer:
         ax.grid(axis="y", alpha=0.3)
 
         for container in ax.containers:
-            ax.bar_label(container, fmt="%.2fx", fontsize=8, padding=2)
+            ax.bar_label(container, fmt="%.2fx", fontsize=8, padding=2)  # type: ignore[arg-type]
 
         plt.tight_layout()
         _save_or_show_figure(output_path, "speedup comparison")

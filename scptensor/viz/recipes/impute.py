@@ -99,13 +99,13 @@ def plot_imputation_comparison(
 
     # Get original data and mask
     if sp.issparse(original_matrix.X):
-        X_orig = original_matrix.X.toarray()
+        X_orig = original_matrix.X.toarray()  # type: ignore[union-attr]
     else:
         X_orig = original_matrix.X.copy()
 
     if original_matrix.M is not None:
         if sp.issparse(original_matrix.M):
-            M = original_matrix.M.toarray()
+            M = original_matrix.M.toarray()  # type: ignore[union-attr]
         else:
             M = original_matrix.M.copy()
     else:
@@ -144,7 +144,7 @@ def plot_imputation_comparison(
 
         imputed_matrix = assay.layers[method]
         if sp.issparse(imputed_matrix.X):
-            X_imp = imputed_matrix.X.toarray()
+            X_imp = imputed_matrix.X.toarray()  # type: ignore[union-attr]
         else:
             X_imp = imputed_matrix.X.copy()
 
@@ -300,19 +300,19 @@ def plot_imputation_scatter(
     matrix_imp = assay_imp.layers[layer_imputed]
 
     if sp.issparse(matrix_true.X):
-        X_true = matrix_true.X.toarray()
+        X_true = matrix_true.X.toarray()  # type: ignore[union-attr]
     else:
         X_true = matrix_true.X.copy()
 
     if sp.issparse(matrix_imp.X):
-        X_imp = matrix_imp.X.toarray()
+        X_imp = matrix_imp.X.toarray()  # type: ignore[union-attr]
     else:
         X_imp = matrix_imp.X.copy()
 
     # Get mask to identify imputed vs observed
     if matrix_imp.M is not None:
         if sp.issparse(matrix_imp.M):
-            M_imp = matrix_imp.M.toarray()
+            M_imp = matrix_imp.M.toarray()  # type: ignore[union-attr]
         else:
             M_imp = matrix_imp.M.copy()
     else:
@@ -566,7 +566,7 @@ def plot_missing_pattern(
     # Get mask matrix (True where missing/invalid)
     if matrix.M is not None:
         if sp.issparse(matrix.M):
-            M = matrix.M.toarray()
+            M = matrix.M.toarray()  # type: ignore[union-attr]
         else:
             M = matrix.M.copy()
         # Missing = non-zero mask code

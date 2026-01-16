@@ -103,7 +103,7 @@ def select_by_model_importance(
 
     # Convert sparse to dense if needed
     if issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
 
     # Handle NaN values
     X = np.nan_to_num(X, nan=0.0)
@@ -291,7 +291,7 @@ def select_by_pca_loadings(
 
     # Convert sparse to dense if needed
     if issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
 
     # Handle NaN values
     X = np.nan_to_num(X, nan=0.0)

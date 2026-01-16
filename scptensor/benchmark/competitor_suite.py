@@ -9,6 +9,7 @@ This module orchestrates benchmark comparisons between ScpTensor and:
 
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -151,7 +152,7 @@ class CompetitorBenchmarkSuite:
         self.verbose = verbose
         self.results: dict[str, list[ComparisonResult]] = {}
         self.datasets: list[ScpContainer] = []
-        self._benchmark_map = {
+        self._benchmark_map: dict[str, Callable[[ScpContainer], ComparisonResult]] = {
             "log_normalization": self._benchmark_log_normalization,
             "zscore_normalization": self._benchmark_zscore_normalization,
             "knn_imputation": self._benchmark_knn_imputation,
@@ -505,7 +506,7 @@ class CompetitorBenchmarkSuite:
         self._log(f"Running {len(operations)} benchmark operations on {len(datasets)} datasets")
         self._log(f"{'=' * 60}\n")
 
-        results = {op: [] for op in operations}
+        results: dict[str, list[Any]] = {op: [] for op in operations}
         total_start = time.time()
 
         for i, dataset in enumerate(datasets):
@@ -629,7 +630,7 @@ class CompetitorBenchmarkSuite:
         """
         output_path = self.output_dir / filename
 
-        serializable = {
+        serializable: dict[str, Any] = {
             op: [
                 {
                     "operation": r.operation,

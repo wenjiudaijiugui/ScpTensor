@@ -9,6 +9,8 @@ if TYPE_CHECKING:
     import matplotlib.pyplot as plt
     from matplotlib.figure import Figure
 
+    from scptensor import ScpContainer
+
 
 @dataclass
 class ReportTheme:
@@ -126,7 +128,7 @@ class ReportTheme:
 
 def _render_overview_panel(
     ax: plt.Axes,
-    container: "ScpContainer",
+    container: ScpContainer,
 ) -> None:
     """Render data overview panel with summary statistics.
 
@@ -158,6 +160,7 @@ def _render_overview_panel(
 
             # Calculate missing rate
             import numpy as np
+
             if hasattr(X, "toarray"):
                 X_arr = X.toarray()
             else:
@@ -184,7 +187,7 @@ def _render_overview_panel(
         cellText=data,
         cellLoc="left",
         loc="center",
-        bbox=[0.2, 0.1, 0.6, 0.8],
+        bbox=[0.2, 0.1, 0.6, 0.8],  # type: ignore[arg-type]
     )
     table.auto_set_font_size(False)
     table.set_fontsize(10)
@@ -208,7 +211,7 @@ def _render_overview_panel(
 
 def _render_qc_panel(
     ax: plt.Axes,
-    container: "ScpContainer",
+    container: ScpContainer,
     group_col: str = "batch",
     assay_name: str = "proteins",
 ) -> None:
@@ -229,8 +232,7 @@ def _render_qc_panel(
 
     assay = container.assays.get(assay_name)
     if assay is None:
-        ax.text(0.5, 0.5, f"Assay '{assay_name}' not found",
-                ha="center", va="center")
+        ax.text(0.5, 0.5, f"Assay '{assay_name}' not found", ha="center", va="center")
         return
 
     layer_names = list(assay.layers.keys())
@@ -260,13 +262,14 @@ def _render_qc_panel(
     parts = ax.violinplot(data_by_group, positions=range(len(unique_groups)))
 
     # Style violin plot
-    for pc in parts["bodies"]:
+    for pc in parts["bodies"]:  # type: ignore[attr-defined]
         pc.set_facecolor("#4477AA")
         pc.set_alpha(0.7)
 
     # Add scatter points
     import numpy as np
-    for i, (g, data) in enumerate(zip(unique_groups, data_by_group)):
+
+    for i, (g, data) in enumerate(zip(unique_groups, data_by_group, strict=False)):
         x = np.random.normal(i, 0.04, size=len(data))
         ax.scatter(x, data, alpha=0.3, s=10, color="#333333")
 
@@ -278,7 +281,7 @@ def _render_qc_panel(
 
 def _render_missing_panel(
     ax: plt.Axes,
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str = "proteins",
     max_features: int = 100,
 ) -> None:
@@ -300,8 +303,7 @@ def _render_missing_panel(
 
     assay = container.assays.get(assay_name)
     if assay is None:
-        ax.text(0.5, 0.5, f"Assay '{assay_name}' not found",
-                ha="center", va="center")
+        ax.text(0.5, 0.5, f"Assay '{assay_name}' not found", ha="center", va="center")
         return
 
     layer_names = list(assay.layers.keys())
@@ -343,7 +345,7 @@ def _render_missing_panel(
 def _render_embedding_panel(
     ax1: plt.Axes,
     ax2: plt.Axes,
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str,
     color_col: str,
 ) -> None:
@@ -368,10 +370,8 @@ def _render_embedding_panel(
 
     assay = container.assays.get(assay_name)
     if assay is None:
-        ax1.text(0.5, 0.5, f"Assay '{assay_name}' not found",
-                 ha="center", va="center")
-        ax2.text(0.5, 0.5, f"Assay '{assay_name}' not found",
-                 ha="center", va="center")
+        ax1.text(0.5, 0.5, f"Assay '{assay_name}' not found", ha="center", va="center")
+        ax2.text(0.5, 0.5, f"Assay '{assay_name}' not found", ha="center", va="center")
         return
 
     layer_names = list(assay.layers.keys())
@@ -403,15 +403,13 @@ def _render_embedding_panel(
         color_indices = np.zeros(X_arr.shape[0])
 
     # Plot PCA
-    ax1.scatter(pca_result[:, 0], pca_result[:, 1],
-                c=color_indices, cmap="tab10", alpha=0.7, s=30)
-    ax1.set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)")
-    ax1.set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)")
+    ax1.scatter(pca_result[:, 0], pca_result[:, 1], c=color_indices, cmap="tab10", alpha=0.7, s=30)
+    ax1.set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0] * 100:.1f}%)")
+    ax1.set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1] * 100:.1f}%)")
     ax1.set_title("PCA", fontsize=12, fontweight="bold")
 
     # Plot UMAP (using PCA coordinates as placeholder)
-    ax2.scatter(pca_result[:, 0], pca_result[:, 1],
-                c=color_indices, cmap="tab10", alpha=0.7, s=30)
+    ax2.scatter(pca_result[:, 0], pca_result[:, 1], c=color_indices, cmap="tab10", alpha=0.7, s=30)
     ax2.set_xlabel("Dim 1")
     ax2.set_ylabel("Dim 2")
     ax2.set_title("UMAP", fontsize=12, fontweight="bold")
@@ -419,7 +417,7 @@ def _render_embedding_panel(
 
 def _render_feature_panel(
     ax: plt.Axes,
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str = "proteins",
 ) -> None:
     """Render feature statistics panel (mean vs variance).
@@ -437,8 +435,7 @@ def _render_feature_panel(
 
     assay = container.assays.get(assay_name)
     if assay is None:
-        ax.text(0.5, 0.5, f"Assay '{assay_name}' not found",
-                ha="center", va="center")
+        ax.text(0.5, 0.5, f"Assay '{assay_name}' not found", ha="center", va="center")
         return
 
     layer_names = list(assay.layers.keys())
@@ -467,7 +464,7 @@ def _render_feature_panel(
 
 def _render_cluster_panel(
     ax: plt.Axes,
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str = "proteins",
 ) -> None:
     """Render cluster analysis heatmap.
@@ -487,8 +484,7 @@ def _render_cluster_panel(
 
     assay = container.assays.get(assay_name)
     if assay is None:
-        ax.text(0.5, 0.5, f"Assay '{assay_name}' not found",
-                ha="center", va="center")
+        ax.text(0.5, 0.5, f"Assay '{assay_name}' not found", ha="center", va="center")
         return
 
     layer_names = list(assay.layers.keys())
@@ -508,7 +504,7 @@ def _render_cluster_panel(
 
     # Select top variable features
     vars = np.var(X_scaled, axis=0)
-    top_idx = np.argsort(-vars)[:min(50, len(vars))]
+    top_idx = np.argsort(-vars)[: min(50, len(vars))]
     X_top = X_scaled[:, top_idx]
 
     im = ax.imshow(X_top.T, aspect="auto", cmap="viridis")
@@ -519,7 +515,7 @@ def _render_cluster_panel(
 
 def _render_batch_panel(
     ax: plt.Axes,
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str = "proteins",
     batch_col: str = "batch",
 ) -> None:
@@ -542,8 +538,7 @@ def _render_batch_panel(
 
     assay = container.assays.get(assay_name)
     if assay is None:
-        ax.text(0.5, 0.5, f"Assay '{assay_name}' not found",
-                ha="center", va="center")
+        ax.text(0.5, 0.5, f"Assay '{assay_name}' not found", ha="center", va="center")
         return
 
     layer_names = list(assay.layers.keys())
@@ -570,8 +565,7 @@ def _render_batch_panel(
     else:
         color_indices = np.zeros(X_arr.shape[0])
 
-    ax.scatter(pca_result[:, 0], pca_result[:, 1],
-               c=color_indices, cmap="tab10", alpha=0.7, s=30)
+    ax.scatter(pca_result[:, 0], pca_result[:, 1], c=color_indices, cmap="tab10", alpha=0.7, s=30)
     ax.set_xlabel("PC1")
     ax.set_ylabel("PC2")
     ax.set_title("Batch Effect", fontsize=12, fontweight="bold")
@@ -579,7 +573,7 @@ def _render_batch_panel(
 
 def _render_diff_expr_panel(
     ax: plt.Axes,
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str = "proteins",
     group1: str = "group_0",
     group2: str = "group_1",
@@ -604,8 +598,7 @@ def _render_diff_expr_panel(
 
     assay = container.assays.get(assay_name)
     if assay is None:
-        ax.text(0.5, 0.5, f"Assay '{assay_name}' not found",
-                ha="center", va="center")
+        ax.text(0.5, 0.5, f"Assay '{assay_name}' not found", ha="center", va="center")
         return
 
     layer_names = list(assay.layers.keys())
@@ -628,8 +621,7 @@ def _render_diff_expr_panel(
     idx2 = np.where(groups == group2)[0] if group2 in groups else np.array([])
 
     if len(idx1) == 0 or len(idx2) == 0:
-        ax.text(0.5, 0.5, f"Groups '{group1}' or '{group2}' not found",
-                ha="center", va="center")
+        ax.text(0.5, 0.5, f"Groups '{group1}' or '{group2}' not found", ha="center", va="center")
         return
 
     for j in range(X_arr.shape[1]):
@@ -651,23 +643,23 @@ def _render_diff_expr_panel(
         fc = np.median(g1) / (np.median(g2) + 1e-10)
         log2_fc.append(np.log2(fc + 1e-10))
 
-    p_values = np.array(p_values)
-    log2_fc = np.array(log2_fc)
+    p_values_arr = np.array(p_values)
+    log2_fc_arr = np.array(log2_fc)
 
     # Plot
-    significant = (p_values < 0.05).astype(int)
+    significant = (p_values_arr < 0.05).astype(int)
 
-    ax.scatter(log2_fc, -np.log10(p_values + 1e-300),
-               c=significant, cmap="RdYlBu", alpha=0.5, s=20)
+    ax.scatter(
+        log2_fc_arr, -np.log10(p_values_arr + 1e-300), c=significant, cmap="RdYlBu", alpha=0.5, s=20
+    )
     ax.axhline(-np.log10(0.05), color="red", linestyle="--", alpha=0.5)
     ax.set_xlabel("Log2 Fold Change")
     ax.set_ylabel("-Log10 P-value")
-    ax.set_title(f"DE Analysis ({group1} vs {group2})",
-                 fontsize=12, fontweight="bold")
+    ax.set_title(f"DE Analysis ({group1} vs {group2})", fontsize=12, fontweight="bold")
 
 
 def generate_analysis_report(
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str = "proteins",
     group_col: str = "group",
     batch_col: str | None = "batch",
@@ -714,8 +706,6 @@ def generate_analysis_report(
     # Import here to avoid circular dependency
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
-
-    from scptensor.core.structures import ScpContainer
 
     if theme is None:
         theme = ReportTheme(figsize=figsize, dpi=dpi)
@@ -776,11 +766,11 @@ def generate_analysis_report(
     # Panel 8: Differential Expression
     ax8 = fig.add_subplot(gs[2, 2])
     if diff_expr_groups:
-        _render_diff_expr_panel(ax8, container, assay_name,
-                                 diff_expr_groups[0], diff_expr_groups[1])
+        _render_diff_expr_panel(
+            ax8, container, assay_name, diff_expr_groups[0], diff_expr_groups[1]
+        )
     else:
-        ax8.text(0.5, 0.5, "Specify diff_expr_groups\nfor DE analysis",
-                 ha="center", va="center")
+        ax8.text(0.5, 0.5, "Specify diff_expr_groups\nfor DE analysis", ha="center", va="center")
 
     # Save if path provided
     if output_path:

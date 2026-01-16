@@ -206,7 +206,7 @@ def integrate_harmony(
 def _prepare_harmony_data(X: np.ndarray | sp.spmatrix) -> np.ndarray:
     """Convert sparse to dense and impute NaN values."""
     if is_sparse_matrix(X):
-        X_dense = X.toarray() if hasattr(X, "toarray") else np.array(X.todense())
+        X_dense = X.toarray() if hasattr(X, "toarray") else np.array(X.todense())  # type: ignore[union-attr]
     else:
         X_dense = np.asarray(X)
 

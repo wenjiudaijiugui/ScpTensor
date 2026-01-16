@@ -43,7 +43,7 @@ def violin(
 
     # Style the violin bodies
     face_color = "#D43F3A"
-    for pc in parts["bodies"]:
+    for pc in parts["bodies"]:  # type: ignore[attr-defined]
         pc.set_facecolor(face_color)
         pc.set_edgecolor("black")
         pc.set_alpha(0.7)

@@ -153,7 +153,8 @@ def qc_matrix_spy(
         _, ax = plt.subplots(figsize=(8, 6))
 
     # Binary spy: 0=Measured, 1=Missing
-    spy_data = (matrix.M > 0).astype(np.uint8)
+    M = matrix.M if matrix.M is not None else np.zeros_like(matrix.X, dtype=np.int8)
+    spy_data = (M > 0).astype(np.uint8)
 
     # SciencePlots-style colors
     cmap = mcolors.ListedColormap(["#0C5DA5", "#E5E5E5"])
@@ -406,6 +407,7 @@ def pca_overview(
 
     # Finalize
     fig = layout.finalize(tight=True)
+    assert fig is not None, "finalize() should never return None"
 
     if show:
         plt.show()
@@ -482,13 +484,16 @@ def missing_value_patterns(
 
     # Calculate missing status
     # M values: 0=valid, 1=MBR, 2=LOD, 3=FILTERED, 5=IMPUTED
-    is_missing = mask_m != 0
+    if mask_m is None:
+        is_missing = np.zeros((n_samples, n_features), dtype=bool)
+    else:
+        is_missing = mask_m != 0
 
     # Sample missing rate
-    sample_missing_rate = is_missing.sum(axis=1) / n_features
+    sample_missing_rate = is_missing.sum(axis=1) / n_features  # type: ignore[union-attr]
 
     # Feature missing rate
-    feature_missing_rate = is_missing.sum(axis=0) / n_samples
+    feature_missing_rate = is_missing.sum(axis=0) / n_samples  # type: ignore[union-attr]
 
     # Get feature names
     var_col = None
@@ -667,6 +672,7 @@ def missing_value_patterns(
 
     # Finalize
     fig = layout.finalize(tight=True)
+    assert fig is not None, "finalize() should never return None"
 
     if show:
         plt.show()

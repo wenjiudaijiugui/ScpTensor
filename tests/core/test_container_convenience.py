@@ -281,9 +281,7 @@ class TestLayerNotFoundError:
         """Test LayerNotFoundError without assay name."""
         from scptensor.core.exceptions import LayerNotFoundError
 
-        exc = LayerNotFoundError(
-            "ra", available_layers=["raw", "log", "normalized"]
-        )
+        exc = LayerNotFoundError("ra", available_layers=["raw", "log", "normalized"])
         assert "Did you mean 'raw'" in str(exc)
 
     def test_layer_not_found_legacy_compatibility(self):

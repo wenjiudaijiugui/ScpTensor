@@ -72,7 +72,7 @@ def asinh_transform(
 
     if sp.issparse(X):
         X_copy = X.copy()
-        X_copy.data = np.arcsinh(X_copy.data / cofactor) * _LOG_10
+        X_copy.data = np.arcsinh(X_copy.data / cofactor) * _LOG_10  # type: ignore[misc,operator]
         return X_copy
 
     X_working = X.copy() if copy else X
@@ -152,7 +152,7 @@ def logicle_transform(
 
     # Apply Logicle scaling
     if sp.issparse(result):
-        result.data *= M
+        result.data *= M  # type: ignore[misc,operator]
     else:
         result *= M
 
@@ -210,7 +210,7 @@ def quantile_normalize(
         raise ValueError(f"axis must be 0 or 1, got {axis}")
 
     # Convert sparse to dense for sorting
-    X_working = X.toarray() if sp.issparse(X) else X
+    X_working = X.toarray() if sp.issparse(X) else X  # type: ignore[union-attr]
     if copy:
         X_working = X_working.astype(np.float64, copy=True)
 
@@ -282,7 +282,7 @@ def robust_scale(
     (4, 2)
     """
     # Get dense version for statistics
-    X_dense = X.toarray() if sp.issparse(X) else X
+    X_dense = X.toarray() if sp.issparse(X) else X  # type: ignore[union-attr]
     X_working = X_dense if not copy else X_dense.copy()
 
     # Compute statistics
@@ -292,14 +292,14 @@ def robust_scale(
         if with_scaling and scale is None:
             q75, q25 = np.percentile(X_dense, [75, 25], axis=0)
             scale = q75 - q25
-            scale[scale == 0] = 1.0
+            scale[scale == 0] = 1.0  # type: ignore[index]
     else:
         if with_centering and center is None:
             center = np.median(X_dense, axis=1, keepdims=True)
         if with_scaling and scale is None:
             q75, q25 = np.percentile(X_dense, [75, 25], axis=1, keepdims=True)
             scale = q75 - q25
-            scale[scale == 0] = 1.0
+            scale[scale == 0] = 1.0  # type: ignore[index]
 
     # Apply transformations
     result = X_working

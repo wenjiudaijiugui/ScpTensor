@@ -80,7 +80,7 @@ def detect_outliers(
 
     # Convert sparse to dense for IsolationForest
     if sp.issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
 
     # Handle NaN values using nan_to_num (faster than manual imputation)
     data_to_fit = np.nan_to_num(X, nan=0.0)

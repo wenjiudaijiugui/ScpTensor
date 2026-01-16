@@ -80,7 +80,7 @@ class batch_iterator:
 
         # Determine size and create indices
         if sp.issparse(data) or isinstance(data, np.ndarray):
-            self.n_items = data.shape[axis]
+            self.n_items = data.shape[axis]  # type: ignore[union-attr]
         elif hasattr(data, "__len__"):
             self.n_items = len(data)
         else:
@@ -106,7 +106,7 @@ class batch_iterator:
     def _get_batch(self, indices: NDArray[np.int64]) -> NDArray[np.float64] | sp.spmatrix | Any:
         """Extract a batch by indices."""
         if sp.issparse(self.data):
-            return self.data[indices, :] if self.axis == 0 else self.data[:, indices]
+            return self.data[indices, :] if self.axis == 0 else self.data[:, indices]  # type: ignore[call-overload]
         if isinstance(self.data, np.ndarray):
             return self.data[indices, ...] if self.axis == 0 else self.data[..., indices]
         if hasattr(self.data, "__getitem__"):
@@ -224,7 +224,7 @@ def batch_apply_along_axis(
     >>> result.shape
     (100,)
     """
-    X_dense = data.toarray() if sp.issparse(data) else data
+    X_dense = data.toarray() if sp.issparse(data) else data  # type: ignore[union-attr]
     n_slices = X_dense.shape[axis]
 
     results = []

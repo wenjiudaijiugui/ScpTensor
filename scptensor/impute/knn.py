@@ -1,7 +1,5 @@
 """KNN imputation for single-cell proteomics data."""
 
-from typing import overload
-
 import numpy as np
 from sklearn.metrics.pairwise import nan_euclidean_distances
 
@@ -12,19 +10,6 @@ from scptensor.core.exceptions import (
 )
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
-
-
-@overload
-def impute_knn(
-    container: ScpContainer,
-    assay_name: str,
-    source_layer: str,
-    new_layer_name: str = "imputed_knn",
-    k: int = 5,
-    weights: str = "uniform",
-    batch_size: int = 500,
-    oversample_factor: int = 3,
-) -> ScpContainer: ...
 
 
 def impute_knn(

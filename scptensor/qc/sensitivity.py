@@ -117,7 +117,7 @@ def _get_detection_matrix(
             return data > 0
         else:
             # Convert to dense for threshold comparison
-            data_dense = data.toarray() if sp.issparse(data) else data
+            data_dense = data.toarray() if sp.issparse(data) else data  # type: ignore[union-attr]
             return data_dense > detection_threshold
     else:
         return detection_threshold < data
@@ -184,9 +184,9 @@ def compute_sensitivity(
 
     # Compute local sensitivity (features per sample)
     if sp.issparse(detected):
-        n_features_per_sample = np.array(detected.getnnz(axis=1)).flatten()
+        n_features_per_sample = np.array(detected.getnnz(axis=1)).flatten()  # type: ignore[attr-defined]
         # For sparse, use getnnz to count non-zeros per column
-        any_detected = np.array(detected.getnnz(axis=0)).flatten() > 0
+        any_detected = np.array(detected.getnnz(axis=0)).flatten() > 0  # type: ignore[attr-defined]
     else:
         n_features_per_sample = np.sum(detected, axis=1)
         any_detected = np.any(detected, axis=0)
@@ -265,7 +265,7 @@ def compute_completeness(
 
     # Compute completeness per sample
     if sp.issparse(detected):
-        n_detected = np.array(detected.getnnz(axis=1)).flatten()
+        n_detected = np.array(detected.getnnz(axis=1)).flatten()  # type: ignore[attr-defined]
     else:
         n_detected = np.sum(detected, axis=1)
 
@@ -335,7 +335,7 @@ def compute_jaccard_index(
 
     # Convert to dense if sparse for efficient computation
     if sp.issparse(detected):
-        detected = detected.toarray()
+        detected = detected.toarray()  # type: ignore[attr-defined]
 
     # Compute Jaccard distance (1 - Jaccard similarity) using pdist
     # Jaccard distance = 1 - (intersection / union)
@@ -429,7 +429,7 @@ def compute_cumulative_sensitivity(
 
     # Convert to dense if needed
     if sp.issparse(detected):
-        detected = detected.toarray()
+        detected = detected.toarray()  # type: ignore[attr-defined]
 
     # Create sample indices
     rng = np.random.default_rng(seed)
@@ -439,14 +439,14 @@ def compute_cumulative_sensitivity(
     step_sizes = np.linspace(1, n_samples, n_steps, dtype=int)
 
     # Compute cumulative features at each step
-    cumulative_features = []
+    cumulative_features_list: list[int] = []
     for step_size in step_sizes:
         selected_indices = sample_order[:step_size]
         selected_detected = detected[selected_indices, :]
         unique_features = np.any(selected_detected, axis=0)
-        cumulative_features.append(int(np.sum(unique_features)))
+        cumulative_features_list.append(int(np.sum(unique_features)))
 
-    cumulative_features = np.array(cumulative_features)
+    cumulative_features = np.array(cumulative_features_list, dtype=np.int64)
 
     # Estimate saturation point
     # Saturation is reached when the increase is less than 1% over previous steps

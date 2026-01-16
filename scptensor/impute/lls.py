@@ -6,8 +6,6 @@ Reference:
     Local least squares imputation.
 """
 
-from typing import overload
-
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 
@@ -18,18 +16,6 @@ from scptensor.core.exceptions import (
 )
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
-
-
-@overload
-def impute_lls(
-    container: ScpContainer,
-    assay_name: str,
-    source_layer: str,
-    new_layer_name: str = "imputed_lls",
-    k: int = 10,
-    max_iter: int = 100,
-    tol: float = 1e-6,
-) -> ScpContainer: ...
 
 
 def impute_lls(
@@ -409,9 +395,8 @@ if __name__ == "__main__":
 
     # Create initial mask with some MBR (1) and LOD (2) codes for missing values
     M_initial = np.zeros(X_missing.shape, dtype=np.int8)
-    M_initial[missing_mask] = np.where(
-        np.random.rand(np.sum(missing_mask)) < 0.5, MaskCode.MBR, MaskCode.LOD
-    )
+    n_missing = int(np.sum(missing_mask))
+    M_initial[missing_mask] = np.where(np.random.rand(n_missing) < 0.5, MaskCode.MBR, MaskCode.LOD)
 
     assay2 = Assay(var=var)
     assay2.add_layer("raw", ScpMatrix(X=X_missing, M=M_initial))

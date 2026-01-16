@@ -9,8 +9,6 @@ automatically determine the effective number of components and avoid
 overfitting through regularization.
 """
 
-from typing import overload
-
 import numpy as np
 import scipy.sparse as sp
 from scipy import linalg
@@ -24,33 +22,6 @@ from scptensor.core.exceptions import (
 from scptensor.core.jit_ops import ppca_initialize_with_col_means
 from scptensor.core.structures import MaskCode, ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
-
-
-@overload
-def impute_bpca(
-    container: ScpContainer,
-    assay_name: str,
-    source_layer: str,
-    new_layer_name: str = "imputed_bpca",
-    n_components: int | None = None,
-    max_iter: int = 100,
-    tol: float = 1e-6,
-    random_state: int | None = None,
-) -> ScpContainer: ...
-
-
-@overload
-def impute_bpca(
-    container: ScpContainer,
-    assay_name: str,
-    source_layer: str,
-    *,
-    n_components: int | None,
-    new_layer_name: str,
-    max_iter: int,
-    tol: float,
-    random_state: int | None,
-) -> ScpContainer: ...
 
 
 def impute_bpca(
@@ -190,7 +161,7 @@ def impute_bpca(
 
     # Convert sparse to dense for BPCA
     if sp.issparse(X_original):
-        X_dense = X_original.toarray()
+        X_dense = X_original.toarray()  # type: ignore[union-attr]
     else:
         X_dense = np.asarray(X_original)
 
@@ -465,9 +436,8 @@ if __name__ == "__main__":
 
     # Create initial mask with some MBR (1) and LOD (2) codes for missing values
     M_initial = np.zeros(X_missing.shape, dtype=np.int8)
-    M_initial[missing_mask] = np.where(
-        np.random.rand(np.sum(missing_mask)) < 0.5, MaskCode.MBR, MaskCode.LOD
-    )
+    n_missing = int(np.sum(missing_mask))
+    M_initial[missing_mask] = np.where(np.random.rand(n_missing) < 0.5, MaskCode.MBR, MaskCode.LOD)
 
     assay2 = Assay(var=var)
     assay2.add_layer("raw", ScpMatrix(X=X_missing, M=M_initial))

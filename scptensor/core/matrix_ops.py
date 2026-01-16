@@ -59,7 +59,8 @@ class MatrixOps:
     def get_missing_type_mask(matrix: ScpMatrix, mask_code: MaskCode) -> np.ndarray:
         """Get mask for specific missing type."""
         M = matrix.get_m()
-        return mask_code == M
+        result: np.ndarray = mask_code == M  # type: ignore[assignment]
+        return result
 
     @staticmethod
     def mark_values(

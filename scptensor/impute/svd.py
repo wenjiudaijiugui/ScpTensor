@@ -5,8 +5,6 @@ Reference:
     Bioinformatics (2001).
 """
 
-from typing import overload
-
 import numpy as np
 import scipy.sparse as sp
 from scipy import linalg
@@ -20,19 +18,6 @@ from scptensor.core.exceptions import (
 from scptensor.core.jit_ops import ppca_initialize_with_col_means
 from scptensor.core.structures import MaskCode, ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
-
-
-@overload
-def impute_svd(
-    container: ScpContainer,
-    assay_name: str,
-    source_layer: str,
-    new_layer_name: str = "imputed_svd",
-    n_components: int = 10,
-    max_iter: int = 100,
-    tol: float = 1e-6,
-    init_method: str = "mean",
-) -> ScpContainer: ...
 
 
 def impute_svd(
@@ -160,7 +145,7 @@ def impute_svd(
         )
 
     # Convert sparse to dense
-    X_dense = X_original.toarray() if sp.issparse(X_original) else X_original
+    X_dense = X_original.toarray() if sp.issparse(X_original) else X_original  # type: ignore[union-attr]
 
     # Check for missing values
     missing_mask = np.isnan(X_dense)
@@ -308,9 +293,8 @@ if __name__ == "__main__":
 
     # Create initial mask with some MBR (1) and LOD (2) codes for missing values
     M_initial = np.zeros(X_missing.shape, dtype=np.int8)
-    M_initial[missing_mask] = np.where(
-        np.random.rand(np.sum(missing_mask)) < 0.5, MaskCode.MBR, MaskCode.LOD
-    )
+    n_missing = int(np.sum(missing_mask))
+    M_initial[missing_mask] = np.where(np.random.rand(n_missing) < 0.5, MaskCode.MBR, MaskCode.LOD)
 
     assay2 = Assay(var=var)
     assay2.add_layer("raw", ScpMatrix(X=X_missing, M=M_initial))

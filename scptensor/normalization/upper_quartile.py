@@ -6,8 +6,6 @@ Reference:
     expression in mRNA-Seq experiments. BMC Bioinformatics, 11, 94.
 """
 
-from typing import overload
-
 import numpy as np
 
 from scptensor.core.exceptions import (
@@ -16,16 +14,6 @@ from scptensor.core.exceptions import (
     ScpValueError,
 )
 from scptensor.core.structures import ScpContainer, ScpMatrix
-
-
-@overload
-def norm_quartile(
-    container: ScpContainer,
-    assay_name: str = "protein",
-    source_layer: str = "raw",
-    new_layer_name: str = "upper_quartile_norm",
-    percentile: float = 0.75,
-) -> ScpContainer: ...
 
 
 def norm_quartile(

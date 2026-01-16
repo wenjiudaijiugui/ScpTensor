@@ -1,7 +1,7 @@
 """Tests for report generation module."""
 
 import matplotlib.pyplot as plt
-import pytest
+
 from scptensor.viz.recipes.report import ReportTheme
 
 
@@ -47,7 +47,7 @@ def test_render_overview_panel(sample_container):
     _render_overview_panel(ax, sample_container)
 
     # Check that table was rendered (table is a child of axes)
-    tables = [child for child in ax.get_children() if hasattr(child, 'get_celld')]
+    tables = [child for child in ax.get_children() if hasattr(child, "get_celld")]
     assert len(tables) > 0
     plt.close(fig)
 

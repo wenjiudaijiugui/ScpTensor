@@ -121,7 +121,7 @@ def get_sparsity_ratio(X: np.ndarray | sp.spmatrix) -> float:
     0.5
     """
     if is_sparse_matrix(X):
-        return 1.0 - (X.nnz / (X.shape[0] * X.shape[1]))
+        return 1.0 - (X.nnz / (X.shape[0] * X.shape[1]))  # type: ignore[union-attr]
     else:
         return np.sum(X == 0) / X.size
 
@@ -200,13 +200,13 @@ def ensure_sparse_format(X: np.ndarray | sp.spmatrix, format: str = "csr") -> sp
     """
     if is_sparse_matrix(X):
         if format == "csr":
-            return X.tocsr()
+            return X.tocsr()  # type: ignore[union-attr]
         elif format == "csc":
-            return X.tocsc()
+            return X.tocsc()  # type: ignore[union-attr]
         elif format == "coo":
-            return X.tocoo()
+            return X.tocoo()  # type: ignore[union-attr]
         elif format == "lil":
-            return X.tolil()
+            return X.tolil()  # type: ignore[union-attr]
         else:
             raise ValueError(f"Unsupported sparse format: {format}")
     else:
@@ -376,7 +376,7 @@ def get_memory_usage(X: np.ndarray | sp.spmatrix) -> dict[str, Any]:
     True
     """
     if is_sparse_matrix(X):
-        nbytes = X.data.nbytes + X.indices.nbytes + X.indptr.nbytes
+        nbytes = X.data.nbytes + X.indices.nbytes + X.indptr.nbytes  # type: ignore[union-attr]
     else:
         nbytes = X.nbytes
 
@@ -737,19 +737,19 @@ def sparse_safe_log1p(
     if is_sparse_matrix(X):
         result = X.copy()
         # Ensure float dtype for log operation
-        if result.data.dtype.kind != "f":
-            result.data = result.data.astype(float)
+        if result.data.dtype.kind != "f":  # type: ignore[union-attr]
+            result.data = result.data.astype(float)  # type: ignore[union-attr,misc]
 
         # NumPy vectorization is already highly optimized for simple operations
         # JIT only helps for very large arrays where parallel overhead is worth it
-        if use_jit and X.nnz > _JIT_THRESHOLD:
+        if use_jit and X.nnz > _JIT_THRESHOLD:  # type: ignore[union-attr]
             kernel = _get_jit_log_with_scale_kernel()
             if kernel is not None:
-                result.data = kernel(result.data, offset - 1.0, 1.0)
+                result.data = kernel(result.data, offset - 1.0, 1.0)  # type: ignore[misc]
                 return result
 
         # Fast path: NumPy vectorized operation
-        result.data = np.log1p(result.data + offset - 1.0)
+        result.data = np.log1p(result.data + offset - 1.0)  # type: ignore[misc,operator]
         return result
     else:
         return np.log1p(X + offset - 1.0)
@@ -798,20 +798,20 @@ def sparse_safe_log1p_with_scale(
     if is_sparse_matrix(X):
         result = X.copy()
         # Ensure float dtype for log operation
-        if result.data.dtype.kind != "f":
-            result.data = result.data.astype(float)
+        if result.data.dtype.kind != "f":  # type: ignore[union-attr]
+            result.data = result.data.astype(float)  # type: ignore[union-attr,misc]
 
         # For very large matrices, JIT may provide benefit
-        if use_jit and X.nnz > _JIT_THRESHOLD:
+        if use_jit and X.nnz > _JIT_THRESHOLD:  # type: ignore[union-attr]
             kernel = _get_jit_log_with_scale_kernel()
             if kernel is not None:
                 # Pre-compute inverse scale for the JIT kernel
-                result.data = kernel(result.data, offset - 1.0, 1.0 / scale)
+                result.data = kernel(result.data, offset - 1.0, 1.0 / scale)  # type: ignore[misc]
                 return result
 
         # Fast path: combined NumPy operation (single pass over data)
         # This is typically faster than JIT for small-to-medium arrays
-        result.data = np.log1p(result.data + offset - 1.0) / scale
+        result.data = np.log1p(result.data + offset - 1.0) / scale  # type: ignore[misc,operator]
         return result
     else:
         # Dense matrix: single combined operation
@@ -854,7 +854,7 @@ def get_format_recommendation(n_rows: int, n_cols: int, nnz: int, operations: li
     # Count operation types
     row_ops = sum(1 for op in operations if "row" in op)
     col_ops = sum(1 for op in operations if "col" in op)
-    modify_ops = sum(1 for op in operations in ["construction", "modification"])
+    modify_ops = sum(1 for op in operations if op in ["construction", "modification"])
 
     if modify_ops > 0:
         return "lil"
@@ -872,14 +872,14 @@ if __name__ == "__main__":
 
     # Test 1: is_sparse_matrix
     dense = np.array([[1, 2], [3, 4]])
-    sparse = sp.csr_matrix([[1, 0], [0, 4]])
+    X_sparse = sp.csr_matrix([[1, 0], [0, 4]])
     assert not is_sparse_matrix(dense)
-    assert is_sparse_matrix(sparse)
+    assert is_sparse_matrix(X_sparse)
     print("✓ is_sparse_matrix tests passed")
 
     # Test 2: get_sparsity_ratio
     X_test = np.array([[1, 0, 0], [0, 0, 2], [0, 0, 0]])
-    assert get_sparsity_ratio(X_test) == 2 / 3
+    assert get_sparsity_ratio(X_test) == 7 / 9
     print("✓ get_sparsity_ratio tests passed")
 
     # Test 3: to_sparse_if_beneficial
@@ -895,21 +895,21 @@ if __name__ == "__main__":
     print("✓ ensure_sparse_format tests passed")
 
     # Test 5: sparse_copy
-    X_copy_test = sparse.copy()
+    X_copy_test = X_sparse.copy()
     X_copy_test[0, 0] = 99
-    assert X[0, 0] == 1  # Original unchanged
+    assert X_sparse[0, 0] == 1  # Original unchanged
     print("✓ sparse_copy tests passed")
 
     # Test 6: get_memory_usage
-    stats = get_memory_usage(sparse)
+    stats = get_memory_usage(X_sparse)
     assert stats["is_sparse"]
     assert stats["shape"] == (2, 2)
     print("✓ get_memory_usage tests passed")
 
     # Test 7: optimal_format_for_operation
-    assert optimal_format_for_operation(sparse, "row_wise") == "csr"
-    assert optimal_format_for_operation(sparse, "col_wise") == "csc"
-    assert optimal_format_for_operation(sparse, "modification") == "lil"
+    assert optimal_format_for_operation(X_sparse, "row_wise") == "csr"
+    assert optimal_format_for_operation(X_sparse, "col_wise") == "csc"
+    assert optimal_format_for_operation(X_sparse, "modification") == "lil"
     print("✓ optimal_format_for_operation tests passed")
 
     # Test 8: sparse_multiply_rowwise
