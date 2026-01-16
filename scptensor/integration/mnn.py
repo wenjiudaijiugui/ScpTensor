@@ -8,6 +8,7 @@ are corrected by matching mutual nearest neighbors. Nature Biotechnology (2018).
 
 from collections import defaultdict
 from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -177,7 +178,7 @@ def integrate_mnn(
 def _prepare_mnn_data(X: np.ndarray | sp.spmatrix) -> np.ndarray:
     """Convert sparse to dense and impute NaN values."""
     if sp.issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
     X = np.asarray(X)
 
     if np.isnan(X).any():
@@ -234,7 +235,7 @@ def _collect_corrections_from_other_batches(
     X: np.ndarray,
     X_pca: np.ndarray,
     batches: np.ndarray,
-    batch1: any,
+    batch1: Any,
     unique_batches: np.ndarray,
     idx1: np.ndarray,
     k: int,

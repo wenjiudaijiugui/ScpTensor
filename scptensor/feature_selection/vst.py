@@ -94,7 +94,7 @@ def select_by_vst(
 
     # Convert sparse to dense if needed
     if issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
 
     # Calculate mean and variance per feature
     means = np.nanmean(X, axis=0)
@@ -179,8 +179,8 @@ def _compute_vst_scores(
     bin_edges = np.percentile(log_means, percentile_edges)
 
     # Calculate median log variance in each bin
-    bin_medians = []
-    bin_centers = []
+    bin_medians: list[float] = []
+    bin_centers: list[float] = []
 
     for i in range(n_bins):
         # Define bin membership (include upper edge for last bin)
@@ -284,7 +284,7 @@ def select_by_dispersion(
 
     # Convert sparse to dense if needed
     if issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
 
     # Calculate mean and variance per feature
     means = np.nanmean(X, axis=0)

@@ -127,17 +127,19 @@ def compute_umap(
         # Fallback: normalized random projection
         if random_state is not None:
             rng = np.random.default_rng(random_state)
+            projection = rng.standard_normal((X.shape[1], n_components))
         else:
-            rng = np.random
+            projection = np.random.standard_normal((X.shape[1], n_components))
 
-        projection = rng.standard_normal((X.shape[1], n_components))
         projection = projection / np.linalg.norm(projection, axis=0, keepdims=True)
 
         embedding = X @ projection
         return (embedding - np.mean(embedding, axis=0)) / (np.std(embedding, axis=0) + 1e-8)
 
 
-def requires_dependency(package_name: str, install_hint: str) -> Callable:
+def requires_dependency(
+    package_name: str, install_hint: str
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to ensure a dependency is installed before executing a function.
 
     Args:

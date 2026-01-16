@@ -253,8 +253,7 @@ def adjust_fdr(
         return result
 
     raise ValidationError(
-        f"Unknown correction method: {method}. "
-        "Use 'bh', 'by', 'bonferroni', 'holm', or 'hommel'.",
+        f"Unknown correction method: {method}. Use 'bh', 'by', 'bonferroni', 'holm', or 'hommel'.",
         field="method",
     )
 
@@ -530,8 +529,8 @@ def _isna(arr: np.ndarray) -> np.ndarray:
     """
     if arr.dtype.kind in {"U", "S", "O"}:
         mask = (arr == None) | (arr == "NaN") | (arr == "nan") | (arr == "NA")  # noqa: E711
-        return mask  # type: ignore[no-any-return]
-    return np.isnan(arr)  # type: ignore[no-any-return]
+        return mask
+    return np.isnan(arr)
 
 
 def diff_expr_ttest(
@@ -1205,7 +1204,9 @@ def diff_expr_paired_ttest(
         raise ValidationError(f"Group column '{group_col}' not found in obs", field="group_col")
 
     if pair_id_col not in container.obs.columns:
-        raise ValidationError(f"Pair ID column '{pair_id_col}' not found in obs", field="pair_id_col")
+        raise ValidationError(
+            f"Pair ID column '{pair_id_col}' not found in obs", field="pair_id_col"
+        )
 
     groups = container.obs[group_col].to_numpy()
     pair_ids = container.obs[pair_id_col].to_numpy()
@@ -1223,7 +1224,7 @@ def diff_expr_paired_ttest(
 
     # Build pairing: find samples that share the same pair_id
     pair_to_idx: dict[str, dict[str, int]] = {}
-    for i, (g, pid) in enumerate(zip(groups, pair_ids)):
+    for i, (g, pid) in enumerate(zip(groups, pair_ids, strict=False)):
         if _isna(np.array(g)) or _isna(np.array(pid)):
             continue
         pid_str = str(pid)
@@ -1447,7 +1448,7 @@ def check_homoscedasticity(
     actual_center = "median" if test_type == "brown-forsythe" else center
 
     for j in range(n_features):
-        group_data: list[np.ndarray] = []
+        group_data: list[np.ndarray] | None = []
         for g in unique_groups:
             idx = group_indices[g]
             g_vals = X_proc[idx, j]
@@ -1459,7 +1460,8 @@ def check_homoscedasticity(
                 group_data = None
                 break
 
-            group_data.append(g_vals)
+            if group_data is not None:
+                group_data.append(g_vals)
 
         if group_data is None or len(group_data) < 2:
             continue

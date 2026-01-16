@@ -23,7 +23,7 @@ try:
 except ImportError:
     NUMBA_AVAILABLE = False
 
-    def jit(nopython: bool = False, cache: bool = False):  # type: ignore[misc]
+    def jit(nopython: bool = False, cache: bool = False):
         """Fallback decorator when numba is not available."""
 
         def decorator(func):
@@ -756,7 +756,8 @@ else:
     ) -> tuple[np.ndarray, np.ndarray]:
         """Fallback find missing indices (pure Python)."""
         mask = np.isin(M, list(mask_codes))
-        return np.where(mask)
+        result = np.where(mask)
+        return result  # type: ignore[return-value]
 
     # Threshold functions
     def apply_mask_threshold(X: np.ndarray, threshold: float, comparison: int) -> np.ndarray:
@@ -1180,17 +1181,18 @@ if NUMBA_AVAILABLE:
         if df_den < 1e-10:
             df = max(n1, n2) - 1
         else:
-            df = df_num / df_den
+            df = df_num / df_den  # type: ignore[assignment]
 
         # Approximate p-value using normal approximation for large df
         # For small df, this is less accurate but still a reasonable approximation
         abs_t = abs(t_stat)
         if df > 100:
-            # Normal approximation
-            p_val = 2.0 * (1.0 - 0.5 * (1.0 + np.erf(abs_t / np.sqrt(2.0))))
+            # Normal approximation using error function
+            # p_val = 2 * (1 - CDF(|t|)) = 2 * (1 - (1 + erf(|t|/sqrt(2))) / 2)
+            p_val = 2.0 * (1.0 - 0.5 * (1.0 + np.erf(abs_t / np.sqrt(2.0))))  # type: ignore[attr-defined]
         else:
             # Conservative approximation for small df
-            p_val = 2.0 * (1.0 - 0.5 * (1.0 + np.erf(abs_t / np.sqrt(2.0))))
+            p_val = 2.0 * (1.0 - 0.5 * (1.0 + np.erf(abs_t / np.sqrt(2.0))))  # type: ignore[attr-defined]
 
         # Clamp p-value
         if p_val > 1.0:

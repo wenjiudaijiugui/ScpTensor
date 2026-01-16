@@ -103,10 +103,10 @@ def _compute_cv_matrix(
             # Compute E[X^2] for variance calculation
             data_squared = data.copy()
             if hasattr(data_squared, "power"):
-                data_squared = data_squared.power(2)  # type: ignore[attr-defined]
+                data_squared = data_squared.power(2)
             else:
                 # Fallback for sparse matrices without power method
-                data_squared = data.multiply(data)  # type: ignore[attr-defined]
+                data_squared = data.multiply(data)  # type: ignore[union-attr]
             mean_squares = np.asarray(data_squared.mean(axis=0)).flatten()
             stds = np.sqrt(np.maximum(0, mean_squares - means**2))
         else:
@@ -114,9 +114,9 @@ def _compute_cv_matrix(
             means = np.asarray(data.mean(axis=1)).flatten()
             data_squared = data.copy()
             if hasattr(data_squared, "power"):
-                data_squared = data_squared.power(2)  # type: ignore[attr-defined]
+                data_squared = data_squared.power(2)
             else:
-                data_squared = data.multiply(data)  # type: ignore[attr-defined]
+                data_squared = data.multiply(data)  # type: ignore[union-attr]
             mean_squares = np.asarray(data_squared.mean(axis=1)).flatten()
             stds = np.sqrt(np.maximum(0, mean_squares - means**2))
     else:
@@ -732,20 +732,20 @@ def filter_by_cv(
 
     if keep_filtered:
         # Keep all features, just mark them
-        new_var = working_container.assays[assay_name].var.with_columns(
+        new_var = working_container.assays[assay_name].var.with_columns(  # type: ignore[union-attr]
             pl.Series("cv_filtered", ~feature_mask)
         )
         new_assay = Assay(
             var=new_var,
-            layers=working_container.assays[assay_name].layers,
-            feature_id_col=working_container.assays[assay_name].feature_id_col,
+            layers=working_container.assays[assay_name].layers,  # type: ignore[union-attr]
+            feature_id_col=working_container.assays[assay_name].feature_id_col,  # type: ignore[union-attr]
         )
         new_container = ScpContainer(
-            obs=working_container.obs,
-            assays={**working_container.assays, assay_name: new_assay},
-            links=list(working_container.links),
-            history=list(working_container.history),
-            sample_id_col=working_container.sample_id_col,
+            obs=working_container.obs,  # type: ignore[union-attr]
+            assays={**working_container.assays, assay_name: new_assay},  # type: ignore[union-attr]
+            links=list(working_container.links),  # type: ignore[union-attr]
+            history=list(working_container.history),  # type: ignore[union-attr]
+            sample_id_col=working_container.sample_id_col,  # type: ignore[union-attr]
         )
 
         # Log operation
@@ -769,7 +769,7 @@ def filter_by_cv(
         feature_indices = np.where(feature_mask)[0]
 
         # Use container.filter_features method
-        new_container = working_container.filter_features(
+        new_container = working_container.filter_features(  # type: ignore[union-attr]
             assay_name=assay_name,
             feature_indices=feature_indices,
         )

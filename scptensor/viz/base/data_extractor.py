@@ -49,7 +49,7 @@ class DataExtractor:
 
         X = scpmatrix.X  # noqa: N806
         if sparse.issparse(X):
-            X = X.toarray()  # noqa: N806
+            X = X.toarray()  # noqa: N806  type: ignore[union-attr]
         M = scpmatrix.M if scpmatrix.M is not None else np.zeros_like(X, dtype=int)  # noqa: N806
 
         # Filter samples

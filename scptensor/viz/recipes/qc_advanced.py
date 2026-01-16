@@ -88,7 +88,7 @@ def plot_sensitivity_summary(
 
     # Calculate detected features per sample (M == 0 means valid/detected)
     if sp.issparse(matrix.M):
-        n_detected = np.array(matrix.shape[1] - matrix.M.getnnz(axis=1)).flatten()
+        n_detected = np.array(matrix.shape[1] - matrix.M.getnnz(axis=1)).flatten()  # type: ignore[union-attr, attr-defined]
     else:
         n_detected = np.sum(matrix.M == 0, axis=1)
 
@@ -125,7 +125,7 @@ def plot_sensitivity_summary(
     )
 
     # Style violin bodies
-    for i, pc in enumerate(parts["bodies"]):
+    for i, pc in enumerate(parts["bodies"]):  # type: ignore[arg-type, var-annotated]
         pc.set_facecolor(colors[i])
         pc.set_edgecolor("black")
         pc.set_alpha(0.6)
@@ -254,7 +254,7 @@ def plot_cumulative_sensitivity(
 
     # Convert to dense if sparse for easier manipulation
     if sp.issparse(detected_mask):
-        detected_mask = detected_mask.toarray()
+        detected_mask = detected_mask.toarray()  # type: ignore[union-attr]
 
     n_features = assay.n_features
 
@@ -282,7 +282,7 @@ def plot_cumulative_sensitivity(
             continue
 
         # Get detection patterns for this group
-        group_detected = detected_mask[group_indices, :]
+        group_detected = detected_mask[group_indices, :]  # type: ignore[index]
 
         # Randomize order to avoid batch effects in ordering
         np.random.seed(42)
@@ -446,7 +446,7 @@ def plot_jaccard_heatmap(
 
     # Convert to dense for Jaccard calculation
     if sp.issparse(detected_mask):
-        detected_mask = detected_mask.toarray()
+        detected_mask = detected_mask.toarray()  # type: ignore[union-attr]
 
     n_samples = container.n_samples
 
@@ -457,9 +457,9 @@ def plot_jaccard_heatmap(
     for i in range(n_samples):
         for j in range(i, n_samples):
             # Intersection: both detected
-            intersection = np.sum(detected_mask[i] & detected_mask[j])
+            intersection = np.sum(detected_mask[i] & detected_mask[j])  # type: ignore[index]
             # Union: either detected
-            union = np.sum(detected_mask[i] | detected_mask[j])
+            union = np.sum(detected_mask[i] | detected_mask[j])  # type: ignore[index]
 
             if union > 0:
                 jaccard = intersection / union
@@ -626,9 +626,9 @@ def plot_missing_type_heatmap(
 
     # Get mask matrix
     if sp.issparse(matrix.M):
-        M = matrix.M.toarray()
+        M = matrix.M.toarray()  # type: ignore[union-attr]
     else:
-        M = matrix.M.copy()
+        M = matrix.M.copy()  # type: ignore[union-attr]
 
     n_samples, n_features = M.shape
 
@@ -844,9 +844,9 @@ def plot_missing_summary(
 
     # Get mask matrix
     if sp.issparse(matrix.M):
-        M = matrix.M.toarray()
+        M = matrix.M.toarray()  # type: ignore[union-attr]
     else:
-        M = matrix.M.copy()
+        M = matrix.M.copy()  # type: ignore[union-attr]
 
     n_samples, n_features = M.shape
 
@@ -863,7 +863,7 @@ def plot_missing_summary(
     sorted_sample_rates = sample_missing_rate[sample_order]
 
     # Color by missing rate (red = high missing, green = low missing)
-    colors_sample = plt.cm.RdYlGn_r(sorted_sample_rates)
+    colors_sample = plt.cm.RdYlGn_r(sorted_sample_rates)  # type: ignore[attr-defined]
 
     ax_sample.bar(
         range(n_samples), sorted_sample_rates, color=colors_sample, edgecolor="black", linewidth=0.5
@@ -891,7 +891,7 @@ def plot_missing_summary(
         feature_order = np.argsort(feature_missing_rate)
         sorted_feature_rates = feature_missing_rate[feature_order]
 
-        colors_feature = plt.cm.RdYlGn_r(sorted_feature_rates)
+        colors_feature = plt.cm.RdYlGn_r(sorted_feature_rates)  # type: ignore[attr-defined]
         ax_feature.bar(
             range(n_features),
             sorted_feature_rates,
@@ -970,8 +970,8 @@ def plot_missing_summary(
     # For efficiency with large datasets, use a simplified approach
     if n_samples <= 50:
         # Full pattern analysis for small datasets
-        unique_patterns = []
-        pattern_counts = []
+        unique_patterns: list[tuple] = []
+        pattern_counts: list[int] = []
 
         for i in range(n_samples):
             pattern = tuple(M[i, :])
@@ -1106,7 +1106,7 @@ def plot_cv_distribution(
 
     # Get data matrix
     if sp.issparse(matrix.X):
-        X = matrix.X.toarray()
+        X = matrix.X.toarray()  # type: ignore[union-attr]
     else:
         X = matrix.X.copy()
 
@@ -1114,7 +1114,7 @@ def plot_cv_distribution(
     if sp.issparse(matrix.M):
         valid_mask = matrix.M == 0
         if sp.issparse(valid_mask):
-            valid_mask = valid_mask.toarray()
+            valid_mask = valid_mask.toarray()  # type: ignore[union-attr]
     else:
         valid_mask = matrix.M == 0
 
@@ -1140,7 +1140,7 @@ def plot_cv_distribution(
     for i, group_label in enumerate(unique_groups):
         group_mask = groups == group_label
         group_X = X[group_mask, :]
-        group_valid = valid_mask[group_mask, :]
+        group_valid = valid_mask[group_mask, :]  # type: ignore[index]
 
         # Calculate CV per feature: std/mean for valid values only
         cv_values = np.zeros(n_features)
@@ -1185,7 +1185,7 @@ def plot_cv_distribution(
             )
 
     # Calculate overall statistics
-    all_cv_values = np.array(all_cv_values)
+    all_cv_values = np.array(all_cv_values, dtype=np.float64)  # type: ignore[assignment]
     median_cv = np.median(all_cv_values)
     mean_cv = np.mean(all_cv_values)
 
@@ -1219,7 +1219,7 @@ def plot_cv_distribution(
     # Add statistics box
     stats_text = f"Mean CV: {mean_cv:.3f}\nMedian CV: {median_cv:.3f}\n"
     stats_text += (
-        f"Features > {cv_threshold}: {np.sum(all_cv_values > cv_threshold)} / {len(all_cv_values)}"
+        f"Features > {cv_threshold}: {np.sum(all_cv_values > cv_threshold)} / {len(all_cv_values)}"  # type: ignore[operator]
     )
 
     ax.text(
@@ -1307,7 +1307,7 @@ def plot_cv_by_feature(
 
     # Get data matrix
     if sp.issparse(matrix.X):
-        X = matrix.X.toarray()
+        X = matrix.X.toarray()  # type: ignore[union-attr]
     else:
         X = matrix.X.copy()
 
@@ -1315,7 +1315,7 @@ def plot_cv_by_feature(
     if sp.issparse(matrix.M):
         valid_mask = matrix.M == 0
         if sp.issparse(valid_mask):
-            valid_mask = valid_mask.toarray()
+            valid_mask = valid_mask.toarray()  # type: ignore[union-attr]
     else:
         valid_mask = matrix.M == 0
 
@@ -1326,7 +1326,7 @@ def plot_cv_by_feature(
     feature_cvs = np.zeros(n_features)
 
     for j in range(n_features):
-        valid_vals = X[:, j][valid_mask[:, j]]
+        valid_vals = X[:, j][valid_mask[:, j]]  # type: ignore[index]
         if len(valid_vals) > 1:
             feature_means[j] = np.mean(valid_vals)
             if feature_means[j] > 0:
@@ -1478,7 +1478,7 @@ def plot_cv_comparison(
 
     # Get data matrix
     if sp.issparse(matrix.X):
-        X = matrix.X.toarray()
+        X = matrix.X.toarray()  # type: ignore[union-attr]
     else:
         X = matrix.X.copy()
 
@@ -1486,7 +1486,7 @@ def plot_cv_comparison(
     if sp.issparse(matrix.M):
         valid_mask = matrix.M == 0
         if sp.issparse(valid_mask):
-            valid_mask = valid_mask.toarray()
+            valid_mask = valid_mask.toarray()  # type: ignore[union-attr]
     else:
         valid_mask = matrix.M == 0
 
@@ -1501,11 +1501,11 @@ def plot_cv_comparison(
     for batch_label in unique_batches:
         batch_mask = batches == batch_label
         batch_X = X[batch_mask, :]
-        batch_valid = valid_mask[batch_mask, :]
+        batch_valid = valid_mask[batch_mask, :]  # type: ignore[index]
 
         batch_cv_values = []
         for j in range(n_features):
-            valid_vals = batch_X[:, j][batch_valid[:, j]]
+            valid_vals = batch_X[:, j][batch_valid[:, j]]  # type: ignore[index]
             if len(valid_vals) > 1:
                 mean_val = np.mean(valid_vals)
                 if mean_val > 0:
@@ -1523,7 +1523,7 @@ def plot_cv_comparison(
         for batch_label in unique_batches:
             batch_mask = batches == batch_label
             batch_valid = valid_mask[batch_mask, j]
-            valid_vals = X[batch_mask, j][batch_valid]
+            valid_vals = X[batch_mask, j][batch_valid]  # type: ignore[index]
 
             if len(valid_vals) > 0:
                 batch_means.append(np.mean(valid_vals))
@@ -1538,7 +1538,7 @@ def plot_cv_comparison(
     # Calculate overall CV (all samples together)
     overall_cv_values = []
     for j in range(n_features):
-        valid_vals = X[:, j][valid_mask[:, j]]
+        valid_vals = X[:, j][valid_mask[:, j]]  # type: ignore[index]
         if len(valid_vals) > 1:
             mean_val = np.mean(valid_vals)
             if mean_val > 0:
@@ -1616,11 +1616,11 @@ def plot_cv_comparison(
 
     # Add interpretation text
     ratio = comparison_results["batch_effect_ratio"]
-    if not np.isnan(ratio):
-        if ratio > 1.5:
+    if not np.isnan(ratio):  # type: ignore[arg-type]
+        if ratio > 1.5:  # type: ignore[operator]
             interpretation = "High batch effect detected"
             interpretation_color = "red"
-        elif ratio > 1.1:
+        elif ratio > 1.1:  # type: ignore[operator]
             interpretation = "Moderate batch effect detected"
             interpretation_color = "orange"
         else:
@@ -1630,7 +1630,7 @@ def plot_cv_comparison(
         ax.text(
             0.02,
             0.98,
-            f"{interpretation}\nBetween/Within Ratio: {ratio:.2f}",
+            f"{interpretation}\nBetween/Within Ratio: {ratio:.2f}",  # type: ignore[arg-type]
             transform=ax.transAxes,
             ha="left",
             va="top",

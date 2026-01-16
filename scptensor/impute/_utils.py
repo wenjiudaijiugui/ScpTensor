@@ -31,7 +31,7 @@ def _update_imputed_mask(
     if M_original is not None:
         new_M = M_original.copy()
         if sp.issparse(new_M):
-            M_dense = new_M.toarray()
+            M_dense = new_M.toarray()  # type: ignore[union-attr]
             M_dense[missing_mask] = MaskCode.IMPUTED
             return sp.csr_matrix(M_dense, dtype=np.int8)
         else:

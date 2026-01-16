@@ -90,8 +90,8 @@ def volcano(
 
     # Threshold lines
     line_kwargs = {"linestyle": "--", "color": "black", "linewidth": 0.5, "alpha": 0.5}
-    ax.axhline(-np.log10(pval_threshold), **line_kwargs)
-    ax.axvline(fc_threshold, **line_kwargs)
-    ax.axvline(-fc_threshold, **line_kwargs)
+    ax.axhline(-np.log10(pval_threshold), **line_kwargs)  # type: ignore[arg-type]
+    ax.axvline(fc_threshold, **line_kwargs)  # type: ignore[arg-type]
+    ax.axvline(-fc_threshold, **line_kwargs)  # type: ignore[arg-type]
 
     return ax

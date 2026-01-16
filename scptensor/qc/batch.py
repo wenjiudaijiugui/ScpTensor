@@ -91,7 +91,7 @@ def qc_batch_metrics(
 
     # Handle sparse matrices
     if sp.issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
 
     # Get batch assignments
     batches = container.obs[batch_column].to_numpy()
@@ -261,7 +261,7 @@ def detect_batch_effects(
 
     # Handle sparse matrices
     if sp.issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
 
     batches = container.obs[batch_column].to_numpy()
     unique_batches = np.unique(batches)
@@ -464,7 +464,7 @@ def compute_batch_pca(
 
     # Handle sparse matrices
     if sp.issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
 
     # Impute missing values for PCA
     X_clean = X.copy()
@@ -486,9 +486,7 @@ def compute_batch_pca(
     # Add explained variance
     explained_variance = pca.explained_variance_ratio_.tolist()
 
-    new_obs = container.obs.with_columns(
-        **{k: pl.Series(v) for k, v in obs_data.items()}
-    )
+    new_obs = container.obs.with_columns(**{k: pl.Series(v) for k, v in obs_data.items()})
 
     new_container = ScpContainer(
         obs=new_obs,
@@ -507,7 +505,7 @@ def compute_batch_pca(
             "n_components": n_components_actual,
         },
         description=f"Computed batch PCA with {n_components_actual} components. "
-        f"PC1 explains {explained_variance[0]*100:.1f}% of variance.",
+        f"PC1 explains {explained_variance[0] * 100:.1f}% of variance.",
     )
 
     return new_container

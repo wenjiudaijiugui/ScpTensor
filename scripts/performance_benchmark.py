@@ -22,7 +22,6 @@ from pathlib import Path
 
 import numpy as np
 import scipy.sparse as sp
-from scipy import linalg
 
 # Set random seed for reproducibility
 np.random.seed(42)
@@ -32,6 +31,7 @@ try:
 except ImportError:
     print("Polars not installed. Installing...")
     import subprocess
+
     subprocess.check_call(["uv", "pip", "install", "polars", "-q"])
     import polars as pl
 
@@ -90,7 +90,9 @@ class BenchmarkSuite:
                 else:
                     size_str = "N/A"
                 sparsity_str = f"{r.sparsity:.1%}" if r.sparsity > 0 else "dense"
-                print(f"  {size_str:<20} {sparsity_str:<12} {r.time_ms:<15.3f} {r.memory_mb:<15.2f}")
+                print(
+                    f"  {size_str:<20} {sparsity_str:<12} {r.time_ms:<15.3f} {r.memory_mb:<15.2f}"
+                )
 
     def save_json(self, path: str | Path) -> None:
         """Save results to JSON file."""
@@ -238,7 +240,8 @@ def benchmark_jit_operations(suite: BenchmarkSuite) -> None:
                 f"euclidean_distance_{n_samples}x{n_features}",
                 "euclidean_distance",
                 jit_ops.euclidean_distance_no_nan,
-                X[0], X[1],
+                X[0],
+                X[1],
                 iterations=10,
             )
             result.sparsity = 0.0
@@ -246,12 +249,13 @@ def benchmark_jit_operations(suite: BenchmarkSuite) -> None:
 
         # Benchmark pairwise distances
         if jit_ops.NUMBA_AVAILABLE:
-            X_small = X[:min(100, n_samples)]
+            X_small = X[: min(100, n_samples)]
             result = benchmark_operation(
                 f"pairwise_distances_{n_samples}x{n_features}",
                 "pairwise_distances",
                 jit_ops.nan_euclidean_distance_row_to_matrix,
-                X[0], X_small,
+                X[0],
+                X_small,
                 iterations=5,
             )
             result.sparsity = 0.0
@@ -275,7 +279,8 @@ def benchmark_jit_operations(suite: BenchmarkSuite) -> None:
                 f"mean_axis_{n_samples}x{n_features}",
                 "mean_axis_no_nan",
                 jit_ops.mean_axis_no_nan,
-                X, 0,
+                X,
+                0,
                 iterations=20,
             )
             result.sparsity = 0.0
@@ -304,7 +309,9 @@ def benchmark_sparse_operations(suite: BenchmarkSuite) -> None:
 
     for n_samples, n_features in sizes:
         for sparsity in sparsities:
-            X_dense, _ = generate_test_data(n_samples, n_features, sparsity=sparsity, missing_rate=0.0)
+            X_dense, _ = generate_test_data(
+                n_samples, n_features, sparsity=sparsity, missing_rate=0.0
+            )
             X_sparse = sp.csr_matrix(X_dense)
 
             # Benchmark sparse_safe_log1p
@@ -323,7 +330,9 @@ def benchmark_sparse_operations(suite: BenchmarkSuite) -> None:
                 f"sparse_log1p_scale_{n_samples}x{n_features}_sparse{sparsity}",
                 "sparse_log1p_scale",
                 sparse_utils.sparse_safe_log1p_with_scale,
-                X_sparse, 1.0, np.log(2.0),
+                X_sparse,
+                1.0,
+                np.log(2.0),
                 iterations=10,
             )
             result.sparsity = sparsity
@@ -335,7 +344,8 @@ def benchmark_sparse_operations(suite: BenchmarkSuite) -> None:
                 f"sparse_mul_row_{n_samples}x{n_features}_sparse{sparsity}",
                 "sparse_multiply_rowwise",
                 sparse_utils.sparse_multiply_rowwise,
-                X_sparse, factors,
+                X_sparse,
+                factors,
                 iterations=10,
             )
             result.sparsity = sparsity
@@ -347,7 +357,8 @@ def benchmark_sparse_operations(suite: BenchmarkSuite) -> None:
                 f"sparse_mul_col_{n_samples}x{n_features}_sparse{sparsity}",
                 "sparse_multiply_colwise",
                 sparse_utils.sparse_multiply_colwise,
-                X_sparse, factors_col,
+                X_sparse,
+                factors_col,
                 iterations=10,
             )
             result.sparsity = sparsity
@@ -379,7 +390,10 @@ def benchmark_normalization_operations(suite: BenchmarkSuite) -> None:
             f"log_normalize_sparse_{n_samples}x{n_features}",
             "log_normalize",
             log_normalize,
-            container, "test", "raw", "log",
+            container,
+            "test",
+            "raw",
+            "log",
             iterations=5,
         )
         result.sparsity = 0.0
@@ -397,9 +411,7 @@ def benchmark_imputation_operations(suite: BenchmarkSuite) -> None:
     sizes = [(50, 30), (100, 50), (200, 100)]
 
     for n_samples, n_features in sizes:
-        X, missing_mask = generate_test_data(
-            n_samples, n_features, sparsity=0.0, missing_rate=0.2
-        )
+        X, missing_mask = generate_test_data(n_samples, n_features, sparsity=0.0, missing_rate=0.2)
 
         obs = pl.DataFrame({"_index": [f"s{i}" for i in range(n_samples)]})
         var = pl.DataFrame({"_index": [f"f{i}" for i in range(n_features)]})
@@ -413,7 +425,13 @@ def benchmark_imputation_operations(suite: BenchmarkSuite) -> None:
             f"knn_impute_{n_samples}x{n_features}",
             "knn_impute",
             knn,
-            container, "test", "raw", "imputed", 3, "uniform", 100,
+            container,
+            "test",
+            "raw",
+            "imputed",
+            3,
+            "uniform",
+            100,
             iterations=2,
             warmup=0,
         )
@@ -429,7 +447,14 @@ def benchmark_imputation_operations(suite: BenchmarkSuite) -> None:
             f"ppca_impute_{n_samples}x{n_features}",
             "ppca_impute",
             ppca,
-            container2, "test", "raw", "imputed", 5, 20, 1e-4, 42,
+            container2,
+            "test",
+            "raw",
+            "imputed",
+            5,
+            20,
+            1e-4,
+            42,
             iterations=2,
             warmup=0,
         )
@@ -446,9 +471,7 @@ def benchmark_matrix_operations(suite: BenchmarkSuite) -> None:
     sizes = [(100, 50), (500, 100), (1000, 200), (5000, 500)]
 
     for n_samples, n_features in sizes:
-        X, missing_mask = generate_test_data(
-            n_samples, n_features, sparsity=0.0, missing_rate=0.2
-        )
+        X, missing_mask = generate_test_data(n_samples, n_features, sparsity=0.0, missing_rate=0.2)
         M = np.zeros((n_samples, n_features), dtype=np.int8)
         M[missing_mask] = MaskCode.MBR.value
 
@@ -482,7 +505,9 @@ def benchmark_matrix_operations(suite: BenchmarkSuite) -> None:
             f"mark_values_{n_samples}x{n_features}",
             "mark_values",
             MatrixOps.mark_values,
-            matrix, indices, MaskCode.IMPUTED,
+            matrix,
+            indices,
+            MaskCode.IMPUTED,
             iterations=50,
         )
         result.sparsity = 0.0
@@ -541,11 +566,20 @@ def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description="ScpTensor Performance Benchmark")
     parser.add_argument("--output", "-o", type=str, help="Output JSON file path")
-    parser.add_argument("--suite", "-s", type=str, default="all",
-                        choices=["all", "jit", "sparse", "matrix", "normalize", "impute"],
-                        help="Benchmark suite to run")
-    parser.add_argument("--quick", "-q", action="store_true",
-                        help="Run quick benchmark (smaller sizes, fewer iterations)")
+    parser.add_argument(
+        "--suite",
+        "-s",
+        type=str,
+        default="all",
+        choices=["all", "jit", "sparse", "matrix", "normalize", "impute"],
+        help="Benchmark suite to run",
+    )
+    parser.add_argument(
+        "--quick",
+        "-q",
+        action="store_true",
+        help="Run quick benchmark (smaller sizes, fewer iterations)",
+    )
 
     args = parser.parse_args()
 

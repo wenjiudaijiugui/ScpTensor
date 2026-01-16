@@ -114,12 +114,12 @@ def correlation_matrix(
             raise ValueError(f"Need at least 2 groups for correlation matrix, found {len(groups)}")
 
         # Compute group means
-        group_means = []
+        group_means_list: list[np.ndarray] = []
         for g in groups:
             mask = group_data == g
-            group_means.append(data[mask].mean(axis=0))
+            group_means_list.append(data[mask].mean(axis=0))
 
-        group_means = np.array(group_means)
+        group_means = np.array(group_means_list)  # type: ignore[assignment]
 
         # Compute correlation between groups
         if method == "spearman":
@@ -137,6 +137,7 @@ def correlation_matrix(
         else:
             # Pearson correlation
             # Center the data
+            assert isinstance(group_means, np.ndarray), "group_means should be ndarray"
             group_means_centered = group_means - group_means.mean(axis=1, keepdims=True)
 
             # Compute correlation matrix
@@ -332,7 +333,7 @@ def dendrogram(
 
     # Compute pairwise distances
     dist_matrix = pdist(data_subset, metric=metric)
-    link = linkage(dist_matrix, method=method)
+    link = linkage(dist_matrix, method=method)  # type: ignore[arg-type]
 
     # Create figure
     fig, ax = plt.subplots(figsize=(12, 6))

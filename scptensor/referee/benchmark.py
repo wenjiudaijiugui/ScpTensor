@@ -208,6 +208,6 @@ class IntegrationReferee:
 
     def _create_score_entry(self, assay: str, layer: str) -> dict[str, float | str]:
         """Create score dictionary entry for a candidate."""
-        scores = self.score(assay, layer)
+        scores: dict[str, float | str] = self.score(assay, layer)
         scores[METHOD_COLUMN] = f"{assay}_{layer}"
         return scores

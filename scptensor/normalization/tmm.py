@@ -5,8 +5,6 @@ Reference:
     for differential expression analysis of RNA-seq data. Genome Biology, 11(3), R25.
 """
 
-from typing import overload
-
 import numpy as np
 
 from scptensor.core.exceptions import (
@@ -15,17 +13,6 @@ from scptensor.core.exceptions import (
     ScpValueError,
 )
 from scptensor.core.structures import ScpContainer, ScpMatrix
-
-
-@overload
-def norm_tmm(
-    container: ScpContainer,
-    assay_name: str = "protein",
-    source_layer: str = "raw",
-    new_layer_name: str = "tmm_norm",
-    reference_sample: int | None = None,
-    trim_ratio: float = 0.3,
-) -> ScpContainer: ...
 
 
 def norm_tmm(

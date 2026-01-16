@@ -81,7 +81,7 @@ def _estimate_memory_bytes(X: np.ndarray | sp.spmatrix) -> int:
         Estimated memory usage in bytes
     """
     if sp.issparse(X):
-        return X.nnz * _BYTES_PER_NNZ
+        return X.nnz * _BYTES_PER_NNZ  # type: ignore[union-attr]
     return X.nbytes
 
 
@@ -212,8 +212,8 @@ class _CenteredScaledLinearOperator(LinearOperator):
         self.X = X
         self.mean = mean
         self.std = std
-        self.shape = X.shape
-        self.dtype = X.dtype
+        self.shape = X.shape  # type: ignore[misc]
+        self.dtype = X.dtype  # type: ignore[misc]
 
         # Pre-compute for efficiency
         self._eps = np.finfo(np.float64).eps
@@ -222,7 +222,7 @@ class _CenteredScaledLinearOperator(LinearOperator):
             self._std_safe[self._std_safe < self._eps] = 1.0
             self.mean_scaled = mean / self._std_safe
         else:
-            self._std_safe = None
+            self._std_safe = None  # type: ignore[assignment]
             self.mean_scaled = mean
 
     def _matvec(self, v: npt.NDArray[np.number]) -> npt.NDArray[np.number]:
@@ -624,15 +624,14 @@ def reduce_pca(
 
     if scale:
         if sp.issparse(X):
-            std = _compute_sparse_variance(
-                X, mean if center is not None else np.zeros(n_features), n_samples
-            )
+            mean_for_std = mean if center is not None else np.zeros(n_features)
+            std = _compute_sparse_variance(X, mean_for_std, n_samples)
             std = np.sqrt(std)
         else:
             std = np.std(X, axis=0, ddof=1)
 
         # Handle near-zero std
-        eps = np.finfo(target_dtype).eps
+        eps = np.finfo(np.float64).eps
         std = np.where(std < eps, 1.0, std)
 
     # ===== PREPARE DATA FOR SVD =====
@@ -660,9 +659,9 @@ def reduce_pca(
             X_processed = X.astype(target_dtype, copy=True)
 
         if center:
-            X_processed -= mean  # type: ignore[operator]
+            X_processed -= mean
         if scale:
-            X_processed /= std  # type: ignore[operator]
+            X_processed /= std
 
     # ===== COMPUTE SVD =====
     U_reduced: np.ndarray | None
@@ -675,14 +674,14 @@ def reduce_pca(
                 # Must densify for full SVD
                 X_dense = X.toarray().astype(target_dtype)
                 if center:
-                    X_dense -= mean  # type: ignore[operator]
+                    X_dense -= mean
                 if scale:
-                    X_dense /= std  # type: ignore[operator]
+                    X_dense /= std
                 U_reduced, S_reduced, Vt_reduced = _full_svd(X_dense, n_components)
             else:
                 U_reduced, S_reduced, Vt_reduced = _full_svd(
                     X_processed,
-                    n_components,  # type: ignore[arg-type]
+                    n_components,
                 )
 
         elif svd_solver == "arpack":
@@ -690,7 +689,7 @@ def reduce_pca(
             U_reduced, S_reduced, Vt_reduced = _arpack_svd(
                 operator,
                 n_components,
-                random_state,  # type: ignore[arg-type]
+                random_state,
             )
 
         elif svd_solver == "randomized":
@@ -698,7 +697,7 @@ def reduce_pca(
             U_reduced, S_reduced, Vt_reduced = _randomized_svd(
                 operator,
                 n_components,
-                random_state=random_state,  # type: ignore[arg-type]
+                random_state=random_state,
             )
 
         else:  # covariance_eigh
@@ -706,19 +705,19 @@ def reduce_pca(
                 # Need to densify or compute differently
                 X_dense = X.toarray().astype(target_dtype)
                 if center:
-                    X_dense -= mean  # type: ignore[operator]
+                    X_dense -= mean
                 if scale:
-                    X_dense /= std  # type: ignore[operator]
+                    X_dense /= std
                 U_reduced, S_reduced, Vt_reduced = _full_svd(X_dense, n_components)
             else:
                 U_temp, S_reduced, Vt_reduced = _covariance_eigh_svd(
                     X,
                     mean if center else np.zeros(n_features),
-                    n_components,  # type: ignore[arg-type]
+                    n_components,
                 )
                 if U_temp is None:
                     V = Vt_reduced.T
-                    U_reduced = (X_processed @ V) / S_reduced  # type: ignore[index, call-arg]
+                    U_reduced = (X_processed @ V) / S_reduced
                 else:
                     U_reduced = U_temp
 
@@ -738,19 +737,19 @@ def reduce_pca(
         if scale:
             total_variance = float(n_features)
         elif sp.issparse(X) and use_linear_operator:
-            total_variance = np.sum(_compute_sparse_variance(X, mean, n_samples))
+            total_variance = np.sum(_compute_sparse_variance(X, mean, n_samples))  # type: ignore[arg-type]
         elif X_processed is not None and not sp.issparse(X_processed):
             total_variance = np.sum(np.var(X_processed, axis=0, ddof=1))
         else:
-            total_variance = np.sum(_compute_sparse_variance(X, mean, n_samples))
+            total_variance = np.sum(_compute_sparse_variance(X, mean, n_samples))  # type: ignore[arg-type]
     else:
         # For uncentered data, use total sum of squares
         if sp.issparse(X):
-            sq_sum = np.sum(X.data**2)
+            sq_sum = np.sum(X.data**2)  # type: ignore[operator]
         elif X_processed is not None:
             sq_sum = np.sum(np.square(X_processed))
         else:
-            sq_sum = np.sum(X.data**2)
+            sq_sum = np.sum(X.data**2)  # type: ignore[operator]
         total_variance = sq_sum / (n_samples - 1)
 
     # Eigenvalues and explained variance ratio

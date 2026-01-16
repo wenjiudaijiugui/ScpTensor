@@ -11,8 +11,6 @@ References:
     proteomics data. Expert Review of Proteomics.
 """
 
-from typing import overload
-
 import numpy as np
 
 from scptensor.core.exceptions import (
@@ -22,17 +20,6 @@ from scptensor.core.exceptions import (
     ValidationError,
 )
 from scptensor.core.structures import ScpContainer, ScpMatrix
-
-
-@overload
-def norm_zscore(
-    container: ScpContainer,
-    assay_name: str = "protein",
-    source_layer: str = "imputed",
-    new_layer_name: str | None = "zscore",
-    axis: int = 0,
-    ddof: int = 1,
-) -> ScpContainer: ...
 
 
 def norm_zscore(

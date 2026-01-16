@@ -172,7 +172,7 @@ class BenchmarkSuite:
         for name in datasets_to_use:
             results.add_dataset(name, self.datasets[name])
 
-        param_grid = ParameterGrid(parameter_grid)
+        param_grid = ParameterGrid(parameter_grid)  # type: ignore[arg-type]
         combinations = param_grid.generate_combinations(strategy="grid")
 
         for dataset_name in datasets_to_use:
@@ -204,7 +204,7 @@ class BenchmarkSuite:
         if method_name not in self.parameter_grids:
             return self.methods[method_name].default_parameters
 
-        param_grid = ParameterGrid(self.parameter_grids[method_name])
+        param_grid = ParameterGrid(self.parameter_grids[method_name])  # type: ignore[arg-type]
         combinations = param_grid.generate_combinations(strategy="grid")[:n_trials]
 
         best_score = -np.inf

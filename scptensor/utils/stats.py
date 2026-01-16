@@ -33,7 +33,7 @@ def _ensure_dense(X: NDArray[np.float64] | sp.spmatrix) -> NDArray[np.float64]:
     NDArray[np.float64]
         Dense array.
     """
-    return X.toarray() if sp.issparse(X) else X
+    return X.toarray() if sp.issparse(X) else X  # type: ignore[union-attr]
 
 
 def correlation_matrix(
@@ -276,9 +276,9 @@ def cosine_similarity(
         norms = X_norm @ X_norm.T
 
         if sp.issparse(norms):
-            norms.data[norms.data == 0] = 1.0
+            norms.data[norms.data == 0] = 1.0  # type: ignore[call-overload]
             sim = sim / norms
-            result = sim.toarray()
+            result = sim.toarray()  # type: ignore[union-attr]
         else:
             norms[norms == 0] = 1.0
             result = sim / norms
@@ -291,9 +291,9 @@ def cosine_similarity(
     norms = X_norm @ Y_norm.T
 
     if sp.issparse(norms):
-        norms.data[norms.data == 0] = 1.0
+        norms.data[norms.data == 0] = 1.0  # type: ignore[call-overload]
         sim = sim / norms
-        result = sim.toarray()
+        result = sim.toarray()  # type: ignore[union-attr]
     else:
         norms[norms == 0] = 1.0
         result = sim / norms
@@ -353,7 +353,7 @@ if __name__ == "__main__":
     # Test 6: spearman_correlation
     print("\n6. Testing spearman_correlation...")
     sc = spearman_correlation(X_correlated)
-    assert sc.shape == (3, 3)
+    assert hasattr(sc, "shape") and sc.shape == (3, 3)
     print(f"   Shape: {sc.shape}")
 
     # Test 7: spearman_correlation between two vectors
@@ -365,7 +365,7 @@ if __name__ == "__main__":
     # Test 8: cosine_similarity
     print("\n8. Testing cosine_similarity...")
     cos_sim = cosine_similarity(X_dense[:5])
-    assert cos_sim.shape == (5, 5)
+    assert hasattr(cos_sim, "shape") and cos_sim.shape == (5, 5)
     assert np.abs(np.diag(cos_sim) - 1.0).max() < 1e-10
     print(f"   Shape: {cos_sim.shape}")
 
@@ -373,12 +373,12 @@ if __name__ == "__main__":
     print("\n9. Testing cosine_similarity (X vs Y)...")
     cos_xy = cosine_similarity(X_dense[:1, :], X_dense[1:2, :])
     assert -1.0 <= cos_xy <= 1.0
-    print(f"   Similarity: {cos_xy[0, 0]:.4f}")
+    print(f"   Similarity: {cos_xy[0, 0]:.4f}")  # type: ignore[index]
 
     # Test 10: cosine_similarity with sparse
     print("\n10. Testing cosine_similarity (sparse)...")
     cos_sparse = cosine_similarity(X_sparse[:5])
-    assert cos_sparse.shape == (5, 5)
+    assert hasattr(cos_sparse, "shape") and cos_sparse.shape == (5, 5)
     print(f"   Shape: {cos_sparse.shape}")
 
     # Test 11: Error handling

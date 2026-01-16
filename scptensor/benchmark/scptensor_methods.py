@@ -153,7 +153,7 @@ class ScpTensorLogNormalize:
         result_container = scptensor_log_normalize(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             new_layer_name="log",
             base=base,
             offset=offset,
@@ -213,7 +213,7 @@ class ScpTensorKNNImputer:
         result_container = scptensor_knn(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             new_layer_name="imputed_knn",
             k=n_neighbors,
             batch_size=500,
@@ -276,7 +276,7 @@ class ScpTensorSVDImputer:
         result_container = scptensor_svd_impute(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             new_layer_name="imputed_svd",
             n_components=n_components,
             max_iter=max_iter,
@@ -319,7 +319,7 @@ class ScpTensorPCA:
         tuple[np.ndarray, float, float]
             (result_array, runtime_seconds, memory_mb)
         """
-        from scptensor.dim_reduction.pca import pca as scptensor_pca
+        from scptensor.dim_reduction.pca import reduce_pca as scptensor_pca
 
         tracker = _ResourceTracker()
         tracker.start()

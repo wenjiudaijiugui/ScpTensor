@@ -80,7 +80,10 @@ def _sparse_to_dict(matrix: sp.spmatrix) -> dict[str, Any]:
         format_name = "csc"
     else:
         # Convert to CSR for other formats
-        matrix = matrix.tocsr()
+        if sp.issparse(matrix):
+            matrix = matrix.tocsr()
+        else:
+            matrix = sp.csr_matrix(matrix)
         format_name = "csr"
 
     return {
@@ -236,7 +239,7 @@ def save_csv(
 
         # Convert sparse to dense for CSV
         if sp.issparse(matrix.X):
-            X_dense = matrix.X.toarray()
+            X_dense = matrix.X.toarray()  # type: ignore[union-attr]
         else:
             X_dense = matrix.X
 
@@ -256,7 +259,7 @@ def save_csv(
             mask_path = path / f"assay_{assay_name}_{layer_name}_mask.csv"
 
             if sp.issparse(matrix.M):
-                M_dense = matrix.M.toarray()
+                M_dense = matrix.M.toarray()  # type: ignore[union-attr]
             else:
                 M_dense = matrix.M
 
@@ -1574,7 +1577,10 @@ if __name__ == "__main__":
         loaded_M = loaded.assays["test"].layers["X"].M
 
         assert np.allclose(loaded_X, test_X), "X data mismatch"
-        assert np.array_equal(loaded_M, test_M), "M data mismatch"
+        if loaded_M is not None and test_M is not None:
+            assert np.array_equal(loaded_M, test_M), "M data mismatch"
+        else:
+            assert loaded_M is None and test_M is None, "M data mismatch"
         print("  Data integrity verified (X and M preserved exactly)")
     print()
 

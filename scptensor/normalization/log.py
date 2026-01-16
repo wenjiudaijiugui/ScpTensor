@@ -4,8 +4,6 @@ Provides log transformation with configurable base and offset.
 Optimized for both dense and sparse matrices.
 """
 
-from typing import overload
-
 import numpy as np
 
 from scptensor.core.exceptions import (
@@ -19,18 +17,6 @@ from scptensor.core.sparse_utils import (
     sparse_safe_log1p_with_scale,
 )
 from scptensor.core.structures import ScpContainer, ScpMatrix
-
-
-@overload
-def norm_log(
-    container: ScpContainer,
-    assay_name: str = "protein",
-    source_layer: str = "raw",
-    new_layer_name: str = "log",
-    base: float = 2.0,
-    offset: float = 1.0,
-    use_jit: bool = True,
-) -> ScpContainer: ...
 
 
 def norm_log(

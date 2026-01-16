@@ -1,7 +1,5 @@
 """Sample mean normalization for ScpTensor."""
 
-from typing import overload
-
 import numpy as np
 
 from scptensor.core.exceptions import (
@@ -9,15 +7,6 @@ from scptensor.core.exceptions import (
     LayerNotFoundError,
 )
 from scptensor.core.structures import ScpContainer, ScpMatrix
-
-
-@overload
-def norm_sample_mean(
-    container: ScpContainer,
-    assay_name: str = "protein",
-    source_layer: str = "raw",
-    new_layer_name: str = "sample_mean_norm",
-) -> ScpContainer: ...
 
 
 def norm_sample_mean(

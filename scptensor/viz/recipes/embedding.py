@@ -152,11 +152,10 @@ def scatter(
         is_categorical = True
 
     # Create scatter plot
-    if show_missing_values and mask is not None and mask.sum() > 0:
+    if show_missing_values and mask is not None and mask.sum() > 0:  # type: ignore[union-attr]
         # Use missing value handler for layered scatter
-        _plot_with_missing_values(
-            ax, x, y, color_values, mask, size, alpha, is_categorical, **kwargs
-        )
+        color_arg: np.ndarray | str = color_values if color_values is not None else "gray"
+        _plot_with_missing_values(ax, x, y, color_arg, mask, size, alpha, is_categorical, **kwargs)
     else:
         # Simple scatter plot
         _plot_simple(ax, x, y, color_values, size, alpha, is_categorical, **kwargs)
@@ -392,6 +391,7 @@ def _plot_simple(
     """
     import matplotlib.pyplot as plt
 
+    c: np.ndarray | str | list[tuple[float, float, float, float]]
     c = color_values if color_values is not None else "#1f77b4"
 
     if is_categorical and isinstance(c, np.ndarray):
@@ -400,7 +400,7 @@ def _plot_simple(
         cmap = plt.get_cmap("tab20")
         colors = [cmap(i % 20) for i in range(len(unique_vals))]
         color_map = {val: colors[i] for i, val in enumerate(unique_vals)}
-        c = [color_map[v] for v in c]
+        c = [color_map[v] for v in c]  # type: ignore[assignment]
 
     ax.scatter(x, y, s=size, alpha=alpha, c=c, **kwargs)
 
@@ -615,20 +615,20 @@ if __name__ == "__main__":
     print("Testing scatter function...")
     ax = scatter(container, layer="normalized", basis="umap")
     print("Basic scatter: OK")
-    plt.close(ax.figure)
+    plt.close()  # type: ignore[arg-type]
 
     # Test with color
     ax = scatter(container, layer="normalized", basis="umap", color="cluster")
     print("Scatter with color: OK")
-    plt.close(ax.figure)
+    plt.close()  # type: ignore[arg-type]
 
     # Test convenience functions
     ax = umap(container)
     print("UMAP function: OK")
-    plt.close(ax.figure)
+    plt.close()  # type: ignore[arg-type]
 
     ax = pca(container)
     print("PCA function: OK")
-    plt.close(ax.figure)
+    plt.close()  # type: ignore[arg-type]
 
     print("\nAll tests passed!")

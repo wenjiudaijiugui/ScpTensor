@@ -6,8 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scipy import sparse
 import h5py
+from scipy import sparse
 
 from scptensor import __version__ as scptensor_version
 from scptensor.core.structures import ScpContainer

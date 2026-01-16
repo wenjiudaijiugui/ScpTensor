@@ -135,7 +135,7 @@ def _count_mask_codes(
         Count of code per sample [n_samples].
     """
     if sp.issparse(M):
-        M = M.tocsr()  # noqa: N806
+        M = M.tocsr()  # type: ignore[union-attr]  # noqa: N806
         # Create binary mask for this code
         code_mask = M.data == code
         # Get counts per feature (column sum)
@@ -338,7 +338,7 @@ def compute_missing_stats(
 
     # Convert to dense for easier computation if sparse
     if sp.issparse(M):
-        M = M.toarray()  # noqa: N806
+        M = M.toarray()  # type: ignore[union-attr]  # noqa: N806
 
     # Count each mask code globally
     n_valid = np.sum(MaskCode.VALID.value == M)
@@ -480,13 +480,13 @@ def report_missing_values(
         if detection_threshold == 0.0:
             detected = data > 0
         else:
-            detected = data.toarray() > detection_threshold
+            detected = data.toarray() > detection_threshold  # type: ignore[union-attr]
     else:
         detected = detection_threshold < data
 
     # Convert to dense if needed
     if sp.issparse(detected):
-        detected = detected.toarray()
+        detected = detected.toarray()  # type: ignore[union-attr]
 
     # Compute number of detected features per sample
     n_detected = np.sum(detected, axis=1).astype(np.int32)

@@ -236,7 +236,7 @@ class PanelLayout:
         if self._figure is not None:
             self._figure.colorbar(mappable, ax=ax, label=label)
 
-    def finalize(self, tight: bool = True) -> Figure:
+    def finalize(self, tight: bool = True) -> Figure | None:
         """
         Finalize layout and adjust spacing.
 
@@ -277,7 +277,7 @@ class PanelLayout:
         return self._figure
 
     @property
-    def figure(self) -> Figure:
+    def figure(self) -> Figure | None:
         """Get the figure, creating it if necessary.
 
         Returns

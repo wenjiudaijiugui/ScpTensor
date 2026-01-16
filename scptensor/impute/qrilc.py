@@ -9,8 +9,6 @@ Reference:
     Metabolomics Data." Sci Rep 2018;8:663.
 """
 
-from typing import overload
-
 import numpy as np
 import scipy.sparse as sp
 from scipy.stats import norm
@@ -22,17 +20,6 @@ from scptensor.core.exceptions import (
 )
 from scptensor.core.structures import MaskCode, ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
-
-
-@overload
-def impute_qrilc(
-    container: ScpContainer,
-    assay_name: str,
-    source_layer: str,
-    new_layer_name: str = "qrilc",
-    q: float = 0.01,
-    random_state: int | None = None,
-) -> ScpContainer: ...
 
 
 def impute_qrilc(
@@ -141,7 +128,7 @@ def impute_qrilc(
     n_samples, n_features = X_original.shape
 
     # Convert sparse to dense for QRILC
-    X_dense = X_original.toarray() if sp.issparse(X_original) else X_original
+    X_dense = X_original.toarray() if sp.issparse(X_original) else X_original  # type: ignore[union-attr]
 
     # Check for missing values
     missing_mask = np.isnan(X_dense)
