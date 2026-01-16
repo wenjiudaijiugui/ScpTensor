@@ -4,6 +4,123 @@ This guide documents API changes between ScpTensor versions and helps you migrat
 
 ## Current Version: v0.2.0 (development)
 
+---
+
+## API Naming Changes (v0.2.0)
+
+### Function Name Renaming
+
+**IMPORTANT:** As of v0.2.0, all analysis functions have been renamed to follow a consistent prefix-based naming convention. Old function names have been **removed** and are no longer supported.
+
+| Old Name | New Name | Module |
+|----------|----------|--------|
+| `log_normalize` | `norm_log` | Normalization |
+| `zscore` | `norm_zscore` | Normalization |
+| `sample_median_normalization` | `norm_median_sample` | Normalization |
+| `sample_mean_normalization` | `norm_mean_sample` | Normalization |
+| `global_median_normalization` | `norm_median_global` | Normalization |
+| `median_scaling` | `norm_scale_median` | Normalization |
+| `median_centering` | `norm_center_median` | Normalization |
+| `upper_quartile_normalization` | `norm_quartile` | Normalization |
+| `tmm_normalization` | `norm_tmm` | Normalization |
+| `knn` | `impute_knn` | Imputation |
+| `ppca` | `impute_ppca` | Imputation |
+| `svd_impute` | `impute_svd` | Imputation |
+| `missforest` | `impute_mf` | Imputation |
+| `basic_qc` | `qc_basic` | Quality Control |
+| `compute_quality_score` | `qc_score` | Quality Control |
+| `detect_outliers` | `qc_detect_outliers` | Quality Control |
+| `combat` | `integrate_combat` | Integration |
+| `harmony` | `integrate_harmony` | Integration |
+| `mnn_correct` | `integrate_mnn` | Integration |
+| `scanorama_integrate` | `integrate_scanorama` | Integration |
+| `nonlinear_integration` | `integrate_nonlinear` | Integration |
+| `kmeans` | `cluster_kmeans` | Clustering |
+| `leiden` | `cluster_leiden` | Clustering |
+| `pca` | `reduce_pca` | Dimensionality Reduction |
+| `umap` | `reduce_umap` | Dimensionality Reduction |
+
+### Filtering Functions (Simplified)
+
+| Old Name | New Name |
+|----------|----------|
+| `filter_features_by_missing_rate` | `filter_features_missing` |
+| `filter_features_by_variance` | `filter_features_variance` |
+| `filter_features_by_prevalence` | `filter_features_prevalence` |
+| `filter_samples_by_total_count` | `filter_samples_count` |
+| `filter_samples_by_missing_rate` | `filter_samples_missing` |
+| `detect_contaminant_proteins` | `detect_contaminants` |
+
+### Feature Selection Functions
+
+| Old Name | New Name |
+|----------|----------|
+| `highly_variable_features` | `select_hvg` |
+| `variance_stabilizing_transform` | `select_vst` |
+
+### Migration Example
+
+**Before (v0.1.x):**
+```python
+from scptensor import log_normalize, knn, basic_qc, combat
+
+result = log_normalize(container, "proteins")
+result = knn(container, "proteins")
+result = basic_qc(container, "proteins")
+result = combat(container, "proteins")
+```
+
+**After (v0.2.0):**
+```python
+from scptensor import norm_log, impute_knn, qc_basic, integrate_combat
+
+result = norm_log(container, "proteins")
+result = impute_knn(container, "proteins")
+result = qc_basic(container, "proteins")
+result = integrate_combat(container, "proteins")
+```
+
+### Auto-Migration Script for Function Names
+
+```bash
+# Normalization functions
+sed -i 's/log_normalize(/norm_log(/g' your_script.py
+sed -i 's/zscore(/norm_zscore(/g' your_script.py
+sed -i 's/sample_median_normalization(/norm_median_sample(/g' your_script.py
+sed -i 's/sample_mean_normalization(/norm_mean_sample(/g' your_script.py
+sed -i 's/global_median_normalization(/norm_median_global(/g' your_script.py
+sed -i 's/median_scaling(/norm_scale_median(/g' your_script.py
+sed -i 's/median_centering(/norm_center_median(/g' your_script.py
+sed -i 's/upper_quartile_normalization(/norm_quartile(/g' your_script.py
+sed -i 's/tmm_normalization(/norm_tmm(/g' your_script.py
+
+# Imputation functions
+sed -i 's/\bknn(/impute_knn(/g' your_script.py
+sed -i 's/ppca(/impute_ppca(/g' your_script.py
+sed -i 's/svd_impute(/impute_svd(/g' your_script.py
+sed -i 's/missforest(/impute_mf(/g' your_script.py
+
+# Quality control functions
+sed -i 's/basic_qc(/qc_basic(/g' your_script.py
+sed -i 's/compute_quality_score(/qc_score(/g' your_script.py
+
+# Integration functions
+sed -i 's/combat(/integrate_combat(/g' your_script.py
+sed -i 's/harmony(/integrate_harmony(/g' your_script.py
+sed -i 's/mnn_correct(/integrate_mnn(/g' your_script.py
+sed -i 's/scanorama_integrate(/integrate_scanorama(/g' your_script.py
+
+# Clustering functions
+sed -i 's/\bkmeans(/cluster_kmeans(/g' your_script.py
+sed -i 's/leiden(/cluster_leiden(/g' your_script.py
+
+# Dimensionality reduction functions
+sed -i 's/\bpca(/reduce_pca(/g' your_script.py
+sed -i 's/umap(/reduce_umap(/g' your_script.py
+```
+
+---
+
 ## Breaking Change: Old Parameter Names Removed
 
 **⚠️ IMPORTANT:** As of v0.2.0, old parameter names have been **removed** and are no longer supported. You must update your code to use the new parameter names.
@@ -82,16 +199,16 @@ from scptensor import log_normalize
 result = log_normalize(
     container,
     "proteins",
-    base_layer="raw",      # ❌ Removed
+    base_layer="raw",      # ❌ Old function name + parameter
     new_layer="log"        # ❌ Removed
 )
 ```
 
-**After (Current):**
+**After (v0.2.0 - Current):**
 ```python
-from scptensor import log_normalize
+from scptensor import norm_log
 
-result = log_normalize(
+result = norm_log(
     container,
     "proteins",
     source_layer="raw",
@@ -108,16 +225,16 @@ from scptensor import knn
 result = knn(
     container,
     "proteins",
-    layer="log",              # ❌ Removed
+    layer="log",              # ❌ Old function name + parameter
     output_layer="imputed"    # ❌ Removed
 )
 ```
 
-**After (Current):**
+**After (v0.2.0 - Current):**
 ```python
-from scptensor import knn
+from scptensor import impute_knn
 
-result = knn(
+result = impute_knn(
     container,
     "proteins",
     source_layer="log",
@@ -134,16 +251,16 @@ from scptensor import zscore
 result = zscore(
     container,
     "proteins",
-    base_layer_name="corrected",  # ❌ Removed
+    base_layer_name="corrected",  # ❌ Old function name + parameter
     new_layer="zscore"            # ❌ Removed
 )
 ```
 
-**After (Current):**
+**After (v0.2.0 - Current):**
 ```python
-from scptensor import zscore
+from scptensor import norm_zscore
 
-result = zscore(
+result = norm_zscore(
     container,
     "proteins",
     source_layer="corrected",
@@ -160,15 +277,15 @@ from scptensor import tmm_normalization
 result = tmm_normalization(
     container,
     "proteins",
-    base_layer_name="raw"  # ❌ Removed
+    base_layer_name="raw"  # ❌ Old function name + parameter
 )
 ```
 
-**After (Current):**
+**After (v0.2.0 - Current):**
 ```python
-from scptensor import tmm_normalization
+from scptensor import norm_tmm
 
-result = tmm_normalization(
+result = norm_tmm(
     container,
     "proteins",
     source_layer="raw"

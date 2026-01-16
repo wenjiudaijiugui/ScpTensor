@@ -310,6 +310,8 @@ def process(container, assay_name, layer_name):
 
 ## 7. Function Naming Conventions
 
+### 7.1 General Purpose Patterns
+
 | Purpose | Naming Pattern | Example |
 |---------|---------------|---------|
 | Transform data | `verb_object` | `log_transform`, `normalize` |
@@ -318,6 +320,72 @@ def process(container, assay_name, layer_name):
 | Check property | `has_<property>` | `has_layer`, `has_mask` |
 | Get value | `get_<property>` | `get_layer`, `get_shape` |
 | List items | `list_<items>` | `list_assays`, `list_layers` |
+
+### 7.2 Analysis Function Prefix Convention
+
+All analysis functions use consistent prefixes by module category:
+
+| Category | Prefix | Pattern |
+|----------|--------|---------|
+| Normalization | `norm_*` | `norm_{method}` |
+| Imputation | `impute_*` | `impute_{algorithm}` |
+| Quality Control | `qc_*` | `qc_{type}` |
+| Filtering | `filter_*` | `filter_{target}_{condition}` |
+| Detection | `detect_*` | `detect_{target}` |
+| Integration | `integrate_*` | `integrate_{algorithm}` |
+| Clustering | `cluster_*` | `cluster_{algorithm}` |
+| Dimensionality Reduction | `reduce_*` | `reduce_{method}` |
+| Feature Selection | `select_*` | `select_{method}` |
+| Differential Expression | `diff_*` | `diff_{test}` |
+
+### 7.3 Examples by Category
+
+**Normalization (`norm_*`):**
+- `norm_log` - Logarithmic transformation
+- `norm_zscore` - Z-score standardization
+- `norm_median_sample` - Sample median normalization
+- `norm_tmm` - TMM normalization
+
+**Imputation (`impute_*`):**
+- `impute_knn` - K-nearest neighbors imputation
+- `impute_ppca` - Probabilistic PCA imputation
+- `impute_svd` - SVD-based imputation
+- `impute_mf` - MissForest imputation
+
+**Quality Control (`qc_*`):**
+- `qc_basic` - Basic quality control metrics
+- `qc_score` - Compute quality scores
+- `qc_detect_outliers` - Outlier detection
+
+**Filtering (`filter_*`):**
+- `filter_features_missing` - Filter features by missing rate
+- `filter_features_variance` - Filter features by variance
+- `filter_samples_count` - Filter samples by total count
+
+**Integration (`integrate_*`):**
+- `integrate_combat` - ComBat batch correction
+- `integrate_harmony` - Harmony integration
+- `integrate_mnn` - MNN correction
+- `integrate_scanorama` - Scanorama integration
+
+**Clustering (`cluster_*`):**
+- `cluster_kmeans` - K-means clustering
+- `cluster_leiden` - Leiden clustering
+
+**Dimensionality Reduction (`reduce_*`):**
+- `reduce_pca` - Principal Component Analysis
+- `reduce_umap` - UMAP embedding
+
+**Feature Selection (`select_*`):**
+- `select_hvg` - Highly variable genes
+- `select_vst` - Variance stabilizing transform
+
+### 7.4 Benefits of Prefix Convention
+
+1. **Predictability:** Users can guess function names by module category
+2. **Discoverability:** IDE autocomplete groups related functions together
+3. **Consistency:** All functions in a category follow the same pattern
+4. **Namespacing:** Reduces naming conflicts (e.g., `pca()` vs `reduce_pca()`)
 
 ---
 
