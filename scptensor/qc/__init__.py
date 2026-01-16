@@ -5,6 +5,7 @@ This module provides comprehensive QC operations including:
 - Advanced QC: Feature filtering, contaminant detection, doublet detection
 - Bivariate analysis: Correlation-based QC metrics
 - Batch effect detection: Statistical tests for batch effects
+- Sensitivity metrics: Total/local feature detection, completeness, Jaccard index
 """
 
 from scptensor.qc.advanced import (
@@ -33,7 +34,28 @@ from scptensor.qc.bivariate import (
     compute_sample_similarity_network,
     detect_outlier_samples,
 )
+from scptensor.qc.missing import (
+    analyze_missing_types,
+    compute_missing_stats,
+    report_missing_values,
+)
 from scptensor.qc.outlier import detect_outliers
+from scptensor.qc.sensitivity import (
+    compute_completeness,
+    compute_cumulative_sensitivity,
+    compute_jaccard_index,
+    compute_sensitivity,
+    qc_report_metrics,
+)
+
+# Variability statistics
+from scptensor.qc.variability import (
+    CVReport,
+    compute_batch_cv,
+    compute_cv,
+    compute_technical_replicate_cv,
+    filter_by_cv,
+)
 
 __all__ = [
     # Basic QC
@@ -61,4 +83,20 @@ __all__ = [
     "qc_batch_metrics",
     "detect_batch_effects",
     "compute_batch_pca",
+    # Sensitivity metrics
+    "compute_sensitivity",
+    "compute_completeness",
+    "compute_jaccard_index",
+    "compute_cumulative_sensitivity",
+    "qc_report_metrics",
+    # Missing value analysis
+    "analyze_missing_types",
+    "compute_missing_stats",
+    "report_missing_values",
+    # Variability statistics
+    "CVReport",
+    "compute_cv",
+    "compute_technical_replicate_cv",
+    "compute_batch_cv",
+    "filter_by_cv",
 ]
