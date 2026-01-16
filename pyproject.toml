@@ -181,8 +181,21 @@ known-first-party = ["scptensor"]
 "scptensor/qc/variability.py" = ["N803", "N806"]
 # QC advanced viz: M is standard name for mask matrices
 "scptensor/viz/recipes/qc_advanced.py" = ["N803", "N806", "F841"]
-# Tutorial notebooks: E402 for dynamic imports
-"docs/tutorials/**/*.ipynb" = ["E402", "E712"]
+# Imputation methods: X, M, W, U, Vt are standard matrix names in linear algebra
+"scptensor/impute/_utils.py" = ["N803", "N806"]
+"scptensor/impute/bpca.py" = ["N803", "N806"]
+"scptensor/impute/knn.py" = ["N803", "N806"]
+"scptensor/impute/lls.py" = ["N803", "N806"]
+"scptensor/impute/minprob.py" = ["N803", "N806"]
+"scptensor/impute/missforest.py" = ["N803", "N806"]
+"scptensor/impute/nmf.py" = ["N803", "N806"]
+"scptensor/impute/ppca.py" = ["N803", "N806"]
+"scptensor/impute/qrilc.py" = ["N803", "N806"]
+"scptensor/impute/svd.py" = ["N803", "N806", "B007"]
+# Imputation viz: X, M are standard matrix names, list default is acceptable
+"scptensor/viz/recipes/impute.py" = ["N803", "N806", "B006"]
+# Tutorial notebooks: E402 for dynamic imports, C408 for dict literal style
+"docs/tutorials/**/*.ipynb" = ["E402", "E712", "C408"]
 
 [tool.mypy]
 python_version = "3.12"

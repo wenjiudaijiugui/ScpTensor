@@ -110,15 +110,13 @@ def impute_svd(
         )
     if max_iter <= 0:
         raise ScpValueError(
-            f"max_iter must be positive, got {max_iter}. "
-            "Use max_iter >= 1 for SVD iterations.",
+            f"max_iter must be positive, got {max_iter}. Use max_iter >= 1 for SVD iterations.",
             parameter="max_iter",
             value=max_iter,
         )
     if tol <= 0:
         raise ScpValueError(
-            f"tol must be positive, got {tol}. "
-            "Use tol > 0 for convergence tolerance.",
+            f"tol must be positive, got {tol}. Use tol > 0 for convergence tolerance.",
             parameter="tol",
             value=tol,
         )
@@ -132,16 +130,15 @@ def impute_svd(
 
     # Validate assay and layer
     if assay_name not in container.assays:
-        available = ", ".join(f"'{k}'" for k in container.assays.keys())
+        available = ", ".join(f"'{k}'" for k in container.assays)
         raise AssayNotFoundError(
             assay_name,
-            hint=f"Available assays: {available}. "
-            f"Use container.list_assays() to see all assays.",
+            hint=f"Available assays: {available}. Use container.list_assays() to see all assays.",
         )
 
     assay = container.assays[assay_name]
     if source_layer not in assay.layers:
-        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        available = ", ".join(f"'{k}'" for k in assay.layers)
         raise LayerNotFoundError(
             source_layer,
             assay_name,
@@ -240,7 +237,6 @@ def impute_svd(
     )
 
     return container
-
 
 
 if __name__ == "__main__":
@@ -404,7 +400,7 @@ if __name__ == "__main__":
 
     try:
         # Invalid n_components
-        svd_impute(
+        impute_svd(
             container,
             assay_name="protein",
             source_layer="raw",

@@ -8,7 +8,7 @@ Key Features:
     - Hierarchical data structure: ScpContainer -> Assay -> ScpMatrix
     - Quality control: Basic QC, outlier detection, feature/sample filtering
     - Normalization: Log, TMM, median scaling, upper quartile, and more
-    - Imputation: KNN, PPCA, SVD, MissForest
+    - Imputation: KNN, LLS, PPCA, BPCA, SVD, MissForest, QRILC
     - Batch correction: ComBat, Harmony, MNN, Scanorama
     - Dimensionality reduction: PCA, UMAP
     - Clustering: K-means, graph-based clustering
@@ -149,9 +149,15 @@ from scptensor.dim_reduction import (
 
 # Imputation
 from scptensor.impute import (
+    impute_bpca,
     impute_knn,
+    impute_lls,
     impute_mf,
+    impute_mindet,
+    impute_minprob,
+    impute_nmf,
     impute_ppca,
+    impute_qrilc,
     impute_svd,
 )
 
@@ -296,9 +302,15 @@ __all__ = [
     "norm_quartile",
     # Imputation
     "impute_knn",
+    "impute_lls",
     "impute_ppca",
+    "impute_bpca",
     "impute_svd",
     "impute_mf",
+    "impute_qrilc",
+    "impute_minprob",
+    "impute_mindet",
+    "impute_nmf",
     # Integration
     "integrate_combat",
     "integrate_harmony",
