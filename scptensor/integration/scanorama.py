@@ -21,7 +21,7 @@ from scptensor.core.utils import requires_dependency
 
 
 @requires_dependency("scanorama", "pip install scanorama")
-def scanorama_integrate(
+def integrate_scanorama(
     container: ScpContainer,
     batch_key: str,
     assay_name: str = "protein",
@@ -97,9 +97,9 @@ def scanorama_integrate(
 
     Examples
     --------
-    >>> from scptensor.integration import scanorama_integrate
-    >>> container = scanorama_integrate(container, batch_key='batch')
-    >>> container = scanorama_integrate(container, batch_key='batch', sigma=20.0)
+    >>> from scptensor.integration import integrate_scanorama
+    >>> container = integrate_scanorama(container, batch_key='batch')
+    >>> container = integrate_scanorama(container, batch_key='batch', sigma=20.0)
     """
     import scanorama
 
@@ -215,6 +215,53 @@ def _prepare_scanorama_data(X: np.ndarray | sp.spmatrix) -> np.ndarray:
     return X
 
 
+def scanorama_integrate(
+    container: ScpContainer,
+    batch_key: str,
+    assay_name: str = "protein",
+    base_layer: str = "raw",
+    new_layer_name: str | None = "scanorama",
+    sigma: float = 15.0,
+    alpha: float = 0.1,
+    knn: int | None = None,
+    approx: bool = True,
+    return_dimred: bool = False,
+    dimred: int | None = None,
+) -> ScpContainer:
+    """Scanorama integration for batch effect correction.
+
+    .. deprecated:: 0.1.0
+        Use :func:`integrate_scanorama` instead. This function will be removed in a future version.
+
+    Examples
+    --------
+    >>> container = scanorama_integrate(container, batch_key='batch')
+    """
+    import warnings
+
+    warnings.warn(
+        "'scanorama_integrate' is deprecated, use 'integrate_scanorama' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return integrate_scanorama(
+        container=container,
+        batch_key=batch_key,
+        assay_name=assay_name,
+        base_layer=base_layer,
+        new_layer_name=new_layer_name,
+        sigma=sigma,
+        alpha=alpha,
+        knn=knn,
+        approx=approx,
+        return_dimred=return_dimred,
+        dimred=dimred,
+    )
+
+
+__all__ = ["integrate_scanorama", "scanorama_integrate"]
+
+
 if __name__ == "__main__":
     # Test: Basic functionality
     print("Testing Scanorama integration wrapper...")
@@ -242,7 +289,7 @@ if __name__ == "__main__":
     container = ScpContainer(obs=obs, assays={"protein": assay})
 
     try:
-        result = scanorama_integrate(
+        result = integrate_scanorama(
             container,
             batch_key="batch",
             assay_name="protein",
@@ -271,7 +318,7 @@ if __name__ == "__main__":
         assay2.add_layer("raw", ScpMatrix(X=X_sparse, M=None))
         container2 = ScpContainer(obs=obs, assays={"protein": assay2})
 
-        result2 = scanorama_integrate(
+        result2 = integrate_scanorama(
             container2,
             batch_key="batch",
             assay_name="protein",
@@ -289,7 +336,7 @@ if __name__ == "__main__":
         assay3.add_layer("raw", ScpMatrix(X=X.copy(), M=None))
         container3 = ScpContainer(obs=obs, assays={"protein": assay3})
 
-        result3 = scanorama_integrate(
+        result3 = integrate_scanorama(
             container3,
             batch_key="batch",
             assay_name="protein",

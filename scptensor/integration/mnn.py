@@ -20,7 +20,7 @@ from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
 
-def mnn_correct(
+def integrate_mnn(
     container: ScpContainer,
     batch_key: str,
     assay_name: str = "protein",
@@ -91,9 +91,9 @@ def mnn_correct(
 
     Examples
     --------
-    >>> container = mnn_correct(container, batch_key='batch')
+    >>> container = integrate_mnn(container, batch_key='batch')
     >>> # Use more neighbors and different sigma
-    >>> container = mnn_correct(container, batch_key='batch', k=30, sigma=1.5)
+    >>> container = integrate_mnn(container, batch_key='batch', k=30, sigma=1.5)
     """
     # Validate parameters
     if k <= 0:
@@ -482,6 +482,51 @@ def _compute_weighted_correction(
     return correction, total_weight
 
 
+def mnn_correct(
+    container: ScpContainer,
+    batch_key: str,
+    assay_name: str = "protein",
+    base_layer: str = "raw",
+    new_layer_name: str | None = "mnn_corrected",
+    k: int = 20,
+    sigma: float = 1.0,
+    n_pcs: int | None = None,
+    use_pca: bool = True,
+    use_anchor_correction: bool = True,
+) -> ScpContainer:
+    """Correct batch effects using Mutual Nearest Neighbors (MNN) method.
+
+    .. deprecated:: 0.1.0
+        Use :func:`integrate_mnn` instead. This function will be removed in a future version.
+
+    Examples
+    --------
+    >>> container = mnn_correct(container, batch_key='batch')
+    """
+    import warnings
+
+    warnings.warn(
+        "'mnn_correct' is deprecated, use 'integrate_mnn' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return integrate_mnn(
+        container=container,
+        batch_key=batch_key,
+        assay_name=assay_name,
+        base_layer=base_layer,
+        new_layer_name=new_layer_name,
+        k=k,
+        sigma=sigma,
+        n_pcs=n_pcs,
+        use_pca=use_pca,
+        use_anchor_correction=use_anchor_correction,
+    )
+
+
+__all__ = ["integrate_mnn", "mnn_correct"]
+
+
 if __name__ == "__main__":
     # Test: Basic functionality
     print("Testing MNN correction...")
@@ -513,7 +558,7 @@ if __name__ == "__main__":
     container = ScpContainer(obs=obs, assays={"protein": assay})
 
     # Test MNN correction
-    result = mnn_correct(
+    result = integrate_mnn(
         container,
         batch_key="batch",
         assay_name="protein",
@@ -544,7 +589,7 @@ if __name__ == "__main__":
     assay2.add_layer("raw", ScpMatrix(X=X_sparse, M=None))
     container2 = ScpContainer(obs=obs, assays={"protein": assay2})
 
-    result2 = mnn_correct(
+    result2 = integrate_mnn(
         container2,
         batch_key="batch",
         assay_name="protein",
@@ -577,7 +622,7 @@ if __name__ == "__main__":
     assay3.add_layer("raw", ScpMatrix(X=X3, M=None))
     container3 = ScpContainer(obs=obs3, assays={"protein": assay3})
 
-    result3 = mnn_correct(
+    result3 = integrate_mnn(
         container3,
         batch_key="batch",
         assay_name="protein",

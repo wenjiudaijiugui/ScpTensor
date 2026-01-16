@@ -17,7 +17,7 @@ from scptensor.core.utils import requires_dependency
 
 
 @requires_dependency("harmonypy", "pip install harmonypy")
-def harmony(
+def integrate_harmony(
     container: ScpContainer,
     batch_key: str,
     assay_name: str = "protein",
@@ -101,9 +101,9 @@ def harmony(
 
     Examples
     --------
-    >>> from scptensor.integration import harmony
-    >>> container = harmony(container, batch_key='batch')
-    >>> container = harmony(container, batch_key='batch', theta=3, nclust=15)
+    >>> from scptensor.integration import integrate_harmony
+    >>> container = integrate_harmony(container, batch_key='batch')
+    >>> container = integrate_harmony(container, batch_key='batch', theta=3, nclust=15)
     """
     import harmonypy as hm
 
@@ -218,6 +218,57 @@ def _prepare_harmony_data(X: np.ndarray | sp.spmatrix) -> np.ndarray:
     return X_dense
 
 
+def harmony(
+    container: ScpContainer,
+    batch_key: str,
+    assay_name: str = "protein",
+    base_layer: str = "pca",
+    new_layer_name: str | None = "harmony",
+    theta: float | None = None,
+    lamb: float | None = None,
+    sigma: float = 0.1,
+    nclust: int | None = None,
+    max_iter_harmony: int = 10,
+    max_iter_cluster: int = 20,
+    epsilon_cluster: float = 1e-5,
+    epsilon_harmony: float = 1e-4,
+) -> ScpContainer:
+    """Harmony integration for batch effect correction.
+
+    .. deprecated:: 0.1.0
+        Use :func:`integrate_harmony` instead. This function will be removed in a future version.
+
+    Examples
+    --------
+    >>> container = harmony(container, batch_key='batch')
+    """
+    import warnings
+
+    warnings.warn(
+        "'harmony' is deprecated, use 'integrate_harmony' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return integrate_harmony(
+        container=container,
+        batch_key=batch_key,
+        assay_name=assay_name,
+        base_layer=base_layer,
+        new_layer_name=new_layer_name,
+        theta=theta,
+        lamb=lamb,
+        sigma=sigma,
+        nclust=nclust,
+        max_iter_harmony=max_iter_harmony,
+        max_iter_cluster=max_iter_cluster,
+        epsilon_cluster=epsilon_cluster,
+        epsilon_harmony=epsilon_harmony,
+    )
+
+
+__all__ = ["integrate_harmony", "harmony"]
+
+
 if __name__ == "__main__":
     # Test: Basic functionality
     print("Testing Harmony integration...")
@@ -245,7 +296,7 @@ if __name__ == "__main__":
     container = ScpContainer(obs=obs, assays={"protein": assay})
 
     try:
-        result = harmony(
+        result = integrate_harmony(
             container,
             batch_key="batch",
             assay_name="protein",
