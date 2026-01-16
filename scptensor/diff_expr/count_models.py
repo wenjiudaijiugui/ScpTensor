@@ -118,8 +118,7 @@ def _to_dense(X: np.ndarray | sp.spmatrix) -> np.ndarray:
         Dense matrix
     """
     if sp.issparse(X):
-        # mypy doesn't recognize spmatrix has toarray method
-        return X.toarray()  # type: ignore[union-attr]
+        return X.toarray()
     return X
 
 
