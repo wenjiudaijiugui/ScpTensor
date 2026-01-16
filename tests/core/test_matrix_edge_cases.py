@@ -287,15 +287,15 @@ class TestScpMatrixCopyEdgeCases:
         assert matrix_copy.X[0, 0] == 1.0
         assert matrix_copy.M[0, 1] == MaskCode.MBR
 
-    def test_copy_does_not_preserve_metadata(self):
-        """Test that copy does not preserve metadata (current behavior)."""
+    def test_copy_preserves_metadata(self):
+        """Test that copy preserves metadata."""
         X = np.random.rand(3, 3)
         metadata = MatrixMetadata(creation_info={"test": "value"})
         matrix = ScpMatrix(X=X, metadata=metadata)
         matrix_copy = matrix.copy()
-        # Note: The current implementation of copy() does not preserve metadata
-        # This test documents current behavior - metadata is lost during copy
-        assert matrix_copy.metadata is None
+        # copy() method preserves the metadata
+        assert matrix_copy.metadata is not None
+        assert matrix_copy.metadata.creation_info == {"test": "value"}
 
 
 class TestScpMatrixGetM:

@@ -28,7 +28,10 @@ from scptensor.core.exceptions import (
     LayerNotFoundError,
     ScpValueError,
 )
-from scptensor.impute import knn, missforest, ppca, svd_impute
+from scptensor.impute import impute_knn as knn
+from scptensor.impute import impute_mf as missforest
+from scptensor.impute import impute_ppca as ppca
+from scptensor.impute import impute_svd as svd_impute
 
 # =============================================================================
 # Fixtures

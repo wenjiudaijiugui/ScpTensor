@@ -166,7 +166,7 @@ class ComparisonSuite:
             container = log_normalize(
                 container,
                 assay_name=self.assay_name,
-                base_layer=base_layer,
+                source_layer=base_layer,
                 new_layer_name="log1p",
                 base=np.e,  # Natural log
                 offset=1.0,
@@ -176,7 +176,7 @@ class ComparisonSuite:
             container = log_normalize(
                 container,
                 assay_name=self.assay_name,
-                base_layer=base_layer,
+                source_layer=base_layer,
                 new_layer_name="log",
                 base=base,
                 offset=offset,
@@ -388,7 +388,7 @@ class ComparisonSuite:
         container = scptensor_umap(
             container,
             assay_name=umap_assay,
-            base_layer=umap_input_layer,
+            source_layer=umap_input_layer,
             new_assay_name="umap",
             n_components=n_components,
             n_neighbors=n_neighbors,
@@ -661,7 +661,7 @@ class ComparisonSuite:
             # Convert string labels to integers
             unique_labels = np.unique(scanpy_labels)
             label_map = {label: i for i, label in enumerate(unique_labels)}
-            scanpy_labels_int = np.array([label_map[l] for l in scanpy_labels])
+            scanpy_labels_int = np.array([label_map[label] for label in scanpy_labels])
 
         else:  # KMeans
             from sklearn.cluster import KMeans
@@ -701,7 +701,7 @@ class ComparisonSuite:
 
             unique_labels = np.unique(scptensor_labels)
             label_map = {label: i for i, label in enumerate(unique_labels)}
-            scptensor_labels_int = np.array([label_map[l] for l in scptensor_labels])
+            scptensor_labels_int = np.array([label_map[label] for label in scptensor_labels])
         else:  # KMeans
             from sklearn.cluster import KMeans
 

@@ -84,7 +84,7 @@ class TestScpContainerValidation:
         var = pl.DataFrame({"_index": ["P1"]})
         X = np.random.rand(3, 1)  # 3 samples instead of 2
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
-        with pytest.raises(ValueError, match="Sample dimension mismatch"):
+        with pytest.raises(ValueError, match=r"Assay 'test', Layer 'raw': Samples \d+ != \d+"):
             ScpContainer(obs=obs, assays={"test": assay})
 
     def test_container_validate_multiple_assays(self):
@@ -95,7 +95,7 @@ class TestScpContainerValidation:
         X2 = np.random.rand(3, 1)  # Wrong dimension
         assay1 = Assay(var=var, layers={"raw": ScpMatrix(X=X1)})
         assay2 = Assay(var=var, layers={"raw": ScpMatrix(X=X2)})
-        with pytest.raises(ValueError, match="Sample dimension mismatch"):
+        with pytest.raises(ValueError, match=r"Assay 'assay2', Layer 'raw': Samples \d+ != \d+"):
             ScpContainer(obs=obs, assays={"assay1": assay1, "assay2": assay2})
 
 
@@ -142,7 +142,7 @@ class TestScpContainerAddAssay:
         var = pl.DataFrame({"_index": ["P1"]})
         X = np.random.rand(3, 1)  # Wrong dimension
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
-        with pytest.raises(ValueError, match="Sample dimension mismatch"):
+        with pytest.raises(ValueError, match=r"New Assay 'test', Layer 'raw': Samples \d+ != \d+"):
             container.add_assay("test", assay)
 
     def test_add_assay_duplicate_name_raises_error(self):

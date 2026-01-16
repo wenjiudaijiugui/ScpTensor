@@ -42,14 +42,16 @@ class TestScpContainerBasic:
 
     def test_import_integration_module(self) -> None:
         """Test that integration module can be imported."""
-        from scptensor.integration import combat, harmony
+        from scptensor.integration import integrate_combat as combat
+        from scptensor.integration import integrate_harmony as harmony
 
         assert callable(combat)
         assert callable(harmony)
 
     def test_import_qc_module(self) -> None:
         """Test that qc module can be imported."""
-        from scptensor.qc import basic_qc, detect_outliers
+        from scptensor.qc import detect_outliers
+        from scptensor.qc import qc_basic as basic_qc
 
         assert callable(basic_qc)
         assert callable(detect_outliers)
@@ -108,7 +110,7 @@ class TestScpContainerBasic:
         matrix = ScpMatrix(X=X)
         assay = Assay(var=var, layers={"X": matrix})
 
-        with pytest.raises(ValueError, match="Sample dimension mismatch"):
+        with pytest.raises(ValueError, match=r"Assay 'test', Layer 'X': Samples \d+ != \d+"):
             ScpContainer(obs=obs, assays={"test": assay})
 
     def test_log_operation(self) -> None:
@@ -241,9 +243,9 @@ class TestScpContainerBasic:
         container = ScpContainer(obs=obs, assays={"test": assay})
 
         container.log_operation("normalize", {"method": "log"}, "Log normalization")
-        container.log_operation("impute", {"method": "knn", "k": 5}, "KNN imputation")
+        container.log_operation("impute", {"method": "impute_knn", "k": 5}, "KNN imputation")
 
         assert len(container.history) >= 2
         assert container.history[-2].action == "normalize"
         assert container.history[-1].action == "impute"
-        assert container.history[-1].params == {"method": "knn", "k": 5}
+        assert container.history[-1].params == {"method": "impute_knn", "k": 5}

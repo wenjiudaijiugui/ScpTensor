@@ -19,15 +19,27 @@ from scptensor.core import Assay, ScpContainer, ScpMatrix
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.qc.advanced import (
     calculate_qc_metrics,
-    detect_contaminant_proteins,
     detect_doublets,
-    filter_features_by_missing_rate,
-    filter_features_by_prevalence,
-    filter_features_by_variance,
-    filter_samples_by_missing_rate,
-    filter_samples_by_total_count,
 )
-from scptensor.qc.basic import basic_qc
+from scptensor.qc.advanced import (
+    detect_contaminants as detect_contaminant_proteins,
+)
+from scptensor.qc.advanced import (
+    filter_features_missing as filter_features_by_missing_rate,
+)
+from scptensor.qc.advanced import (
+    filter_features_prevalence as filter_features_by_prevalence,
+)
+from scptensor.qc.advanced import (
+    filter_features_variance as filter_features_by_variance,
+)
+from scptensor.qc.advanced import (
+    filter_samples_count as filter_samples_by_total_count,
+)
+from scptensor.qc.advanced import (
+    filter_samples_missing as filter_samples_by_missing_rate,
+)
+from scptensor.qc.basic import qc_basic as basic_qc
 from scptensor.qc.outlier import detect_outliers
 
 # =============================================================================
@@ -703,7 +715,7 @@ class TestDetectDoublets:
 
     def test_detect_doublets_knn_method(self, qc_container):
         """Test doublet detection with KNN method."""
-        result = detect_doublets(qc_container, method="knn")
+        result = detect_doublets(qc_container, method="impute_knn")
         assert isinstance(result, ScpContainer)
         assert "is_doublet" in result.obs.columns
         assert "doublet_score" in result.obs.columns
@@ -730,12 +742,12 @@ class TestDetectDoublets:
 
     def test_detect_doublets_custom_neighbors(self, qc_container):
         """Test with custom n_neighbors."""
-        result = detect_doublets(qc_container, method="knn", n_neighbors=5)
+        result = detect_doublets(qc_container, method="impute_knn", n_neighbors=5)
         assert "is_doublet" in result.obs.columns
 
     def test_detect_doublets_score_values_valid(self, qc_container):
         """Test that doublet scores are in valid range."""
-        result = detect_doublets(qc_container, method="knn")
+        result = detect_doublets(qc_container, method="impute_knn")
         scores = result.obs["doublet_score"].to_numpy()
         # Scores should be non-negative (normalized)
         assert all(scores >= 0)
@@ -814,7 +826,7 @@ class TestComputeQualityScore:
 
     def test_compute_quality_score_default(self, qc_container):
         """Test quality score computation with default parameters."""
-        from scptensor.qc.basic import compute_quality_score
+        from scptensor.qc.basic import qc_score as compute_quality_score
 
         result = compute_quality_score(qc_container)
         assert isinstance(result, ScpContainer)
@@ -826,7 +838,7 @@ class TestComputeQualityScore:
 
     def test_compute_quality_score_values_valid(self, qc_container):
         """Test that quality scores are in valid range [0, 1]."""
-        from scptensor.qc.basic import compute_quality_score
+        from scptensor.qc.basic import qc_score as compute_quality_score
 
         result = compute_quality_score(qc_container)
         scores = result.obs["quality_score"].to_numpy()
@@ -835,52 +847,57 @@ class TestComputeQualityScore:
 
     def test_compute_quality_score_custom_weights(self, qc_container):
         """Test quality score with custom weights."""
-        from scptensor.qc.basic import compute_quality_score
+        from scptensor.qc.basic import qc_score as compute_quality_score
 
-        custom_weights = {"detection_rate": 0.5, "total_intensity": 0.3, "missing_rate": 0.1, "cv": 0.1}
+        custom_weights = {
+            "detection_rate": 0.5,
+            "total_intensity": 0.3,
+            "missing_rate": 0.1,
+            "cv": 0.1,
+        }
         result = compute_quality_score(qc_container, weights=custom_weights)
         assert "quality_score" in result.obs.columns
 
     def test_compute_quality_score_invalid_weight_key(self, qc_container):
         """Test that invalid weight key raises error."""
-        from scptensor.qc.basic import compute_quality_score
         from scptensor.core.exceptions import ScpValueError
+        from scptensor.qc.basic import qc_score as compute_quality_score
 
         with pytest.raises(ScpValueError):
             compute_quality_score(qc_container, weights={"invalid_key": 1.0})
 
     def test_compute_quality_score_negative_weight(self, qc_container):
         """Test that negative weight raises error."""
-        from scptensor.qc.basic import compute_quality_score
         from scptensor.core.exceptions import ScpValueError
+        from scptensor.qc.basic import qc_score as compute_quality_score
 
         with pytest.raises(ScpValueError):
             compute_quality_score(qc_container, weights={"detection_rate": -0.5})
 
     def test_compute_quality_score_sparse(self, qc_container_sparse):
         """Test quality score with sparse matrix."""
-        from scptensor.qc.basic import compute_quality_score
+        from scptensor.qc.basic import qc_score as compute_quality_score
 
         result = compute_quality_score(qc_container_sparse)
         assert "quality_score" in result.obs.columns
 
     def test_compute_quality_score_custom_layer(self, qc_container_multi_layer):
         """Test quality score with different layer."""
-        from scptensor.qc.basic import compute_quality_score
+        from scptensor.qc.basic import qc_score as compute_quality_score
 
         result = compute_quality_score(qc_container_multi_layer, layer_name="normalized")
         assert "quality_score" in result.obs.columns
 
     def test_compute_quality_score_invalid_assay(self, qc_container):
         """Test that invalid assay raises error."""
-        from scptensor.qc.basic import compute_quality_score
+        from scptensor.qc.basic import qc_score as compute_quality_score
 
         with pytest.raises(AssayNotFoundError):
             compute_quality_score(qc_container, assay_name="nonexistent")
 
     def test_compute_quality_score_invalid_layer(self, qc_container):
         """Test that invalid layer raises error."""
-        from scptensor.qc.basic import compute_quality_score
+        from scptensor.qc.basic import qc_score as compute_quality_score
 
         with pytest.raises(LayerNotFoundError):
             compute_quality_score(qc_container, layer_name="nonexistent")
@@ -1076,8 +1093,8 @@ class TestComputePairwiseCorrelation:
 
     def test_compute_pairwise_correlation_matrix_shape(self, qc_container):
         """Test that correlation matrix has correct shape."""
+
         from scptensor.qc.bivariate import compute_pairwise_correlation
-        import numpy as np
 
         result = compute_pairwise_correlation(qc_container)
         n_samples = qc_container.n_samples
@@ -1157,8 +1174,8 @@ class TestDetectOutlierSamples:
 
     def test_detect_outlier_samples_invalid_method(self, qc_container):
         """Test that invalid method raises error."""
-        from scptensor.qc.bivariate import detect_outlier_samples
         from scptensor.core.exceptions import ScpValueError
+        from scptensor.qc.bivariate import detect_outlier_samples
 
         with pytest.raises(ScpValueError):
             detect_outlier_samples(qc_container, method="invalid")
@@ -1236,7 +1253,7 @@ class TestComputeBatchMetrics:
 
     def test_compute_batch_metrics_default(self, qc_container):
         """Test batch metrics with default parameters."""
-        from scptensor.qc.batch import compute_batch_metrics
+        from scptensor.qc.batch import qc_batch_metrics as compute_batch_metrics
 
         result = compute_batch_metrics(qc_container)
         assert isinstance(result, ScpContainer)
@@ -1247,7 +1264,7 @@ class TestComputeBatchMetrics:
 
     def test_compute_batch_metrics_values_valid(self, qc_container):
         """Test that batch metrics have valid values."""
-        from scptensor.qc.batch import compute_batch_metrics
+        from scptensor.qc.batch import qc_batch_metrics as compute_batch_metrics
 
         result = compute_batch_metrics(qc_container)
         assert all(result.obs["batch_n_detected"] >= 0)
@@ -1257,35 +1274,35 @@ class TestComputeBatchMetrics:
 
     def test_compute_batch_metrics_custom_batch_col(self, qc_container):
         """Test with custom batch column name."""
-        from scptensor.qc.batch import compute_batch_metrics
+        from scptensor.qc.batch import qc_batch_metrics as compute_batch_metrics
 
         result = compute_batch_metrics(qc_container, batch_col="batch")
         assert "batch_n_detected" in result.obs.columns
 
     def test_compute_batch_metrics_missing_batch_col(self, qc_container):
         """Test that missing batch column raises error."""
-        from scptensor.qc.batch import compute_batch_metrics
+        from scptensor.qc.batch import qc_batch_metrics as compute_batch_metrics
 
         with pytest.raises(ScpValueError):
             compute_batch_metrics(qc_container, batch_col="nonexistent")
 
     def test_compute_batch_metrics_sparse(self, qc_container_sparse):
         """Test batch metrics with sparse matrix."""
-        from scptensor.qc.batch import compute_batch_metrics
+        from scptensor.qc.batch import qc_batch_metrics as compute_batch_metrics
 
         result = compute_batch_metrics(qc_container_sparse)
         assert "batch_n_detected" in result.obs.columns
 
     def test_compute_batch_metrics_custom_threshold(self, qc_container):
         """Test with custom detection threshold."""
-        from scptensor.qc.batch import compute_batch_metrics
+        from scptensor.qc.batch import qc_batch_metrics as compute_batch_metrics
 
         result = compute_batch_metrics(qc_container, detection_threshold=1.0)
         assert "batch_n_detected" in result.obs.columns
 
     def test_compute_batch_metrics_invalid_assay(self, qc_container):
         """Test that invalid assay raises error."""
-        from scptensor.qc.batch import compute_batch_metrics
+        from scptensor.qc.batch import qc_batch_metrics as compute_batch_metrics
 
         with pytest.raises(AssayNotFoundError):
             compute_batch_metrics(qc_container, assay_name="nonexistent")
@@ -1435,7 +1452,8 @@ class TestQCAdvancedIntegration:
 
     def test_advanced_qc_pipeline(self, qc_container):
         """Test a complete advanced QC pipeline."""
-        from scptensor.qc.basic import compute_quality_score, compute_feature_variance
+        from scptensor.qc.basic import compute_feature_variance
+        from scptensor.qc.basic import qc_score as compute_quality_score
         from scptensor.qc.bivariate import detect_outlier_samples
 
         # Step 1: Compute quality scores
@@ -1455,7 +1473,8 @@ class TestQCAdvancedIntegration:
 
     def test_batch_analysis_pipeline(self, qc_container):
         """Test a complete batch analysis pipeline."""
-        from scptensor.qc.batch import compute_batch_metrics, compute_batch_pca, detect_batch_effects
+        from scptensor.qc.batch import compute_batch_pca, detect_batch_effects
+        from scptensor.qc.batch import qc_batch_metrics as compute_batch_metrics
 
         # Step 1: Compute batch metrics
         container = compute_batch_metrics(qc_container)
@@ -1473,7 +1492,7 @@ class TestQCAdvancedIntegration:
 
     def test_quality_based_filtering(self, qc_container):
         """Test filtering samples based on quality scores."""
-        from scptensor.qc.basic import compute_quality_score
+        from scptensor.qc.basic import qc_score as compute_quality_score
 
         container = compute_quality_score(qc_container)
         scores = container.obs["quality_score"].to_numpy()
@@ -1484,4 +1503,3 @@ class TestQCAdvancedIntegration:
 
         container_filtered = container.filter_samples(sample_indices=high_quality_indices)
         assert container_filtered.n_samples <= container.n_samples
-

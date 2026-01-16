@@ -80,7 +80,8 @@ class TestScpDataGeneratorInit:
 
     def test_validate_params_invalid_missing_rate(self):
         """Test that invalid missing_rate raises ValueError."""
-        with pytest.raises(ValueError, match="missing_rate must be between 0.0 and 1.0"):
+        # The actual max is 0.7 (_MAX_MISSING_RATE), so 1.5 is invalid
+        with pytest.raises(ValueError, match="missing_rate must be between 0.0 and"):
             ScpDataGenerator(missing_rate=1.5)
 
     def test_validate_params_zero_missing_rate(self):
@@ -89,9 +90,10 @@ class TestScpDataGeneratorInit:
         assert gen.missing_rate == 0.0
 
     def test_validate_params_max_missing_rate(self):
-        """Test that missing_rate=1.0 is accepted."""
-        gen = ScpDataGenerator(missing_rate=1.0)
-        assert gen.missing_rate == 1.0
+        """Test that missing_rate=0.7 (max) is accepted."""
+        # The actual max is 0.7 (_MAX_MISSING_RATE)
+        gen = ScpDataGenerator(missing_rate=0.7)
+        assert gen.missing_rate == 0.7
 
 
 class TestScpDataGeneratorGenerate:

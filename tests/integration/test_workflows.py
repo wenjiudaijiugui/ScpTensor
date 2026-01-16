@@ -16,13 +16,14 @@ Tests include verification of:
 import numpy as np
 import pytest
 
-from scptensor.cluster import run_kmeans
+from scptensor.cluster import cluster_kmeans_assay as run_kmeans
 from scptensor.core.structures import MaskCode, ScpMatrix
-from scptensor.dim_reduction import pca
-from scptensor.impute import knn, ppca
-from scptensor.integration import combat
-from scptensor.normalization import log_normalize
-from scptensor.qc import basic_qc
+from scptensor.dim_reduction import reduce_pca as pca
+from scptensor.impute import impute_knn as knn
+from scptensor.impute import impute_ppca as ppca
+from scptensor.integration import integrate_combat as combat
+from scptensor.normalization import norm_log as log_normalize
+from scptensor.qc import qc_basic as basic_qc
 
 
 class TestProvenanceLogging:
@@ -33,7 +34,7 @@ class TestProvenanceLogging:
         container = small_synthetic_container
         initial_history_len = len(container.history)
 
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
         # History should have one new entry
         assert len(container.history) == initial_history_len + 1
@@ -49,7 +50,7 @@ class TestProvenanceLogging:
         container = small_synthetic_container
 
         # First normalize
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
         # Create NaN values for imputation (KNN only logs when there are NaNs)
         log_layer = container.assays["protein"].layers["log"]
@@ -61,13 +62,13 @@ class TestProvenanceLogging:
         history_before_impute = len(container.history)
 
         # Impute
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         # History should have one new entry
         assert len(container.history) == history_before_impute + 1
 
         last_log = container.history[-1]
-        assert last_log.action == "knn"
+        assert last_log.action == "impute_knn"
         assert "k" in last_log.params
         assert last_log.params["k"] == 5
 
@@ -76,8 +77,8 @@ class TestProvenanceLogging:
         container = small_synthetic_container
 
         # Preprocess
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         history_before_combat = len(container.history)
 
@@ -116,14 +117,14 @@ class TestProvenanceLogging:
         assert len(container_qc.history) >= initial_history_len + 1
 
         last_log = container_qc.history[-1]
-        assert last_log.action == "basic_qc"
+        assert last_log.action == "qc_basic"
 
     def test_provenance_complete_pipeline(self, small_synthetic_container):
         """Test that all pipeline steps are logged in sequence."""
         container = small_synthetic_container
 
         # Run complete pipeline
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
         # Create NaN values for imputation (KNN only logs when there are NaNs)
         log_layer = container.assays["protein"].layers["log"]
@@ -132,7 +133,7 @@ class TestProvenanceLogging:
         X_with_nan[missing_mask] = np.nan
         container.assays["protein"].layers["log"] = ScpMatrix(X=X_with_nan, M=log_layer.M)
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         combat(
             container,
@@ -146,13 +147,13 @@ class TestProvenanceLogging:
             container,
             assay_name="protein",
             base_layer_name="corrected",
-            new_assay_name="pca",
+            new_assay_name="reduce_pca",
             n_components=2,
         )
 
         container = run_kmeans(
             container,
-            assay_name="pca",
+            assay_name="reduce_pca",
             base_layer="scores",
             n_clusters=2,
             key_added="kmeans_cluster",
@@ -160,8 +161,14 @@ class TestProvenanceLogging:
 
         # Check all actions were logged
         actions = [log.action for log in container.history]
-        # Note: ComBat uses "integration_combat" not "combat"
-        expected_actions = ["log_normalize", "knn", "integration_combat", "pca", "run_kmeans"]
+        # Note: action names are: log_normalize, impute_knn, integration_combat, reduce_pca, cluster_kmeans
+        expected_actions = [
+            "log_normalize",
+            "impute_knn",
+            "integration_combat",
+            "reduce_pca",
+            "cluster_kmeans",
+        ]
 
         for expected in expected_actions:
             assert expected in actions, f"Expected action '{expected}' not found in history"
@@ -180,7 +187,7 @@ class TestMaskCodePropagation:
 
         original_M = container.assays["protein"].layers["raw"].M.copy()
 
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
         new_M = container.assays["protein"].layers["log"].M
 
@@ -192,7 +199,7 @@ class TestMaskCodePropagation:
         container = small_synthetic_container
 
         # First normalize to get valid numeric values
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
         # Get mask before imputation (log layer should have same mask as raw)
         log_layer = container.assays["protein"].layers["log"]
@@ -212,7 +219,7 @@ class TestMaskCodePropagation:
         ppca(
             container,
             assay_name="protein",
-            base_layer="log",
+            source_layer="log",
             new_layer_name="imputed_ppca",
             n_components=5,
             random_state=42,
@@ -234,9 +241,9 @@ class TestMaskCodePropagation:
         container = small_synthetic_container
 
         # Run pipeline
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         combat(
             container,
@@ -280,7 +287,7 @@ class TestLayerImmutability:
         X_original = raw_layer.X.copy()
         M_original = raw_layer.M.copy()
 
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
         # Original layer should be unchanged
         assert np.array_equal(raw_layer.X, X_original)
@@ -291,9 +298,9 @@ class TestLayerImmutability:
         container = small_synthetic_container
 
         # Run pipeline
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         combat(
             container,
@@ -321,7 +328,7 @@ class TestLayerImmutability:
         """Test that modifying one layer doesn't affect others."""
         container = small_synthetic_container
 
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
         # Get references to both layers
         raw_layer = container.assays["protein"].layers["raw"]
@@ -350,11 +357,11 @@ class TestWorkflow1BasicPipeline:
         assert container_qc.n_samples <= container.n_samples
 
         # Step 2: Log normalization
-        log_normalize(container_qc, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container_qc, assay_name="protein", source_layer="raw", new_layer_name="log")
         assert "log" in container_qc.assays["protein"].layers
 
         # Step 3: Imputation
-        knn(container_qc, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container_qc, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
         assert "imputed" in container_qc.assays["protein"].layers
 
         # Step 4: PCA
@@ -362,14 +369,18 @@ class TestWorkflow1BasicPipeline:
             container_qc,
             assay_name="protein",
             base_layer_name="imputed",
-            new_assay_name="pca",
+            new_assay_name="reduce_pca",
             n_components=2,
         )
-        assert "pca" in container_pca.assays
+        assert "reduce_pca" in container_pca.assays
 
         # Step 5: Clustering
         container_clustered = run_kmeans(
-            container_pca, assay_name="pca", base_layer="scores", n_clusters=2, key_added="cluster"
+            container_pca,
+            assay_name="reduce_pca",
+            base_layer="scores",
+            n_clusters=2,
+            key_added="cluster",
         )
         assert "cluster" in container_clustered.obs.columns
 
@@ -381,23 +392,23 @@ class TestWorkflow1BasicPipeline:
         container = small_synthetic_container
 
         original_n_samples = container.n_samples
-        container.assays["protein"].n_features
+        _ = container.assays["protein"].n_features
 
         # Run pipeline
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         container = pca(
             container,
             assay_name="protein",
             base_layer_name="imputed",
-            new_assay_name="pca",
+            new_assay_name="reduce_pca",
             n_components=2,
         )
 
         # PCA should have correct dimensions
-        pca_scores = container.assays["pca"].layers["scores"]
+        pca_scores = container.assays["reduce_pca"].layers["scores"]
         assert pca_scores.X.shape[0] == original_n_samples
         assert pca_scores.X.shape[1] == 2  # n_components
 
@@ -410,10 +421,10 @@ class TestWorkflow2BatchCorrection:
         container = small_synthetic_container
 
         # Normalization
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
         # Imputation
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         # Batch correction
         combat(
@@ -445,9 +456,9 @@ class TestWorkflow2BatchCorrection:
         container.obs["batch"].to_numpy()
 
         # Preprocess
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         # Apply batch correction
         combat(
@@ -463,13 +474,17 @@ class TestWorkflow2BatchCorrection:
             container,
             assay_name="protein",
             base_layer_name="corrected",
-            new_assay_name="pca",
+            new_assay_name="reduce_pca",
             n_components=2,
         )
 
         # Run clustering
         container = run_kmeans(
-            container, assay_name="pca", base_layer="scores", n_clusters=2, key_added="cluster"
+            container,
+            assay_name="reduce_pca",
+            base_layer="scores",
+            n_clusters=2,
+            key_added="cluster",
         )
 
         # Verify clustering worked
@@ -483,9 +498,9 @@ class TestWorkflow2BatchCorrection:
         groups = container.obs["group"].to_numpy()
 
         # Preprocess
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=10)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=10)
 
         # Get means before correction
         imputed_layer = container.assays["protein"].layers["imputed"]
@@ -526,10 +541,10 @@ class TestWorkflow3CompleteAnalysis:
         container = basic_qc(container, assay_name="protein", min_features=5, min_cells=2)
 
         # Step 2: Normalization
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
         # Step 3: Imputation
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         # Step 4: Batch correction
         combat(
@@ -545,14 +560,14 @@ class TestWorkflow3CompleteAnalysis:
             container,
             assay_name="protein",
             base_layer_name="corrected",
-            new_assay_name="pca",
+            new_assay_name="reduce_pca",
             n_components=5,
         )
 
         # Step 6: Clustering
         container = run_kmeans(
             container,
-            assay_name="pca",
+            assay_name="reduce_pca",
             base_layer="scores",
             n_clusters=2,
             key_added="kmeans_cluster",
@@ -566,8 +581,8 @@ class TestWorkflow3CompleteAnalysis:
         assert "corrected" in container.assays["protein"].layers
 
         # Check PCA assay exists
-        assert "pca" in container.assays
-        assert "scores" in container.assays["pca"].layers
+        assert "reduce_pca" in container.assays
+        assert "scores" in container.assays["reduce_pca"].layers
 
         # Check cluster labels
         assert "kmeans_cluster" in container.obs.columns
@@ -580,7 +595,7 @@ class TestWorkflow3CompleteAnalysis:
         container = small_synthetic_container
 
         # Normalize
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
         # Create NaN values for PPCA
         log_layer = container.assays["protein"].layers["log"]
@@ -593,7 +608,7 @@ class TestWorkflow3CompleteAnalysis:
         ppca(
             container,
             assay_name="protein",
-            base_layer="log",
+            source_layer="log",
             new_layer_name="imputed_ppca",
             n_components=5,
             random_state=42,
@@ -616,12 +631,16 @@ class TestWorkflow3CompleteAnalysis:
             container,
             assay_name="protein",
             base_layer_name="corrected",
-            new_assay_name="pca",
+            new_assay_name="reduce_pca",
             n_components=2,
         )
 
         container = run_kmeans(
-            container, assay_name="pca", base_layer="scores", n_clusters=2, key_added="cluster"
+            container,
+            assay_name="reduce_pca",
+            base_layer="scores",
+            n_clusters=2,
+            key_added="cluster",
         )
 
         # Verify pipeline completed
@@ -639,9 +658,9 @@ class TestDataIntegrity:
         original_shape = container.assays["protein"].layers["raw"].X.shape
 
         # Run pipeline
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         combat(
             container,
@@ -661,9 +680,9 @@ class TestDataIntegrity:
         container = small_synthetic_container
 
         # Run pipeline
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         combat(
             container,
@@ -689,9 +708,9 @@ class TestDataIntegrity:
         container = small_synthetic_container
 
         # Run pipeline with KNN (doesn't produce NaN)
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         combat(
             container,
@@ -721,9 +740,9 @@ class TestDataIntegrity:
         original_sample_ids = container.sample_ids.clone()
 
         # Run pipeline
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         # Check sample IDs are preserved (for non-filtering pipeline)
         assert np.array_equal(container.sample_ids, original_sample_ids)
@@ -743,9 +762,9 @@ class TestWorkflowLargeDataset:
         container = synthetic_container
 
         # Full pipeline
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=10)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=10)
 
         combat(
             container,
@@ -759,15 +778,19 @@ class TestWorkflowLargeDataset:
             container,
             assay_name="protein",
             base_layer_name="corrected",
-            new_assay_name="pca",
+            new_assay_name="reduce_pca",
             n_components=10,
         )
 
         container = run_kmeans(
-            container, assay_name="pca", base_layer="scores", n_clusters=2, key_added="cluster"
+            container,
+            assay_name="reduce_pca",
+            base_layer="scores",
+            n_clusters=2,
+            key_added="cluster",
         )
 
         # Verify results
-        assert container.assays["pca"].layers["scores"].X.shape == (100, 10)
+        assert container.assays["reduce_pca"].layers["scores"].X.shape == (100, 10)
         assert len(np.unique(container.obs["cluster"])) == 2
         assert len(container.history) >= 4

@@ -33,7 +33,7 @@ def test_umap():
     container = umap(
         container=container,
         assay_name="RNA",
-        base_layer="counts",
+        source_layer="counts",
         n_epochs=100,  # Short run
         n_neighbors=10,
     )

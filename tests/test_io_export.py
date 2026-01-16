@@ -1,17 +1,16 @@
 """Tests for HDF5 export functionality."""
 
-import numpy as np
-import polars as pl
-import pytest
 import tempfile
 from pathlib import Path
+
+import pytest
 
 
 def test_save_hdf5_basic(sample_container):
     """Test basic HDF5 save functionality."""
-    from scptensor.io.exporters import save_hdf5
-
     import h5py
+
+    from scptensor.io.exporters import save_hdf5
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "output.h5"
@@ -30,8 +29,8 @@ def test_save_hdf5_basic(sample_container):
 
 def test_save_hdf5_with_overwrite(sample_container):
     """Test overwrite parameter."""
-    from scptensor.io.exporters import save_hdf5
     from scptensor.io.exceptions import IOWriteError
+    from scptensor.io.exporters import save_hdf5
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "output.h5"
@@ -47,10 +46,10 @@ def test_save_hdf5_with_overwrite(sample_container):
 
 def test_save_hdf5_preserves_obs(sample_container):
     """Test that obs metadata is preserved."""
+    import h5py
+
     from scptensor.io.exporters import save_hdf5
     from scptensor.io.serializers import deserialize_dataframe
-
-    import h5py
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "output.h5"

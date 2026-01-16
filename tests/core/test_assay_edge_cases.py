@@ -91,7 +91,7 @@ class TestAssayValidation:
         var = pl.DataFrame({"_index": ["P1", "P2", "P3"]})
         X = np.random.rand(3, 2)  # Only 2 features, should be 3
         matrix = ScpMatrix(X=X)
-        with pytest.raises(ValueError, match="Feature dimension mismatch"):
+        with pytest.raises(ValueError, match=r"Features \d+ != Assay \d+"):
             Assay(var=var, layers={"raw": matrix})
 
     def test_assay_validate_existing_layers(self):
@@ -101,7 +101,7 @@ class TestAssayValidation:
         X2 = np.random.rand(3, 3)  # Wrong dimension
         assay = Assay(var=var, layers={"layer1": ScpMatrix(X=X1)})
         # Adding invalid layer should raise error
-        with pytest.raises(ValueError, match="Feature dimension mismatch"):
+        with pytest.raises(ValueError, match=r"Layer has \d+ features, Assay has \d+"):
             assay.add_layer("layer2", ScpMatrix(X=X2))
 
 
@@ -135,7 +135,7 @@ class TestAssayLayers:
         X1 = np.random.rand(3, 3)
         X2 = np.random.rand(3, 2)  # Wrong dimension
         assay = Assay(var=var, layers={"layer1": ScpMatrix(X=X1)})
-        with pytest.raises(ValueError, match="Feature dimension mismatch"):
+        with pytest.raises(ValueError, match=r"Layer has \d+ features, Assay has \d+"):
             assay.add_layer("layer2", ScpMatrix(X=X2))
 
     def test_add_layer_overwrites_existing(self):

@@ -14,12 +14,12 @@ This module tests the end-to-end workflow including:
 import numpy as np
 import pytest
 
-from scptensor.cluster import run_kmeans
+from scptensor.cluster import cluster_kmeans_assay as run_kmeans
 from scptensor.core.exceptions import ScpTensorError
-from scptensor.dim_reduction import pca
-from scptensor.impute import knn
-from scptensor.integration import combat
-from scptensor.normalization import log_normalize
+from scptensor.dim_reduction import reduce_pca as pca
+from scptensor.impute import impute_knn as knn
+from scptensor.integration import integrate_combat as combat
+from scptensor.normalization import norm_log as log_normalize
 
 
 class TestPipelineBasic:
@@ -35,7 +35,7 @@ class TestPipelineBasic:
         assert "raw" in container.assays["protein"].layers
 
         # Step 1: Log normalization
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
         # Verify log layer was created
         assert "log" in container.assays["protein"].layers
@@ -48,7 +48,7 @@ class TestPipelineBasic:
         assert log_mean < raw_mean  # Log should reduce scale
 
         # Step 2: KNN imputation
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         # Verify imputed layer was created
         assert "imputed" in container.assays["protein"].layers
@@ -104,11 +104,11 @@ class TestPipelineBasic:
         container = small_synthetic_container
 
         # Normalization
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
         assert "log" in container.assays["protein"].layers
 
         # Imputation
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
         assert "imputed" in container.assays["protein"].layers
 
         # Skip batch correction, go directly to PCA
@@ -138,7 +138,7 @@ class TestPipelineNormalization:
         log_normalize(
             container,
             assay_name="protein",
-            base_layer="raw",
+            source_layer="raw",
             new_layer_name="log",
             base=2.0,
             offset=1.0,
@@ -158,7 +158,7 @@ class TestPipelineNormalization:
 
         original_shape = container.assays["protein"].layers["raw"].X.shape
 
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
         new_shape = container.assays["protein"].layers["log"].X.shape
         assert original_shape == new_shape
@@ -172,14 +172,14 @@ class TestPipelineImputation:
         container = small_synthetic_container
 
         # First normalize
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
         # Count missing values before imputation
         log_layer = container.assays["protein"].layers["log"]
         missing_before = np.sum(log_layer.M != 0)
 
         # Impute
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         # Verify imputed layer exists
         assert "imputed" in container.assays["protein"].layers
@@ -195,11 +195,11 @@ class TestPipelineImputation:
         """Test that imputation preserves data dimensions."""
         container = small_synthetic_container
 
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
         original_shape = container.assays["protein"].layers["log"].X.shape
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         new_shape = container.assays["protein"].layers["imputed"].X.shape
         assert original_shape == new_shape
@@ -213,9 +213,9 @@ class TestPipelineBatchCorrection:
         container = small_synthetic_container
 
         # Preprocess
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         # Apply ComBat
         combat(
@@ -235,9 +235,9 @@ class TestPipelineBatchCorrection:
         """Test that ComBat preserves data dimensions."""
         container = small_synthetic_container
 
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=3)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=3)
 
         original_shape = container.assays["protein"].layers["imputed"].X.shape
 
@@ -261,9 +261,9 @@ class TestPipelineDimensionalityReduction:
         container = small_synthetic_container
 
         # Preprocess
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         combat(
             container,
@@ -293,9 +293,9 @@ class TestPipelineDimensionalityReduction:
         """Test PCA with different component counts."""
         container = small_synthetic_container
 
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         # Test with 2 components
         container = pca(
@@ -326,9 +326,9 @@ class TestPipelineClustering:
         container = small_synthetic_container
 
         # Preprocess
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         combat(
             container,
@@ -366,9 +366,9 @@ class TestPipelineClustering:
         container = small_synthetic_container
 
         # Preprocess
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         container = pca(
             container,
@@ -405,7 +405,7 @@ class TestPipelineErrorHandling:
 
         with pytest.raises(ScpTensorError, match="Assay 'nonexistent' not found"):
             log_normalize(
-                container, assay_name="nonexistent", base_layer="raw", new_layer_name="log"
+                container, assay_name="nonexistent", source_layer="raw", new_layer_name="log"
             )
 
     def test_pipeline_missing_layer(self, small_synthetic_container):
@@ -414,16 +414,16 @@ class TestPipelineErrorHandling:
 
         with pytest.raises(ScpTensorError, match="Layer 'nonexistent' not found"):
             log_normalize(
-                container, assay_name="protein", base_layer="nonexistent", new_layer_name="log"
+                container, assay_name="protein", source_layer="nonexistent", new_layer_name="log"
             )
 
     def test_pipeline_missing_batch_column(self, small_synthetic_container):
         """Test that ComBat fails gracefully without batch column."""
         container = small_synthetic_container
 
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=5)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=5)
 
         # Try to use non-existent batch column
         with pytest.raises(ScpTensorError, match="Batch key 'nonexistent_batch' not found"):
@@ -449,10 +449,10 @@ class TestPipelineLargeDataset:
         assert "protein" in container.assays
 
         # Full pipeline
-        log_normalize(container, assay_name="protein", base_layer="raw", new_layer_name="log")
+        log_normalize(container, assay_name="protein", source_layer="raw", new_layer_name="log")
         assert "log" in container.assays["protein"].layers
 
-        knn(container, assay_name="protein", base_layer="log", new_layer_name="imputed", k=10)
+        knn(container, assay_name="protein", source_layer="log", new_layer_name="imputed", k=10)
         assert "imputed" in container.assays["protein"].layers
 
         combat(

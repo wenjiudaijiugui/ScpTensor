@@ -166,8 +166,10 @@ known-first-party = ["scptensor"]
 # These exceptions follow the ScpTensor Coding Standards defined in
 # docs/SCPTENSOR_CODING_STANDARDS.md
 [tool.ruff.lint.per-file-ignores]
-# Tests: Allow relaxed naming (N) and security checks (S)
-"tests/**/*.py" = ["N", "S"]
+# Tests: Allow relaxed naming (N), security checks (S), and module level imports (E402)
+"tests/**/*.py" = ["N", "S", "E402"]
+# Tests that use dynamic imports for backwards compatibility
+"tests/test_normalization.py" = ["E402"]
 
 # Core structures: X and M are standard names for data/mask matrices in
 # scientific computing (consistent with NumPy, SciPy, pandas, scanpy)

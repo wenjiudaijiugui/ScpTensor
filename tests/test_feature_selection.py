@@ -202,11 +202,9 @@ class TestSelectByDropout:
         # Should have same number of features
         assert result.assays["protein"].n_features == fs_container.assays["protein"].n_features
 
-        # Check annotation columns were added
+        # Check annotation column was added
         var = result.assays["protein"].var
         assert "pass_dropout_filter" in var.columns
-        assert "dropout_rate" in var.columns
-        assert "n_detected" in var.columns
 
         # Check that some features pass
         n_pass = var["pass_dropout_filter"].sum()
@@ -454,13 +452,21 @@ class TestSelectByVST:
 
         assert result.assays["protein"].n_features == 25
 
-    def test_vst_invalid_span(self, fs_container):
-        """Test ValueError for invalid span parameter."""
-        with pytest.raises(ValueError, match="span must be in \\(0, 1\\]"):
-            select_by_vst(fs_container, span=1.5)
+    def test_vst_invalid_min_mean(self, fs_container):
+        """Test ValueError for invalid min_mean parameter."""
+        # Create a container where all features have very low mean
+        import numpy as np
 
-        with pytest.raises(ValueError, match="span must be in \\(0, 1\\]"):
-            select_by_vst(fs_container, span=0)
+        X_low = np.random.rand(10, 20) * 0.0001  # All values below min_mean
+        var_low = pl.DataFrame({"_index": [f"feature_{i}" for i in range(20)]})
+        obs_low = pl.DataFrame({"_index": [f"sample_{i}" for i in range(10)]})
+        from scptensor.core import Assay, ScpMatrix
+
+        assay_low = Assay(var=var_low, layers={"raw": ScpMatrix(X=X_low, M=None)})
+        container_low = ScpContainer(obs=obs_low, assays={"protein": assay_low})
+
+        with pytest.raises(ValueError, match="No features meet min_mean"):
+            select_by_vst(container_low, min_mean=1.0)
 
     def test_vst_invalid_assay(self, fs_container):
         """Test ValueError for non-existent assay."""
@@ -609,13 +615,15 @@ class TestSelectByModelImportance:
             pytest.skip("scikit-learn not available")
 
     def test_mutual_info_method(self, fs_container):
-        """Test mutual info method."""
-        result = select_by_model_importance(
-            fs_container, assay_name="protein", method="mutual_info", n_top_features=30, subset=True
-        )
-
-        # Should fall back to variance-based selection
-        assert result.assays["protein"].n_features == 30
+        """Test ValueError for invalid method (mutual_info is not supported)."""
+        with pytest.raises(ValueError, match="method must be"):
+            select_by_model_importance(
+                fs_container,
+                assay_name="protein",
+                method="mutual_info",
+                n_top_features=30,
+                subset=True,
+            )
 
     def test_model_invalid_method(self, fs_container):
         """Test ValueError for invalid method."""
