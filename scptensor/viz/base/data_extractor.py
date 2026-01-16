@@ -1,11 +1,14 @@
 """Data extraction utilities for visualization."""
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 import numpy as np
 from scipy import sparse
 
 from scptensor import ScpContainer
+
+if TYPE_CHECKING:
+    from scipy.sparse import spmatrix
 
 
 class DataExtractor:
@@ -49,7 +52,7 @@ class DataExtractor:
 
         X = scpmatrix.X  # noqa: N806
         if sparse.issparse(X):
-            X = X.toarray()  # noqa: N806  type: ignore[union-attr]
+            X = cast("spmatrix", X).toarray()  # noqa: N806
         M = scpmatrix.M if scpmatrix.M is not None else np.zeros_like(X, dtype=int)  # noqa: N806
 
         # Filter samples

@@ -625,7 +625,7 @@ def reduce_pca(
     if scale:
         if sp.issparse(X):
             mean_for_std = mean if center is not None else np.zeros(n_features)
-            std = _compute_sparse_variance(X, mean_for_std, n_samples)
+            std = _compute_sparse_variance(X, mean_for_std, n_samples)  # type: ignore[arg-type]
             std = np.sqrt(std)
         else:
             std = np.std(X, axis=0, ddof=1)
@@ -646,7 +646,7 @@ def reduce_pca(
                 X = X.astype(target_dtype)
             linear_op = _CenteredScaledLinearOperator(
                 X,
-                mean if center else np.zeros(n_features),
+                mean if center else np.zeros(n_features),  # type: ignore[arg-type]
                 std if scale else None,
             )
         else:
@@ -672,13 +672,15 @@ def reduce_pca(
         if svd_solver == "full":
             if use_linear_operator:
                 # Must densify for full SVD
-                X_dense = X.toarray().astype(target_dtype)
-                if center:
+                assert sp.issparse(X), "X must be sparse when use_linear_operator=True"
+                X_dense = X.toarray().astype(target_dtype)  # type: ignore[union-attr]
+                if center and mean is not None:
                     X_dense -= mean
-                if scale:
+                if scale and std is not None:
                     X_dense /= std
                 U_reduced, S_reduced, Vt_reduced = _full_svd(X_dense, n_components)
             else:
+                assert X_processed is not None
                 U_reduced, S_reduced, Vt_reduced = _full_svd(
                     X_processed,
                     n_components,
@@ -703,16 +705,17 @@ def reduce_pca(
         else:  # covariance_eigh
             if use_linear_operator:
                 # Need to densify or compute differently
-                X_dense = X.toarray().astype(target_dtype)
-                if center:
+                assert sp.issparse(X), "X must be sparse when use_linear_operator=True"
+                X_dense = X.toarray().astype(target_dtype)  # type: ignore[union-attr]
+                if center and mean is not None:
                     X_dense -= mean
-                if scale:
+                if scale and std is not None:
                     X_dense /= std
                 U_reduced, S_reduced, Vt_reduced = _full_svd(X_dense, n_components)
             else:
                 U_temp, S_reduced, Vt_reduced = _covariance_eigh_svd(
                     X,
-                    mean if center else np.zeros(n_features),
+                    mean if center else np.zeros(n_features),  # type: ignore[arg-type]
                     n_components,
                 )
                 if U_temp is None:
@@ -729,7 +732,11 @@ def reduce_pca(
         U_reduced, Vt_reduced = _flip_signs(U_reduced, Vt_reduced)
 
     # ===== COMPUTE SCORES AND LOADINGS =====
-    scores = U_reduced * S_reduced  # type: ignore[operator]
+    if U_reduced is not None:
+        scores = U_reduced * S_reduced
+    else:
+        assert X_processed is not None
+        scores = X_processed @ Vt_reduced.T * S_reduced
     loadings = Vt_reduced.T
 
     # ===== EXPLAINED VARIANCE =====

@@ -119,7 +119,7 @@ def correlation_matrix(
             mask = group_data == g
             group_means_list.append(data[mask].mean(axis=0))
 
-        group_means = np.array(group_means_list)  # type: ignore[assignment]
+        group_means = np.array(group_means_list)
 
         # Compute correlation between groups
         if method == "spearman":
@@ -333,7 +333,7 @@ def dendrogram(
 
     # Compute pairwise distances
     dist_matrix = pdist(data_subset, metric=metric)
-    link = linkage(dist_matrix, method=method)  # type: ignore[arg-type]
+    link = linkage(dist_matrix, method=method)
 
     # Create figure
     fig, ax = plt.subplots(figsize=(12, 6))
@@ -437,7 +437,7 @@ if __name__ == "__main__":
     # Test: dendrogram with different methods
     print("\n6. Testing dendrogram with different methods...")
     for meth in ["single", "complete", "average", "ward"]:
-        fig = dendrogram(container, layer="normalized", method=meth, show=False)
+        fig = dendrogram(container, layer="normalized", method=meth, show=False)  # type: ignore[arg-type]
         assert fig is not None
         plt.close(fig)
     print("   dendrogram different methods: OK")

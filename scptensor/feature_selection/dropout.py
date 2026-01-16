@@ -210,7 +210,7 @@ def _subset_or_annotate_dropout(
         new_container = container.__class__(
             obs=container.obs, assays=new_assays, history=list(container.history)
         )
-        n_pass = int(np.sum(bool_mask))  # type: ignore[assignment]
+        n_pass = int(np.sum(bool_mask))
         description = f"Annotated {n_pass}/{assay.n_features} features passing filter."
 
     new_container.log_operation(
@@ -347,7 +347,7 @@ if __name__ == "__main__":
     stats = get_dropout_stats(container_test)
     assert stats.shape[0] == n_features
     assert "dropout_rate" in stats.columns
-    print(f"  Mean dropout rate: {stats['dropout_rate'].mean():.3f}")
+    print(f"  Mean dropout rate: {stats['dropout_rate'].mean():.3f}")  # type: ignore[str-bytes-safe]
 
     # Test 5: Edge case - no features pass
     print("\nTest 5: Strict filter (should error)")

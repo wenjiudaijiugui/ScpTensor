@@ -490,10 +490,10 @@ def missing_value_patterns(
         is_missing = mask_m != 0
 
     # Sample missing rate
-    sample_missing_rate = is_missing.sum(axis=1) / n_features  # type: ignore[union-attr]
+    sample_missing_rate = is_missing.sum(axis=1) / n_features
 
     # Feature missing rate
-    feature_missing_rate = is_missing.sum(axis=0) / n_samples  # type: ignore[union-attr]
+    feature_missing_rate = is_missing.sum(axis=0) / n_samples
 
     # Get feature names
     var_col = None

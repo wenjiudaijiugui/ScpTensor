@@ -190,19 +190,19 @@ def _compute_vst_scores(
             in_bin = (log_means >= bin_edges[i]) & (log_means < bin_edges[i + 1])
 
         if np.sum(in_bin) > 0:
-            bin_medians.append(np.median(log_variances[in_bin]))
-            bin_centers.append(np.median(log_means[in_bin]))
+            bin_medians.append(float(np.median(log_variances[in_bin])))
+            bin_centers.append(float(np.median(log_means[in_bin])))
         else:
             # Handle empty bins
             if bin_medians:
                 bin_medians.append(bin_medians[-1])
                 bin_centers.append(bin_centers[-1] + 0.1)
             else:
-                bin_medians.append(np.median(log_variances))
-                bin_centers.append(np.median(log_means))
+                bin_medians.append(float(np.median(log_variances)))
+                bin_centers.append(float(np.median(log_means)))
 
-    bin_medians = np.array(bin_medians)
-    bin_centers = np.array(bin_centers)
+    bin_medians = np.array(bin_medians)  # type: ignore[assignment]
+    bin_centers = np.array(bin_centers)  # type: ignore[assignment]
 
     # Remove NaN values
     finite_mask = np.isfinite(bin_medians) & np.isfinite(bin_centers)

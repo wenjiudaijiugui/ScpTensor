@@ -440,7 +440,7 @@ if __name__ == "__main__":
     # Test 6: Invalid method
     print("\nTest 6: Invalid method (should error)")
     try:
-        select_by_model_importance(container_test, method="invalid_method")
+        select_by_model_importance(container_test, method="invalid_method")  # type: ignore[arg-type]
         raise AssertionError("Should have raised ValueError")
     except ValueError:
         print("  Passed: Correctly raised ValueError")
