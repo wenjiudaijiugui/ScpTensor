@@ -20,7 +20,7 @@ from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
-def combat(
+def integrate_combat(
     container: ScpContainer,
     batch_key: str,
     assay_name: str = "protein",
@@ -75,8 +75,8 @@ def combat(
 
     Examples
     --------
-    >>> container = combat(container, batch_key='batch')
-    >>> container = combat(container, batch_key='batch', covariates=['condition'])
+    >>> container = integrate_combat(container, batch_key='batch')
+    >>> container = integrate_combat(container, batch_key='batch', covariates=['condition'])
     """
     # Validate assay and layer
     if assay_name not in container.assays:
@@ -350,3 +350,40 @@ def _apply_combat_correction(
         out_data[:, idx] = (Z[:, idx] - gamma_star[i][:, None]) / np.sqrt(delta_star[i][:, None])
 
     return out_data
+
+
+def combat(
+    container: ScpContainer,
+    batch_key: str,
+    assay_name: str = "protein",
+    base_layer: str = "raw",
+    new_layer_name: str | None = "combat",
+    covariates: Sequence[str] | None = None,
+) -> ScpContainer:
+    """Apply ComBat batch effect correction using empirical Bayes.
+
+    .. deprecated:: 0.1.0
+        Use :func:`integrate_combat` instead. This function will be removed in a future version.
+
+    Examples
+    --------
+    >>> container = combat(container, batch_key='batch')
+    """
+    import warnings
+
+    warnings.warn(
+        "'combat' is deprecated, use 'integrate_combat' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return integrate_combat(
+        container=container,
+        batch_key=batch_key,
+        assay_name=assay_name,
+        base_layer=base_layer,
+        new_layer_name=new_layer_name,
+        covariates=covariates,
+    )
+
+
+__all__ = ["integrate_combat", "combat"]
