@@ -1,15 +1,14 @@
-"""
-Integration module for batch effect correction in single-cell proteomics data.
+"""Integration module for batch effect correction in single-cell proteomics data.
 
 This module provides methods for removing batch effects and integrating data
 from multiple experiments, runs, or platforms.
 
 Available Methods
 -----------------
-- combat: ComBat batch correction (empirical Bayes) - built-in
-- harmony: Harmony integration (iterative clustering) - requires harmonypy
-- mnn_correct: Mutual Nearest Neighbors correction - built-in
-- scanorama_integrate: Scanorama integration - requires scanorama
+- integrate_combat: ComBat batch correction (empirical Bayes) - built-in
+- integrate_harmony: Harmony integration (iterative clustering) - requires harmonypy
+- integrate_mnn: Mutual Nearest Neighbors correction - built-in
+- integrate_scanorama: Scanorama integration - requires scanorama
 
 Optional Dependencies
 ---------------------
@@ -20,19 +19,27 @@ Some methods require external packages:
 
 Examples
 --------
->>> from scptensor.integration import combat, harmony, mnn_correct, scanorama_integrate
+>>> from scptensor.integration import integrate_combat, integrate_harmony, integrate_mnn, integrate_scanorama
 >>>
 >>> # ComBat batch correction (built-in, no extra dependencies)
->>> container = combat(container, batch_key='batch')
+>>> container = integrate_combat(container, batch_key='batch')
 >>>
 >>> # Harmony integration (requires harmonypy)
->>> container = harmony(container, batch_key='batch', base_layer='pca')
+>>> container = integrate_harmony(container, batch_key='batch', base_layer='pca')
 >>>
 >>> # MNN correction (built-in)
->>> container = mnn_correct(container, batch_key='batch', k=20)
+>>> container = integrate_mnn(container, batch_key='batch', k=20)
 >>>
 >>> # Scanorama integration (requires scanorama)
->>> container = scanorama_integrate(container, batch_key='batch', sigma=15.0)
+>>> container = integrate_scanorama(container, batch_key='batch', sigma=15.0)
+
+Deprecated Functions
+--------------------
+The following function names are deprecated and will be removed in a future version:
+- combat -> Use integrate_combat instead
+- harmony -> Use integrate_harmony instead
+- mnn_correct -> Use integrate_mnn instead
+- scanorama_integrate -> Use integrate_scanorama instead
 
 References
 ----------
@@ -42,15 +49,22 @@ References
 - Scanorama: Hie et al. Nature Biotechnology (2019)
 """
 
-from scptensor.integration.combat import combat
-from scptensor.integration.harmony import harmony
+# New API with integrate_* prefix (recommended)
+# Old API (deprecated, for backward compatibility)
+from scptensor.integration.combat import combat, integrate_combat
+from scptensor.integration.harmony import harmony, integrate_harmony
 from scptensor.integration.mnn import integrate_mnn, mnn_correct
-from scptensor.integration.scanorama import integrate_scanorama as scanorama_integrate
+from scptensor.integration.scanorama import integrate_scanorama, scanorama_integrate
 
 __all__ = [
+    # New API
+    "integrate_combat",
+    "integrate_harmony",
+    "integrate_mnn",
+    "integrate_scanorama",
+    # Deprecated (for backward compatibility)
     "combat",
     "harmony",
-    "integrate_mnn",
-    "mnn_correct",  # Deprecated: use integrate_mnn
+    "mnn_correct",
     "scanorama_integrate",
 ]

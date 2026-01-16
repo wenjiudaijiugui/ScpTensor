@@ -58,7 +58,7 @@ from scptensor.benchmark import (
 )
 
 # Clustering
-from scptensor.cluster import run_kmeans
+from scptensor.cluster import cluster_kmeans_assay  # formerly run_kmeans
 
 # Core I/O and sparse utilities
 from scptensor.core import (
@@ -285,7 +285,7 @@ __all__ = [
     "pca",
     "umap",
     # Clustering
-    "run_kmeans",
+    "cluster_kmeans_assay",  # formerly run_kmeans
     # Visualization
     "scatter",
     "heatmap",
