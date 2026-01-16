@@ -90,20 +90,20 @@ This roadmap tracked the transformation of ScpTensor from prototype (v0.1.0-alph
 
 ---
 
-### P3: v0.2.2 - Imputation Module Enhancement (Planned)
+### P3: v0.2.2 - Imputation Module Enhancement
 
 | ID | Task Description | Effort (person-days) | Status |
 |----|------------------|---------------------|--------|
-| P3-1 | Implement QRILC imputation method | 1.5 | 📋 Planned |
-| P3-2 | Implement MinProb/MinDet methods | 1 | 📋 Planned |
-| P3-3 | Implement LLS (Local Least Squares) | 1.5 | 📋 Planned |
-| P3-4 | Implement BPCA (Bayesian PCA) | 2 | 📋 Planned |
-| P3-5 | Implement NMF imputation | 1.5 | 📋 Planned |
-| P3-6 | Validation tests vs reference libraries | 2 | 📋 Planned |
-| P3-7 | Imputation visualization recipes | 1.5 | 📋 Planned |
-| P3-8 | Documentation and tutorial updates | 1 | 📋 Planned |
+| P3-1 | Implement QRILC imputation method | 1.5 | ✅ Complete |
+| P3-2 | Implement MinProb/MinDet methods | 1 | ✅ Complete |
+| P3-3 | Implement LLS (Local Least Squares) | 1.5 | ✅ Complete |
+| P3-4 | Implement BPCA (Bayesian PCA) | 2 | ✅ Complete |
+| P3-5 | Implement NMF imputation | 1.5 | ✅ Complete |
+| P3-6 | Validation tests vs reference libraries | 2 | ✅ Complete |
+| P3-7 | Imputation visualization recipes | 1.5 | ✅ Complete |
+| P3-8 | Documentation and tutorial updates | 1 | ✅ Complete |
 
-**P3 Total:** 12 person-days (estimated)
+**P3 Total:** 8/8 Complete (100%)
 
 **Design Document:** `docs/design/2026-01-16-imputation-enhancement-design.md`
 
