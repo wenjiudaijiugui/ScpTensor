@@ -324,14 +324,14 @@ def _handle_mask_values(
         Valid values for the specified samples and feature
     """
     if sp.issparse(X):
-        X_dense: np.ndarray = X.toarray()  # type: ignore[union-attr]
+        X_dense: np.ndarray = X.toarray()
         X = X_dense
 
     values = X[idx, feature_idx]
 
     if M is not None:
         if sp.issparse(M):
-            M_dense: np.ndarray = M.toarray()  # type: ignore[union-attr]
+            M_dense: np.ndarray = M.toarray()
             M = M_dense
         mask = M[idx, feature_idx]
         # Keep only values where mask == 0 (valid)
@@ -446,10 +446,10 @@ def diff_expr_wilcoxon(
     n_features = X.shape[1]
 
     if sp.issparse(X):
-        X_dense: np.ndarray = X.toarray()  # type: ignore[union-attr]
+        X_dense: np.ndarray = X.toarray()
         X = X_dense
     if M is not None and sp.issparse(M):
-        M_dense: np.ndarray = M.toarray()  # type: ignore[union-attr]
+        M_dense: np.ndarray = M.toarray()
         M = M_dense
 
     # Convert sparse to dense for processing
@@ -754,10 +754,10 @@ def diff_expr_brunner_munzel(
     n_features = X.shape[1]
 
     if sp.issparse(X):
-        X_dense: np.ndarray = X.toarray()  # type: ignore[union-attr]
+        X_dense: np.ndarray = X.toarray()
         X = X_dense
     if M is not None and sp.issparse(M):
-        M_dense: np.ndarray = M.toarray()  # type: ignore[union-attr]
+        M_dense: np.ndarray = M.toarray()
         M = M_dense
 
     X_arr = X.astype(np.float64, copy=False)
