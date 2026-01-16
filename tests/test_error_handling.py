@@ -13,10 +13,8 @@ from scptensor.core.exceptions import (
     AssayNotFoundError,
     DimensionError,
     LayerNotFoundError,
+    ScpValueError,
     ValidationError,
-)
-from scptensor.core.exceptions import (
-    ValueError as ScpValueError,
 )
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
@@ -98,7 +96,7 @@ class TestNormalizationErrors:
 
     def test_log_normalize_assay_not_found(self, sample_container):
         """Test that AssayNotFoundError is raised for invalid assay."""
-        from scptensor.normalization.log import log_normalize
+        from scptensor.normalization.log import norm_log as log_normalize
 
         with pytest.raises(AssayNotFoundError) as exc_info:
             log_normalize(sample_container, assay_name="invalid")
@@ -106,15 +104,15 @@ class TestNormalizationErrors:
 
     def test_log_normalize_layer_not_found(self, sample_container):
         """Test that LayerNotFoundError is raised for invalid layer."""
-        from scptensor.normalization.log import log_normalize
+        from scptensor.normalization.log import norm_log as log_normalize
 
         with pytest.raises(LayerNotFoundError) as exc_info:
-            log_normalize(sample_container, base_layer="invalid")
+            log_normalize(sample_container, source_layer="invalid")
         assert "invalid" in str(exc_info.value)
 
     def test_log_normalize_invalid_base(self, sample_container):
         """Test that ScpValueError is raised for invalid base."""
-        from scptensor.normalization.log import log_normalize
+        from scptensor.normalization.log import norm_log as log_normalize
 
         with pytest.raises(ScpValueError) as exc_info:
             log_normalize(sample_container, base=-1.0)
@@ -123,14 +121,14 @@ class TestNormalizationErrors:
 
     def test_zscore_assay_not_found(self, sample_container):
         """Test that AssayNotFoundError is raised for invalid assay."""
-        from scptensor.normalization.zscore import zscore
+        from scptensor.normalization.zscore import norm_zscore as zscore
 
         with pytest.raises(AssayNotFoundError):
             zscore(sample_container, assay_name="invalid")
 
     def test_zscore_invalid_axis(self, complete_container):
         """Test that ScpValueError is raised for invalid axis."""
-        from scptensor.normalization.zscore import zscore
+        from scptensor.normalization.zscore import norm_zscore as zscore
 
         with pytest.raises(ScpValueError) as exc_info:
             zscore(complete_container, axis=5)
@@ -138,10 +136,10 @@ class TestNormalizationErrors:
 
     def test_zscore_requires_complete_data(self, sample_container):
         """Test that ValidationError is raised for data with NaNs."""
-        from scptensor.normalization.zscore import zscore
+        from scptensor.normalization.zscore import norm_zscore as zscore
 
         with pytest.raises(ValidationError) as exc_info:
-            zscore(sample_container, base_layer_name="raw")
+            zscore(sample_container, source_layer="raw")
         assert "complete" in str(exc_info.value).lower()
 
 
@@ -155,58 +153,58 @@ class TestImputeErrors:
 
     def test_knn_assay_not_found(self, sample_container):
         """Test that AssayNotFoundError is raised for invalid assay."""
-        from scptensor.impute.knn import knn
+        from scptensor.impute.knn import impute_knn as knn
 
         with pytest.raises(AssayNotFoundError):
-            knn(sample_container, assay_name="invalid", base_layer="raw")
+            knn(sample_container, assay_name="invalid", source_layer="raw")
 
     def test_knn_invalid_k(self, sample_container):
         """Test that ScpValueError is raised for invalid k."""
-        from scptensor.impute.knn import knn
+        from scptensor.impute.knn import impute_knn as knn
 
         with pytest.raises(ScpValueError) as exc_info:
-            knn(sample_container, assay_name="protein", base_layer="raw", k=0)
+            knn(sample_container, assay_name="protein", source_layer="raw", k=0)
         assert "k" in str(exc_info.value).lower()
 
     def test_knn_invalid_weights(self, sample_container):
         """Test that ScpValueError is raised for invalid weights."""
-        from scptensor.impute.knn import knn
+        from scptensor.impute.knn import impute_knn as knn
 
         with pytest.raises(ScpValueError) as exc_info:
-            knn(sample_container, assay_name="protein", base_layer="raw", weights="invalid")
+            knn(sample_container, assay_name="protein", source_layer="raw", weights="invalid")
         assert "weights" in str(exc_info.value).lower()
 
     def test_missforest_invalid_max_iter(self, sample_container):
         """Test that ScpValueError is raised for invalid max_iter."""
-        from scptensor.impute.missforest import missforest
+        from scptensor.impute.missforest import impute_mf as missforest
 
         with pytest.raises(ScpValueError) as exc_info:
-            missforest(sample_container, assay_name="protein", base_layer="raw", max_iter=0)
+            missforest(sample_container, assay_name="protein", source_layer="raw", max_iter=0)
         assert "max_iter" in str(exc_info.value).lower()
 
     def test_ppca_invalid_n_components(self, sample_container):
         """Test that ScpValueError is raised for invalid n_components."""
-        from scptensor.impute.ppca import ppca
+        from scptensor.impute.ppca import impute_ppca as ppca
 
         with pytest.raises(ScpValueError) as exc_info:
-            ppca(sample_container, assay_name="protein", base_layer="raw", n_components=0)
+            ppca(sample_container, assay_name="protein", source_layer="raw", n_components=0)
         assert "n_components" in str(exc_info.value).lower()
 
     def test_ppca_dimension_error(self, sample_container):
         """Test that DimensionError is raised for too large n_components."""
-        from scptensor.impute.ppca import ppca
+        from scptensor.impute.ppca import impute_ppca as ppca
 
         with pytest.raises(DimensionError) as exc_info:
-            ppca(sample_container, assay_name="protein", base_layer="raw", n_components=1000)
+            ppca(sample_container, assay_name="protein", source_layer="raw", n_components=1000)
         assert "n_components" in str(exc_info.value).lower()
 
     def test_svd_invalid_init_method(self, sample_container):
         """Test that ScpValueError is raised for invalid init_method."""
-        from scptensor.impute.svd import svd_impute
+        from scptensor.impute.svd import impute_svd as svd_impute
 
         with pytest.raises(ScpValueError) as exc_info:
             svd_impute(
-                sample_container, assay_name="protein", base_layer="raw", init_method="invalid"
+                sample_container, assay_name="protein", source_layer="raw", init_method="invalid"
             )
         assert "init_method" in str(exc_info.value).lower()
 
@@ -221,14 +219,14 @@ class TestIntegrationErrors:
 
     def test_combat_assay_not_found(self, sample_container):
         """Test that AssayNotFoundError is raised for invalid assay."""
-        from scptensor.integration.combat import combat
+        from scptensor.integration.combat import integrate_combat as combat
 
         with pytest.raises(AssayNotFoundError):
             combat(sample_container, batch_key="batch", assay_name="invalid")
 
     def test_combat_invalid_batch_key(self, sample_container):
         """Test that ScpValueError is raised for invalid batch key."""
-        from scptensor.integration.combat import combat
+        from scptensor.integration.combat import integrate_combat as combat
 
         with pytest.raises(ScpValueError) as exc_info:
             combat(sample_container, batch_key="invalid")
@@ -239,7 +237,7 @@ class TestIntegrationErrors:
 
     def test_mnn_invalid_k(self, sample_container):
         """Test that ScpValueError is raised for invalid k."""
-        from scptensor.integration.mnn import mnn_correct
+        from scptensor.integration.mnn import integrate_mnn as mnn_correct
 
         with pytest.raises(ScpValueError) as exc_info:
             mnn_correct(sample_container, batch_key="batch", k=0)
@@ -247,7 +245,7 @@ class TestIntegrationErrors:
 
     def test_mnn_invalid_sigma(self, sample_container):
         """Test that ScpValueError is raised for invalid sigma."""
-        from scptensor.integration.mnn import mnn_correct
+        from scptensor.integration.mnn import integrate_mnn as mnn_correct
 
         with pytest.raises(ScpValueError) as exc_info:
             mnn_correct(sample_container, batch_key="batch", sigma=0)
@@ -256,7 +254,7 @@ class TestIntegrationErrors:
     @pytest.mark.skip(reason="Requires optional dependency 'scanorama'")
     def test_scanorama_invalid_alpha(self, sample_container):
         """Test that ScpValueError is raised for invalid alpha."""
-        from scptensor.integration.scanorama import scanorama_integrate
+        from scptensor.integration.scanorama import integrate_scanorama as scanorama_integrate
 
         with pytest.raises(ScpValueError) as exc_info:
             scanorama_integrate(sample_container, batch_key="batch", alpha=2.0)
@@ -273,14 +271,14 @@ class TestQCErrors:
 
     def test_basic_qc_assay_not_found(self, sample_container):
         """Test that AssayNotFoundError is raised for invalid assay."""
-        from scptensor.qc.basic import basic_qc
+        from scptensor.qc.basic import qc_basic as basic_qc
 
         with pytest.raises(AssayNotFoundError):
             basic_qc(sample_container, assay_name="invalid")
 
     def test_basic_qc_invalid_min_features(self, sample_container):
         """Test that ScpValueError is raised for invalid min_features."""
-        from scptensor.qc.basic import basic_qc
+        from scptensor.qc.basic import qc_basic as basic_qc
 
         with pytest.raises(ScpValueError) as exc_info:
             basic_qc(sample_container, min_features=-1)
@@ -312,14 +310,14 @@ class TestClusterErrors:
 
     def test_kmeans_assay_not_found(self, sample_container):
         """Test that AssayNotFoundError is raised for invalid assay."""
-        from scptensor.cluster.basic import kmeans
+        from scptensor.cluster.basic import cluster_kmeans as kmeans
 
         with pytest.raises(AssayNotFoundError):
             kmeans(sample_container, assay_name="invalid")
 
     def test_kmeans_invalid_n_clusters(self, sample_container):
         """Test that ScpValueError is raised for invalid n_clusters."""
-        from scptensor.cluster.basic import kmeans
+        from scptensor.cluster.basic import cluster_kmeans as kmeans
 
         with pytest.raises(ScpValueError) as exc_info:
             kmeans(sample_container, n_clusters=0)
@@ -327,7 +325,7 @@ class TestClusterErrors:
 
     def test_run_kmeans_layer_not_found(self, complete_container):
         """Test that LayerNotFoundError is raised for invalid layer."""
-        from scptensor.cluster.kmeans import run_kmeans
+        from scptensor.cluster.kmeans import cluster_kmeans as run_kmeans
 
         with pytest.raises(LayerNotFoundError):
             run_kmeans(complete_container, assay_name="protein", base_layer="invalid")
@@ -335,7 +333,7 @@ class TestClusterErrors:
     @pytest.mark.skip(reason="Requires optional dependency 'leidenalg'")
     def test_leiden_assay_not_found(self, complete_container):
         """Test that AssayNotFoundError is raised for invalid assay."""
-        from scptensor.cluster.graph import leiden
+        from scptensor.cluster.graph import cluster_leiden as leiden
 
         with pytest.raises(AssayNotFoundError):
             leiden(complete_container, assay_name="invalid", base_layer="raw")
@@ -343,7 +341,7 @@ class TestClusterErrors:
     @pytest.mark.skip(reason="Requires optional dependency 'leidenalg'")
     def test_leiden_invalid_n_neighbors(self, complete_container):
         """Test that ScpValueError is raised for invalid n_neighbors."""
-        from scptensor.cluster.graph import leiden
+        from scptensor.cluster.graph import cluster_leiden as leiden
 
         with pytest.raises(ScpValueError) as exc_info:
             leiden(complete_container, assay_name="protein", base_layer="raw", n_neighbors=0)
@@ -360,21 +358,21 @@ class TestDimReductionErrors:
 
     def test_umap_assay_not_found(self, complete_container):
         """Test that AssayNotFoundError is raised for invalid assay."""
-        from scptensor.dim_reduction.umap import umap
+        from scptensor.dim_reduction.umap import reduce_umap as umap
 
         with pytest.raises(AssayNotFoundError):
             umap(complete_container, assay_name="invalid", base_layer="raw")
 
     def test_umap_layer_not_found(self, complete_container):
         """Test that LayerNotFoundError is raised for invalid layer."""
-        from scptensor.dim_reduction.umap import umap
+        from scptensor.dim_reduction.umap import reduce_umap as umap
 
         with pytest.raises(LayerNotFoundError):
             umap(complete_container, assay_name="protein", base_layer="invalid")
 
     def test_umap_invalid_n_neighbors(self, complete_container):
         """Test that ScpValueError is raised for invalid n_neighbors."""
-        from scptensor.dim_reduction.umap import umap
+        from scptensor.dim_reduction.umap import reduce_umap as umap
 
         with pytest.raises(ScpValueError) as exc_info:
             umap(complete_container, assay_name="protein", base_layer="raw", n_neighbors=0)
@@ -382,7 +380,7 @@ class TestDimReductionErrors:
 
     def test_umap_invalid_min_dist(self, complete_container):
         """Test that ScpValueError is raised for invalid min_dist."""
-        from scptensor.dim_reduction.umap import umap
+        from scptensor.dim_reduction.umap import reduce_umap as umap
 
         with pytest.raises(ScpValueError) as exc_info:
             umap(complete_container, assay_name="protein", base_layer="raw", min_dist=1.5)
@@ -390,7 +388,7 @@ class TestDimReductionErrors:
 
     def test_umap_requires_complete_data(self, sample_container):
         """Test that ValidationError is raised for data with NaNs."""
-        from scptensor.dim_reduction.umap import umap
+        from scptensor.dim_reduction.umap import reduce_umap as umap
 
         with pytest.raises(ValidationError) as exc_info:
             umap(sample_container, assay_name="protein", base_layer="raw")
@@ -407,7 +405,7 @@ class TestExceptionMessages:
 
     def test_assay_not_found_message(self, sample_container):
         """Test AssayNotFoundError message includes assay name."""
-        from scptensor.normalization.log import log_normalize
+        from scptensor.normalization.log import norm_log as log_normalize
 
         with pytest.raises(AssayNotFoundError) as exc_info:
             log_normalize(sample_container, assay_name="my_assay")
@@ -416,16 +414,16 @@ class TestExceptionMessages:
 
     def test_layer_not_found_message(self, sample_container):
         """Test LayerNotFoundError message includes layer and assay names."""
-        from scptensor.normalization.log import log_normalize
+        from scptensor.normalization.log import norm_log as log_normalize
 
         with pytest.raises(LayerNotFoundError) as exc_info:
-            log_normalize(sample_container, base_layer="my_layer")
+            log_normalize(sample_container, source_layer="my_layer")
         # Message should include the layer name
         assert "my_layer" in str(exc_info.value)
 
     def test_scvalue_error_includes_parameter_and_value(self, sample_container):
         """Test ScpValueError includes parameter name and value."""
-        from scptensor.normalization.log import log_normalize
+        from scptensor.normalization.log import norm_log as log_normalize
 
         with pytest.raises(ScpValueError) as exc_info:
             log_normalize(sample_container, base=-5.0)
@@ -435,7 +433,7 @@ class TestExceptionMessages:
 
     def test_batch_key_error_includes_available_columns(self, sample_container):
         """Test error message includes available columns for batch_key errors."""
-        from scptensor.integration.combat import combat
+        from scptensor.integration.combat import integrate_combat as combat
 
         with pytest.raises(ScpValueError) as exc_info:
             combat(sample_container, batch_key="wrong_key")

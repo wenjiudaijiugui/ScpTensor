@@ -1,11 +1,14 @@
 """Comprehensive tests for differential expression analysis module.
 
 Tests cover all functions in scptensor.diff_expr.core:
-- adjust_fdr: FDR correction (BH and BY methods)
+- adjust_fdr: Multiple testing correction (BH, BY, Bonferroni, Holm, Hommel)
 - diff_expr_ttest: Two-group t-test (Welch and Student)
+- diff_expr_paired_ttest: Paired sample t-test
 - diff_expr_mannwhitney: Mann-Whitney U test
 - diff_expr_anova: One-way ANOVA
 - diff_expr_kruskal: Kruskal-Wallis test
+- diff_expr_permutation_test: Permutation-based test
+- check_homoscedasticity: Variance equality tests
 - DiffExprResult: Result container class
 """
 
@@ -26,12 +29,17 @@ from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.diff_expr.core import (
     DiffExprResult,
     adjust_fdr,
+    check_homoscedasticity,
     diff_expr_anova,
     diff_expr_kruskal,
     diff_expr_mannwhitney,
+    diff_expr_paired_ttest,
+    diff_expr_permutation_test,
     diff_expr_ttest,
-    pd_isna,
 )
+
+# Import private function for testing
+from scptensor.diff_expr.core import _isna as pd_isna
 
 # =============================================================================
 # Helper Functions
@@ -1065,7 +1073,7 @@ class TestPdIsna:
         result = pd_isna(arr)
 
         # No NaN in integer array
-        assert np.all(not result)
+        assert not np.any(result)
 
     def test_pd_isna_all_nan(self):
         """Test pd_isna with all NaN values."""
@@ -1079,7 +1087,7 @@ class TestPdIsna:
         arr = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         result = pd_isna(arr)
 
-        assert np.all(not result)
+        assert not np.any(result)
 
 
 # =============================================================================
@@ -1222,6 +1230,529 @@ class TestDiffExprIntegration:
 
         assert n_nan_zero <= n_nan_ignore
         assert n_nan_median <= n_nan_ignore
+
+
+# =============================================================================
+# Extended FDR Correction Tests
+# =============================================================================
+
+
+class TestExtendedFDRCorrection:
+    """Tests for extended FDR correction methods (Bonferroni, Holm, Hommel)."""
+
+    def test_bonferroni_correction(self):
+        """Test Bonferroni correction."""
+        p_values = np.array([0.001, 0.01, 0.05, 0.1, 0.5])
+        adjusted = adjust_fdr(p_values, method="bonferroni")
+
+        # Bonferroni: p_adj = min(p * n, 1)
+        expected = np.array([0.005, 0.05, 0.25, 0.5, 1.0])
+        npt.assert_allclose(adjusted, expected, rtol=1e-10)
+
+        # All adjusted p-values should be >= original
+        assert np.all(adjusted >= p_values)
+
+    def test_holm_correction(self):
+        """Test Holm step-down correction."""
+        p_values = np.array([0.01, 0.04, 0.03, 0.002, 0.2])
+        adjusted = adjust_fdr(p_values, method="holm")
+
+        # All adjusted p-values should be >= original
+        assert np.all(adjusted >= p_values)
+
+        # Adjusted p-values should be non-decreasing when sorted
+        sorted_adj = np.sort(adjusted)
+        assert np.all(np.diff(sorted_adj) >= -1e-10)
+
+        # Holm should be less conservative than Bonferroni
+        adjusted_bonf = adjust_fdr(p_values, method="bonferroni")
+        assert np.all(adjusted <= adjusted_bonf + 1e-10)
+
+    def test_hommel_correction(self):
+        """Test Hommel correction."""
+        p_values = np.array([0.01, 0.04, 0.03, 0.002, 0.2])
+        adjusted = adjust_fdr(p_values, method="hommel")
+
+        # All adjusted p-values should be >= original
+        assert np.all(adjusted >= p_values)
+
+        # Adjusted p-values should be clipped to [0, 1]
+        assert np.all(adjusted <= 1.0)
+        assert np.all(adjusted >= 0.0)
+
+    def test_all_methods_same_order(self):
+        """Test that all methods preserve p-value order."""
+        p_values = np.array([0.5, 0.001, 0.05, 0.01, 0.2])
+
+        methods = ["bh", "by", "bonferroni", "holm", "hommel"]
+        for method in methods:
+            adjusted = adjust_fdr(p_values, method=method)
+
+            # The smallest original p-value should get the smallest adjusted
+            min_idx = np.argmin(p_values)
+            assert adjusted[min_idx] == np.min(adjusted)
+
+    def test_correction_with_nans(self):
+        """Test that new methods handle NaN values correctly."""
+        p_with_nan = np.array([0.01, np.nan, 0.05, 0.1, np.nan])
+
+        for method in ["bonferroni", "holm", "hommel"]:
+            adjusted = adjust_fdr(p_with_nan, method=method)
+
+            # NaN positions should be preserved
+            assert np.isnan(adjusted[1])
+            assert np.isnan(adjusted[4])
+
+            # Valid positions should be adjusted
+            assert not np.isnan(adjusted[0])
+            assert not np.isnan(adjusted[2])
+            assert not np.isnan(adjusted[3])
+
+
+# =============================================================================
+# Paired T-Test Tests
+# =============================================================================
+
+
+def create_paired_container(
+    n_pairs: int = 10,
+    n_features: int = 5,
+    effect_size: float = 2.0,
+    seed: int = 42,
+) -> ScpContainer:
+    """Create a container with paired samples."""
+    rng = np.random.default_rng(seed)
+
+    # Create paired samples (before/after for each subject)
+    sample_names = []
+    conditions = []
+    pair_ids = []
+
+    for i in range(n_pairs):
+        sample_names.extend([f"subject_{i}_before", f"subject_{i}_after"])
+        conditions.extend(["before", "after"])
+        pair_ids.extend([f"pair_{i}", f"pair_{i}"])
+
+    obs = pl.DataFrame(
+        {
+            "_index": sample_names,
+            "condition": conditions,
+            "pair_id": pair_ids,
+        }
+    )
+
+    # Create feature metadata
+    var = pl.DataFrame(
+        {
+            "_index": [f"protein_{i}" for i in range(n_features)],
+            "protein_name": [f"Protein{i}" for i in range(n_features)],
+        }
+    )
+
+    # Create data: before values are baseline, after values are higher for some features
+    X_before = rng.exponential(5, size=(n_pairs, n_features))
+    X_after = X_before.copy()
+
+    # Add treatment effect to first half of features
+    n_de = n_features // 2
+    X_after[:, :n_de] *= effect_size
+
+    # Combine before and after
+    X = np.zeros((n_pairs * 2, n_features))
+    X[0::2, :] = X_before
+    X[1::2, :] = X_after
+
+    assay = Assay(var=var, layers={"X": ScpMatrix(X=X)}, feature_id_col="_index")
+
+    return ScpContainer(obs=obs, assays={"proteins": assay})
+
+
+class TestDiffExprPairedTTest:
+    """Tests for paired t-test differential expression."""
+
+    def test_paired_ttest_basic(self):
+        """Test basic paired t-test functionality."""
+        container = create_paired_container(n_pairs=10, n_features=10, effect_size=2.0)
+
+        result = diff_expr_paired_ttest(
+            container=container,
+            assay_name="proteins",
+            group_col="condition",
+            pair_id_col="pair_id",
+        )
+
+        assert isinstance(result, DiffExprResult)
+        assert result.method == "paired_ttest"
+        assert len(result.p_values) == 10
+        assert len(result.p_values_adj) == 10
+        assert len(result.log2_fc) == 10
+        assert result.effect_sizes is not None
+        assert result.params["n_pairs"] == 10
+
+    def test_paired_ttest_detects_effect(self):
+        """Test that paired t-test detects treatment effect."""
+        container = create_paired_container(n_pairs=15, n_features=10, effect_size=3.0)
+
+        result = diff_expr_paired_ttest(
+            container=container,
+            assay_name="proteins",
+            group_col="condition",
+            pair_id_col="pair_id",
+        )
+
+        # First half should have more significant p-values
+        first_half_p = result.p_values[:5]
+        second_half_p = result.p_values[5:]
+
+        # Use nanmean to handle potential NaN values
+        mean_first = np.nanmean(first_half_p)
+        _ = np.nanmean(second_half_p)  # noqa: F841
+
+        # At least some should be significant in first half
+        assert mean_first < 0.05 or np.sum(first_half_p < 0.05) >= 2
+
+    def test_paired_ttest_pair_id_not_found(self):
+        """Test error when pair_id column doesn't exist."""
+        container = create_paired_container()
+
+        with pytest.raises(ValidationError) as exc_info:
+            diff_expr_paired_ttest(
+                container=container,
+                assay_name="proteins",
+                group_col="condition",
+                pair_id_col="nonexistent",
+            )
+
+        assert "pair" in str(exc_info.value).lower() and "nonexistent" in str(exc_info.value)
+
+    def test_paired_ttest_insufficient_pairs(self):
+        """Test error with insufficient pairs."""
+        container = create_paired_container(n_pairs=2)
+
+        with pytest.raises(ValidationError) as exc_info:
+            diff_expr_paired_ttest(
+                container=container,
+                assay_name="proteins",
+                group_col="condition",
+                pair_id_col="pair_id",
+                min_pairs_per_group=5,
+            )
+
+        assert "pair" in str(exc_info.value).lower()
+
+    def test_paired_ttest_requires_two_groups(self):
+        """Test that paired t-test requires exactly 2 groups."""
+        # Create container with 3 groups
+        rng = np.random.default_rng(42)
+        obs = pl.DataFrame(
+            {
+                "_index": [f"s_{i}" for i in range(12)],
+                "condition": ["A", "B", "C"] * 4,
+                "pair_id": ["p0", "p0", "p0", "p1", "p1", "p1", "p2", "p2", "p2", "p3", "p3", "p3"],
+            }
+        )
+        var = pl.DataFrame({"_index": [f"P{i}" for i in range(5)]})
+        X = rng.exponential(10, size=(12, 5))
+        assay = Assay(var=var, layers={"X": ScpMatrix(X=X)})
+        container = ScpContainer(obs=obs, assays={"proteins": assay})
+
+        with pytest.raises(ValidationError) as exc_info:
+            diff_expr_paired_ttest(
+                container=container,
+                assay_name="proteins",
+                group_col="condition",
+                pair_id_col="pair_id",
+            )
+
+        assert "2 groups" in str(exc_info.value)
+
+
+# =============================================================================
+# Homoscedasticity Test Tests
+# =============================================================================
+
+
+class TestHomoscedasticity:
+    """Tests for homoscedasticity (variance equality) tests."""
+
+    def test_levene_basic(self):
+        """Test basic Levene's test functionality."""
+        container = create_diff_expr_test_container(n_samples=20, n_features=10)
+
+        result = check_homoscedasticity(
+            container=container,
+            assay_name="proteins",
+            group_col="group",
+            test_type="levene",
+        )
+
+        assert isinstance(result, pl.DataFrame)
+        assert len(result) == 10
+        assert "feature_id" in result.columns
+        assert "statistic" in result.columns
+        assert "p_value" in result.columns
+        assert "p_value_adj" in result.columns
+
+    def test_brown_forsythe_test(self):
+        """Test Brown-Forsythe test."""
+        container = create_diff_expr_test_container(n_samples=20, n_features=10)
+
+        result = check_homoscedasticity(
+            container=container,
+            assay_name="proteins",
+            group_col="group",
+            test_type="brown-forsythe",
+        )
+
+        assert isinstance(result, pl.DataFrame)
+        assert len(result) == 10
+        assert "p_value" in result.columns
+
+    def test_levene_center_options(self):
+        """Test Levene's test with different center options."""
+        container = create_diff_expr_test_container(n_samples=20, n_features=5)
+
+        for center in ["mean", "median", "trimmed"]:
+            result = check_homoscedasticity(
+                container=container,
+                assay_name="proteins",
+                group_col="group",
+                test_type="levene",
+                center=center,
+            )
+
+            assert len(result) == 5
+
+    def check_homoscedasticity_invalid_test_type(self):
+        """Test error with invalid test type."""
+        container = create_diff_expr_test_container()
+
+        with pytest.raises(ValidationError) as exc_info:
+            check_homoscedasticity(
+                container=container,
+                assay_name="proteins",
+                group_col="group",
+                test_type="invalid",
+            )
+
+        assert "test" in str(exc_info.value).lower()
+
+    def check_homoscedasticity_invalid_center(self):
+        """Test error with invalid center type."""
+        container = create_diff_expr_test_container()
+
+        with pytest.raises(ValidationError) as exc_info:
+            check_homoscedasticity(
+                container=container,
+                assay_name="proteins",
+                group_col="group",
+                test_type="levene",
+                center="invalid",
+            )
+
+        assert "center" in str(exc_info.value).lower()
+
+    def check_homoscedasticity_requires_two_groups(self):
+        """Test error with fewer than 2 groups."""
+        rng = np.random.default_rng(42)
+        obs = pl.DataFrame(
+            {
+                "_index": [f"sample_{i}" for i in range(10)],
+                "group": ["A"] * 10,
+            }
+        )
+        var = pl.DataFrame({"_index": [f"P{i}" for i in range(5)]})
+        X = rng.exponential(10, size=(10, 5))
+        assay = Assay(var=var, layers={"X": ScpMatrix(X=X)})
+        container = ScpContainer(obs=obs, assays={"proteins": assay})
+
+        with pytest.raises(ValidationError):
+            check_homoscedasticity(
+                container=container,
+                assay_name="proteins",
+                group_col="group",
+            )
+
+
+# =============================================================================
+# Permutation Test Tests
+# =============================================================================
+
+
+class TestPermutationTest:
+    """Tests for permutation test differential expression."""
+
+    def test_permutation_test_basic(self):
+        """Test basic permutation test functionality."""
+        container = create_diff_expr_test_container(
+            n_samples=20, n_features=10, effect_size=2.0, seed=42
+        )
+
+        result = diff_expr_permutation_test(
+            container=container,
+            assay_name="proteins",
+            group_col="group",
+            group1="group_0",
+            group2="group_1",
+            n_permutations=100,
+            random_seed=42,
+        )
+
+        assert isinstance(result, DiffExprResult)
+        assert result.method == "permutation"
+        assert len(result.p_values) == 10
+        assert len(result.log2_fc) == 10
+        assert result.params["n_permutations"] == 100
+        assert result.params["random_seed"] == 42
+
+    def test_permutation_test_detects_effect(self):
+        """Test that permutation test detects differential expression."""
+        container = create_diff_expr_test_container(
+            n_samples=20, n_features=10, effect_size=3.0, seed=42
+        )
+
+        result = diff_expr_permutation_test(
+            container=container,
+            assay_name="proteins",
+            group_col="group",
+            group1="group_0",
+            group2="group_1",
+            n_permutations=500,
+            random_seed=42,
+        )
+
+        # First half should be more significant on average
+        first_half_p = result.p_values[:5]
+        second_half_p = result.p_values[5:]
+
+        assert np.nanmean(first_half_p) < np.nanmean(second_half_p)
+
+    def test_permutation_test_alternatives(self):
+        """Test permutation test with different alternatives."""
+        container = create_diff_expr_test_container(n_samples=20, n_features=5)
+
+        for alt in ["two-sided", "less", "greater"]:
+            result = diff_expr_permutation_test(
+                container=container,
+                assay_name="proteins",
+                group_col="group",
+                group1="group_0",
+                group2="group_1",
+                n_permutations=100,
+                alternative=alt,
+            )
+
+            assert result.params["alternative"] == alt
+            assert len(result.p_values) == 5
+
+    def test_permutation_test_invalid_alternative(self):
+        """Test error with invalid alternative."""
+        container = create_diff_expr_test_container()
+
+        with pytest.raises(ValidationError) as exc_info:
+            diff_expr_permutation_test(
+                container=container,
+                assay_name="proteins",
+                group_col="group",
+                group1="group_0",
+                group2="group_1",
+                alternative="invalid",
+            )
+
+        assert "alternative" in str(exc_info.value).lower()
+
+    def test_permutation_test_pvalue_resolution(self):
+        """Test that p-value resolution is limited by n_permutations."""
+        container = create_diff_expr_test_container(n_samples=20, n_features=5)
+
+        # With few permutations, p-values should be discrete
+        result = diff_expr_permutation_test(
+            container=container,
+            assay_name="proteins",
+            group_col="group",
+            group1="group_0",
+            group2="group_1",
+            n_permutations=50,
+            random_seed=42,
+        )
+
+        # Minimum detectable p-value is 1/(n_permutations + 1)
+        min_p = np.nanmin(result.p_values)
+        assert min_p >= 1.0 / 51
+
+    def test_permutation_test_reproducibility(self):
+        """Test that same seed gives same results."""
+        container = create_diff_expr_test_container(n_samples=20, n_features=5)
+
+        result1 = diff_expr_permutation_test(
+            container=container,
+            assay_name="proteins",
+            group_col="group",
+            group1="group_0",
+            group2="group_1",
+            n_permutations=200,
+            random_seed=123,
+        )
+
+        result2 = diff_expr_permutation_test(
+            container=container,
+            assay_name="proteins",
+            group_col="group",
+            group1="group_0",
+            group2="group_1",
+            n_permutations=200,
+            random_seed=123,
+        )
+
+        npt.assert_array_equal(result1.p_values, result2.p_values)
+
+
+# =============================================================================
+# Effect Size Helper Tests
+# =============================================================================
+
+
+class TestEffectSizeHelpers:
+    """Tests for effect size helper functions."""
+
+    def test_eta_squared_calculation(self):
+        """Test eta-squared calculation."""
+        from scptensor.diff_expr.core import _eta_squared
+
+        group_means = np.array([10.0, 15.0, 20.0])
+        group_sizes = np.array([10, 10, 10])
+        grand_mean = 15.0
+
+        eta2 = _eta_squared(group_means, group_sizes, grand_mean)
+
+        assert 0 <= eta2 <= 1
+        assert eta2 > 0  # Should have some effect size
+
+    def test_omega_squared_calculation(self):
+        """Test omega-squared calculation."""
+        from scptensor.diff_expr.core import _omega_squared
+
+        f_stat = 5.0
+        df_between = 2
+        df_within = 27
+        n_groups = 3
+        n_total = 30
+
+        omega2 = _omega_squared(f_stat, df_between, df_within, n_groups, n_total)
+
+        assert 0 <= omega2 <= 1
+
+    def test_omega_squared_edge_cases(self):
+        """Test omega-squared with edge cases."""
+        from scptensor.diff_expr.core import _omega_squared
+
+        # F = 1 means no effect
+        omega2 = _omega_squared(1.0, 2, 27, 3, 30)
+        assert omega2 == 0.0
+
+        # Zero division safety
+        omega2 = _omega_squared(5.0, 0, 27, 3, 30)
+        assert omega2 == 0.0
 
 
 if __name__ == "__main__":

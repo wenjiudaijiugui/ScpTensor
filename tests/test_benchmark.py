@@ -8,6 +8,8 @@ This module contains comprehensive tests for benchmark core classes:
 - SyntheticDataset
 """
 
+from dataclasses import asdict
+
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -150,7 +152,7 @@ class TestTechnicalMetrics:
             signal_to_noise_ratio=3.5,
             missing_value_pattern_score=0.88,
         )
-        d = metrics.__dict__
+        d = asdict(metrics)
         assert isinstance(d, dict)
         assert len(d) == 6
         assert d["data_recovery_rate"] == 0.85
@@ -897,11 +899,11 @@ class TestSyntheticDataset:
             random_seed=42,
         )
 
-        assert dataset.n_samples == 100
-        assert dataset.n_features == 500
-        assert dataset.n_groups == 3
-        assert dataset.n_batches == 2
-        assert dataset.missing_rate == 0.3
+        assert dataset.config.n_samples == 100
+        assert dataset.config.n_features == 500
+        assert dataset.config.n_groups == 3
+        assert dataset.config.n_batches == 2
+        assert dataset.config.missing_rate == 0.3
 
     def test_synthetic_dataset_generate(self):
         """Test generating synthetic dataset."""

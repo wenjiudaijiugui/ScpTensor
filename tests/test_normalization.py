@@ -1364,13 +1364,23 @@ class TestTMMNormalization:
 # =============================================================================
 
 
-from scptensor.normalization.global_median import global_median_normalization
-from scptensor.normalization.median_centering import median_centering
-from scptensor.normalization.median_scaling import median_scaling
-from scptensor.normalization.sample_mean import sample_mean_normalization
-from scptensor.normalization.sample_median import sample_median_normalization
-from scptensor.normalization.tmm import tmm_normalization
-from scptensor.normalization.upper_quartile import upper_quartile_normalization
+from scptensor.normalization.global_median import (
+    norm_global_median as global_median_normalization,
+)
+from scptensor.normalization.median_centering import (
+    norm_median_center as median_centering,
+)
+from scptensor.normalization.median_scaling import norm_median_scale as median_scaling
+from scptensor.normalization.sample_mean import (
+    norm_sample_mean as sample_mean_normalization,
+)
+from scptensor.normalization.sample_median import (
+    norm_sample_median as sample_median_normalization,
+)
+from scptensor.normalization.tmm import norm_tmm as tmm_normalization
+from scptensor.normalization.upper_quartile import (
+    norm_quartile as upper_quartile_normalization,
+)
 
 # =============================================================================
 # Run All Tests (for direct execution)

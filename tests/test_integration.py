@@ -28,7 +28,10 @@ from scptensor.core.exceptions import (
     ScpValueError,
 )
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
-from scptensor.integration import combat, harmony, mnn_correct, scanorama_integrate
+from scptensor.integration import integrate_combat as combat
+from scptensor.integration import integrate_harmony as harmony
+from scptensor.integration import integrate_mnn as mnn_correct
+from scptensor.integration import integrate_scanorama as scanorama_integrate
 
 # =============================================================================
 # Helper Functions

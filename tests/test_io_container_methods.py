@@ -1,8 +1,10 @@
 """Tests for ScpContainer save/load convenience methods."""
 
-import pytest
 import tempfile
 from pathlib import Path
+
+import pytest
+
 from scptensor import ScpContainer
 
 

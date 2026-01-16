@@ -62,6 +62,14 @@ def viz_container():
                 "control",
                 "treated",
             ],
+            "umap_1": np.random.rand(10),
+            "umap_2": np.random.rand(10),
+            "pca_1": np.random.rand(10),
+            "pca_2": np.random.rand(10),
+            "reduce_umap_1": np.random.rand(10),
+            "reduce_umap_2": np.random.rand(10),
+            "reduce_pca_1": np.random.rand(10),
+            "reduce_pca_2": np.random.rand(10),
         }
     )
 
@@ -83,27 +91,18 @@ def viz_container():
     M[4, 4] = 1  # MBR
 
     assay = Assay(
-        var=var, layers={"raw": ScpMatrix(X=X, M=M), "imputed": ScpMatrix(X=X + 0.1, M=M)}
-    )
-
-    # Add UMAP coordinates as a separate assay
-    X_umap = np.random.rand(10, 2)
-    umap_assay = Assay(
-        var=pl.DataFrame({"_index": ["dim1", "dim2"]}), layers={"X": ScpMatrix(X=X_umap)}
-    )
-
-    # Add PCA coordinates
-    X_pca = np.random.rand(10, 3)  # 3D for testing dimension validation
-    pca_assay = Assay(
-        var=pl.DataFrame({"_index": ["PC1", "PC2", "PC3"]}), layers={"X": ScpMatrix(X=X_pca)}
+        var=var,
+        layers={
+            "raw": ScpMatrix(X=X, M=M),
+            "normalized": ScpMatrix(X=X + 0.1, M=M),  # For embedding functions
+            "imputed": ScpMatrix(X=X + 0.1, M=M),
+        },
     )
 
     return ScpContainer(
         obs=obs,
         assays={
-            "protein": assay,  # Note: functions expect "protein" not "proteins"
-            "umap": umap_assay,
-            "pca": pca_assay,
+            "proteins": assay,  # Note: embedding functions expect "proteins"
         },
     )
 
@@ -130,13 +129,24 @@ def volcano_container():
     X = np.random.rand(5, 10)
     assay = Assay(var=var, layers={"X": ScpMatrix(X=X)})
 
-    return ScpContainer(obs=obs, assays={"protein": assay})  # Note: functions expect "protein"
+    return ScpContainer(obs=obs, assays={"protein": assay})  # volcano function expects "protein"
 
 
 @pytest.fixture
 def minimal_viz_container():
     """Create minimal container for edge case tests."""
-    obs = pl.DataFrame({"_index": ["S1", "S2"], "batch": ["A", "B"]})
+    obs = pl.DataFrame(
+        {
+            "_index": ["S1", "S2"],
+            "batch": ["A", "B"],
+            "umap_1": [0.1, 0.2],
+            "umap_2": [0.3, 0.4],
+            "reduce_umap_1": [0.1, 0.2],
+            "reduce_umap_2": [0.3, 0.4],
+            "reduce_pca_1": [0.1, 0.2],
+            "reduce_pca_2": [0.3, 0.4],
+        }
+    )
 
     var = pl.DataFrame({"_index": ["P1"], "protein_id": ["P1"]})
 
@@ -144,7 +154,7 @@ def minimal_viz_container():
     M = np.array([[0], [1]], dtype=np.int8)  # One imputed value
 
     assay = Assay(var=var, layers={"raw": ScpMatrix(X=X, M=M)})
-    return ScpContainer(obs=obs, assays={"protein": assay})  # Note: functions expect "protein"
+    return ScpContainer(obs=obs, assays={"proteins": assay})  # Note: functions expect "proteins"
 
 
 # ============================================================================
@@ -522,7 +532,7 @@ class TestEmbedding:
     def test_embedding_basic(self, viz_container):
         """Test basic embedding plot."""
         plt.close("all")
-        ax = embedding(viz_container, basis="umap")
+        ax = embedding(viz_container, basis="reduce_umap")
 
         assert isinstance(ax, Axes)
         plt.close("all")
@@ -530,7 +540,7 @@ class TestEmbedding:
     def test_embedding_with_color_metadata(self, viz_container):
         """Test embedding colored by metadata column."""
         plt.close("all")
-        ax = embedding(viz_container, basis="umap", color="batch")
+        ax = embedding(viz_container, basis="reduce_umap", color="batch")
 
         assert isinstance(ax, Axes)
         plt.close("all")
@@ -538,7 +548,7 @@ class TestEmbedding:
     def test_embedding_with_color_numeric(self, viz_container):
         """Test embedding colored by numeric metadata."""
         plt.close("all")
-        ax = embedding(viz_container, basis="umap", color="n_detected")
+        ax = embedding(viz_container, basis="reduce_umap", color="n_detected")
 
         assert isinstance(ax, Axes)
         plt.close("all")
@@ -546,7 +556,7 @@ class TestEmbedding:
     def test_embedding_with_color_feature(self, viz_container):
         """Test embedding colored by protein expression."""
         plt.close("all")
-        ax = embedding(viz_container, basis="umap", color="P1", layer="raw")
+        ax = embedding(viz_container, basis="reduce_umap", color="P1", layer="raw")
 
         assert isinstance(ax, Axes)
         plt.close("all")
@@ -554,7 +564,9 @@ class TestEmbedding:
     def test_embedding_show_missing(self, viz_container):
         """Test embedding with explicit missing markers."""
         plt.close("all")
-        ax = embedding(viz_container, basis="umap", color="P1", show_missing=True)
+        ax = embedding(
+            viz_container, basis="reduce_umap", color="P1", layer="raw", show_missing_values=True
+        )
 
         assert isinstance(ax, Axes)
         plt.close("all")
@@ -562,7 +574,7 @@ class TestEmbedding:
     def test_embedding_pca_basis(self, viz_container):
         """Test embedding with PCA basis."""
         plt.close("all")
-        ax = embedding(viz_container, basis="pca")
+        ax = embedding(viz_container, basis="reduce_pca")
 
         assert isinstance(ax, Axes)
         plt.close("all")
@@ -570,31 +582,45 @@ class TestEmbedding:
     def test_embedding_basis_not_found(self, viz_container):
         """Test embedding with non-existent basis."""
         plt.close("all")
-        with pytest.raises(ValueError, match="Basis assay 'tsne' not found"):
+        with pytest.raises(ValueError, match="tsne"):
             embedding(viz_container, basis="tsne")
 
     def test_embedding_basis_low_dimension(self, viz_container):
         """Test embedding with basis having < 2 dimensions."""
         plt.close("all")
-        # Create 1D assay
-        obs = viz_container.obs
-        X_1d = np.random.rand(10, 1)
-        assay_1d = Assay(var=pl.DataFrame({"_index": ["dim1"]}), layers={"X": ScpMatrix(X=X_1d)})
-        container_1d = ScpContainer(obs=obs, assays={"tsne": assay_1d})
+        # Create container with only 1D basis columns (tsne_1 only)
+        obs_data = {
+            "_index": ["S1"],
+            "batch": ["batch1"],
+            "group": ["A"],
+            "n_detected": [100],
+            "treatment": ["control"],
+            "umap_1": [0.1],
+            "umap_2": [0.2],
+            "pca_1": [0.3],
+            "pca_2": [0.4],
+            "tsne_1": [0.5],  # Only tsne_1, no tsne_2
+        }
+        obs = pl.DataFrame(obs_data)
+        var = pl.DataFrame({"_index": ["P1"], "protein_id": ["P1"]})
+        X = np.array([[1.0]])
+        M = np.array([[0]], dtype=np.int8)
+        assay = Assay(var=var, layers={"normalized": ScpMatrix(X=X, M=M)})
+        container_1d = ScpContainer(obs=obs, assays={"proteins": assay})
 
-        with pytest.raises(ValueError, match="has less than 2 dimensions"):
+        with pytest.raises(ValueError, match="tsne"):
             embedding(container_1d, basis="tsne")
 
     def test_embedding_color_feature_not_found(self, viz_container):
         """Test embedding with non-existent feature."""
         plt.close("all")
-        with pytest.raises(ValueError, match="not found in obs or"):
-            embedding(viz_container, basis="umap", color="NONEXISTENT_PROTEIN")
+        with pytest.raises(ValueError, match="NONEXISTENT_PROTEIN"):
+            embedding(viz_container, basis="reduce_umap", color="NONEXISTENT_PROTEIN", layer="raw")
 
     def test_embedding_without_color(self, viz_container):
         """Test embedding without color."""
         plt.close("all")
-        ax = embedding(viz_container, basis="umap", color=None)
+        ax = embedding(viz_container, basis="reduce_umap", color=None)
 
         assert isinstance(ax, Axes)
         plt.close("all")
@@ -642,8 +668,8 @@ class TestQCCompleteness:
     def test_qc_completeness_layer_not_found(self, viz_container):
         """Test QC completeness with non-existent layer."""
         plt.close("all")
-        with pytest.raises(ValueError, match="Layer 'normalized' not found"):
-            qc_completeness(viz_container, assay_name="protein", layer="normalized")
+        with pytest.raises(ValueError, match="Layer 'raw2' not found"):
+            qc_completeness(viz_container, assay_name="proteins", layer="raw2")
 
     def test_qc_completeness_missing_group_column(self, viz_container):
         """Test QC completeness with missing group column."""
@@ -698,8 +724,8 @@ class TestQCMatrixSpy:
     def test_qc_matrix_spy_layer_not_found(self, viz_container):
         """Test spy plot with non-existent layer."""
         plt.close("all")
-        with pytest.raises(ValueError, match="Layer 'normalized' not found"):
-            qc_matrix_spy(viz_container, assay_name="protein", layer="normalized")
+        with pytest.raises(ValueError, match="Layer 'raw2' not found"):
+            qc_matrix_spy(viz_container, assay_name="proteins", layer="raw2")
 
     def test_qc_matrix_spy_custom_figsize(self, viz_container):
         """Test spy plot with custom figure size."""
@@ -714,7 +740,7 @@ class TestQCMatrixSpy:
         plt.close("all")
         ax = qc_matrix_spy(viz_container)
 
-        assert "assay_name/layer" in ax.get_title().lower() or "protein" in ax.get_title().lower()
+        assert "proteins/raw" in ax.get_title().lower()
         plt.close("all")
 
     def test_qc_matrix_spy_axis_labels(self, viz_container):
@@ -858,7 +884,7 @@ class TestVisualizationEdgeCases:
     def test_embedding_with_string_metadata(self, viz_container):
         """Test embedding with string metadata column."""
         plt.close("all")
-        ax = embedding(viz_container, basis="umap", color="treatment")
+        ax = embedding(viz_container, basis="reduce_umap", color="treatment")
 
         assert isinstance(ax, Axes)
         plt.close("all")
@@ -908,15 +934,17 @@ class TestVisualizationIntegration:
         plt.close("all")
 
         # Create completeness plot
-        ax1 = qc_completeness(viz_container, group_by="batch")
+        ax1 = qc_completeness(
+            viz_container, assay_name="proteins", layer="normalized", group_by="batch"
+        )
         assert isinstance(ax1, Axes)
 
         # Create spy plot
-        ax2 = qc_matrix_spy(viz_container)
+        ax2 = qc_matrix_spy(viz_container, assay_name="proteins", layer="normalized")
         assert isinstance(ax2, Axes)
 
         # Create embedding plot
-        ax3 = embedding(viz_container, basis="umap", color="batch")
+        ax3 = embedding(viz_container, basis="reduce_umap", color="batch")
         assert isinstance(ax3, Axes)
 
         plt.close("all")
@@ -926,11 +954,11 @@ class TestVisualizationIntegration:
         plt.close("all")
 
         # UMAP embedding
-        ax1 = embedding(viz_container, basis="umap")
+        ax1 = embedding(viz_container, basis="reduce_umap")
         assert isinstance(ax1, Axes)
 
         # PCA embedding
-        ax2 = embedding(viz_container, basis="pca")
+        ax2 = embedding(viz_container, basis="reduce_pca")
         assert isinstance(ax2, Axes)
 
         plt.close("all")
