@@ -55,6 +55,12 @@ ScpTensor is a Python library designed for the analysis of single-cell proteomic
 | `ppca` | Probabilistic PCA imputation | O(n^3) | Complete |
 | `svd_impute` | Singular value decomposition imputation | O(n^3) | Complete |
 | `missforest` | Random forest-based imputation | O(n^2 log n) | Complete |
+| `qrilc` | Quantile Regression Imputation of Left-Censored data | O(n log n) | Complete |
+| `minprob` | Probabilistic minimum imputation (MNAR) | O(n) | Complete |
+| `mindet` | Deterministic minimum imputation (MNAR) | O(n) | Complete |
+| `lls` | Local Least Squares imputation | O(n^2) | Complete |
+| `bpca` | Bayesian PCA imputation | O(n^3) | Complete |
+| `nmf` | Non-negative Matrix Factorization imputation | O(n^3) | Complete |
 
 #### Integration Methods (scptensor.integration)
 | Method | Description | Dependencies | Status |
@@ -257,7 +263,7 @@ result = diff_expr_ttest(container, group_key="condition")
 ### Imputation
 - **Location:** `scptensor/impute/`
 - **Purpose:** Fill missing values
-- **Methods:** KNN, PPCA, SVD, MissForest (all complete)
+- **Methods:** KNN, PPCA, SVD, MissForest, QRILC, MinProb, MinDet, LLS, BPCA, NMF (all complete)
 
 ### Integration
 - **Location:** `scptensor/integration/`
