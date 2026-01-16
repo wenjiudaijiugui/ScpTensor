@@ -1,8 +1,5 @@
 """Basic Quality Control operations for single-cell proteomics data."""
 
-import warnings
-from typing import Any
-
 import numpy as np
 import polars as pl
 import scipy.sparse as sp
@@ -542,33 +539,3 @@ def compute_feature_missing_rate(
 
     return new_container
 
-
-# Backward compatibility aliases
-def basic_qc(*args: Any, **kwargs: Any) -> ScpContainer:
-    """Deprecated: Use qc_basic instead.
-
-    This function is maintained for backward compatibility and will be
-    removed in version 1.0.0.
-    """
-    warnings.warn(
-        "'basic_qc' is deprecated, use 'qc_basic' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return qc_basic(*args, **kwargs)
-
-
-def compute_quality_score(*args: Any, **kwargs: Any) -> ScpContainer:
-    """Deprecated: Use qc_score instead.
-
-    This function is maintained for backward compatibility and will be
-    removed in version 1.0.0.
-    """
-    warnings.warn(
-        "'compute_quality_score' is deprecated, use 'qc_score' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return qc_score(*args, **kwargs)

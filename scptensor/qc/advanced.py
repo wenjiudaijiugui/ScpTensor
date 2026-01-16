@@ -12,8 +12,7 @@ rather than modifying in-place.
 """
 
 import re
-import warnings
-from typing import Any, Literal
+from typing import Literal
 
 import numpy as np
 import polars as pl
@@ -1167,94 +1166,3 @@ def calculate_qc_metrics(
     )
 
     return new_container
-
-
-# Backward compatibility aliases
-def filter_features_by_missing_rate(*args: Any, **kwargs: Any) -> ScpContainer:
-    """Deprecated: Use filter_features_missing instead.
-
-    This function is maintained for backward compatibility and will be
-    removed in version 1.0.0.
-    """
-    warnings.warn(
-        "'filter_features_by_missing_rate' is deprecated, use 'filter_features_missing' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return filter_features_missing(*args, **kwargs)
-
-
-def filter_features_by_variance(*args: Any, **kwargs: Any) -> ScpContainer:
-    """Deprecated: Use filter_features_variance instead.
-
-    This function is maintained for backward compatibility and will be
-    removed in version 1.0.0.
-    """
-    warnings.warn(
-        "'filter_features_by_variance' is deprecated, use 'filter_features_variance' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return filter_features_variance(*args, **kwargs)
-
-
-def filter_features_by_prevalence(*args: Any, **kwargs: Any) -> ScpContainer:
-    """Deprecated: Use filter_features_prevalence instead.
-
-    This function is maintained for backward compatibility and will be
-    removed in version 1.0.0.
-    """
-    warnings.warn(
-        "'filter_features_by_prevalence' is deprecated, use 'filter_features_prevalence' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return filter_features_prevalence(*args, **kwargs)
-
-
-def filter_samples_by_total_count(*args: Any, **kwargs: Any) -> ScpContainer:
-    """Deprecated: Use filter_samples_count instead.
-
-    This function is maintained for backward compatibility and will be
-    removed in version 1.0.0.
-    """
-    warnings.warn(
-        "'filter_samples_by_total_count' is deprecated, use 'filter_samples_count' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return filter_samples_count(*args, **kwargs)
-
-
-def filter_samples_by_missing_rate(*args: Any, **kwargs: Any) -> ScpContainer:
-    """Deprecated: Use filter_samples_missing instead.
-
-    This function is maintained for backward compatibility and will be
-    removed in version 1.0.0.
-    """
-    warnings.warn(
-        "'filter_samples_by_missing_rate' is deprecated, use 'filter_samples_missing' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return filter_samples_missing(*args, **kwargs)
-
-
-def detect_contaminant_proteins(*args: Any, **kwargs: Any) -> ScpContainer:
-    """Deprecated: Use detect_contaminants instead.
-
-    This function is maintained for backward compatibility and will be
-    removed in version 1.0.0.
-    """
-    warnings.warn(
-        "'detect_contaminant_proteins' is deprecated, use 'detect_contaminants' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return detect_contaminants(*args, **kwargs)

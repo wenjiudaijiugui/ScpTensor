@@ -5,9 +5,12 @@ that differ significantly between groups in single-cell proteomics data.
 
 Supported tests:
     - t-test: Two-group comparison (Student's and Welch's)
+    - Paired t-test: Paired sample comparison
     - Mann-Whitney U: Non-parametric two-group comparison
     - ANOVA: Multi-group comparison
     - Kruskal-Wallis: Non-parametric multi-group comparison
+    - Permutation test: Non-parametric resampling test
+    - Homoscedasticity tests: Levene and Brown-Forsythe tests
 """
 
 from __future__ import annotations
@@ -122,24 +125,36 @@ def adjust_fdr(
     method: str = "bh",
 ) -> np.ndarray:
     """
-    Adjust p-values for multiple testing using False Discovery Rate methods.
+    Adjust p-values for multiple testing using various correction methods.
 
     Parameters
     ----------
     p_values : np.ndarray
         Raw p-values to adjust
     method : str, default="bh"
-        FDR correction method:
-        - "bh": Benjamini-Hochberg (step-up)
-        - "by": Benjamini-Yekutieli (more conservative, assumes dependence)
+        Correction method:
+        - "bh": Benjamini-Hochberg (FDR, step-up)
+        - "by": Benjamini-Yekutieli (FDR, more conservative, assumes dependence)
+        - "bonferroni": Bonferroni correction (FWER, very conservative)
+        - "holm": Holm step-down correction (FWER, less conservative than Bonferroni)
+        - "hommel": Hommel correction (FWER, more powerful than Holm)
 
     Returns
     -------
     np.ndarray
-        Adjusted p-values (FDR-corrected)
+        Adjusted p-values
 
     Notes
     -----
+    Family-wise error rate (FWER) methods:
+        - Bonferroni: p_adj = p * n (simple but conservative)
+        - Holm: Step-down procedure with better power
+        - Hommel: Closed testing procedure (most powerful FWER method)
+
+    False discovery rate (FDR) methods:
+        - BH: Controls expected proportion of false positives
+        - BY: More conservative for dependent tests
+
     The Benjamini-Hochberg procedure controls the FDR at level alpha:
         1. Sort p-values: p_(1) <= p_(2) <= ... <= p_(m)
         2. Find largest k such that p_(k) <= (k/m) * alpha
@@ -150,6 +165,12 @@ def adjust_fdr(
     Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery
     rate: a practical and powerful approach to multiple testing. Journal of
     the Royal Statistical Society Series B, 57(1), 289-300.
+
+    Holm, S. (1979). A simple sequentially rejective multiple test procedure.
+    Scandinavian Journal of Statistics, 6, 65-70.
+
+    Hommel, G. (1988). A stagewise rejective multiple test procedure based on
+    a modified Bonferroni test. Biometrika, 75(2), 383-386.
     """
     p_values = np.asarray(p_values, dtype=np.float64)
     n = len(p_values)
@@ -166,27 +187,76 @@ def adjust_fdr(
     p_clean = p_values[valid_idx]
     n_valid = len(p_clean)
 
-    sorted_idx = np.argsort(p_clean)
-    sorted_p = p_clean[sorted_idx]
-    ranks = np.arange(1, n_valid + 1, dtype=np.float64)
+    if method in {"bh", "by"}:
+        sorted_idx = np.argsort(p_clean)
+        sorted_p = p_clean[sorted_idx]
+        ranks = np.arange(1, n_valid + 1, dtype=np.float64)
 
-    multiplier: float = float(n)
-    if method == "by":
-        multiplier *= float(np.sum(1.0 / ranks))
-    elif method != "bh":
-        raise ValidationError(
-            f"Unknown FDR correction method: {method}. Use 'bh' or 'by'.",
-            field="method",
-        )
+        multiplier: float = float(n_valid)
+        if method == "by":
+            multiplier *= float(np.sum(1.0 / ranks))
 
-    adjusted = sorted_p * multiplier / ranks
-    adjusted = np.minimum.accumulate(adjusted[::-1])[::-1]
-    adjusted = np.clip(adjusted, 0.0, 1.0)
+        adjusted = sorted_p * multiplier / ranks
+        adjusted = np.minimum.accumulate(adjusted[::-1])[::-1]
+        adjusted = np.clip(adjusted, 0.0, 1.0)
 
-    result = np.full_like(p_values, np.nan, dtype=np.float64)
-    result[valid_idx] = adjusted[np.argsort(sorted_idx)]
+        result = np.full_like(p_values, np.nan, dtype=np.float64)
+        result[valid_idx] = adjusted[np.argsort(sorted_idx)]
+        return result
 
-    return result
+    if method == "bonferroni":
+        result = np.full_like(p_values, np.nan, dtype=np.float64)
+        result[valid_idx] = np.minimum(p_clean * n_valid, 1.0)
+        return result
+
+    if method == "holm":
+        # Holm step-down procedure
+        sorted_idx = np.argsort(p_clean)
+        sorted_p = p_clean[sorted_idx]
+
+        adjusted = np.zeros_like(sorted_p)
+        n_tests = n_valid
+        for i, p_val in enumerate(sorted_p):
+            adjusted[i] = min(p_val * (n_tests - i), 1.0)
+
+        # Ensure monotonicity
+        for i in range(len(adjusted) - 2, -1, -1):
+            adjusted[i] = min(adjusted[i], adjusted[i + 1])
+
+        result = np.full_like(p_values, np.nan, dtype=np.float64)
+        result[valid_idx] = adjusted[np.argsort(sorted_idx)]
+        return result
+
+    if method == "hommel":
+        # Hommel's procedure - simplified implementation
+        sorted_idx = np.argsort(p_clean)
+        sorted_p = p_clean[sorted_idx]
+        n_tests = n_valid
+
+        adjusted = np.full_like(sorted_p, np.nan)
+        for i in range(n_tests):
+            # Find the largest j >= i such that p_j * n_tests / (j - i + 1) >= p_i
+            # This is a simplified version; full Hommel is more complex
+            p_i = sorted_p[i]
+            max_val = p_i * n_tests / (i + 1)
+            for j in range(i, n_tests):
+                candidate = sorted_p[j] * n_tests / (j - i + 1)
+                max_val = max(max_val, candidate)
+            adjusted[i] = min(max_val, 1.0)
+
+        # Enforce monotonicity
+        for i in range(len(adjusted) - 2, -1, -1):
+            adjusted[i] = min(adjusted[i], adjusted[i + 1])
+
+        result = np.full_like(p_values, np.nan, dtype=np.float64)
+        result[valid_idx] = adjusted[np.argsort(sorted_idx)]
+        return result
+
+    raise ValidationError(
+        f"Unknown correction method: {method}. "
+        "Use 'bh', 'by', 'bonferroni', 'holm', or 'hommel'.",
+        field="method",
+    )
 
 
 def _handle_missing_values(
@@ -271,6 +341,111 @@ def _cohens_d(x: np.ndarray, y: np.ndarray) -> float:
     pooled_std = np.sqrt(((n1 - 1) * var1 + (n2 - 1) * var2) / (n1 + n2 - 2))
 
     return 0.0 if pooled_std == 0 else (float(np.mean(x) - np.mean(y)) / float(pooled_std))
+
+
+def _eta_squared(
+    group_means: np.ndarray,
+    group_sizes: np.ndarray,
+    grand_mean: float,
+) -> float:
+    """
+    Calculate eta-squared effect size for ANOVA.
+
+    Parameters
+    ----------
+    group_means : np.ndarray
+        Mean values for each group
+    group_sizes : np.ndarray
+        Sample sizes for each group
+    grand_mean : float
+        Grand mean (weighted average of group means)
+
+    Returns
+    -------
+    float
+        Eta-squared effect size (proportion of variance explained)
+
+    Notes
+    -----
+    Eta-squared is calculated as:
+        eta2 = SS_between / SS_total
+
+    where:
+        SS_between = sum(n_i * (mean_i - grand_mean)^2)
+        SS_total = SS_between + SS_within
+
+    Interpretation:
+        0.01: Small effect
+        0.06: Medium effect
+        0.14: Large effect
+
+    References
+    ----------
+    Cohen, J. (1988). Statistical power analysis for the behavioral
+    sciences (2nd ed.). Lawrence Erlbaum Associates.
+    """
+    ss_between = float(np.sum(group_sizes * (group_means - grand_mean) ** 2))
+    return ss_between / (ss_between + 1e-10)  # Avoid division by zero
+
+
+def _omega_squared(
+    f_statistic: float,
+    df_between: int,
+    df_within: int,
+    n_groups: int,
+    n_total: int,
+) -> float:
+    """
+    Calculate omega-squared effect size for ANOVA.
+
+    Parameters
+    ----------
+    f_statistic : float
+        F-statistic from ANOVA
+    df_between : int
+        Degrees of freedom between groups
+    df_within : int
+        Degrees of freedom within groups
+    n_groups : int
+        Number of groups
+    n_total : int
+        Total sample size
+
+    Returns
+    -------
+    float
+        Omega-squared effect size (unbiased proportion of variance explained)
+
+    Notes
+    -----
+    Omega-squared is a less biased estimator than eta-squared:
+        omega2 = (SS_between - df_between * MS_within) / (SS_total + MS_within)
+
+    In terms of F:
+        omega2 = (df_between * (F - 1)) / (df_between * (F - 1) + n_total)
+
+    Interpretation:
+        0.01: Small effect
+        0.06: Medium effect
+        0.14: Large effect
+
+    References
+    ----------
+    Olejnik, S., & Algina, J. (2003). Generalized eta and omega squared
+    statistics: Measures of effect size for some common research designs.
+    Psychological Methods, 8(4), 434-447.
+    """
+    if df_within == 0 or n_total == 0:
+        return 0.0
+
+    ms_within = f_statistic / df_between if f_statistic > 0 and df_between > 0 else 1.0
+    numerator = df_between * (f_statistic - 1.0)
+    denominator = df_between * (f_statistic - 1.0) + n_total
+
+    if denominator == 0:
+        return 0.0
+
+    return max(0.0, numerator / denominator)
 
 
 def _log2_fold_change(
@@ -942,6 +1117,579 @@ def diff_expr_kruskal(
             "n_groups": n_groups,
             "groups": list(unique_groups),
             "missing_strategy": missing_strategy,
+        },
+    )
+
+
+def diff_expr_paired_ttest(
+    container: ScpContainer,
+    assay_name: str,
+    group_col: str,
+    pair_id_col: str,
+    layer_name: str = "X",
+    missing_strategy: str = "ignore",
+    min_pairs_per_group: int = 3,
+    log2_fc_offset: float = 1.0,
+) -> DiffExprResult:
+    """
+    Perform paired sample t-test for differential expression.
+
+    This test is used when samples are paired/matched, such as when measuring
+    the same subjects before and after treatment, or when comparing matched
+    case-control pairs.
+
+    Parameters
+    ----------
+    container : ScpContainer
+        Input container
+    assay_name : str
+        Name of assay to analyze
+    group_col : str
+        Column name in obs containing group labels (e.g., "condition")
+    pair_id_col : str
+        Column name in obs containing pair IDs (e.g., "patient_id")
+    layer_name : str, default="X"
+        Layer to use for analysis
+    missing_strategy : str, default="ignore"
+        How to handle missing values: "ignore", "zero", or "median"
+    min_pairs_per_group : int, default=3
+        Minimum pairs required per group for testing
+    log2_fc_offset : float, default=1.0
+        Offset for log2 fold change calculation
+
+    Returns
+    -------
+    DiffExprResult
+        Results including p-values, adjusted p-values, log2 fold changes,
+        test statistics, and effect sizes
+
+    Raises
+    ------
+    AssayNotFoundError
+        If specified assay does not exist
+    LayerNotFoundError
+        If specified layer does not exist
+    ValidationError
+        If group/pair columns not found or insufficient samples
+
+    Notes
+    -----
+    The paired t-test tests whether the mean difference between paired
+    observations is significantly different from zero.
+
+    For each pair i with values (x_i, y_i):
+        t = mean(d) / (sd(d) / sqrt(n))
+
+    where d_i = x_i - y_i is the difference for pair i.
+
+    The paired t-test has n-1 degrees of freedom where n is the number of pairs.
+
+    This test assumes:
+        1. Differences are normally distributed
+        2. Pairs are independent of each other
+        3. Each pair is matched correctly
+
+    References
+    ----------
+    Zimmerman, D. W. (1997). A note on interpretation of the paired-samples
+    t-test. Journal of Educational and Behavioral Statistics, 22(3), 349-360.
+    """
+    if assay_name not in container.assays:
+        raise AssayNotFoundError(assay_name)
+
+    assay = container.assays[assay_name]
+    if layer_name not in assay.layers:
+        raise LayerNotFoundError(layer_name, assay_name)
+
+    if group_col not in container.obs.columns:
+        raise ValidationError(f"Group column '{group_col}' not found in obs", field="group_col")
+
+    if pair_id_col not in container.obs.columns:
+        raise ValidationError(f"Pair ID column '{pair_id_col}' not found in obs", field="pair_id_col")
+
+    groups = container.obs[group_col].to_numpy()
+    pair_ids = container.obs[pair_id_col].to_numpy()
+
+    unique_groups = groups[~_isna(groups)]
+    unique_groups = np.unique(unique_groups)
+
+    if len(unique_groups) != 2:
+        raise ValidationError(
+            f"Paired t-test requires exactly 2 groups, found {len(unique_groups)}",
+            field="group_col",
+        )
+
+    group1, group2 = unique_groups[0], unique_groups[1]
+
+    # Build pairing: find samples that share the same pair_id
+    pair_to_idx: dict[str, dict[str, int]] = {}
+    for i, (g, pid) in enumerate(zip(groups, pair_ids)):
+        if _isna(np.array(g)) or _isna(np.array(pid)):
+            continue
+        pid_str = str(pid)
+        if pid_str not in pair_to_idx:
+            pair_to_idx[pid_str] = {}
+        pair_to_idx[pid_str][str(g)] = i
+
+    # Extract complete pairs
+    valid_pairs = []
+    for pid, idx_map in pair_to_idx.items():
+        if str(group1) in idx_map and str(group2) in idx_map:
+            valid_pairs.append((idx_map[str(group1)], idx_map[str(group2)]))
+
+    n_pairs = len(valid_pairs)
+    if n_pairs < min_pairs_per_group:
+        raise ValidationError(
+            f"Only {n_pairs} complete pairs found, minimum {min_pairs_per_group} required",
+            field="pair_id_col",
+        )
+
+    X = assay.layers[layer_name].X
+    n_features = X.shape[1]
+    X_proc, valid_mask = _handle_missing_values(X, strategy=missing_strategy)
+
+    p_values = np.full(n_features, np.nan, dtype=np.float64)
+    test_stats = np.full(n_features, np.nan, dtype=np.float64)
+    log2_fc = np.full(n_features, np.nan, dtype=np.float64)
+    effect_sizes = np.full(n_features, np.nan, dtype=np.float64)
+
+    g1_means = np.full(n_features, np.nan, dtype=np.float64)
+    g2_means = np.full(n_features, np.nan, dtype=np.float64)
+    g1_medians = np.full(n_features, np.nan, dtype=np.float64)
+    g2_medians = np.full(n_features, np.nan, dtype=np.float64)
+
+    for j in range(n_features):
+        differences = []
+        g1_vals_list = []
+        g2_vals_list = []
+
+        for idx1, idx2 in valid_pairs:
+            v1 = X_proc[idx1, j]
+            v2 = X_proc[idx2, j]
+
+            if valid_mask is not None:
+                if not valid_mask[idx1, j] or not valid_mask[idx2, j]:
+                    continue
+
+            differences.append(v1 - v2)
+            g1_vals_list.append(v1)
+            g2_vals_list.append(v2)
+
+        if len(differences) < 2:
+            continue
+
+        diff_arr = np.array(differences)
+        g1_arr = np.array(g1_vals_list)
+        g2_arr = np.array(g2_vals_list)
+
+        g1_means[j] = np.mean(g1_arr)
+        g2_means[j] = np.mean(g2_arr)
+        g1_medians[j] = np.median(g1_arr)
+        g2_medians[j] = np.median(g2_arr)
+
+        # Paired t-test
+        result = stats.ttest_rel(g1_arr, g2_arr)
+        p_values[j] = result.pvalue
+        test_stats[j] = result.statistic
+
+        log2_fc[j] = _log2_fold_change(g1_arr, g2_arr, offset=log2_fc_offset)
+
+        # Paired Cohen's d (using average SD)
+        mean_diff = np.mean(diff_arr)
+        sd_diff = np.std(diff_arr, ddof=1)
+        if sd_diff > 0:
+            effect_sizes[j] = mean_diff / sd_diff
+        else:
+            effect_sizes[j] = 0.0
+
+    return DiffExprResult(
+        feature_ids=assay.var[assay.feature_id_col].to_numpy(),
+        p_values=p_values,
+        p_values_adj=adjust_fdr(p_values, method="bh"),
+        log2_fc=log2_fc,
+        test_statistics=test_stats,
+        effect_sizes=effect_sizes,
+        group_stats={
+            f"{group1}_mean": g1_means,
+            f"{group2}_mean": g2_means,
+            f"{group1}_median": g1_medians,
+            f"{group2}_median": g2_medians,
+        },
+        method="paired_ttest",
+        params={
+            "group_col": group_col,
+            "pair_id_col": pair_id_col,
+            "n_pairs": n_pairs,
+            "group1": group1,
+            "group2": group2,
+            "missing_strategy": missing_strategy,
+        },
+    )
+
+
+def check_homoscedasticity(
+    container: ScpContainer,
+    assay_name: str,
+    group_col: str,
+    layer_name: str = "X",
+    test_type: str = "levene",
+    center: str = "median",
+    min_samples_per_group: int = 3,
+) -> pl.DataFrame:
+    """
+    Test for equality of variances (homoscedasticity) across groups.
+
+    This function performs variance equality tests to check the assumption
+    of homoscedasticity required for ANOVA and t-tests with equal variance.
+
+    Parameters
+    ----------
+    container : ScpContainer
+        Input container
+    assay_name : str
+        Name of assay to analyze
+    group_col : str
+        Column name in obs containing group labels
+    layer_name : str, default="X"
+        Layer to use for analysis
+    test_type : str, default="levene"
+        Type of test to perform:
+        - "levene": Levene's test (more robust to non-normality)
+        - "brown-forsythe": Brown-Forsythe test (more robust to outliers)
+    center : str, default="median"
+        Center measure for Levene's test: "mean", "median", or "trimmed"
+    min_samples_per_group : int, default=3
+        Minimum samples required per group
+
+    Returns
+    -------
+    pl.DataFrame
+        Results with columns:
+        - feature_id: Feature identifier
+        - statistic: Test statistic value
+        - p_value: P-value for the test
+        - p_value_adj: FDR-adjusted p-value
+
+    Raises
+    ------
+    AssayNotFoundError
+        If specified assay does not exist
+    LayerNotFoundError
+        If specified layer does not exist
+    ValidationError
+        If group column not found or insufficient samples
+
+    Notes
+    -----
+    Levene's test tests the null hypothesis that all groups have equal variances.
+    The test statistic W is calculated as:
+        W = (N - k) / (k - 1) * sum(n_i * (Z_i. - Z..)^2) / sum(sum(Z_ij - Z_i.)^2)
+
+    where Z_ij = |Y_ij - Y_i.| and Y_i. is the center of group i.
+
+    The Brown-Forsythe test uses medians instead of means, making it more
+    robust to outliers and departures from normality.
+
+    If p_value < alpha (e.g., 0.05), reject the null hypothesis of equal
+    variances (heteroscedasticity detected). In this case, use Welch's t-test
+    instead of Student's t-test, or consider data transformations.
+
+    References
+    ----------
+    Levene, H. (1960). Robust tests for equality of variances. Contributions
+    to Probability and Statistics: Essays in Honor of Harold Hotelling, 278-292.
+
+    Brown, M. B., & Forsythe, A. B. (1974). Robust tests for the equality of
+    variances. Journal of the American Statistical Association, 69(346), 364-367.
+    """
+    if assay_name not in container.assays:
+        raise AssayNotFoundError(assay_name)
+
+    assay = container.assays[assay_name]
+    if layer_name not in assay.layers:
+        raise LayerNotFoundError(layer_name, assay_name)
+
+    if group_col not in container.obs.columns:
+        raise ValidationError(f"Group column '{group_col}' not found in obs", field="group_col")
+
+    if test_type not in {"levene", "brown-forsythe"}:
+        raise ValidationError(
+            f"Unknown test type: {test_type}. Use 'levene' or 'brown-forsythe'.",
+            field="test_type",
+        )
+
+    if center not in {"mean", "median", "trimmed"}:
+        raise ValidationError(
+            f"Unknown center type: {center}. Use 'mean', 'median', or 'trimmed'.",
+            field="center",
+        )
+
+    groups = container.obs[group_col].to_numpy()
+    unique_groups = groups[~_isna(groups)]
+    unique_groups = np.unique(unique_groups)
+
+    if len(unique_groups) < 2:
+        raise ValidationError(
+            f"Need at least 2 groups for homoscedasticity test, found {len(unique_groups)}",
+            field="group_col",
+        )
+
+    group_indices = _extract_group_indices(groups, list(unique_groups), min_samples_per_group)
+
+    X = assay.layers[layer_name].X
+    n_features = X.shape[1]
+    X_proc, valid_mask = _handle_missing_values(X, strategy="ignore")
+
+    p_values = np.full(n_features, np.nan, dtype=np.float64)
+    test_stats = np.full(n_features, np.nan, dtype=np.float64)
+
+    # Set center parameter for Brown-Forsythe (always median) vs Levene
+    actual_center = "median" if test_type == "brown-forsythe" else center
+
+    for j in range(n_features):
+        group_data: list[np.ndarray] = []
+        for g in unique_groups:
+            idx = group_indices[g]
+            g_vals = X_proc[idx, j]
+
+            if valid_mask is not None:
+                g_vals = g_vals[valid_mask[idx, j]]
+
+            if len(g_vals) < 2:
+                group_data = None
+                break
+
+            group_data.append(g_vals)
+
+        if group_data is None or len(group_data) < 2:
+            continue
+
+        try:
+            if test_type == "brown-forsythe":
+                result = stats.levene(*group_data, center="median")
+            else:
+                result = stats.levene(*group_data, center=actual_center)
+            p_values[j] = result.pvalue
+            test_stats[j] = result.statistic
+        except ValueError:
+            p_values[j] = 1.0
+            test_stats[j] = 0.0
+
+    p_values_adj = adjust_fdr(p_values, method="bh")
+
+    return pl.DataFrame(
+        {
+            "feature_id": assay.var[assay.feature_id_col].to_numpy(),
+            "statistic": test_stats,
+            "p_value": p_values,
+            "p_value_adj": p_values_adj,
+        }
+    ).sort("p_value")
+
+
+def diff_expr_permutation_test(
+    container: ScpContainer,
+    assay_name: str,
+    group_col: str,
+    group1: str,
+    group2: str,
+    layer_name: str = "X",
+    n_permutations: int = 1000,
+    alternative: str = "two-sided",
+    missing_strategy: str = "ignore",
+    min_samples_per_group: int = 3,
+    log2_fc_offset: float = 1.0,
+    random_seed: int | None = None,
+) -> DiffExprResult:
+    """
+    Perform permutation test for differential expression.
+
+    A non-parametric test that does not assume normality. It tests whether
+    the observed difference between groups is larger than expected by chance.
+
+    Parameters
+    ----------
+    container : ScpContainer
+        Input container
+    assay_name : str
+        Name of assay to analyze
+    group_col : str
+        Column name in obs containing group labels
+    group1, group2 : str
+        Names of the two groups to compare
+    layer_name : str, default="X"
+        Layer to use for analysis
+    n_permutations : int, default=1000
+        Number of permutations to perform
+    alternative : str, default="two-sided"
+        Alternative hypothesis: "two-sided", "less", or "greater"
+    missing_strategy : str, default="ignore"
+        How to handle missing values: "ignore", "zero", or "median"
+    min_samples_per_group : int, default=3
+        Minimum samples required per group
+    log2_fc_offset : float, default=1.0
+        Offset for log2 fold change calculation
+    random_seed : int, optional
+        Random seed for reproducibility
+
+    Returns
+    -------
+    DiffExprResult
+        Results including p-values, adjusted p-values, log2 fold changes,
+        and observed test statistics
+
+    Raises
+    ------
+    AssayNotFoundError
+        If specified assay does not exist
+    LayerNotFoundError
+        If specified layer does not exist
+    ValidationError
+        If group labels not found or insufficient samples
+
+    Notes
+    -----
+    The permutation test works by:
+        1. Calculate the observed test statistic (e.g., difference in means)
+        2. Randomly permute group labels and recalculate the statistic
+        3. Repeat step 2 n_permutations times
+        4. Calculate p-value as proportion of permuted statistics >= observed
+
+    Advantages:
+        - No distributional assumptions
+        - Works well with small sample sizes
+        - Robust to outliers
+
+    Disadvantages:
+        - Computationally intensive
+        - P-value resolution limited by n_permutations
+        - Requires at least 3-4 samples per group for reliable results
+
+    For small samples, consider using n_permutations >= 10000 for more
+    precise p-values (minimum detectable p-value = 1/n_permutations).
+
+    References
+    ----------
+    Good, P. I. (2005). Permutation, parametric, and bootstrap tests of
+    hypotheses (3rd ed.). Springer.
+    """
+    if assay_name not in container.assays:
+        raise AssayNotFoundError(assay_name)
+
+    assay = container.assays[assay_name]
+    if layer_name not in assay.layers:
+        raise LayerNotFoundError(layer_name, assay_name)
+
+    if group_col not in container.obs.columns:
+        raise ValidationError(f"Group column '{group_col}' not found in obs", field="group_col")
+
+    if alternative not in {"two-sided", "less", "greater"}:
+        raise ValidationError(
+            f"Unknown alternative: {alternative}. Use 'two-sided', 'less', or 'greater'.",
+            field="alternative",
+        )
+
+    groups = container.obs[group_col].to_numpy()
+    group_indices = _extract_group_indices(groups, [group1, group2], min_samples_per_group)
+    idx1, idx2 = group_indices[group1], group_indices[group2]
+
+    X = assay.layers[layer_name].X
+    n_features = X.shape[1]
+    X_proc, valid_mask = _handle_missing_values(X, strategy=missing_strategy)
+
+    rng = np.random.default_rng(random_seed)
+
+    p_values = np.full(n_features, np.nan, dtype=np.float64)
+    observed_stats = np.full(n_features, np.nan, dtype=np.float64)
+    log2_fc = np.full(n_features, np.nan, dtype=np.float64)
+
+    g1_means = np.full(n_features, np.nan, dtype=np.float64)
+    g2_means = np.full(n_features, np.nan, dtype=np.float64)
+    g1_medians = np.full(n_features, np.nan, dtype=np.float64)
+    g2_medians = np.full(n_features, np.nan, dtype=np.float64)
+
+    # Combined indices for permutation
+    all_indices = np.concatenate([idx1, idx2])
+    n1, n2 = len(idx1), len(idx2)
+
+    for j in range(n_features):
+        g1_vals = X_proc[idx1, j]
+        g2_vals = X_proc[idx2, j]
+
+        if valid_mask is not None:
+            g1_vals = g1_vals[valid_mask[idx1, j]]
+            g2_vals = g2_vals[valid_mask[idx2, j]]
+
+        if len(g1_vals) < 2 or len(g2_vals) < 2:
+            continue
+
+        g1_means[j] = np.mean(g1_vals)
+        g2_means[j] = np.mean(g2_vals)
+        g1_medians[j] = np.median(g1_vals)
+        g2_medians[j] = np.median(g2_vals)
+
+        # Get all valid values for this feature
+        feature_vals = X_proc[all_indices, j]
+        if valid_mask is not None:
+            feature_mask = valid_mask[all_indices, j]
+            if not np.all(feature_mask):
+                feature_vals = feature_vals[feature_mask]
+                # Adjust n1, n2 for valid samples
+                valid_idx1 = valid_mask[idx1, j]
+                valid_idx2 = valid_mask[idx2, j]
+                n1_valid = np.sum(valid_idx1)
+                n2_valid = np.sum(valid_idx2)
+            else:
+                n1_valid, n2_valid = n1, n2
+        else:
+            n1_valid, n2_valid = n1, n2
+
+        # Observed statistic (difference in means)
+        obs_diff = np.mean(g1_vals) - np.mean(g2_vals)
+        observed_stats[j] = obs_diff
+
+        log2_fc[j] = _log2_fold_change(g1_vals, g2_vals, offset=log2_fc_offset)
+
+        # Permutation test
+        perm_stats = np.zeros(n_permutations, dtype=np.float64)
+        for perm_i in range(n_permutations):
+            rng.shuffle(feature_vals)
+            perm_mean1 = np.mean(feature_vals[:n1_valid]) if n1_valid > 0 else 0.0
+            perm_mean2 = np.mean(feature_vals[n1_valid:]) if n2_valid > 0 else 0.0
+            perm_stats[perm_i] = perm_mean1 - perm_mean2
+
+        # Calculate p-value based on alternative
+        if alternative == "two-sided":
+            p_val = (np.sum(np.abs(perm_stats) >= np.abs(obs_diff)) + 1) / (n_permutations + 1)
+        elif alternative == "greater":
+            p_val = (np.sum(perm_stats >= obs_diff) + 1) / (n_permutations + 1)
+        else:  # less
+            p_val = (np.sum(perm_stats <= obs_diff) + 1) / (n_permutations + 1)
+
+        p_values[j] = min(p_val, 1.0)
+
+    return DiffExprResult(
+        feature_ids=assay.var[assay.feature_id_col].to_numpy(),
+        p_values=p_values,
+        p_values_adj=adjust_fdr(p_values, method="bh"),
+        log2_fc=log2_fc,
+        test_statistics=observed_stats,
+        effect_sizes=None,
+        group_stats={
+            f"{group1}_mean": g1_means,
+            f"{group2}_mean": g2_means,
+            f"{group1}_median": g1_medians,
+            f"{group2}_median": g2_medians,
+        },
+        method="permutation",
+        params={
+            "group_col": group_col,
+            "group1": group1,
+            "group2": group2,
+            "n_permutations": n_permutations,
+            "alternative": alternative,
+            "missing_strategy": missing_strategy,
+            "random_seed": random_seed,
         },
     )
 

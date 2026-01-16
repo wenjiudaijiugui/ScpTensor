@@ -1,7 +1,5 @@
 """Median centering normalization for ScpTensor."""
 
-import warnings
-
 from typing import overload
 
 import numpy as np
@@ -119,18 +117,3 @@ def norm_median_center(
     )
 
     return container
-
-
-# Backward compatibility alias
-def median_centering(*args, **kwargs):
-    """Deprecated: Use norm_median_center instead.
-
-    This function will be removed in version 1.0.0.
-    """
-    warnings.warn(
-        "'median_centering' is deprecated, use 'norm_median_center' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return norm_median_center(*args, **kwargs)

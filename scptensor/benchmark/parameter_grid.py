@@ -406,14 +406,14 @@ def create_method_configs() -> dict[str, MethodConfig]:
     dict[str, MethodConfig]
         Method configurations.
     """
-    from scptensor.impute import knn
-    from scptensor.integration.combat import combat
+    from scptensor.impute import impute_knn
+    from scptensor.integration.combat import integrate_combat
     from scptensor.normalization import (
-        global_median_normalization,
-        sample_mean_normalization,
-        sample_median_normalization,
-        tmm_normalization,
-        upper_quartile_normalization,
+        norm_global_median,
+        norm_sample_mean,
+        norm_sample_median,
+        norm_tmm,
+        norm_quartile,
     )
 
     norm_grids = create_normalization_parameter_grids()
@@ -422,7 +422,7 @@ def create_method_configs() -> dict[str, MethodConfig]:
 
     return {
         "tmm_normalization": MethodConfig(
-            method_class=tmm_normalization,
+            method_class=norm_tmm,
             parameter_space=norm_grids["tmm_normalization"],
             default_parameters={"trim_ratio": 0.3, "reference_sample": None},
             parameter_constraints={
@@ -431,31 +431,31 @@ def create_method_configs() -> dict[str, MethodConfig]:
             },
         ),
         "sample_median_normalization": MethodConfig(
-            method_class=sample_median_normalization,
+            method_class=norm_sample_median,
             default_parameters={"new_layer_name": "sample_median_norm"},
         ),
         "sample_mean_normalization": MethodConfig(
-            method_class=sample_mean_normalization,
+            method_class=norm_sample_mean,
             default_parameters={"new_layer_name": "sample_mean_norm"},
         ),
         "global_median_normalization": MethodConfig(
-            method_class=global_median_normalization,
+            method_class=norm_global_median,
             default_parameters={"new_layer_name": "global_median_norm"},
         ),
         "upper_quartile_normalization": MethodConfig(
-            method_class=upper_quartile_normalization,
+            method_class=norm_quartile,
             parameter_space=norm_grids["upper_quartile_normalization"],
             default_parameters={"percentile": 0.75, "new_layer_name": "upper_quartile_norm"},
             parameter_constraints={"percentile": {"range": (0.5, 0.95), "type": float}},
         ),
         "knn": MethodConfig(
-            method_class=knn,
+            method_class=impute_knn,
             parameter_space=impute_grids["knn"],
             default_parameters={"k": 5, "new_layer_name": "imputed"},
             parameter_constraints={"k": {"range": (1, 50), "type": int}},
         ),
         "combat": MethodConfig(
-            method_class=combat,
+            method_class=integrate_combat,
             parameter_space=integration_grids["combat"],
             default_parameters={"batch_key": "batch", "new_layer_name": "combat_corrected"},
         ),

@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 def qc_completeness(
     container: ScpContainer,
-    assay_name: str = "protein",
+    assay_name: str = "proteins",
     layer: str = "raw",
     group_by: str = "batch",
     figsize: tuple[int, int] = (6, 4),
@@ -105,7 +105,7 @@ def qc_completeness(
 
 def qc_matrix_spy(
     container: ScpContainer,
-    assay_name: str = "protein",
+    assay_name: str = "proteins",
     layer: str = "raw",
     figsize: tuple[int, int] = (8, 6),
     ax: plt.Axes | None = None,

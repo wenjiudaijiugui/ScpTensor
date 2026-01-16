@@ -1,7 +1,5 @@
 """Sample mean normalization for ScpTensor."""
 
-import warnings
-
 from typing import overload
 
 import numpy as np
@@ -117,18 +115,3 @@ def norm_sample_mean(
     )
 
     return container
-
-
-# Backward compatibility alias
-def sample_mean_normalization(*args, **kwargs):
-    """Deprecated: Use norm_sample_mean instead.
-
-    This function will be removed in version 1.0.0.
-    """
-    warnings.warn(
-        "'sample_mean_normalization' is deprecated, use 'norm_sample_mean' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return norm_sample_mean(*args, **kwargs)

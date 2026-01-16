@@ -11,9 +11,9 @@ import numpy as np
 import psutil
 
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
-from scptensor.impute.knn import knn as scptensor_knn
-from scptensor.impute.svd import svd_impute as scptensor_svd_impute
-from scptensor.normalization.log import log_normalize as scptensor_log_normalize
+from scptensor.impute.knn import impute_knn as scptensor_knn
+from scptensor.impute.svd import impute_svd as scptensor_svd_impute
+from scptensor.normalization.log import norm_log as scptensor_log_normalize
 
 # =============================================================================
 # Resource Tracking

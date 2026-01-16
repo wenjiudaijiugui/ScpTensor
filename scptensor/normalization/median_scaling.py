@@ -1,7 +1,5 @@
 """Median scaling normalization for ScpTensor."""
 
-import warnings
-
 from typing import overload
 
 import numpy as np
@@ -118,18 +116,3 @@ def norm_median_scale(
     )
 
     return container
-
-
-# Backward compatibility alias
-def median_scaling(*args, **kwargs):
-    """Deprecated: Use norm_median_scale instead.
-
-    This function will be removed in version 1.0.0.
-    """
-    warnings.warn(
-        "'median_scaling' is deprecated, use 'norm_median_scale' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return norm_median_scale(*args, **kwargs)

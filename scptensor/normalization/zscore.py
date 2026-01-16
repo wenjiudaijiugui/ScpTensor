@@ -11,8 +11,6 @@ References:
     proteomics data. Expert Review of Proteomics.
 """
 
-import warnings
-
 from typing import overload
 
 import numpy as np
@@ -182,25 +180,5 @@ def norm_zscore(
     return container
 
 
-# Backward compatibility alias
-def zscore(container, assay_name="protein", base_layer_name=None, source_layer=None,
-           new_layer_name=None, axis=0, ddof=1):
-    """Deprecated: Use norm_zscore instead.
-
-    This function will be removed in version 1.0.0.
-
-    Notes
-    -----
-    For backward compatibility, accepts both 'base_layer_name' (deprecated) and
-    'source_layer' (new parameter name). If both are provided, 'source_layer' takes precedence.
-    """
-    warnings.warn(
-        "'zscore' is deprecated, use 'norm_zscore' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    # Handle parameter name change for backward compatibility
-    if source_layer is None:
-        source_layer = base_layer_name
-    return norm_zscore(container, assay_name, source_layer, new_layer_name, axis, ddof)
+# Backward compatibility alias for standardization module
+zscore = norm_zscore
