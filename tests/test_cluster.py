@@ -15,14 +15,13 @@ import pytest
 from scipy import sparse
 
 from scptensor.cluster import (
-    cluster_kmeans,
-    cluster_kmeans_assay,
-    cluster_leiden,
-    # Deprecated aliases
-    kmeans as basic_kmeans,
-    leiden,
     cluster_kmeans_assay,
 )
+
+# Deprecated aliases for testing (from submodules to avoid naming conflicts)
+from scptensor.cluster.basic import kmeans as basic_kmeans
+from scptensor.cluster.graph import leiden
+from scptensor.cluster.kmeans import run_kmeans  # noqa: F401 (used in tests)
 from scptensor.core import Assay, ScpContainer, ScpMatrix
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 
@@ -146,7 +145,9 @@ class TestRunKmeans:
         """Test K-means with different number of clusters."""
         for k in [2, 3, 4, 5]:
             # Use fresh container each time since cluster_kmeans_assay modifies in place
-            result = cluster_kmeans_assay(pca_container, n_clusters=k, new_assay_name=f"cluster_kmeans_{k}")
+            result = cluster_kmeans_assay(
+                pca_container, n_clusters=k, new_assay_name=f"cluster_kmeans_{k}"
+            )
             assert result.assays[f"cluster_kmeans_{k}"].n_features == k
             assert result.assays[f"cluster_kmeans_{k}"].layers["binary"].X.shape[1] == k
 
