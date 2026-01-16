@@ -7,6 +7,12 @@ from .differential import (
 )
 from .embedding import embedding, pca, scatter, tsne, umap
 from .feature import dotplot
+from .impute import (
+    plot_imputation_comparison,
+    plot_imputation_metrics,
+    plot_imputation_scatter,
+    plot_missing_pattern,
+)
 from .matrix import heatmap, matrixplot, tracksplot
 from .qc import (
     missing_value_patterns,
@@ -58,6 +64,11 @@ __all__ = [
     "plot_cv_distribution",
     "plot_cv_by_feature",
     "plot_cv_comparison",
+    # Imputation visualizations
+    "plot_imputation_comparison",
+    "plot_imputation_scatter",
+    "plot_imputation_metrics",
+    "plot_missing_pattern",
     "generate_analysis_report",
     "ReportTheme",
 ]

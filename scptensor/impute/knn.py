@@ -121,16 +121,15 @@ def impute_knn(
 
     # Validate assay and layer
     if assay_name not in container.assays:
-        available = ", ".join(f"'{k}'" for k in container.assays.keys())
+        available = ", ".join(f"'{k}'" for k in container.assays)
         raise AssayNotFoundError(
             assay_name,
-            hint=f"Available assays: {available}. "
-            f"Use container.list_assays() to see all assays.",
+            hint=f"Available assays: {available}. Use container.list_assays() to see all assays.",
         )
 
     assay = container.assays[assay_name]
     if source_layer not in assay.layers:
-        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        available = ", ".join(f"'{k}'" for k in assay.layers)
         raise LayerNotFoundError(
             source_layer,
             assay_name,
@@ -244,4 +243,3 @@ def impute_knn(
     )
 
     return container
-

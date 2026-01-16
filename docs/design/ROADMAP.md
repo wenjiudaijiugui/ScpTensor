@@ -5,7 +5,7 @@
 **Total Effort:** 72 person-days (actual) vs 113 person-days (planned)
 
 **Last Updated:** 2026-01-16
-**Status:** Released - v0.2.1 QC Module Enhancement Complete
+**Status:** Design Phase - v0.2.2 Imputation Enhancement Planned
 
 ---
 
@@ -27,6 +27,10 @@ This roadmap tracked the transformation of ScpTensor from prototype (v0.1.0-alph
 - ✅ 774 test cases (302 passing, 6 skipped for optional dependencies)
 - ✅ CI/CD pipeline operational (ci.yml, cd.yml, dependency-review.yml)
 - ✅ Complete documentation (Sphinx API docs, 4 tutorials, developer guide)
+
+**Remaining Work (v0.2.2):**
+- Imputation module enhancement (6 new methods, 4 visualization functions)
+- Validation testing against reference libraries
 
 **Remaining Work (v0.3.0):**
 - Continue improving overall test coverage
@@ -83,6 +87,33 @@ This roadmap tracked the transformation of ScpTensor from prototype (v0.1.0-alph
 | P2-6 | Write developer guide | 4 | 2025-01-09 | ✅ Complete |
 
 **P2 Total:** 4/6 Complete (67%)
+
+---
+
+### P3: v0.2.2 - Imputation Module Enhancement (Planned)
+
+| ID | Task Description | Effort (person-days) | Status |
+|----|------------------|---------------------|--------|
+| P3-1 | Implement QRILC imputation method | 1.5 | 📋 Planned |
+| P3-2 | Implement MinProb/MinDet methods | 1 | 📋 Planned |
+| P3-3 | Implement LLS (Local Least Squares) | 1.5 | 📋 Planned |
+| P3-4 | Implement BPCA (Bayesian PCA) | 2 | 📋 Planned |
+| P3-5 | Implement NMF imputation | 1.5 | 📋 Planned |
+| P3-6 | Validation tests vs reference libraries | 2 | 📋 Planned |
+| P3-7 | Imputation visualization recipes | 1.5 | 📋 Planned |
+| P3-8 | Documentation and tutorial updates | 1 | 📋 Planned |
+
+**P3 Total:** 12 person-days (estimated)
+
+**Design Document:** `docs/design/2026-01-16-imputation-enhancement-design.md`
+
+**Key Features:**
+- 6 new imputation functions: `impute_qrilc`, `impute_minprob`, `impute_mindet`, `impute_lls`, `impute_bpca`, `impute_nmf`
+- 4 visualization functions: `plot_imputation_comparison`, `plot_imputation_scatter`, `plot_imputation_metrics`, `plot_missing_pattern`
+- Validation testing against fancyimpute, sklearn, impyute
+- Complete test coverage (>90%)
+
+---
 
 ---
 
@@ -430,7 +461,8 @@ qc/            ✅ Enhanced (basic + advanced + sensitivity + missing + variabil
 | v0.1.0-beta (P0+P1+P2) | 67 | 58 | -9 (13% ahead) |
 | v0.2.0 | 46 | ~10 | -36 (78% ahead) |
 | v0.2.1 | - | ~4 | QC enhancement |
-| **Cumulative** | **113** | **~72** | **-41 (36% ahead)** |
+| v0.2.2 (Planned) | 12 | - | Imputation enhancement |
+| **Cumulative** | **125** | **~72** | **-41 (36% ahead)** |
 
 ### v0.2.1 Effort Breakdown
 
@@ -455,6 +487,6 @@ qc/            ✅ Enhanced (basic + advanced + sensitivity + missing + variabil
 
 **Document Owner:** Project Lead
 **Update Frequency:** Per release
-**Next Review:** v0.2.0 Planning
+**Next Review:** v0.2.2 Implementation
 
 **End of ROADMAP.md**
