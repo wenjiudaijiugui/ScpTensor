@@ -245,20 +245,3 @@ def impute_knn(
 
     return container
 
-
-# Backward compatibility alias
-def knn(*args, **kwargs):
-    """Deprecated: Use impute_knn instead.
-
-    This function is maintained for backward compatibility and will be
-    removed in version 1.0.0.
-    """
-    import warnings
-
-    warnings.warn(
-        "'knn' is deprecated, use 'impute_knn' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return impute_knn(*args, **kwargs)

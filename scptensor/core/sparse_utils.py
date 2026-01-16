@@ -559,6 +559,7 @@ def sparse_multiply_rowwise(X: sp.spmatrix, factors: np.ndarray) -> sp.spmatrix:
     Multiply each row of a sparse matrix by a corresponding factor.
 
     Efficient CSR-based operation that avoids densification.
+    Uses vectorized operations for better performance.
 
     Parameters
     ----------
@@ -592,11 +593,15 @@ def sparse_multiply_rowwise(X: sp.spmatrix, factors: np.ndarray) -> sp.spmatrix:
     if X_csr.dtype.kind != "f":
         X_csr = X_csr.astype(float)
 
-    # Create copy with scaled data
+    # Optimized: Use np.repeat to create factor array for all non-zero elements
+    # Calculate row lengths (number of non-zeros per row)
+    row_lengths = np.diff(X_csr.indptr)
+    # Repeat each factor by the number of non-zeros in that row
+    repeated_factors = np.repeat(factors, row_lengths)
+
+    # Vectorized multiplication
     result = X_csr.copy()
-    for i in range(n_rows):
-        start, end = result.indptr[i], result.indptr[i + 1]
-        result.data[start:end] *= factors[i]
+    result.data *= repeated_factors
 
     return result
 
@@ -606,6 +611,7 @@ def sparse_multiply_colwise(X: sp.spmatrix, factors: np.ndarray) -> sp.spmatrix:
     Multiply each column of a sparse matrix by a corresponding factor.
 
     Efficient CSC-based operation that avoids densification.
+    Uses vectorized operations for better performance.
 
     Parameters
     ----------
@@ -639,11 +645,15 @@ def sparse_multiply_colwise(X: sp.spmatrix, factors: np.ndarray) -> sp.spmatrix:
     if X_csc.dtype.kind != "f":
         X_csc = X_csc.astype(float)
 
-    # Create copy with scaled data
+    # Optimized: Use np.repeat to create factor array for all non-zero elements
+    # Calculate column lengths (number of non-zeros per column)
+    col_lengths = np.diff(X_csc.indptr)
+    # Repeat each factor by the number of non-zeros in that column
+    repeated_factors = np.repeat(factors, col_lengths)
+
+    # Vectorized multiplication
     result = X_csc.copy()
-    for j in range(n_cols):
-        start, end = result.indptr[j], result.indptr[j + 1]
-        result.data[start:end] *= factors[j]
+    result.data *= repeated_factors
 
     return result
 

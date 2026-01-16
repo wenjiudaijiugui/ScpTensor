@@ -2,7 +2,7 @@
 Core benchmarking framework classes.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -155,11 +155,11 @@ class MethodRunResult:
             "dataset_name": self.dataset_name,
             "runtime_seconds": self.runtime_seconds,
             "memory_usage_mb": self.memory_usage_mb,
-            "technical_scores": self.technical_scores.__dict__,
-            "biological_scores": self.biological_scores.__dict__
+            "technical_scores": asdict(self.technical_scores),
+            "biological_scores": asdict(self.biological_scores)
             if self.biological_scores
             else None,
-            "computational_scores": self.computational_scores.__dict__,
+            "computational_scores": asdict(self.computational_scores),
             "random_seed": self.random_seed,
             "timestamp": self.timestamp,
             "software_versions": self.software_versions,

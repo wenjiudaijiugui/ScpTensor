@@ -352,38 +352,4 @@ def _apply_combat_correction(
     return out_data
 
 
-def combat(
-    container: ScpContainer,
-    batch_key: str,
-    assay_name: str = "protein",
-    base_layer: str = "raw",
-    new_layer_name: str | None = "combat",
-    covariates: Sequence[str] | None = None,
-) -> ScpContainer:
-    """Apply ComBat batch effect correction using empirical Bayes.
-
-    .. deprecated:: 0.1.0
-        Use :func:`integrate_combat` instead. This function will be removed in a future version.
-
-    Examples
-    --------
-    >>> container = combat(container, batch_key='batch')
-    """
-    import warnings
-
-    warnings.warn(
-        "'combat' is deprecated, use 'integrate_combat' instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return integrate_combat(
-        container=container,
-        batch_key=batch_key,
-        assay_name=assay_name,
-        base_layer=base_layer,
-        new_layer_name=new_layer_name,
-        covariates=covariates,
-    )
-
-
-__all__ = ["integrate_combat", "combat"]
+__all__ = ["integrate_combat"]

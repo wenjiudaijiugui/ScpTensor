@@ -259,23 +259,6 @@ def impute_ppca(
     return container
 
 
-# Backward compatibility alias
-def ppca(*args, **kwargs):
-    """Deprecated: Use impute_ppca instead.
-
-    This function is maintained for backward compatibility and will be
-    removed in version 1.0.0.
-    """
-    import warnings
-
-    warnings.warn(
-        "'ppca' is deprecated, use 'impute_ppca' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return impute_ppca(*args, **kwargs)
-
 
 if __name__ == "__main__":
     # Test: Basic functionality

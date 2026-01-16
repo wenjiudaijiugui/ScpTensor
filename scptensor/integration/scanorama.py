@@ -215,51 +215,7 @@ def _prepare_scanorama_data(X: np.ndarray | sp.spmatrix) -> np.ndarray:
     return X
 
 
-def scanorama_integrate(
-    container: ScpContainer,
-    batch_key: str,
-    assay_name: str = "protein",
-    base_layer: str = "raw",
-    new_layer_name: str | None = "scanorama",
-    sigma: float = 15.0,
-    alpha: float = 0.1,
-    knn: int | None = None,
-    approx: bool = True,
-    return_dimred: bool = False,
-    dimred: int | None = None,
-) -> ScpContainer:
-    """Scanorama integration for batch effect correction.
-
-    .. deprecated:: 0.1.0
-        Use :func:`integrate_scanorama` instead. This function will be removed in a future version.
-
-    Examples
-    --------
-    >>> container = scanorama_integrate(container, batch_key='batch')
-    """
-    import warnings
-
-    warnings.warn(
-        "'scanorama_integrate' is deprecated, use 'integrate_scanorama' instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return integrate_scanorama(
-        container=container,
-        batch_key=batch_key,
-        assay_name=assay_name,
-        base_layer=base_layer,
-        new_layer_name=new_layer_name,
-        sigma=sigma,
-        alpha=alpha,
-        knn=knn,
-        approx=approx,
-        return_dimred=return_dimred,
-        dimred=dimred,
-    )
-
-
-__all__ = ["integrate_scanorama", "scanorama_integrate"]
+__all__ = ["integrate_scanorama"]
 
 
 if __name__ == "__main__":

@@ -6,46 +6,11 @@ proteomics data, including K-Means clustering.
 
 from __future__ import annotations
 
-import warnings
-from functools import wraps
-
 import polars as pl
 from sklearn.cluster import KMeans as SKLearnKMeans
 
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.core.structures import ScpContainer
-
-
-def _deprecated_cluster_alias(old_name: str, new_name: str):
-    """Create a deprecated alias wrapper for cluster functions.
-
-    Parameters
-    ----------
-    old_name : str
-        Original function name being deprecated.
-    new_name : str
-        New function name with cluster_ prefix.
-
-    Returns
-    -------
-    callable
-        Decorator function that wraps the original with deprecation warning.
-    """
-
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            warnings.warn(
-                f"{old_name}() is deprecated and will be removed in v0.2.0. "
-                f"Use {new_name}() instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
 
 
 def _validate_clustering_params(n_clusters: int) -> None:
@@ -205,8 +170,3 @@ if __name__ == "__main__":
     assert result.n_samples == test_container.n_samples
 
     print("All tests passed.")
-
-
-# Deprecated aliases for backward compatibility
-kmeans = _deprecated_cluster_alias("kmeans", "cluster_kmeans")(cluster_kmeans)
-run_kmeans = _deprecated_cluster_alias("run_kmeans", "cluster_kmeans")(cluster_kmeans)

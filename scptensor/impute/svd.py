@@ -242,23 +242,6 @@ def impute_svd(
     return container
 
 
-# Backward compatibility alias
-def svd_impute(*args, **kwargs):
-    """Deprecated: Use impute_svd instead.
-
-    This function is maintained for backward compatibility and will be
-    removed in version 1.0.0.
-    """
-    import warnings
-
-    warnings.warn(
-        "'svd_impute' is deprecated, use 'impute_svd' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return impute_svd(*args, **kwargs)
-
 
 if __name__ == "__main__":
     # Test: Basic functionality

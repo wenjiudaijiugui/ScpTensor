@@ -5,7 +5,6 @@ in single-cell proteomics data, which is critical for ensuring data quality
 before downstream analysis.
 """
 
-import warnings
 from typing import Literal
 
 import numpy as np
@@ -167,33 +166,6 @@ def qc_batch_metrics(
     )
 
     return new_container
-
-
-def compute_batch_metrics(
-    container: ScpContainer,
-    assay_name: str = "protein",
-    layer_name: str = "raw",
-    batch_col: str | None = None,
-    detection_threshold: float = 0.0,
-) -> ScpContainer:
-    """Deprecated: Use qc_batch_metrics instead.
-
-    This function is maintained for backward compatibility and will be
-    removed in version 1.0.0.
-    """
-    warnings.warn(
-        "'compute_batch_metrics' is deprecated, use 'qc_batch_metrics' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return qc_batch_metrics(
-        container=container,
-        assay_name=assay_name,
-        layer_name=layer_name,
-        batch_col=batch_col,
-        detection_threshold=detection_threshold,
-    )
 
 
 def detect_batch_effects(

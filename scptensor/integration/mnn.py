@@ -482,49 +482,7 @@ def _compute_weighted_correction(
     return correction, total_weight
 
 
-def mnn_correct(
-    container: ScpContainer,
-    batch_key: str,
-    assay_name: str = "protein",
-    base_layer: str = "raw",
-    new_layer_name: str | None = "mnn_corrected",
-    k: int = 20,
-    sigma: float = 1.0,
-    n_pcs: int | None = None,
-    use_pca: bool = True,
-    use_anchor_correction: bool = True,
-) -> ScpContainer:
-    """Correct batch effects using Mutual Nearest Neighbors (MNN) method.
-
-    .. deprecated:: 0.1.0
-        Use :func:`integrate_mnn` instead. This function will be removed in a future version.
-
-    Examples
-    --------
-    >>> container = mnn_correct(container, batch_key='batch')
-    """
-    import warnings
-
-    warnings.warn(
-        "'mnn_correct' is deprecated, use 'integrate_mnn' instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return integrate_mnn(
-        container=container,
-        batch_key=batch_key,
-        assay_name=assay_name,
-        base_layer=base_layer,
-        new_layer_name=new_layer_name,
-        k=k,
-        sigma=sigma,
-        n_pcs=n_pcs,
-        use_pca=use_pca,
-        use_anchor_correction=use_anchor_correction,
-    )
-
-
-__all__ = ["integrate_mnn", "mnn_correct"]
+__all__ = ["integrate_mnn"]
 
 
 if __name__ == "__main__":

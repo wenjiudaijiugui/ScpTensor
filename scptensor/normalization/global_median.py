@@ -1,7 +1,5 @@
 """Global median normalization for ScpTensor."""
 
-import warnings
-
 from typing import overload
 
 import numpy as np
@@ -119,27 +117,3 @@ def norm_global_median(
     )
 
     return container
-
-
-# Backward compatibility alias
-def global_median_normalization(container, assay_name="protein", base_layer_name=None,
-                                 source_layer="raw", new_layer_name="global_median_norm"):
-    """Deprecated: Use norm_global_median instead.
-
-    This function will be removed in version 1.0.0.
-
-    Notes
-    -----
-    For backward compatibility, accepts both 'base_layer_name' (deprecated) and
-    'source_layer' (new parameter name). If 'source_layer' is default, 'base_layer_name' takes precedence.
-    """
-    warnings.warn(
-        "'global_median_normalization' is deprecated, use 'norm_global_median' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    # Handle parameter name change for backward compatibility
-    if base_layer_name is not None and source_layer == "raw":
-        source_layer = base_layer_name
-    return norm_global_median(container, assay_name, source_layer, new_layer_name)

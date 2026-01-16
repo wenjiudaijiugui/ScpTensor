@@ -5,8 +5,6 @@ Reference:
     for differential expression analysis of RNA-seq data. Genome Biology, 11(3), R25.
 """
 
-import warnings
-
 from typing import overload
 
 import numpy as np
@@ -211,27 +209,3 @@ def norm_tmm(
     )
 
     return container
-
-
-# Backward compatibility alias
-def tmm_normalization(container, assay_name="protein", base_layer_name=None, source_layer="raw",
-                      new_layer_name="tmm_norm", reference_sample=None, trim_ratio=0.3):
-    """Deprecated: Use norm_tmm instead.
-
-    This function will be removed in version 1.0.0.
-
-    Notes
-    -----
-    For backward compatibility, accepts both 'base_layer_name' (deprecated) and
-    'source_layer' (new parameter name). If 'source_layer' is default, 'base_layer_name' takes precedence.
-    """
-    warnings.warn(
-        "'tmm_normalization' is deprecated, use 'norm_tmm' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    # Handle parameter name change for backward compatibility
-    if base_layer_name is not None and source_layer == "raw":
-        source_layer = base_layer_name
-    return norm_tmm(container, assay_name, source_layer, new_layer_name, reference_sample, trim_ratio)

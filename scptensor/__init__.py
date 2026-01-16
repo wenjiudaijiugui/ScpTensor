@@ -17,13 +17,13 @@ Key Features:
     - Benchmarking: Comprehensive performance evaluation tools
 
 Quick Start:
-    >>> from scptensor import ScpContainer, load_csv, log_normalize, pca, run_kmeans
+    >>> from scptensor import ScpContainer, load_csv, norm_log, reduce_pca, cluster_kmeans
     >>> container = load_csv("data.csv")
-    >>> container = log_normalize(container, assay_name="proteins")
-    >>> container = pca(container, assay_name="proteins")
-    >>> container = run_kmeans(container, n_clusters=5)
+    >>> container = norm_log(container, assay_name="proteins")
+    >>> container = reduce_pca(container, assay_name="proteins")
+    >>> container = cluster_kmeans(container, n_clusters=5)
 
-Version: v0.1.0-alpha
+Version: v0.1.0-beta
 Documentation: https://github.com/your-org/scptensor
 """
 
@@ -60,9 +60,8 @@ from scptensor.benchmark import (
 # Clustering
 from scptensor.cluster import (
     cluster_kmeans,
-    cluster_kmeans_assay,  # formerly run_kmeans
+    cluster_kmeans_assay,
     cluster_leiden,
-    run_kmeans,  # Deprecated: use cluster_kmeans or cluster_kmeans_assay
 )
 
 # Core I/O and sparse utilities
@@ -143,34 +142,25 @@ from scptensor.diff_expr import (
 # Dimensionality Reduction
 from scptensor.dim_reduction import (
     get_solver_info,
-    pca,  # Deprecated: use reduce_pca
+    optimal_svd_solver,
     reduce_pca,
     reduce_umap,
-    umap,  # Deprecated: use reduce_umap
 )
 
 # Imputation
 from scptensor.impute import (
-    impute_knn,  # New API
-    impute_mf,  # New API
-    impute_ppca,  # New API
-    impute_svd,  # New API
-    knn,  # Deprecated: use impute_knn
-    missforest,  # Deprecated: use impute_mf
-    ppca,  # Deprecated: use impute_ppca
-    svd_impute,  # Deprecated: use impute_svd
+    impute_knn,
+    impute_mf,
+    impute_ppca,
+    impute_svd,
 )
 
 # Integration (Batch Correction)
 from scptensor.integration import (
-    combat,  # Deprecated: use integrate_combat
-    harmony,  # Deprecated: use integrate_harmony
-    integrate_combat,  # New API
-    integrate_harmony,  # New API
-    integrate_mnn,  # New API
-    integrate_scanorama,  # New API
-    mnn_correct,  # Deprecated: use integrate_mnn
-    scanorama_integrate,  # Deprecated: use integrate_scanorama
+    integrate_combat,
+    integrate_harmony,
+    integrate_mnn,
+    integrate_scanorama,
 )
 
 # HDF5 I/O
@@ -178,55 +168,38 @@ from scptensor.io import IOFormatError, IOPasswordError, IOWriteError, load_hdf5
 
 # Normalization
 from scptensor.normalization import (
-    global_median_normalization,  # Deprecated: use norm_global_median
-    log_normalize,  # Deprecated: use norm_log
-    median_centering,  # Deprecated: use norm_median_center
-    median_scaling,  # Deprecated: use norm_median_scale
-    norm_global_median,  # New API
-    norm_log,  # New API
-    norm_median_center,  # New API
-    norm_median_scale,  # New API
-    norm_quartile,  # New API
-    norm_sample_mean,  # New API
-    norm_sample_median,  # New API
-    norm_tmm,  # New API
-    norm_zscore,  # New API
-    sample_mean_normalization,  # Deprecated: use norm_sample_mean
-    sample_median_normalization,  # Deprecated: use norm_sample_median
-    tmm_normalization,  # Deprecated: use norm_tmm
-    upper_quartile_normalization,  # Deprecated: use norm_quartile
+    norm_global_median,
+    norm_log,
+    norm_median_center,
+    norm_median_scale,
+    norm_quartile,
+    norm_sample_mean,
+    norm_sample_median,
+    norm_tmm,
+    norm_zscore,
 )
 
 # Quality Control
 from scptensor.qc import (
-    basic_qc,  # Deprecated: use qc_basic
     calculate_qc_metrics,
-    compute_batch_metrics,  # Deprecated: use qc_batch_metrics
     compute_batch_pca,
     compute_feature_missing_rate,
     compute_feature_variance,
     compute_pairwise_correlation,
-    compute_quality_score,  # Deprecated: use qc_score
     compute_sample_similarity_network,
     detect_batch_effects,
-    detect_contaminant_proteins,  # Deprecated: use detect_contaminants
-    detect_contaminants,  # New API
+    detect_contaminants,
     detect_doublets,
     detect_outlier_samples,
     detect_outliers,
-    filter_features_by_missing_rate,  # Deprecated: use filter_features_missing
-    filter_features_by_prevalence,  # Deprecated: use filter_features_prevalence
-    filter_features_by_variance,  # Deprecated: use filter_features_variance
-    filter_features_missing,  # New API
-    filter_features_prevalence,  # New API
-    filter_features_variance,  # New API
-    filter_samples_by_missing_rate,  # Deprecated: use filter_samples_missing
-    filter_samples_by_total_count,  # Deprecated: use filter_samples_count
-    filter_samples_count,  # New API
-    filter_samples_missing,  # New API
-    qc_basic,  # New API
-    qc_batch_metrics,  # New API
-    qc_score,  # New API
+    filter_features_missing,
+    filter_features_prevalence,
+    filter_features_variance,
+    filter_samples_count,
+    filter_samples_missing,
+    qc_basic,
+    qc_batch_metrics,
+    qc_score,
 )
 
 # Standardization (deprecated, re-exported for backward compatibility)
@@ -311,7 +284,7 @@ __all__ = [
     "compute_euclidean_distance",
     "apply_mask_threshold",
     "fill_missing_with_value",
-    # Normalization (new API: norm_*)
+    # Normalization
     "norm_log",
     "norm_zscore",
     "norm_median_center",
@@ -321,37 +294,17 @@ __all__ = [
     "norm_global_median",
     "norm_tmm",
     "norm_quartile",
-    # Normalization (deprecated, for backward compatibility)
-    "log_normalize",
-    "zscore",
-    "median_centering",
-    "median_scaling",
-    "sample_median_normalization",
-    "sample_mean_normalization",
-    "global_median_normalization",
-    "tmm_normalization",
-    "upper_quartile_normalization",
-    # Imputation (new API: impute_*)
+    # Imputation
     "impute_knn",
     "impute_ppca",
     "impute_svd",
     "impute_mf",
-    # Imputation (deprecated, for backward compatibility)
-    "knn",
-    "missforest",
-    "ppca",
-    "svd_impute",
-    # Integration (new API: integrate_*)
+    # Integration
     "integrate_combat",
     "integrate_harmony",
     "integrate_mnn",
     "integrate_scanorama",
-    # Integration (deprecated, for backward compatibility)
-    "combat",
-    "harmony",
-    "mnn_correct",
-    "scanorama_integrate",
-    # Quality Control (new API: qc_*, filter_*, detect_*)
+    # Quality Control
     "qc_basic",
     "qc_score",
     "qc_batch_metrics",
@@ -361,39 +314,25 @@ __all__ = [
     "filter_samples_count",
     "filter_samples_missing",
     "detect_contaminants",
-    # Quality Control (deprecated, for backward compatibility)
-    "basic_qc",
     "detect_outliers",
-    "calculate_qc_metrics",
-    "filter_features_by_missing_rate",
-    "filter_features_by_variance",
-    "filter_features_by_prevalence",
-    "filter_samples_by_total_count",
-    "filter_samples_by_missing_rate",
-    "detect_contaminant_proteins",
     "detect_doublets",
-    # Quality Control (additional functions)
+    "calculate_qc_metrics",
     "compute_feature_variance",
     "compute_feature_missing_rate",
-    "compute_batch_metrics",
     "compute_batch_pca",
     "compute_pairwise_correlation",
-    "compute_quality_score",
     "compute_sample_similarity_network",
     "detect_batch_effects",
     "detect_outlier_samples",
-    # Dimensionality Reduction (new API: reduce_*)
+    # Dimensionality Reduction
     "reduce_pca",
     "reduce_umap",
-    # Dimensionality Reduction (deprecated, for backward compatibility)
-    "pca",
-    "umap",
     "get_solver_info",
-    # Clustering (new API: cluster_*)
+    "optimal_svd_solver",
+    # Clustering
     "cluster_kmeans",
     "cluster_leiden",
-    "cluster_kmeans_assay",  # formerly run_kmeans
-    "run_kmeans",  # Deprecated: use cluster_kmeans or cluster_kmeans_assay
+    "cluster_kmeans_assay",
     # Visualization
     "scatter",
     "heatmap",

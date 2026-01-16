@@ -33,14 +33,6 @@ Examples
 >>> # Scanorama integration (requires scanorama)
 >>> container = integrate_scanorama(container, batch_key='batch', sigma=15.0)
 
-Deprecated Functions
---------------------
-The following function names are deprecated and will be removed in a future version:
-- combat -> Use integrate_combat instead
-- harmony -> Use integrate_harmony instead
-- mnn_correct -> Use integrate_mnn instead
-- scanorama_integrate -> Use integrate_scanorama instead
-
 References
 ----------
 - ComBat: Johnson et al. Biostatistics (2007)
@@ -49,22 +41,14 @@ References
 - Scanorama: Hie et al. Nature Biotechnology (2019)
 """
 
-# New API with integrate_* prefix (recommended)
-# Old API (deprecated, for backward compatibility)
-from scptensor.integration.combat import combat, integrate_combat
-from scptensor.integration.harmony import harmony, integrate_harmony
-from scptensor.integration.mnn import integrate_mnn, mnn_correct
-from scptensor.integration.scanorama import integrate_scanorama, scanorama_integrate
+from scptensor.integration.combat import integrate_combat
+from scptensor.integration.harmony import integrate_harmony
+from scptensor.integration.mnn import integrate_mnn
+from scptensor.integration.scanorama import integrate_scanorama
 
 __all__ = [
-    # New API
     "integrate_combat",
     "integrate_harmony",
     "integrate_mnn",
     "integrate_scanorama",
-    # Deprecated (for backward compatibility)
-    "combat",
-    "harmony",
-    "mnn_correct",
-    "scanorama_integrate",
 ]

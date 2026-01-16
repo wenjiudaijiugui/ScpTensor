@@ -4,8 +4,6 @@ Provides log transformation with configurable base and offset.
 Optimized for both dense and sparse matrices.
 """
 
-import warnings
-
 from typing import overload
 
 import numpy as np
@@ -179,27 +177,3 @@ def norm_log(
     )
 
     return container
-
-
-# Backward compatibility alias
-def log_normalize(container, assay_name, base_layer=None, source_layer=None, new_layer_name="log",
-                  base=2.0, offset=1.0, use_jit=True):
-    """Deprecated: Use norm_log instead.
-
-    This function will be removed in version 1.0.0.
-
-    Notes
-    -----
-    For backward compatibility, accepts both 'base_layer' (deprecated) and
-    'source_layer' (new parameter name). If both are provided, 'source_layer' takes precedence.
-    """
-    warnings.warn(
-        "'log_normalize' is deprecated, use 'norm_log' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    # Handle parameter name change for backward compatibility
-    if source_layer is None:
-        source_layer = base_layer
-    return norm_log(container, assay_name, source_layer, new_layer_name, base, offset, use_jit)

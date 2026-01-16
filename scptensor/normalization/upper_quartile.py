@@ -6,8 +6,6 @@ Reference:
     expression in mRNA-Seq experiments. BMC Bioinformatics, 11, 94.
 """
 
-import warnings
-
 from typing import overload
 
 import numpy as np
@@ -152,18 +150,3 @@ def norm_quartile(
     )
 
     return container
-
-
-# Backward compatibility alias
-def upper_quartile_normalization(*args, **kwargs):
-    """Deprecated: Use norm_quartile instead.
-
-    This function will be removed in version 1.0.0.
-    """
-    warnings.warn(
-        "'upper_quartile_normalization' is deprecated, use 'norm_quartile' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return norm_quartile(*args, **kwargs)

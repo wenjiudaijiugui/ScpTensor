@@ -231,23 +231,6 @@ def impute_mf(
     return container
 
 
-# Backward compatibility alias
-def missforest(*args, **kwargs):
-    """Deprecated: Use impute_mf instead.
-
-    This function is maintained for backward compatibility and will be
-    removed in version 1.0.0.
-    """
-    import warnings
-
-    warnings.warn(
-        "'missforest' is deprecated, use 'impute_mf' instead. "
-        "This will be removed in version 1.0.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return impute_mf(*args, **kwargs)
-
 
 if __name__ == "__main__":
     # Test: Basic functionality
