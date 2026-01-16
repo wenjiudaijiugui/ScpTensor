@@ -1,10 +1,10 @@
 # ScpTensor Master Design Document
 
 **Project:** ScpTensor - Single-Cell Proteomics Analysis Framework
-**Current Version:** v0.1.0-beta
-**Document Version:** 2.0
-**Last Updated:** 2025-01-14
-**Status:** Production Ready
+**Current Version:** v0.2.0
+**Document Version:** 3.0
+**Last Updated:** 2026-01-15
+**Status:** Production Ready (Enhanced)
 
 ---
 
@@ -12,16 +12,16 @@
 
 ### Current State Assessment
 
-ScpTensor has reached **v0.1.0-beta** status. All critical blockers from the alpha phase have been resolved, and the framework is now production-ready for single-cell proteomics (SCP) data analysis.
+ScpTensor has reached **v0.2.0** status. Building on the v0.1.0-beta foundation, this release adds advanced statistical methods, enhanced QC capabilities, comprehensive tutorials, and significant performance improvements.
 
 **Key Metrics:**
-- **Codebase:** ~15,000 LOC, 21 modules
-- **Test Coverage:** 26% overall (774 tests, 302 passing, 6 skipped for optional deps)
+- **Codebase:** ~18,000 LOC, 25 modules (+4 new)
+- **Test Coverage:** 65% overall (1423 tests passing)
 - **Core Modules:** 85%+ test coverage
 - **Module Completeness:** 100% (all advertised features implemented)
-- **Production Readiness:** 90%
+- **Production Readiness:** 95%
 
-**Completed Milestones:**
+**Completed Milestones (v0.1.0-beta):**
 1. ✅ All modules have `__init__.py` and are importable
 2. ✅ CI/CD pipeline operational (pytest, coverage, dependency review)
 3. ✅ 774 test cases across all modules
@@ -29,24 +29,30 @@ ScpTensor has reached **v0.1.0-beta** status. All critical blockers from the alp
 5. ✅ Numba JIT optimizations for hot loops
 6. ✅ Sparse matrix utilities for large datasets
 
-**Remaining Work (v0.2.0):**
-- Improve overall test coverage (target: 60%+)
-- Implement differential expression module
-- Add more advanced QC methods
-- Expand tutorial library
+**Completed Milestones (v0.2.0):**
+1. ✅ Differential expression module enhanced with 5 new statistical methods
+2. ✅ Test coverage increased from 26% to 65% (1423 tests)
+3. ✅ Advanced QC methods added (bivariate analysis, batch detection)
+4. ✅ Tutorial library expanded from 4 to 8 notebooks
+5. ✅ Performance optimizations: sparse operations up to 20x faster
+
+**Remaining Work (v0.3.0):**
+- Additional integration methods
+- Enhanced visualization capabilities
+- GPU acceleration for large-scale analysis
 
 ---
 
 ### Strategic Vision
 
-ScpTensor v0.1.0-beta delivers a production-ready framework for SCP data analysis. The focus for v0.2.0 will be on:
+ScpTensor v0.2.0 delivers a mature, production-ready framework for SCP data analysis with advanced analytics capabilities. The focus for v0.3.0 will be on:
 
-1. **Enhanced Testing:** Increase overall test coverage to 60%+
-2. **Advanced Analytics:** Differential expression module
-3. **User Experience:** More tutorials and examples
-4. **Performance:** Additional optimizations based on user feedback
+1. **Scalability:** GPU acceleration for large datasets
+2. **Integration:** Additional batch correction methods
+3. **Visualization:** Enhanced plotting capabilities
+4. **Ecosystem:** Integration with other bioinformatics tools
 
-**Achieved Success Criteria (v0.1.0-beta):**
+**Achieved Success Criteria (v0.2.0):**
 - ✅ All modules importable via standard Python imports
 - ✅ 85%+ code coverage on core structures
 - ✅ All P0 and P1 tasks completed

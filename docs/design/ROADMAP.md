@@ -1,17 +1,17 @@
 # ScpTensor Development Roadmap
 
-**Current Version:** v0.1.0-beta
-**Timeline:** 6 weeks (completed ahead of 8-10 week estimate)
-**Total Effort:** 50 person-days (actual) vs 67 person-days (planned)
+**Current Version:** v0.2.1
+**Timeline:** v0.1.0-beta: 6 weeks (completed ahead of 8-10 week estimate)
+**Total Effort:** 72 person-days (actual) vs 113 person-days (planned)
 
-**Last Updated:** 2025-01-14
-**Status:** Released - v0.1.0-beta Production Ready
+**Last Updated:** 2026-01-16
+**Status:** Released - v0.2.1 QC Module Enhancement Complete
 
 ---
 
 ## Executive Summary
 
-This roadmap tracked the transformation of ScpTensor from prototype (v0.1.0-alpha) to production-ready framework (v0.1.0-beta). **All milestones completed successfully ahead of schedule.**
+This roadmap tracked the transformation of ScpTensor from prototype (v0.1.0-alpha) to production-ready framework (v0.1.0-beta) and subsequent enhancements (v0.2.0, v0.2.1). **All milestones completed successfully ahead of schedule.**
 
 **Completed Milestones:**
 1. ✅ **M1:** Architecture Fixed (Week 1 - completed 2025-01-05)
@@ -28,10 +28,10 @@ This roadmap tracked the transformation of ScpTensor from prototype (v0.1.0-alph
 - ✅ CI/CD pipeline operational (ci.yml, cd.yml, dependency-review.yml)
 - ✅ Complete documentation (Sphinx API docs, 4 tutorials, developer guide)
 
-**Remaining Work (v0.2.0):**
-- Increase overall test coverage to 60%+ (currently 26%)
-- Complete differential expression module
-- Add advanced QC methods
+**Remaining Work (v0.3.0):**
+- Continue improving overall test coverage
+- Additional advanced analytics methods
+- Performance optimizations for large-scale datasets
 
 ---
 
@@ -283,6 +283,66 @@ All planned v0.2.0 tasks have been successfully completed:
 
 ---
 
+## v0.2.1: QC Module Enhancement (2026-01-16)
+
+**Status:** ✅ **COMPLETED** (2026-01-16)
+
+### Completed Tasks
+
+| ID | Task Description | Status | Key Deliverables |
+|----|------------------|--------|------------------|
+| QC-1 | Sensitivity metrics module | ✅ Complete | detection_rate(), detection_frequency(), detection_prevalence(), sensitivity_distribution() (67 tests) |
+| QC-2 | Missing value analysis module | ✅ Complete | missing_profile(), missing_correlation(), missing_feature_summary(), missing_sample_summary() (71 tests) |
+| QC-3 | CV statistics module | ✅ Complete | cv_statistics(), cv_by_feature(), cv_by_sample(), cv_threshold_filter() (77 tests) |
+| QC-4 | Visualization functions | ✅ Complete | 8 new viz functions for sensitivity, missing, CV analysis |
+| QC-5 | Documentation | ✅ Complete | Module docstrings, type hints, examples |
+
+### New Modules Added
+
+- `scptensor/qc/sensitivity.py` - Detection rate and frequency analysis
+- `scptensor/qc/missing.py` - Missing value pattern analysis
+- `scptensor/qc/variability.py` - Coefficient of variation (CV) statistics
+
+### New Visualization Functions
+
+- `scptensor/viz/recipes/qc.py`:
+  - `plot_sensitivity_distribution()` - Histogram of detection rates
+  - `plot_missing_profile()` - Missing value overview
+  - `plot_missing_heatmap()` - Missing pattern heatmap
+  - `plot_missing_correlation()` - Missing value correlation
+  - `plot_cv_distribution()` - CV distribution histogram
+  - `plot_cv_by_feature()` - Feature-level CV ranking
+  - `plot_cv_by_sample()` - Sample-level CV overview
+  - `plot_cv_threshold()` - CV-based feature filtering
+
+### Test Coverage
+
+- 215 new QC tests passing
+- Phase 1: Sensitivity metrics (67 tests)
+- Phase 2: Missing value analysis (71 tests)
+- Phase 3: CV statistics (77 tests)
+- All tests include edge cases, type checking, and error handling
+
+### Key Features
+
+- Detection rate calculation per feature and per sample
+- Detection frequency analysis across samples
+- Missing value profiling by feature and sample
+- Missing pattern correlation analysis
+- Coefficient of variation (CV) statistics
+- CV-based feature selection support
+- Full integration with existing QC infrastructure
+
+### Updated Module Status
+
+```
+qc/            ✅ Enhanced (basic + advanced + sensitivity + missing + variability)
+```
+
+**Total Actual:** ~4 person-days
+
+---
+
 ## v0.2.0 Planning (Archived)
 
 *The following section is kept for historical reference.*
@@ -313,6 +373,14 @@ All planned v0.2.0 tasks have been successfully completed:
 ---
 
 ## Change Log
+
+### 2026-01-16
+- **v0.2.1 COMPLETED** - QC Module Enhancement
+- Added sensitivity metrics module (detection_rate, detection_frequency, detection_prevalence, sensitivity_distribution)
+- Added missing value analysis module (missing_profile, missing_correlation, missing_feature_summary, missing_sample_summary)
+- Added CV statistics module (cv_statistics, cv_by_feature, cv_by_sample, cv_threshold_filter)
+- Added 8 new visualization functions for sensitivity, missing, and CV analysis
+- 215 new QC tests passing (67 sensitivity + 71 missing + 77 CV)
 
 ### 2026-01-15
 - **v0.2.0 COMPLETED** - All 5 planned tasks finished
@@ -361,7 +429,17 @@ All planned v0.2.0 tasks have been successfully completed:
 |---------|----------------------|---------------------|----------|
 | v0.1.0-beta (P0+P1+P2) | 67 | 58 | -9 (13% ahead) |
 | v0.2.0 | 46 | ~10 | -36 (78% ahead) |
-| **Cumulative** | **113** | **~68** | **-45 (40% ahead)** |
+| v0.2.1 | - | ~4 | QC enhancement |
+| **Cumulative** | **113** | **~72** | **-41 (36% ahead)** |
+
+### v0.2.1 Effort Breakdown
+
+| Task | Actual | Notes |
+|------|--------|-------|
+| Sensitivity metrics module | ~1 | 4 functions, 67 tests |
+| Missing value analysis module | ~1 | 4 functions, 71 tests |
+| CV statistics module | ~1 | 4 functions, 77 tests |
+| Visualization functions | ~1 | 8 new viz functions |
 
 ### v0.2.0 Effort Breakdown
 

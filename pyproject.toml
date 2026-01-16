@@ -177,6 +177,12 @@ known-first-party = ["scptensor"]
 # N803: Argument name 'M' should be lowercase
 # N806: Variable 'new_X' in function should be lowercase
 "scptensor/core/structures.py" = ["N802", "N803", "N806"]
+# QC variability: X and X_detected are standard names for data matrices
+"scptensor/qc/variability.py" = ["N803", "N806"]
+# QC advanced viz: M is standard name for mask matrices
+"scptensor/viz/recipes/qc_advanced.py" = ["N803", "N806", "F841"]
+# Tutorial notebooks: E402 for dynamic imports
+"docs/tutorials/**/*.ipynb" = ["E402", "E712"]
 
 [tool.mypy]
 python_version = "3.12"
