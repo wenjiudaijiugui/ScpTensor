@@ -4,6 +4,13 @@ Evaluators compute metrics on processed data to assess the quality
 of analysis methods such as normalization, imputation, or integration.
 """
 
+from .accuracy import (
+    AccuracyEvaluator,
+    AccuracyResult,
+    evaluate_accuracy,
+    evaluate_classification_accuracy,
+    evaluate_regression_accuracy,
+)
 from .biological import BaseEvaluator, BiologicalEvaluator, evaluate_biological
 from .parameter_sensitivity import (
     ParameterSensitivityEvaluator,
@@ -32,4 +39,9 @@ __all__ = [
     "PerformanceResult",
     "evaluate_performance",
     "benchmark_scalability",
+    "AccuracyEvaluator",
+    "AccuracyResult",
+    "evaluate_accuracy",
+    "evaluate_regression_accuracy",
+    "evaluate_classification_accuracy",
 ]
