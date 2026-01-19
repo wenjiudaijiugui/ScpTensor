@@ -48,7 +48,6 @@ from .report_generator import ReportGenerator, get_report_generator
 from .config import (
     BenchmarkConfig,
     ChartConfig,
-    ConfigurationError,
     ModuleConfigEntry,
     OutputConfig,
     get_default_config,
@@ -64,7 +63,6 @@ from .evaluators import (
     BiologicalEvaluator,
     evaluate_biological,
     ParameterSensitivityEvaluator,
-    SensitivityResult,
     evaluate_parameter_sensitivity,
     get_parameter_spec,
     get_supported_parameters,
@@ -132,7 +130,6 @@ __all__ = [
     # Configuration
     "BenchmarkConfig",
     "ChartConfig",
-    "ConfigurationError",
     "ModuleConfigEntry",
     "OutputConfig",
     "load_config",
@@ -149,7 +146,6 @@ __all__ = [
     "BiologicalEvaluator",
     "evaluate_biological",
     "ParameterSensitivityEvaluator",
-    "SensitivityResult",
     "evaluate_parameter_sensitivity",
     "get_parameter_spec",
     "get_supported_parameters",
