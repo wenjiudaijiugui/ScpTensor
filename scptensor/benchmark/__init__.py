@@ -68,6 +68,10 @@ from .evaluators import (
     evaluate_parameter_sensitivity,
     get_parameter_spec,
     get_supported_parameters,
+    PerformanceEvaluator,
+    PerformanceResult,
+    evaluate_performance,
+    benchmark_scalability,
 )
 
 __all__ = [
@@ -149,4 +153,8 @@ __all__ = [
     "evaluate_parameter_sensitivity",
     "get_parameter_spec",
     "get_supported_parameters",
+    "PerformanceEvaluator",
+    "PerformanceResult",
+    "evaluate_performance",
+    "benchmark_scalability",
 ]

@@ -12,6 +12,12 @@ from .parameter_sensitivity import (
     get_parameter_spec,
     get_supported_parameters,
 )
+from .performance import (
+    PerformanceEvaluator,
+    PerformanceResult,
+    benchmark_scalability,
+    evaluate_performance,
+)
 
 __all__ = [
     "BaseEvaluator",
@@ -22,4 +28,8 @@ __all__ = [
     "evaluate_parameter_sensitivity",
     "get_supported_parameters",
     "get_parameter_spec",
+    "PerformanceEvaluator",
+    "PerformanceResult",
+    "evaluate_performance",
+    "benchmark_scalability",
 ]
