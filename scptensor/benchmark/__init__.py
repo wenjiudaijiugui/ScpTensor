@@ -37,6 +37,29 @@ from .scptensor_methods import (
 from .synthetic_data import SyntheticDataset
 from .visualization import ResultsVisualizer
 
+# Scanpy comparison
+from .data_provider import DataProvider, ComparisonDataset, COMPARISON_DATASETS, get_provider
+from .method_registry import MethodRegistry, MethodCategory, ComparisonLayer, get_registry
+from .comparison_engine import ComparisonEngine, MethodResult, ComparisonResult, get_engine
+from .comparison_viz import ComparisonVisualizer, PlotStyle, configure_plots, get_visualizer
+from .report_generator import ReportGenerator, get_report_generator
+
+# Configuration
+from .config import (
+    BenchmarkConfig,
+    ChartConfig,
+    ConfigurationError,
+    ModuleConfigEntry,
+    OutputConfig,
+    get_default_config,
+    load_charts_config,
+    load_config,
+    save_config,
+)
+
+# Modules
+from .modules import BaseModule, ModuleConfig, ModuleResult, ClusteringTestModule
+
 __all__ = [
     # Core classes
     "BenchmarkSuite",
@@ -74,4 +97,37 @@ __all__ = [
     "ScpTensorKMeans",
     "list_scptensor_methods",
     "get_scptensor_method",
+    # Scanpy comparison
+    "DataProvider",
+    "ComparisonDataset",
+    "COMPARISON_DATASETS",
+    "get_provider",
+    "MethodRegistry",
+    "MethodCategory",
+    "ComparisonLayer",
+    "get_registry",
+    "ComparisonEngine",
+    "MethodResult",
+    "get_engine",
+    "ComparisonVisualizer",
+    "PlotStyle",
+    "configure_plots",
+    "get_visualizer",
+    "ReportGenerator",
+    "get_report_generator",
+    # Configuration
+    "BenchmarkConfig",
+    "ChartConfig",
+    "ConfigurationError",
+    "ModuleConfigEntry",
+    "OutputConfig",
+    "load_config",
+    "load_charts_config",
+    "save_config",
+    "get_default_config",
+    # Modules
+    "BaseModule",
+    "ModuleConfig",
+    "ModuleResult",
+    "ClusteringTestModule",
 ]
