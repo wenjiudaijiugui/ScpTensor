@@ -59,6 +59,7 @@ from .config import (
 
 # Modules
 from .modules import BaseModule, ModuleConfig, ModuleResult, ClusteringTestModule
+from .evaluators import BaseEvaluator, BiologicalEvaluator, evaluate_biological
 
 __all__ = [
     # Core classes
@@ -130,4 +131,8 @@ __all__ = [
     "ModuleConfig",
     "ModuleResult",
     "ClusteringTestModule",
+    # Evaluators
+    "BaseEvaluator",
+    "BiologicalEvaluator",
+    "evaluate_biological",
 ]

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  html { background: #ffffff; }
+  body {
+    width: 720pt; height: 405pt; margin: 0; padding: 0;
+    background: #ffffff; font-family: "Arial", "Helvetica", sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  
+  /* Header */
+  .header {
+    background: #003366; color: white; height: 45pt;
+    padding: 0 20pt; display: flex; align-items: center; justify-content: space-between;
+  }
+  .title-block h1 { font-size: 20pt; margin: 0; font-weight: bold; }
+  .title-block h2 { font-size: 10pt; margin: 2pt 0 0 0; opacity: 0.9; font-weight: normal; }
+  .meta { text-align: right; font-size: 9pt; opacity: 0.8; }
+  
+  /* Main Content Layout - 3 Columns */
+  .content {
+    display: flex; padding: 15pt; gap: 10pt; height: 330pt;
+  }
+  
+  /* Columns */
+  .col-left { width: 30%; display: flex; flex-direction: column; gap: 10pt; }
+  .col-mid { width: 38%; display: flex; flex-direction: column; gap: 10pt; }
+  .col-right { width: 32%; display: flex; flex-direction: column; gap: 10pt; }
+  
+  /* Card Styling */
+  .card {
+    background: #f8f9fa; border-left: 3pt solid #003366;
+    padding: 8pt; border-radius: 2pt; box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+  }
+  .card-title {
+    color: #003366; font-size: 11pt; font-weight: bold; margin-bottom: 6pt;
+    border-bottom: 1px solid #ddd; padding-bottom: 2pt;
+  }
+  .card-content { font-size: 8pt; color: #333; line-height: 1.3; }
+  
+  /* Lists */
+  ul { margin: 0; padding-left: 12pt; }
+  li { margin-bottom: 3pt; }
+  
+  /* Highlight Badges */
+  .badge {
+    display: inline-block; background: #008080; color: white;
+    padding: 1pt 4pt; border-radius: 2pt; font-size: 7pt; font-weight: bold;
+    margin-right: 3pt;
+  }
+  
+  /* Specific styling for sections */
+  .architecture-diagram {
+    background: #eef6ff; border: 1px dashed #0066cc;
+    height: 80pt; display: flex; align-items: center; justify-content: center;
+    font-size: 9pt; color: #004488; text-align: center;
+  }
+  
+  .perf-stat {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #008080; color: white; padding: 5pt 10pt; border-radius: 3pt;
+    margin-bottom: 5pt;
+  }
+  .stat-val { font-size: 16pt; font-weight: bold; }
+  .stat-label { font-size: 8pt; opacity: 0.9; }
+
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="title-block">
+      <h1>ScpTensor Project Overview</h1>
+      <h2>High-Performance Single-Cell Proteomics Analysis Framework</h2>
+    </div>
+    <div class="meta">
+      Version: v0.2.0 (Production)<br>
+      Updated: Jan 15, 2026
+    </div>
+  </div>
+
+  <div class="content">
+    
+    <!-- Left Column: Strategy & Core -->
+    <div class="col-left">
+      <div class="card">
+        <div class="card-title">Strategic Vision</div>
+        <div class="card-content">
+          <p><b>Goal:</b> Establish a scalable, production-ready ecosystem for SCP data analysis that bridges the gap between raw mass spectrometry output and biological insight.</p>
+          <p style="margin-top:5pt;"><b>Core Philosophy:</b></p>
+          <ul>
+            <li><b>Immutability:</b> Functional data transformations</li>
+            <li><b>Type Safety:</b> Strict typing for robust pipelines</li>
+            <li><b>Scalability:</b> Sparse-native operations</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="card-title">System Architecture</div>
+        <div class="card-content">
+          <div class="architecture-diagram">
+            ScpContainer<br>↓<br>Assay (Features) → ScpMatrix (Sparse)
+          </div>
+          <p style="margin-top:5pt;"><b>Provenance Tracking:</b></p>
+          <ul>
+            <li>Mask Codes (0=Valid, 1=MBR, 2=LOD, 5=Imputed)</li>
+            <li>Audit Trail: Operation history logging</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Middle Column: Progress & Modules -->
+    <div class="col-mid">
+      <div class="card">
+        <div class="card-title">Recent Milestones (v0.2.0)</div>
+        <div class="card-content">
+          <ul>
+            <li><span class="badge">DONE</span><b>Advanced QC:</b> Bivariate analysis & batch detection</li>
+            <li><span class="badge">DONE</span><b>Stats Module:</b> 5 new differential expression methods</li>
+            <li><span class="badge">DONE</span><b>Coverage:</b> 65% total coverage (1,423 tests passed)</li>
+            <li><span class="badge">DONE</span><b>Docs:</b> 8 Tutorial Notebooks + Full API Reference</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Module Ecosystem</div>
+        <div class="card-content">
+          <div style="display: flex; gap: 5pt; flex-wrap: wrap;">
+            <div style="width:48%;">
+              <b>Analysis</b>
+              <ul>
+                <li>Normalization (8 methods)</li>
+                <li>Imputation (KNN, SVD, PPCA)</li>
+                <li>Batch Correction (Harmony)</li>
+              </ul>
+            </div>
+            <div style="width:48%;">
+              <b>Compute</b>
+              <ul>
+                <li>Dim Reduction (PCA, UMAP)</li>
+                <li>Clustering (Graph, KMeans)</li>
+                <li>Feature Selection (HVG)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Chart Placeholder -->
+      <div id="chart-perf" class="placeholder" style="width: 100%; height: 90pt;"></div>
+    </div>
+
+    <!-- Right Column: Performance & Future -->
+    <div class="col-right">
+      <div class="card" style="border-left-color: #008080;">
+        <div class="card-title" style="color: #008080;">Performance Metrics</div>
+        <div class="card-content">
+          <div class="perf-stat">
+            <span class="stat-label">Code Volume</span>
+            <span class="stat-val">18k LOC</span>
+          </div>
+          <div class="perf-stat">
+            <span class="stat-label">Sparse Speedup</span>
+            <span class="stat-val">20x</span>
+          </div>
+          <p style="margin-top:5pt;"><b>Optimization Tech:</b></p>
+          <ul>
+            <li>Numba JIT for hot loops</li>
+            <li>Polars backend for metadata</li>
+            <li>Native sparse matrix support</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card" style="border-left-color: #E33737;">
+        <div class="card-title" style="color: #E33737;">Roadmap (v0.3.0+)</div>
+        <div class="card-content">
+          <ul>
+            <li><b>Q2 2026:</b> GPU Acceleration (CuPy)</li>
+            <li><b>Q3 2026:</b> Interactive Dashboard (Dash/Streamlit)</li>
+            <li><b>Future:</b> Multi-modal integration (RNA+Protein)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  
+  <!-- Footer -->
+  <div style="position: absolute; bottom: 5pt; left: 20pt; font-size: 8pt; color: #666; width: 100%; text-align: center;">
+    ScpTensor Team Confidential | Generated for Internal Review
+  </div>
+</body>
+</html>
