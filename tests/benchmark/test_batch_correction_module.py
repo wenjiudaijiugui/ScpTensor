@@ -174,8 +174,8 @@ def test_batch_correction_module_with_empty_methods(batch_correction_config):
     assert "2 batches" in results[0].error_message
 
 
-def test_batch_correction_compute_pcr_internal():
-    """Test internal _compute_pcr method."""
+def test_batch_correction_pcr_internal():
+    """Test internal _pcr method."""
     from scptensor.benchmark.modules.batch_correction_test import BatchCorrectionTestModule
 
     config = ModuleConfig(name="batch_correction_test")
@@ -185,14 +185,14 @@ def test_batch_correction_compute_pcr_internal():
     X = np.random.randn(100, 20)
     batches = np.array([0] * 50 + [1] * 50)
 
-    pcr = module._compute_pcr(X, batches)
+    pcr = module._pcr(X, batches)
 
     # PCR should be between 0 and 1
     assert 0 <= pcr <= 1
 
 
-def test_batch_correction_compute_batch_r2_internal():
-    """Test internal _compute_batch_r2 method."""
+def test_batch_correction_batch_r2_internal():
+    """Test internal _batch_r2 method."""
     from scptensor.benchmark.modules.batch_correction_test import BatchCorrectionTestModule
 
     config = ModuleConfig(name="batch_correction_test")
@@ -203,14 +203,14 @@ def test_batch_correction_compute_batch_r2_internal():
     X_corr = np.random.randn(100, 20)
     batches = np.array([0] * 50 + [1] * 50)
 
-    r2_reduction = module._compute_batch_r2(X_orig, X_corr, batches)
+    r2_reduction = module._batch_r2(X_orig, X_corr, batches)
 
     # R2 reduction should be a float
     assert isinstance(r2_reduction, float)
 
 
-def test_batch_correction_compute_simple_metrics_internal():
-    """Test internal _compute_simple_metrics method."""
+def test_batch_correction_simple_metrics_internal():
+    """Test internal _simple_metrics method."""
     from scptensor.benchmark.modules.batch_correction_test import BatchCorrectionTestModule
 
     config = ModuleConfig(name="batch_correction_test")
@@ -222,7 +222,7 @@ def test_batch_correction_compute_simple_metrics_internal():
     batches = np.array([0] * 50 + [1] * 50)
     groups = np.array([0] * 25 + [1] * 25 + [0] * 25 + [1] * 25)
 
-    metrics = module._compute_simple_metrics(X_orig, X_corr, batches, groups)
+    metrics = module._simple_metrics(X_orig, X_corr, batches, groups)
 
     # Check metrics exist
     assert "asw_batch" in metrics or "pcr" in metrics or "batch_r2_reduction" in metrics

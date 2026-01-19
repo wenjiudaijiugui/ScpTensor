@@ -188,8 +188,8 @@ def test_clustering_module_is_enabled_check():
     assert module_disabled.is_enabled() is False
 
 
-def test_clustering_compute_metrics_internal():
-    """Test internal _compute_clustering_metrics method."""
+def test_clustering_metrics_internal():
+    """Test internal _metrics method."""
     from scptensor.benchmark.modules.clustering_test import ClusteringTestModule
 
     config = ModuleConfig(name="clustering_test")
@@ -200,7 +200,7 @@ def test_clustering_compute_metrics_internal():
     labels = np.array([0] * 25 + [1] * 25)
     true_labels = labels.copy()
 
-    metrics = module._compute_clustering_metrics(X, labels, true_labels, inertia=100.0)
+    metrics = module._metrics(X, labels, true_labels, inertia=100.0)
 
     # Check metrics exist
     assert "ari" in metrics
