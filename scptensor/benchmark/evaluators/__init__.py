@@ -5,5 +5,21 @@ of analysis methods such as normalization, imputation, or integration.
 """
 
 from .biological import BaseEvaluator, BiologicalEvaluator, evaluate_biological
+from .parameter_sensitivity import (
+    ParameterSensitivityEvaluator,
+    SensitivityResult,
+    evaluate_parameter_sensitivity,
+    get_parameter_spec,
+    get_supported_parameters,
+)
 
-__all__ = ["BaseEvaluator", "BiologicalEvaluator", "evaluate_biological"]
+__all__ = [
+    "BaseEvaluator",
+    "BiologicalEvaluator",
+    "evaluate_biological",
+    "ParameterSensitivityEvaluator",
+    "SensitivityResult",
+    "evaluate_parameter_sensitivity",
+    "get_supported_parameters",
+    "get_parameter_spec",
+]

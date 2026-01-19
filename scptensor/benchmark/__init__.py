@@ -59,7 +59,16 @@ from .config import (
 
 # Modules
 from .modules import BaseModule, ModuleConfig, ModuleResult, ClusteringTestModule
-from .evaluators import BaseEvaluator, BiologicalEvaluator, evaluate_biological
+from .evaluators import (
+    BaseEvaluator,
+    BiologicalEvaluator,
+    evaluate_biological,
+    ParameterSensitivityEvaluator,
+    SensitivityResult,
+    evaluate_parameter_sensitivity,
+    get_parameter_spec,
+    get_supported_parameters,
+)
 
 __all__ = [
     # Core classes
@@ -135,4 +144,9 @@ __all__ = [
     "BaseEvaluator",
     "BiologicalEvaluator",
     "evaluate_biological",
+    "ParameterSensitivityEvaluator",
+    "SensitivityResult",
+    "evaluate_parameter_sensitivity",
+    "get_parameter_spec",
+    "get_supported_parameters",
 ]
