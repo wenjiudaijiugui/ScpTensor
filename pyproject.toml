@@ -18,6 +18,7 @@ dependencies = [
     "scipy>=1.13",
     "seaborn>=0.13",
     "umap-learn>=0.5.6",
+    "h5py>=3.15.1",
 ]
 
 [project.optional-dependencies]
@@ -93,6 +94,10 @@ io = [
     "anndata>=0.10",
 ]
 
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
+default = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
@@ -131,10 +136,6 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
-
-[[tool.uv.index]]
-url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
-default = true
 
 [tool.ruff]
 line-length = 100
@@ -225,8 +226,6 @@ known-first-party = ["scptensor"]
 "scptensor/normalization/*.py" = ["N803", "N806", "SIM118"]
 # QC modules: X, M are standard matrix names
 "scptensor/qc/*.py" = ["N803", "N806", "SIM118", "F841"]
-# Referee: X, M are standard matrix names
-"scptensor/referee/*.py" = ["N803", "N806"]
 # Visualization: X, M are standard matrix names
 "scptensor/viz/*.py" = ["N803", "N806", "SIM105", "B007", "F841"]
 "scptensor/viz/base/*.py" = ["N803", "N806"]
@@ -274,11 +273,6 @@ check_untyped_defs = false
 
 [[tool.mypy.overrides]]
 module = "scptensor.core.sparse_utils"
-warn_return_any = false
-check_untyped_defs = false
-
-[[tool.mypy.overrides]]
-module = "scptensor.referee.*"
 warn_return_any = false
 check_untyped_defs = false
 

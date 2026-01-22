@@ -34,7 +34,8 @@ from scptensor.dim_reduction import pca as scptensor_pca
 from scptensor.dim_reduction import umap as scptensor_umap
 
 # Import HVG selection
-from scptensor.feature_selection.hvg import select_hvg
+# NOTE: select_hvg removed - feature_selection module was deleted
+# from scptensor.feature_selection.hvg import select_hvg
 from scptensor.normalization import log_normalize
 from tests.real_data_comparison.metrics import (
     ComparisonResult,
@@ -774,7 +775,6 @@ class ComparisonSuite:
         A value of 1.0 means identical feature selection, 0.0 means no overlap.
         """
         # Import here to avoid issues when Scanpy is not available
-        from tests.real_data_comparison.metrics import jaccard_similarity
 
         # Create fresh copies
         adata = self.adata_scanpy.copy()
@@ -803,54 +803,31 @@ class ComparisonSuite:
         n_scanpy_selected = len(scanpy_selected)
 
         # ScpTensor HVG selection
+        # NOTE: select_hvg removed - feature_selection module was deleted
+        # This comparison is now disabled
         t0 = time.perf_counter()
-        container_hvg = select_hvg(
-            container,
-            assay_name=self.assay_name,
-            layer=base_layer,
-            n_top_features=n_top_genes,
-            method=method,
-            subset=False,  # Keep all features, add annotation
-        )
+        # container_hvg = select_hvg(
+        #     container,
+        #     assay_name=self.assay_name,
+        #     layer=base_layer,
+        #     n_top_features=n_top_genes,
+        #     method=method,
+        #     subset=False,  # Keep all features, add annotation
+        # )
         time_scptensor = time.perf_counter() - t0
 
-        # Get ScpTensor selected features
-        scptensor_hvg_mask = container_hvg.assays[self.assay_name].var["highly_variable"].to_numpy()
-        scptensor_selected = set(np.where(scptensor_hvg_mask)[0])
-        n_scptensor_selected = len(scptensor_selected)
-
-        # Calculate Jaccard similarity
-        jaccard = jaccard_similarity(scanpy_selected, scptensor_selected)
-
-        # Calculate overlap statistics
-        intersection = len(scanpy_selected & scptensor_selected)
-        union = len(scanpy_selected | scptensor_selected)
-        only_scanpy = len(scanpy_selected - scptensor_selected)
-        only_scptensor = len(scptensor_selected - scanpy_selected)
-
-        # Determine pass threshold
-        # Jaccard > 0.7 is considered good for feature selection
-        # since different algorithms may select slightly different features
-        passed = jaccard >= 0.7
-
-        # Create result
+        # Return a failure result since the feature is not available
         result = ComparisonResult(
             module=f"hvg_{n_top_genes}",
-            metrics={"jaccard": jaccard},
+            metrics={"jaccard": 0.0},
             time_scanpy=time_scanpy,
             time_scptensor=time_scptensor,
-            passed=passed,
+            passed=False,
             details={
+                "error": "select_hvg has been removed - feature_selection module was deleted",
                 "n_top_genes": n_top_genes,
                 "scanpy_flavor": flavor,
                 "scptensor_method": method,
-                "n_scanpy_selected": n_scanpy_selected,
-                "n_scptensor_selected": n_scptensor_selected,
-                "intersection": intersection,
-                "union": union,
-                "only_scanpy": only_scanpy,
-                "only_scptensor": only_scptensor,
-                "jaccard_threshold": 0.7,
             },
         )
 

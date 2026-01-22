@@ -3,11 +3,15 @@
 from collections.abc import Callable, Collection
 from difflib import get_close_matches
 from functools import wraps
-from typing import Any
+from typing import ParamSpec, TypeVar
 
 import numpy as np
 
 from scptensor.core.exceptions import MissingDependencyError
+
+# Type variables for generic decorator
+P = ParamSpec("P")
+T = TypeVar("T")
 
 
 def _find_closest_match(input_name: str, options: Collection[str]) -> str | None:
@@ -90,7 +94,7 @@ def compute_umap(
     X: np.ndarray,
     n_components: int = 2,
     random_state: int | None = None,
-    **kwargs: Any,
+    **kwargs: object,
 ) -> np.ndarray:
     """Compute UMAP embedding on input matrix.
 
@@ -104,8 +108,8 @@ def compute_umap(
         Number of embedding dimensions.
     random_state : int, optional
         Random seed for reproducibility.
-    **kwargs : Any
-        Additional parameters passed to UMAP.
+    **kwargs : object
+        Additional parameters passed to UMAP (e.g., n_neighbors, min_dist, metric).
 
     Returns
     -------
@@ -139,7 +143,7 @@ def compute_umap(
 
 def requires_dependency(
     package_name: str, install_hint: str
-) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Decorator to ensure a dependency is installed before executing a function.
 
     Args:
@@ -150,9 +154,9 @@ def requires_dependency(
         Decorator function that checks for dependency before execution.
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             try:
                 __import__(package_name)
             except ImportError:

@@ -14,10 +14,10 @@ import polars as pl
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.dim_reduction.pca import reduce_pca
 from scptensor.dim_reduction.umap import reduce_umap
-from scptensor.feature_selection.hvg import select_hvg
+
+# NOTE: select_hvg removed - feature_selection module was deleted
 from scptensor.impute.knn import impute_knn
-from scptensor.impute.svd import impute_svd
-from scptensor.normalization.log import norm_log
+from scptensor.normalization.log_transform import log_transform
 
 
 def _create_container(
@@ -26,8 +26,6 @@ def _create_container(
     batch_labels: np.ndarray | None = None,
     group_labels: np.ndarray | None = None,
 ) -> ScpContainer:
-    from scptensor.core.structures import Assay
-
     n_samples, n_features = X.shape
 
     obs_data = {"_index": [f"S{i:04d}" for i in range(n_samples)]}
@@ -64,7 +62,7 @@ class ScpTensorMethods:
     ) -> tuple[np.ndarray, float]:
         container = _create_container(X, M)
         start = time.time()
-        result = norm_log(container, "protein", "raw", "log", base=base, offset=offset)
+        result = log_transform(container, "protein", "raw", "log", base=base, offset=offset)
         runtime = time.time() - start
         return _extract_result(result, "log"), runtime
 
@@ -102,18 +100,6 @@ class ScpTensorMethods:
         return _extract_result(result, "imputed"), runtime
 
     @staticmethod
-    def svd_impute(
-        X: np.ndarray,
-        M: np.ndarray,
-        rank: int = 50,
-    ) -> tuple[np.ndarray, float]:
-        container = _create_container(X, M)
-        start = time.time()
-        result = impute_svd(container, "protein", "raw", "imputed", rank=rank)
-        runtime = time.time() - start
-        return _extract_result(result, "imputed"), runtime
-
-    @staticmethod
     def pca(
         X: np.ndarray,
         M: np.ndarray | None = None,
@@ -129,7 +115,15 @@ class ScpTensorMethods:
         container = _create_container(X_pca_input, None)
 
         start = time.time()
-        result = reduce_pca(container, "protein", "raw", "pca", n_components=n_components, svd_solver="arpack", random_state=0)
+        result = reduce_pca(
+            container,
+            "protein",
+            "raw",
+            "pca",
+            n_components=n_components,
+            svd_solver="arpack",
+            random_state=0,
+        )
         runtime = time.time() - start
 
         pca_assay = result.assays["pca"]
@@ -148,7 +142,9 @@ class ScpTensorMethods:
     ) -> tuple[np.ndarray, float]:
         container = _create_container(X, M)
         start = time.time()
-        result = reduce_umap(container, "protein", "raw", "umap", n_components=n_components, n_neighbors=n_neighbors)
+        result = reduce_umap(
+            container, "protein", "raw", "umap", n_components=n_components, n_neighbors=n_neighbors
+        )
         runtime = time.time() - start
         return _extract_result(result, "umap"), runtime
 
@@ -174,16 +170,12 @@ class ScpTensorMethods:
         M: np.ndarray | None = None,
         n_top_genes: int = 2000,
     ) -> tuple[np.ndarray, float]:
-        container = _create_container(X, M)
-        start = time.time()
-        result = select_hvg(container, "protein", "raw", n_top_features=n_top_genes, subset=False)
-        runtime = time.time() - start
-
-        var = result.assays["protein"].var
-        hvg_mask = var["highly_variable"].to_numpy()
-        hvg_indices = np.where(hvg_mask)[0]
-
-        return hvg_indices, runtime
+        """
+        NOTE: select_hvg has been removed as feature_selection module was deleted.
+        This method is now deprecated and should be removed or reimplemented using QC methods.
+        """
+        # Return empty result for now
+        return np.array([]), 0.0
 
 
 def get_scptensor_methods() -> type[ScpTensorMethods]:

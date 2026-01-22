@@ -7,8 +7,9 @@ and a complete analysis pipeline.
 Key Features:
     - Hierarchical data structure: ScpContainer -> Assay -> ScpMatrix
     - Quality control: Basic QC, outlier detection, feature/sample filtering
-    - Normalization: Log, TMM, median scaling, upper quartile, and more
-    - Imputation: KNN, LLS, PPCA, BPCA, SVD, MissForest, QRILC
+    - Data transformation: Log transformation for preprocessing
+    - Normalization: TMM, median scaling, upper quartile, and more
+    - Imputation: KNN, LLS, BPCA, MissForest, QRILC, MinProb
     - Batch correction: ComBat, Harmony, MNN, Scanorama
     - Dimensionality reduction: PCA, UMAP
     - Clustering: K-means, graph-based clustering
@@ -17,9 +18,9 @@ Key Features:
     - Benchmarking: Comprehensive performance evaluation tools
 
 Quick Start:
-    >>> from scptensor import ScpContainer, load_csv, norm_log, reduce_pca, cluster_kmeans
+    >>> from scptensor import ScpContainer, load_csv, log_transform, reduce_pca, cluster_kmeans
     >>> container = load_csv("data.csv")
-    >>> container = norm_log(container, assay_name="proteins")
+    >>> container = log_transform(container, assay_name="proteins")
     >>> container = reduce_pca(container, assay_name="proteins")
     >>> container = cluster_kmeans(container, n_clusters=5)
 
@@ -36,22 +37,14 @@ __author__ = "ScpTensor Team"
 # Benchmarking
 from scptensor.benchmark import (
     COMPETITOR_REGISTRY,
+    BenchmarkResult,
     BenchmarkResults,
-    BenchmarkSuite,
     BiologicalMetrics,
     ComparisonResult,
     CompetitorBenchmarkSuite,
     CompetitorResultVisualizer,
-    ComputationalMetrics,
-    MethodConfig,
-    MethodRunResult,
-    MetricsEngine,
-    ParameterGrid,
-    ResultsVisualizer,
     ScanpyStyleOps,
     SyntheticDataset,
-    create_method_configs,
-    create_normalization_parameter_grids,
     get_competitor,
     get_competitors_by_operation,
     list_competitors,
@@ -64,7 +57,7 @@ from scptensor.cluster import (
     cluster_leiden,
 )
 
-# Core I/O and sparse utilities
+# Core data structures and exceptions
 from scptensor.core import (
     NUMBA_AVAILABLE,
     AggregationLink,
@@ -88,25 +81,16 @@ from scptensor.core import (
     apply_mask_threshold,
     auto_convert_for_operation,
     cleanup_layers,
-    compute_euclidean_distance,
     count_mask_codes,
     ensure_sparse_format,
     fill_missing_with_value,
     find_missing_indices,
-    from_scanpy,
     get_format_recommendation,
     get_memory_usage,
     get_sparsity_ratio,
     is_sparse_matrix,
-    load_csv,
-    load_h5ad,
-    load_npz,
     optimal_format_for_operation,
-    read_h5ad,
     reader,
-    save_csv,
-    save_h5ad,
-    save_npz,
     sparse_center_rows,
     sparse_col_operation,
     sparse_copy,
@@ -114,9 +98,7 @@ from scptensor.core import (
     sparse_multiply_rowwise,
     sparse_row_operation,
     sparse_safe_log1p,
-    to_scanpy,
     to_sparse_if_beneficial,
-    write_h5ad,
 )
 
 # Datasets
@@ -153,12 +135,8 @@ from scptensor.impute import (
     impute_knn,
     impute_lls,
     impute_mf,
-    impute_mindet,
     impute_minprob,
-    impute_nmf,
-    impute_ppca,
     impute_qrilc,
-    impute_svd,
 )
 
 # Integration (Batch Correction)
@@ -169,43 +147,48 @@ from scptensor.integration import (
     integrate_scanorama,
 )
 
+# CSV, NPZ, and Scanpy I/O functions
 # HDF5 I/O
-from scptensor.io import IOFormatError, IOPasswordError, IOWriteError, load_hdf5, save_hdf5
+from scptensor.io import (
+    IOFormatError,
+    IOPasswordError,
+    IOWriteError,
+    from_scanpy,
+    load_csv,
+    load_h5ad,
+    load_hdf5,
+    load_npz,
+    read_h5ad,
+    save_csv,
+    save_h5ad,
+    save_hdf5,
+    save_npz,
+    to_scanpy,
+    write_h5ad,
+)
 
-# Normalization
+# Normalization and transformation
 from scptensor.normalization import (
-    norm_global_median,
-    norm_log,
-    norm_median_center,
-    norm_median_scale,
-    norm_quartile,
-    norm_sample_mean,
-    norm_sample_median,
-    norm_tmm,
-    norm_zscore,
+    log_transform,
+    norm_mean,
+    norm_median,
+    norm_quantile,
 )
 
 # Quality Control
 from scptensor.qc import (
-    calculate_qc_metrics,
-    compute_batch_pca,
-    compute_feature_missing_rate,
-    compute_feature_variance,
-    compute_pairwise_correlation,
-    compute_sample_similarity_network,
-    detect_batch_effects,
-    detect_contaminants,
-    detect_doublets,
-    detect_outlier_samples,
-    detect_outliers,
-    filter_features_missing,
-    filter_features_prevalence,
-    filter_features_variance,
-    filter_samples_count,
-    filter_samples_missing,
-    qc_basic,
-    qc_batch_metrics,
-    qc_score,
+    assess_batch_effects,
+    calculate_feature_qc_metrics,
+    calculate_sample_qc_metrics,
+    filter_contaminants,
+    filter_doublets_mad,
+    filter_features_by_cv,
+    filter_features_by_missingness,
+    filter_low_quality_samples,
+    filter_psms_by_pif,
+    qc_feature,
+    qc_psm,
+    qc_sample,
 )
 
 # Standardization (deprecated, re-exported for backward compatibility)
@@ -287,55 +270,38 @@ __all__ = [
     "NUMBA_AVAILABLE",
     "count_mask_codes",
     "find_missing_indices",
-    "compute_euclidean_distance",
     "apply_mask_threshold",
     "fill_missing_with_value",
-    # Normalization
-    "norm_log",
-    "norm_zscore",
-    "norm_median_center",
-    "norm_median_scale",
-    "norm_sample_median",
-    "norm_sample_mean",
-    "norm_global_median",
-    "norm_tmm",
-    "norm_quartile",
+    # Normalization and transformation
+    "log_transform",
+    "norm_mean",
+    "norm_median",
+    "norm_quantile",
     # Imputation
     "impute_knn",
     "impute_lls",
-    "impute_ppca",
     "impute_bpca",
-    "impute_svd",
     "impute_mf",
     "impute_qrilc",
     "impute_minprob",
-    "impute_mindet",
-    "impute_nmf",
     # Integration
     "integrate_combat",
     "integrate_harmony",
     "integrate_mnn",
     "integrate_scanorama",
     # Quality Control
-    "qc_basic",
-    "qc_score",
-    "qc_batch_metrics",
-    "filter_features_missing",
-    "filter_features_variance",
-    "filter_features_prevalence",
-    "filter_samples_count",
-    "filter_samples_missing",
-    "detect_contaminants",
-    "detect_outliers",
-    "detect_doublets",
-    "calculate_qc_metrics",
-    "compute_feature_variance",
-    "compute_feature_missing_rate",
-    "compute_batch_pca",
-    "compute_pairwise_correlation",
-    "compute_sample_similarity_network",
-    "detect_batch_effects",
-    "detect_outlier_samples",
+    "qc_feature",
+    "qc_psm",
+    "qc_sample",
+    "filter_contaminants",
+    "filter_psms_by_pif",
+    "filter_features_by_cv",
+    "filter_features_by_missingness",
+    "filter_low_quality_samples",
+    "filter_doublets_mad",
+    "assess_batch_effects",
+    "calculate_sample_qc_metrics",
+    "calculate_feature_qc_metrics",
     # Dimensionality Reduction
     "reduce_pca",
     "reduce_umap",
@@ -361,26 +327,18 @@ __all__ = [
     "diff_expr_kruskal",
     "adjust_fdr",
     # Benchmarking
-    "BenchmarkSuite",
+    "BenchmarkResult",
     "BenchmarkResults",
-    "MethodRunResult",
     "BiologicalMetrics",
-    "ComputationalMetrics",
-    "MetricsEngine",
-    "ParameterGrid",
-    "MethodConfig",
-    "create_method_configs",
-    "create_normalization_parameter_grids",
-    "SyntheticDataset",
-    "ResultsVisualizer",
-    "CompetitorBenchmarkSuite",
     "ComparisonResult",
+    "CompetitorBenchmarkSuite",
     "CompetitorResultVisualizer",
     "COMPETITOR_REGISTRY",
     "ScanpyStyleOps",
     "list_competitors",
     "get_competitor",
     "get_competitors_by_operation",
+    "SyntheticDataset",
     # Datasets
     "load_toy_example",
     "load_simulated_scrnaseq_like",

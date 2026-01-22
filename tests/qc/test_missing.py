@@ -12,23 +12,41 @@ Test categories:
 4. High missing rate sample detection tests
 5. Grouped reporting tests
 6. Edge cases (all missing, all valid, empty mask, sparse matrices)
+
+SKIP REASON:
+This test module has been skipped because the scptensor.qc.missing module
+was removed during QC refactoring. The QC module has been reorganized into
+three hierarchical levels:
+
+- qc_psm: PSM-level filtering (filter_contaminants, filter_psms_by_pif)
+- qc_sample: Sample-level filtering (calculate_sample_qc_metrics, filter_low_quality_samples)
+- qc_feature: Feature-level filtering (filter_features_by_missingness, filter_features_by_cv)
+
+The missing value analysis functions (analyze_missing_types, compute_missing_stats,
+report_missing_values) are no longer available in the current codebase.
+
+If similar functionality is needed, it should be implemented within the new
+qc_feature module for feature-level missingness analysis.
 """
 
 from __future__ import annotations
 
+import pytest
+
+# Skip entire module - the tested module has been removed
+pytest.skip(
+    "scptensor.qc.missing module was removed during QC refactoring. "
+    "The QC module has been reorganized into qc_psm, qc_sample, and qc_feature submodules. "
+    "Missing value analysis functions are no longer available.",
+    allow_module_level=True,
+)
+
 import numpy as np
 import polars as pl
-import pytest
 from scipy import sparse
 
 from scptensor.core import Assay, MaskCode, ScpContainer, ScpMatrix
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
-from scptensor.qc.missing import (
-    MissingValueReport,
-    analyze_missing_types,
-    compute_missing_stats,
-    report_missing_values,
-)
 
 # =============================================================================
 # Test Fixtures

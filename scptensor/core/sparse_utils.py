@@ -478,7 +478,10 @@ def sparse_row_operation(
     X: sp.spmatrix, func: Callable[[np.ndarray], Any], **kwargs: Any
 ) -> np.ndarray:
     """
-    Apply a function to each row of a sparse matrix efficiently.
+    Apply a function to each row of a sparse matrix efficiently with JIT acceleration.
+
+    Fast path: Uses JIT kernels for common operations (sum, mean).
+    Fallback: Vectorized approach for custom functions.
 
     Parameters
     ----------
@@ -505,6 +508,21 @@ def sparse_row_operation(
     X_csr = X.tocsr() if is_sparse_matrix(X) else X
     n_rows = X_csr.shape[0]
 
+    # Fast path: use JIT kernels for common operations
+    if _ensure_numba():
+        # Check for sum operation
+        if func is np.sum or (hasattr(func, "__name__") and func.__name__ == "sum"):
+            from scptensor.core.jit_ops import _sparse_row_sum_jit
+
+            return _sparse_row_sum_jit(X_csr.indptr, X_csr.data, n_rows)
+
+        # Check for mean operation
+        if func is np.mean or (hasattr(func, "__name__") and func.__name__ == "mean"):
+            from scptensor.core.jit_ops import _sparse_row_mean_jit
+
+            return _sparse_row_mean_jit(X_csr.indptr, X_csr.data, n_rows)
+
+    # Fallback: vectorized approach for custom functions
     result = np.empty(n_rows, dtype=np.float64)
     for i in range(n_rows):
         start, end = X_csr.indptr[i], X_csr.indptr[i + 1]

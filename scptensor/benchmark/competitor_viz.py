@@ -5,7 +5,10 @@ Generates publication-quality plots comparing ScpTensor with competitor tools.
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import numpy as np
 
 import pandas as pd
 
@@ -414,6 +417,251 @@ class CompetitorResultVisualizer:
 
         plt.tight_layout()
         _save_or_show_figure(output_path, "accuracy comparison")
+
+    def plot_clustering_consistency(
+        self,
+        scptensor_labels: "np.ndarray",
+        competitor_labels: "np.ndarray",
+        ari: float,
+        nmi: float,
+        output_path: str | Path | None = None,
+        figsize: tuple[float, float] = (8, 6),
+    ) -> None:
+        """Plot clustering consistency visualization.
+
+        Creates a confusion matrix heatmap showing the agreement between
+        ScpTensor and competitor clustering results, annotated with
+        Adjusted Rand Index (ARI) and Normalized Mutual Information (NMI).
+
+        Parameters
+        ----------
+        scptensor_labels : np.ndarray
+            ScpTensor cluster labels.
+        competitor_labels : np.ndarray
+            Competitor cluster labels.
+        ari : float
+            Adjusted Rand Index score.
+        nmi : float
+            Normalized Mutual Information score.
+        output_path : str | Path | None
+            Path to save figure.
+        figsize : tuple[float, float]
+            Figure size (width, height).
+
+        Examples
+        --------
+        >>> viz = CompetitorResultVisualizer()
+        >>> viz.plot_clustering_consistency(
+        ...     scptensor_labels,
+        ...     competitor_labels,
+        ...     ari=0.85,
+        ...     nmi=0.92,
+        ...     output_path="clustering_consistency.png"
+        ... )
+        """
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        # Create confusion matrix
+        scptensor_unique = np.unique(scptensor_labels)
+        competitor_unique = np.unique(competitor_labels)
+
+        matrix = np.zeros((len(scptensor_unique), len(competitor_unique)))
+
+        for i, s_label in enumerate(scptensor_unique):
+            for j, c_label in enumerate(competitor_unique):
+                matrix[i, j] = np.sum(
+                    (scptensor_labels == s_label) & (competitor_labels == c_label)
+                )
+
+        # Normalize rows
+        row_sums = matrix.sum(axis=1, keepdims=True)
+        row_sums[row_sums == 0] = 1
+        matrix_norm = matrix / row_sums
+
+        fig, ax = plt.subplots(figsize=figsize)
+
+        im = ax.imshow(matrix_norm, cmap="Blues", aspect="auto")
+
+        ax.set_xticks(np.arange(len(competitor_unique)))
+        ax.set_yticks(np.arange(len(scptensor_unique)))
+        ax.set_xticklabels([f"Cluster {i}" for i in competitor_unique])
+        ax.set_yticklabels([f"Cluster {i}" for i in scptensor_unique])
+
+        # Add text annotations
+        for i in range(len(scptensor_unique)):
+            for j in range(len(competitor_unique)):
+                value = int(matrix[i, j])
+                text_color = "white" if matrix_norm[i, j] > 0.5 else "black"
+                ax.text(j, i, value, ha="center", va="center", color=text_color)
+
+        ax.set_xlabel("Competitor Clusters", fontweight="bold")
+        ax.set_ylabel("ScpTensor Clusters", fontweight="bold")
+        ax.set_title(
+            f"Clustering Consistency (ARI={ari:.3f}, NMI={nmi:.3f})", fontsize=12, fontweight="bold"
+        )
+
+        fig.colorbar(im, ax=ax, label="Normalized count")
+
+        plt.tight_layout()
+        _save_or_show_figure(output_path, "clustering consistency")
+
+    def plot_pca_variance_comparison(
+        self,
+        scptensor_variance: "np.ndarray",
+        competitor_variance: "np.ndarray",
+        output_path: str | Path | None = None,
+        figsize: tuple[float, float] = (12, 4),
+    ) -> None:
+        """Plot PCA variance comparison between ScpTensor and competitor.
+
+        Creates a two-panel figure showing:
+        1. Individual explained variance ratio per component
+        2. Cumulative explained variance ratio
+
+        Parameters
+        ----------
+        scptensor_variance : np.ndarray
+            ScpTensor explained variance ratio per component.
+        competitor_variance : np.ndarray
+            Competitor explained variance ratio per component.
+        output_path : str | Path | None
+            Path to save figure.
+        figsize : tuple[float, float]
+            Figure size (width, height).
+
+        Examples
+        --------
+        >>> viz = CompetitorResultVisualizer()
+        >>> viz.plot_pca_variance_comparison(
+        ...     scptensor_var,
+        ...     competitor_var,
+        ...     output_path="pca_variance.png"
+        ... )
+        """
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        n_components = min(len(scptensor_variance), len(competitor_variance))
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+
+        x = np.arange(1, n_components + 1)
+
+        # Individual variance
+        ax1.bar(
+            x - 0.2,
+            scptensor_variance[:n_components],
+            0.4,
+            label="ScpTensor",
+            color=_SCPTENSOR_COLOR,
+            alpha=0.8,
+        )
+        ax1.bar(
+            x + 0.2,
+            competitor_variance[:n_components],
+            0.4,
+            label="Competitor",
+            color=_COMPETITOR_COLOR,
+            alpha=0.8,
+        )
+        ax1.set_xlabel("Principal Component", fontweight="bold")
+        ax1.set_ylabel("Explained Variance Ratio", fontweight="bold")
+        ax1.set_title("PCA: Explained Variance per Component", fontsize=12, fontweight="bold")
+        ax1.legend()
+        ax1.grid(axis="y", alpha=0.3)
+
+        # Cumulative variance
+        cum_scptensor = np.cumsum(scptensor_variance[:n_components])
+        cum_competitor = np.cumsum(competitor_variance[:n_components])
+
+        ax2.plot(x, cum_scptensor, "o-", label="ScpTensor", color=_SCPTENSOR_COLOR, markersize=4)
+        ax2.plot(x, cum_competitor, "s-", label="Competitor", color=_COMPETITOR_COLOR, markersize=4)
+        ax2.set_xlabel("Principal Component", fontweight="bold")
+        ax2.set_ylabel("Cumulative Explained Variance", fontweight="bold")
+        ax2.set_title("PCA: Cumulative Explained Variance", fontsize=12, fontweight="bold")
+        ax2.legend()
+        ax2.grid(alpha=0.3)
+
+        plt.tight_layout()
+        _save_or_show_figure(output_path, "PCA variance comparison")
+
+    def plot_umap_quality_comparison(
+        self,
+        scptensor_umap: "np.ndarray",
+        competitor_umap: "np.ndarray",
+        labels: "np.ndarray | None" = None,
+        output_path: str | Path | None = None,
+        figsize: tuple[float, float] = (12, 5),
+    ) -> None:
+        """Plot UMAP embedding comparison between ScpTensor and competitor.
+
+        Creates side-by-side scatter plots of UMAP embeddings for visual
+        comparison of dimensionality reduction quality.
+
+        Parameters
+        ----------
+        scptensor_umap : np.ndarray
+            ScpTensor UMAP embedding (n_samples, 2).
+        competitor_umap : np.ndarray
+            Competitor UMAP embedding (n_samples, 2).
+        labels : np.ndarray | None
+            Cluster/group labels for coloring points.
+        output_path : str | Path | None
+            Path to save figure.
+        figsize : tuple[float, float]
+            Figure size (width, height).
+
+        Examples
+        --------
+        >>> viz = CompetitorResultVisualizer()
+        >>> viz.plot_umap_quality_comparison(
+        ...     scptensor_umap,
+        ...     competitor_umap,
+        ...     labels=cluster_labels,
+        ...     output_path="umap_comparison.png"
+        ... )
+        """
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        fig, axes = plt.subplots(1, 2, figsize=figsize)
+
+        # Color by labels if provided
+        if labels is not None:
+            unique_labels = np.unique(labels)
+            colors = plt.cm.tab20(np.linspace(0, 1, len(unique_labels)))
+            color_map = {label: colors[i] for i, label in enumerate(unique_labels)}
+            point_colors = [color_map[label] for label in labels]
+        else:
+            point_colors = _SCPTENSOR_COLOR
+
+        # ScpTensor UMAP
+        axes[0].scatter(
+            scptensor_umap[:, 0],
+            scptensor_umap[:, 1],
+            c=point_colors,
+            s=5,
+            alpha=0.6,
+        )
+        axes[0].set_xlabel("UMAP 1", fontweight="bold")
+        axes[0].set_ylabel("UMAP 2", fontweight="bold")
+        axes[0].set_title("ScpTensor UMAP", fontsize=12, fontweight="bold")
+
+        # Competitor UMAP
+        axes[1].scatter(
+            competitor_umap[:, 0],
+            competitor_umap[:, 1],
+            c=point_colors,
+            s=5,
+            alpha=0.6,
+        )
+        axes[1].set_xlabel("UMAP 1", fontweight="bold")
+        axes[1].set_ylabel("UMAP 2", fontweight="bold")
+        axes[1].set_title("Competitor UMAP", fontsize=12, fontweight="bold")
+
+        plt.tight_layout()
+        _save_or_show_figure(output_path, "UMAP quality comparison")
 
     def plot_comprehensive_summary(
         self,

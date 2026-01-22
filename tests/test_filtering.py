@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 import polars as pl
+import pytest
 import scipy.sparse as sp
 
 from scptensor.core.exceptions import (
@@ -14,6 +15,7 @@ from scptensor.core.exceptions import (
     DimensionError,
     ValidationError,
 )
+from scptensor.core.filtering import FilterCriteria, resolve_filter_criteria
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
 # =============================================================================
@@ -632,3 +634,227 @@ def run_all_tests() -> None:
 
 if __name__ == "__main__":
     run_all_tests()
+
+
+# =============================================================================
+# FilterCriteria API Tests
+# =============================================================================
+
+
+def test_filter_criteria_by_ids():
+    """Test FilterCriteria.by_ids() factory method."""
+    criteria = FilterCriteria.by_ids(["sample1", "sample2"])
+    assert criteria.criteria_type == "ids"
+    assert isinstance(criteria.value, list)
+
+
+def test_filter_criteria_by_indices():
+    """Test FilterCriteria.by_indices() factory method."""
+    criteria = FilterCriteria.by_indices([0, 1, 2])
+    assert criteria.criteria_type == "indices"
+    assert isinstance(criteria.value, list)
+
+
+def test_filter_criteria_by_mask():
+    """Test FilterCriteria.by_mask() factory method."""
+    criteria = FilterCriteria.by_mask(np.array([True, False, True]))
+    assert criteria.criteria_type == "mask"
+    assert isinstance(criteria.value, np.ndarray)
+
+
+def test_filter_criteria_by_expression():
+    """Test FilterCriteria.by_expression() factory method."""
+    criteria = FilterCriteria.by_expression(pl.col("n_detected") > 100)
+    assert criteria.criteria_type == "expression"
+    assert isinstance(criteria.value, pl.Expr)
+
+
+def test_filter_criteria_invalid_type_raises_error():
+    """Test that invalid criteria_type raises ValueError."""
+    with pytest.raises(ValueError, match="Invalid criteria_type"):
+        FilterCriteria(criteria_type="invalid_type", value=None)
+
+
+def test_resolve_filter_criteria_by_ids():
+    """Test resolving filter criteria by IDs."""
+    container = create_test_container(n_samples=10)
+    sample_ids = container.sample_ids[:5].to_list()
+
+    criteria = FilterCriteria.by_ids(sample_ids)
+    indices = resolve_filter_criteria(criteria, container, is_sample=True)
+
+    assert len(indices) == 5
+    assert np.array_equal(indices, np.array([0, 1, 2, 3, 4]))
+
+
+def test_resolve_filter_criteria_by_indices():
+    """Test resolving filter criteria by indices."""
+    container = create_test_container(n_samples=10)
+
+    criteria = FilterCriteria.by_indices([0, 2, 4])
+    indices = resolve_filter_criteria(criteria, container, is_sample=True)
+
+    assert len(indices) == 3
+    assert np.array_equal(indices, np.array([0, 2, 4]))
+
+
+def test_resolve_filter_criteria_by_mask():
+    """Test resolving filter criteria by mask."""
+    container = create_test_container(n_samples=10)
+    mask = np.array([True] * 5 + [False] * 5)
+
+    criteria = FilterCriteria.by_mask(mask)
+    indices = resolve_filter_criteria(criteria, container, is_sample=True)
+
+    assert len(indices) == 5
+    assert np.array_equal(indices, np.array([0, 1, 2, 3, 4]))
+
+
+def test_resolve_filter_criteria_by_expression():
+    """Test resolving filter criteria by expression."""
+    container = create_test_container(n_samples=10)
+
+    criteria = FilterCriteria.by_expression(pl.col("n_detected") > 0)
+    indices = resolve_filter_criteria(criteria, container, is_sample=True)
+
+    assert len(indices) == 10  # All samples have n_detected > 0
+
+
+def test_resolve_filter_criteria_by_ids_missing():
+    """Test that missing IDs raise ValueError."""
+    container = create_test_container(n_samples=10)
+
+    criteria = FilterCriteria.by_ids(["nonexistent_id"])
+
+    with pytest.raises(ValueError, match="Sample IDs not found"):
+        resolve_filter_criteria(criteria, container, is_sample=True)
+
+
+def test_resolve_filter_criteria_by_mask_wrong_length():
+    """Test that wrong mask length raises DimensionError."""
+    container = create_test_container(n_samples=10)
+    mask = np.array([True, False, True])  # Wrong length
+
+    criteria = FilterCriteria.by_mask(mask)
+
+    with pytest.raises(DimensionError, match="Mask length"):
+        resolve_filter_criteria(criteria, container, is_sample=True)
+
+
+def test_resolve_filter_criteria_by_mask_non_boolean():
+    """Test that non-boolean mask raises ValueError."""
+    container = create_test_container(n_samples=10)
+    mask = np.array([1, 0, 1, 0, 1, 0, 1, 0, 1, 0])  # int instead of bool
+
+    criteria = FilterCriteria.by_mask(mask)
+
+    with pytest.raises(ValueError, match="Mask must be boolean"):
+        resolve_filter_criteria(criteria, container, is_sample=True)
+
+
+def test_resolve_filter_criteria_by_expression_non_boolean():
+    """Test that non-boolean expression raises ValueError."""
+    container = create_test_container(n_samples=10)
+
+    # Expression returns integer, not boolean
+    criteria = FilterCriteria.by_expression(pl.col("n_detected"))
+
+    with pytest.raises(ValueError, match="Expression must produce boolean"):
+        resolve_filter_criteria(criteria, container, is_sample=True)
+
+
+def test_resolve_filter_criteria_features_by_ids():
+    """Test resolving feature filter criteria by IDs."""
+    container = create_test_container(n_samples=10, n_proteins=20)
+    assay = container.assays["proteins"]
+    feature_ids = assay.feature_ids[:5].to_list()
+
+    criteria = FilterCriteria.by_ids(feature_ids)
+    indices = resolve_filter_criteria(criteria, assay, is_sample=False)
+
+    assert len(indices) == 5
+    assert np.array_equal(indices, np.array([0, 1, 2, 3, 4]))
+
+
+def test_resolve_filter_criteria_features_by_indices():
+    """Test resolving feature filter criteria by indices."""
+    container = create_test_container(n_samples=10, n_proteins=20)
+    assay = container.assays["proteins"]
+
+    criteria = FilterCriteria.by_indices([0, 5, 10, 15])
+    indices = resolve_filter_criteria(criteria, assay, is_sample=False)
+
+    assert len(indices) == 4
+    assert np.array_equal(indices, np.array([0, 5, 10, 15]))
+
+
+def test_resolve_filter_criteria_features_by_mask():
+    """Test resolving feature filter criteria by mask."""
+    container = create_test_container(n_samples=10, n_proteins=20)
+    assay = container.assays["proteins"]
+    mask = np.array([True] * 10 + [False] * 10)
+
+    criteria = FilterCriteria.by_mask(mask)
+    indices = resolve_filter_criteria(criteria, assay, is_sample=False)
+
+    assert len(indices) == 10
+    assert np.array_equal(indices, np.arange(10))
+
+
+def test_resolve_filter_criteria_features_by_expression():
+    """Test resolving feature filter criteria by expression."""
+    container = create_test_container(n_samples=10, n_proteins=20)
+    assay = container.assays["proteins"]
+
+    # All features should have n_detected >= 0
+    criteria = FilterCriteria.by_expression(pl.col("n_detected") >= 0)
+    indices = resolve_filter_criteria(criteria, assay, is_sample=False)
+
+    assert len(indices) == 20
+
+
+def test_filter_samples_with_filter_criteria():
+    """Test filtering samples using FilterCriteria object."""
+    container = create_test_container(n_samples=10)
+
+    # Filter by indices - note: this integration test will work once
+    # filter_samples is updated to support FilterCriteria
+    criteria = FilterCriteria.by_indices([0, 2, 4, 6, 8])
+    indices = resolve_filter_criteria(criteria, container, is_sample=True)
+
+    # Manually create filtered container for now
+    filtered = container.filter_samples(sample_indices=indices.tolist())
+
+    assert filtered.n_samples == 5
+    assert filtered.sample_ids.to_list() == container.sample_ids[[0, 2, 4, 6, 8]].to_list()
+
+
+def test_filter_samples_with_expression_criteria():
+    """Test filtering samples with expression-based criteria."""
+    container = create_test_container(n_samples=10)
+
+    # Filter by n_detected > threshold
+    threshold = container.obs["n_detected"].median()
+    criteria = FilterCriteria.by_expression(pl.col("n_detected") > threshold)
+    indices = resolve_filter_criteria(criteria, container, is_sample=True)
+
+    # Manually create filtered container for now
+    filtered = container.filter_samples(sample_indices=indices.tolist())
+
+    assert filtered.n_samples <= container.n_samples
+    assert all(filtered.obs["n_detected"] > threshold)
+
+
+def test_filter_features_with_filter_criteria():
+    """Test filtering features using FilterCriteria object."""
+    container = create_test_container(n_samples=10, n_proteins=20)
+
+    # Filter by indices - note: this integration test will work once
+    # filter_features is updated to support FilterCriteria
+    criteria = FilterCriteria.by_indices([0, 5, 10])
+    indices = resolve_filter_criteria(criteria, container.assays["proteins"], is_sample=False)
+
+    # Manually create filtered container for now
+    filtered = container.filter_features("proteins", feature_indices=indices.tolist())
+
+    assert filtered.assays["proteins"].n_features == 3

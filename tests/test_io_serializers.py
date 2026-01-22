@@ -10,7 +10,7 @@ def test_serialize_dataframe_to_hdf5(sample_obs):
     """Test serializing polars DataFrame to HDF5 group."""
     import h5py
 
-    from scptensor.io.serializers import deserialize_dataframe, serialize_dataframe
+    from scptensor.io.hdf5 import deserialize_dataframe, serialize_dataframe
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "test.h5"
@@ -39,7 +39,7 @@ def test_deserialize_dataframe_from_hdf5():
     """Test deserializing HDF5 group to polars DataFrame."""
     import h5py
 
-    from scptensor.io.serializers import deserialize_dataframe
+    from scptensor.io.hdf5 import deserialize_dataframe
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "test.h5"
@@ -65,7 +65,7 @@ def test_serialize_provenance_log(sample_container):
     """Test serializing operation history."""
     import h5py
 
-    from scptensor.io.serializers import deserialize_provenance, serialize_provenance
+    from scptensor.io.hdf5 import deserialize_provenance, serialize_provenance
 
     # Add some history
     sample_container.log_operation("test_op", {"n": 5}, "Test operation")

@@ -1,6 +1,11 @@
-"""Tests for scptensor.benchmark module.
+"""Tests for scptensor.benchmark module (LEGACY - OLD API).
 
-This module contains comprehensive tests for benchmark core classes:
+This test file tests the OLD benchmark API that has been refactored.
+The new benchmark tests are in tests/benchmark/ directory.
+This file is kept for reference but is skipped because the old API
+no longer exists.
+
+Old classes tested here:
 - TechnicalMetrics, BiologicalMetrics, ComputationalMetrics
 - MethodRunResult
 - BenchmarkResults
@@ -8,12 +13,21 @@ This module contains comprehensive tests for benchmark core classes:
 - SyntheticDataset
 """
 
+import pytest
+
+pytest.skip(
+    "This test file uses the OLD benchmark API which has been refactored. "
+    "The new benchmark tests are located in tests/benchmark/ directory. "
+    "Classes like ComputationalMetrics, MethodRunResult, TechnicalMetrics, "
+    "and MetricsEngine no longer exist in the current codebase.",
+    allow_module_level=True,
+)
+
 from dataclasses import asdict
 
 import numpy as np
 import pandas as pd
 import polars as pl
-import pytest
 
 from scptensor.benchmark.core import (
     BenchmarkResults,

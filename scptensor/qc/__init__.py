@@ -1,102 +1,66 @@
-"""Quality Control module for single-cell proteomics data.
+"""Quality Control (QC) module for single-cell proteomics.
 
-This module provides comprehensive QC operations including:
-- Basic QC: Filter samples/features by detection rates
-- Advanced QC: Feature filtering, contaminant detection, doublet detection
-- Bivariate analysis: Correlation-based QC metrics
-- Batch effect detection: Statistical tests for batch effects
-- Sensitivity metrics: Total/local feature detection, completeness, Jaccard index
+This module provides a hierarchical QC workflow:
+1. PSM Level (qc_psm): Filter raw peptide matches (PIF, Contaminants).
+2. Sample Level (qc_sample): Filter cells (Empty wells, Doublets via MAD).
+3. Feature Level (qc_feature): Filter proteins (Missingness, CV).
+
+Common Usage:
+    >>> from scptensor.qc import qc_psm, qc_sample, qc_feature
+    >>>
+    >>> # 1. PSM QC
+    >>> container = qc_psm.filter_contaminants(container)
+    >>> container = qc_psm.filter_psms_by_pif(container, min_pif=0.8)
+    >>>
+    >>> # 2. Sample QC
+    >>> container = qc_sample.calculate_sample_qc_metrics(container)
+    >>> container = qc_sample.filter_low_quality_samples(container, nmads=3)
+    >>> container = qc_sample.filter_doublets_mad(container, nmads=3)
+    >>>
+    >>> # 3. Feature QC
+    >>> container = qc_feature.filter_features_by_missingness(container, max_missing_rate=0.5)
 """
 
-from scptensor.qc.advanced import (
-    calculate_qc_metrics,
-    detect_contaminants,
-    detect_doublets,
-    filter_features_missing,
-    filter_features_prevalence,
-    filter_features_variance,
-    filter_samples_count,
-    filter_samples_missing,
+from scptensor.qc import qc_feature, qc_psm, qc_sample
+from scptensor.qc.qc_feature import (
+    calculate_feature_qc_metrics,
+    filter_features_by_cv,
+    filter_features_by_missingness,
 )
-from scptensor.qc.basic import (
-    compute_feature_missing_rate,
-    compute_feature_variance,
-    qc_basic,
-    qc_score,
+from scptensor.qc.qc_psm import (
+    compute_median_cv,
+    compute_sample_carrier_ratio,
+    divide_by_reference,
+    filter_contaminants,
+    filter_psms_by_pif,
+    filter_psms_by_qvalue,
+    pep_to_qvalue,
 )
-from scptensor.qc.batch import (
-    compute_batch_pca,
-    detect_batch_effects,
-    qc_batch_metrics,
-)
-from scptensor.qc.bivariate import (
-    compute_pairwise_correlation,
-    compute_sample_similarity_network,
-    detect_outlier_samples,
-)
-from scptensor.qc.missing import (
-    analyze_missing_types,
-    compute_missing_stats,
-    report_missing_values,
-)
-from scptensor.qc.outlier import detect_outliers
-from scptensor.qc.sensitivity import (
-    compute_completeness,
-    compute_cumulative_sensitivity,
-    compute_jaccard_index,
-    compute_sensitivity,
-    qc_report_metrics,
-)
-
-# Variability statistics
-from scptensor.qc.variability import (
-    CVReport,
-    compute_batch_cv,
-    compute_cv,
-    compute_technical_replicate_cv,
-    filter_by_cv,
+from scptensor.qc.qc_sample import (
+    assess_batch_effects,
+    calculate_sample_qc_metrics,
+    filter_doublets_mad,
+    filter_low_quality_samples,
 )
 
 __all__ = [
-    # Basic QC
-    "qc_basic",
-    "qc_score",
-    "compute_feature_variance",
-    "compute_feature_missing_rate",
-    "detect_outliers",
-    # Advanced QC - filtering
-    "filter_features_missing",
-    "filter_features_variance",
-    "filter_features_prevalence",
-    "filter_samples_count",
-    "filter_samples_missing",
-    # Advanced QC - detection
-    "detect_contaminants",
-    "detect_doublets",
-    # Advanced QC - metrics
-    "calculate_qc_metrics",
-    # Bivariate analysis
-    "compute_pairwise_correlation",
-    "detect_outlier_samples",
-    "compute_sample_similarity_network",
-    # Batch QC
-    "qc_batch_metrics",
-    "detect_batch_effects",
-    "compute_batch_pca",
-    # Sensitivity metrics
-    "compute_sensitivity",
-    "compute_completeness",
-    "compute_jaccard_index",
-    "compute_cumulative_sensitivity",
-    "qc_report_metrics",
-    # Missing value analysis
-    "analyze_missing_types",
-    "compute_missing_stats",
-    "report_missing_values",
-    # Variability statistics
-    "CVReport",
-    "compute_cv",
-    "compute_technical_replicate_cv",
-    "compute_batch_cv",
-    "filter_by_cv",
+    # Submodules
+    "qc_psm",
+    "qc_sample",
+    "qc_feature",
+    # Functions
+    "filter_contaminants",
+    "filter_psms_by_pif",
+    "pep_to_qvalue",
+    "filter_psms_by_qvalue",
+    "compute_sample_carrier_ratio",
+    "compute_median_cv",
+    "divide_by_reference",
+    "calculate_sample_qc_metrics",
+    "filter_low_quality_samples",
+    "filter_doublets_mad",
+    "assess_batch_effects",
+    "calculate_feature_qc_metrics",
+    "filter_features_by_missingness",
+    "filter_features_by_cv",
 ]

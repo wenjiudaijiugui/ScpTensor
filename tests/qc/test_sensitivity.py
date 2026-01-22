@@ -14,25 +14,23 @@ Test categories:
 4. Group by functionality
 5. Jaccard special cases (identical, completely different)
 6. Cumulative sensitivity properties
+
+SKIPPED: The sensitivity module (scptensor.qc.sensitivity) has been removed during
+the QC module refactoring. The new QC architecture focuses on PSM, sample, and
+feature-level QC through qc_psm, qc_sample, and qc_feature modules respectively.
+Sensitivity metrics may be reintroduced in future updates as part of the core
+QC metrics framework.
 """
 
 from __future__ import annotations
 
-import numpy as np
-import polars as pl
 import pytest
-from scipy import sparse
 
-from scptensor.core import Assay, ScpContainer, ScpMatrix
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
-from scptensor.qc.sensitivity import (
-    CumulativeSensitivityResult,
-    QCMetrics,
-    compute_completeness,
-    compute_cumulative_sensitivity,
-    compute_jaccard_index,
-    compute_sensitivity,
-    qc_report_metrics,
+pytest.skip(
+    "The sensitivity module has been removed during QC refactoring. "
+    "New QC architecture uses qc_psm, qc_sample, and qc_feature modules. "
+    "Sensitivity metrics may be reintroduced in future updates.",
+    allow_module_level=True,
 )
 
 # =============================================================================

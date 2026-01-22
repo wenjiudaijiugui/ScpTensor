@@ -12,6 +12,14 @@ from .accuracy import (
     evaluate_regression_accuracy,
 )
 from .biological import BaseEvaluator, BiologicalEvaluator, evaluate_biological
+from .clustering_metrics import (
+    ClusteringEvaluator,
+    compare_pca_variance_explained,
+    compare_umap_embedding_quality,
+    compute_clustering_ari,
+    compute_clustering_nmi,
+    compute_clustering_silhouette,
+)
 from .parameter_sensitivity import (
     ParameterSensitivityEvaluator,
     SensitivityResult,
@@ -44,4 +52,10 @@ __all__ = [
     "evaluate_accuracy",
     "evaluate_regression_accuracy",
     "evaluate_classification_accuracy",
+    "ClusteringEvaluator",
+    "compute_clustering_ari",
+    "compute_clustering_nmi",
+    "compute_clustering_silhouette",
+    "compare_pca_variance_explained",
+    "compare_umap_embedding_quality",
 ]
