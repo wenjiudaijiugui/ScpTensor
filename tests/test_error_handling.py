@@ -96,39 +96,39 @@ class TestNormalizationErrors:
 
     def test_log_normalize_assay_not_found(self, sample_container):
         """Test that AssayNotFoundError is raised for invalid assay."""
-        from scptensor.normalization.log import norm_log as log_normalize
+        from scptensor.normalization.log_transform import log_transform
 
         with pytest.raises(AssayNotFoundError) as exc_info:
-            log_normalize(sample_container, assay_name="invalid")
+            log_transform(sample_container, assay_name="invalid")
         assert "invalid" in str(exc_info.value)
 
     def test_log_normalize_layer_not_found(self, sample_container):
         """Test that LayerNotFoundError is raised for invalid layer."""
-        from scptensor.normalization.log import norm_log as log_normalize
+        from scptensor.normalization.log_transform import log_transform
 
         with pytest.raises(LayerNotFoundError) as exc_info:
-            log_normalize(sample_container, source_layer="invalid")
+            log_transform(sample_container, source_layer="invalid")
         assert "invalid" in str(exc_info.value)
 
     def test_log_normalize_invalid_base(self, sample_container):
         """Test that ScpValueError is raised for invalid base."""
-        from scptensor.normalization.log import norm_log as log_normalize
+        from scptensor.normalization.log_transform import log_transform
 
         with pytest.raises(ScpValueError) as exc_info:
-            log_normalize(sample_container, base=-1.0)
+            log_transform(sample_container, base=-1.0)
         assert "base" in str(exc_info.value).lower()
         assert "-1.0" in str(exc_info.value)
 
     def test_zscore_assay_not_found(self, sample_container):
         """Test that AssayNotFoundError is raised for invalid assay."""
-        from scptensor.normalization.zscore import norm_zscore as zscore
+        from scptensor.standardization.zscore import zscore
 
         with pytest.raises(AssayNotFoundError):
             zscore(sample_container, assay_name="invalid")
 
     def test_zscore_invalid_axis(self, complete_container):
         """Test that ScpValueError is raised for invalid axis."""
-        from scptensor.normalization.zscore import norm_zscore as zscore
+        from scptensor.standardization.zscore import zscore
 
         with pytest.raises(ScpValueError) as exc_info:
             zscore(complete_container, axis=5)
@@ -136,7 +136,7 @@ class TestNormalizationErrors:
 
     def test_zscore_requires_complete_data(self, sample_container):
         """Test that ValidationError is raised for data with NaNs."""
-        from scptensor.normalization.zscore import norm_zscore as zscore
+        from scptensor.standardization.zscore import zscore
 
         with pytest.raises(ValidationError) as exc_info:
             zscore(sample_container, source_layer="raw")
@@ -405,7 +405,7 @@ class TestExceptionMessages:
 
     def test_assay_not_found_message(self, sample_container):
         """Test AssayNotFoundError message includes assay name."""
-        from scptensor.normalization.log import norm_log as log_normalize
+        from scptensor.normalization.log_normalization import norm_log as log_normalize
 
         with pytest.raises(AssayNotFoundError) as exc_info:
             log_normalize(sample_container, assay_name="my_assay")
@@ -414,7 +414,7 @@ class TestExceptionMessages:
 
     def test_layer_not_found_message(self, sample_container):
         """Test LayerNotFoundError message includes layer and assay names."""
-        from scptensor.normalization.log import norm_log as log_normalize
+        from scptensor.normalization.log_normalization import norm_log as log_normalize
 
         with pytest.raises(LayerNotFoundError) as exc_info:
             log_normalize(sample_container, source_layer="my_layer")
@@ -423,7 +423,7 @@ class TestExceptionMessages:
 
     def test_scvalue_error_includes_parameter_and_value(self, sample_container):
         """Test ScpValueError includes parameter name and value."""
-        from scptensor.normalization.log import norm_log as log_normalize
+        from scptensor.normalization.log_normalization import norm_log as log_normalize
 
         with pytest.raises(ScpValueError) as exc_info:
             log_normalize(sample_container, base=-5.0)

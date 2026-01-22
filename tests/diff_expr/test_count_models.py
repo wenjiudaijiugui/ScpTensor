@@ -186,7 +186,7 @@ class TestDiffExprVoom:
 
     def test_voom_normalization_options(self, simple_count_container):
         """Test VOOM with different normalization methods."""
-        for norm in ["tmm", "upper_quartile", "none"]:
+        for norm in ["tmm", "none"]:
             result = diff_expr_voom(
                 simple_count_container,
                 "protein",

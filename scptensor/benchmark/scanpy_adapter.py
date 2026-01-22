@@ -15,12 +15,13 @@ warnings.filterwarnings("ignore", message=".*observation names.*")
 warnings.filterwarnings("ignore", message=".*variable names.*")
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    pass
 
 try:
-    import scanpy as sc
     import anndata as ad
+    import scanpy as sc
     from scipy.sparse import issparse
+
     SCANPY_AVAILABLE = True
 except ImportError:
     SCANPY_AVAILABLE = False
@@ -45,6 +46,7 @@ def _container_to_anndata(
 
     if batch_labels is not None or group_labels is not None:
         import pandas as pd
+
         obs_dict = {}
         if batch_labels is not None:
             obs_dict["batch"] = batch_labels.astype(str)
@@ -124,6 +126,7 @@ class ScanpyMethods:
         k: int = 15,
     ) -> tuple[np.ndarray, float]:
         import time
+
         from sklearn.neighbors import NearestNeighbors
 
         valid_mask = M == 0
@@ -142,7 +145,7 @@ class ScanpyMethods:
         X_imp = X.copy().astype(float)
 
         missing_rows, missing_cols = np.where(missing_mask)
-        for i, j in zip(missing_rows, missing_cols):
+        for i, j in zip(missing_rows, missing_cols, strict=True):
             neighbor_idxs = indices[i, 1:k_adj]
             valid_mask_neighbors = M[neighbor_idxs, j] == 0
             if valid_mask_neighbors.any():
@@ -206,6 +209,7 @@ class ScanpyMethods:
         random_state: int = 42,
     ) -> tuple[np.ndarray, float]:
         import time
+
         from sklearn.cluster import KMeans
 
         start = time.time()
@@ -229,7 +233,9 @@ class ScanpyMethods:
         start = time.time()
 
         batch_key = "batch" if "batch" in adata.obs else None
-        sc.pp.highly_variable_genes(adata, n_top_genes=n_top_genes, flavor=flavor, batch_key=batch_key)
+        sc.pp.highly_variable_genes(
+            adata, n_top_genes=n_top_genes, flavor=flavor, batch_key=batch_key
+        )
 
         runtime = time.time() - start
 

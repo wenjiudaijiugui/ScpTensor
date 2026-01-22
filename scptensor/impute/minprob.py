@@ -1,11 +1,10 @@
-"""MinProb and MinDet imputation for single-cell proteomics data.
+"""MinProb imputation for single-cell proteomics data.
 
-These methods are designed for left-censored MNAR (Missing Not At Random) data
+This method is designed for left-censored MNAR (Missing Not At Random) data
 where missingness is due to low abundance - values below detection limit.
 
 References:
     .. [1] Wei R, et al. Sci Rep 2018;8:663.
-    .. [2] Lazar C, et al. BMC Bioinformatics 2016;17:175.
 """
 
 import numpy as np
@@ -215,178 +214,9 @@ def impute_minprob(
     return container
 
 
-def impute_mindet(
-    container: ScpContainer,
-    assay_name: str,
-    source_layer: str,
-    new_layer_name: str = "imputed_mindet",
-    sigma: float = 1.0,
-) -> ScpContainer:
-    """
-    Impute missing values using deterministic minimum imputation (MinDet).
-
-    Uses a fixed deterministic value for all missing values in each feature.
-    The imputed value is calculated as (min_detected - sigma * spread),
-    where spread is a measure of the data variability. This method is
-    faster than MinProb but less accurate as it does not capture the
-    uncertainty in imputation.
-
-    For each feature with missing values:
-    1. Find the minimum detected (non-missing) value
-    2. Calculate the imputed value as (min_detected - sigma * min_detected / sigma_adjusted)
-       which simplifies to a value below the minimum detected
-    3. Fill all missing values with this deterministic value
-
-    Parameters
-    ----------
-    container : ScpContainer
-        Input container with missing values.
-    assay_name : str
-        Name of the assay to use.
-    source_layer : str
-        Name of the layer containing data with missing values.
-    new_layer_name : str, default "imputed_mindet"
-        Name for the new layer with imputed data.
-    sigma : float, default 1.0
-        Controls how far below the minimum to impute.
-        Smaller values impute closer to the minimum.
-        - sigma=1: impute at min_detected - spread (conservative)
-        - sigma=2: impute closer to minimum (less conservative)
-
-    Returns
-    -------
-    ScpContainer
-        Container with imputed data in new layer.
-
-    Raises
-    ------
-    AssayNotFoundError
-        If the assay does not exist.
-    LayerNotFoundError
-        If the layer does not exist.
-    ScpValueError
-        If parameters are invalid.
-
-    Notes
-    -----
-    MinDet is a deterministic variant of MinProb. It is faster but introduces
-    bias by using the same value for all missing entries in a feature. This
-    can artificially reduce variance and affect downstream statistical analysis.
-
-    The deterministic nature means results are fully reproducible without
-    random_state. Use MinProb when you need to capture imputation uncertainty.
-
-    Examples
-    --------
-    >>> from scptensor import impute_mindet
-    >>> result = impute_mindet(container, "proteins", sigma=1.0)
-    >>> "imputed_mindet" in result.assays["proteins"].layers
-    True
-
-    References
-    ----------
-    .. [1] Lazar C, et al. "Missing Value Imputation for Proteomics Data."
-       BMC Bioinformatics 2016;17:175.
-    """
-    # Parameter validation
-    if sigma <= 0:
-        raise ScpValueError(
-            f"sigma must be positive, got {sigma}. Use sigma >= 1 for minimum value adjustment.",
-            parameter="sigma",
-            value=sigma,
-        )
-
-    # Validate assay and layer
-    if assay_name not in container.assays:
-        available = ", ".join(f"'{k}'" for k in container.assays)
-        raise AssayNotFoundError(
-            assay_name,
-            hint=f"Available assays: {available}. Use container.list_assays() to see all assays.",
-        )
-
-    assay = container.assays[assay_name]
-    if source_layer not in assay.layers:
-        available = ", ".join(f"'{k}'" for k in assay.layers)
-        raise LayerNotFoundError(
-            source_layer,
-            assay_name,
-            hint=f"Available layers in assay '{assay_name}': {available}. "
-            f"Use assay.list_layers() to see all layers.",
-        )
-
-    # Get data
-    input_matrix = assay.layers[source_layer]
-    X_original = input_matrix.X
-    X_dense = X_original.toarray() if sp.issparse(X_original) else X_original.copy()  # type: ignore[union-attr]
-
-    # Check for missing values
-    missing_mask = np.isnan(X_dense)
-    if not np.any(missing_mask):
-        new_matrix = ScpMatrix(X=X_dense, M=_update_imputed_mask(input_matrix.M, missing_mask))
-        layer_name = new_layer_name or "imputed_mindet"
-        assay.add_layer(layer_name, new_matrix)
-        container.log_operation(
-            action="impute_mindet",
-            params={
-                "assay": assay_name,
-                "source_layer": source_layer,
-                "new_layer_name": layer_name,
-                "sigma": sigma,
-            },
-            description=f"MinDet imputation on assay '{assay_name}': no missing values found.",
-        )
-        return container
-
-    # Imputation: for each feature, use deterministic value
-    X_imputed = X_dense.copy()
-    n_features = X_dense.shape[1]
-
-    for j in range(n_features):
-        feature_col = X_dense[:, j]
-        missing_in_col = missing_mask[:, j]
-
-        if not np.any(missing_in_col):
-            continue
-
-        # Get minimum detected value for this feature
-        detected_values = feature_col[~missing_in_col]
-        if len(detected_values) == 0:
-            # All values missing - use small positive value
-            X_imputed[missing_in_col, j] = 0.01
-            continue
-
-        min_detected = np.min(detected_values)
-
-        # Calculate deterministic imputation value
-        # Using min_detected - (min_detected / sigma) ensures positive values
-        # and scales appropriately with sigma
-        spread = min_detected / sigma
-        imputed_value = max(0.01, min_detected - spread)
-
-        X_imputed[missing_in_col, j] = imputed_value
-
-    # Create new layer with updated mask
-    new_matrix = ScpMatrix(X=X_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask))
-    layer_name = new_layer_name or "imputed_mindet"
-    assay.add_layer(layer_name, new_matrix)
-
-    container.log_operation(
-        action="impute_mindet",
-        params={
-            "assay": assay_name,
-            "source_layer": source_layer,
-            "new_layer_name": layer_name,
-            "sigma": sigma,
-        },
-        description=f"MinDet imputation (sigma={sigma}) on assay '{assay_name}'.",
-    )
-
-    return container
-
-
 if __name__ == "__main__":
     # Test: Basic functionality
-    print("Testing MinProb and MinDet imputation...")
+    print("Testing MinProb imputation...")
 
     # Create simple test data with MNAR pattern
     np.random.seed(42)
@@ -449,28 +279,6 @@ if __name__ == "__main__":
     print(f"  MinProb: Shape={X_minprob.shape}, No NaNs={not np.any(np.isnan(X_minprob))}")
     print(f"  Mask codes: {np.sum(M_minprob == MaskCode.IMPUTED)} imputed")
 
-    # Test MinDet imputation
-    print("\nTesting MinDet imputation...")
-    result_mindet = impute_mindet(
-        container,
-        assay_name="protein",
-        source_layer="raw",
-        sigma=1.0,
-    )
-
-    assert "imputed_mindet" in result_mindet.assays["protein"].layers
-    result_matrix = result_mindet.assays["protein"].layers["imputed_mindet"]
-    X_mindet = result_matrix.X
-    M_mindet = result_matrix.M
-
-    assert not np.any(np.isnan(X_mindet))
-    assert M_mindet is not None
-    assert np.all(M_mindet[missing_mask] == MaskCode.IMPUTED)
-    assert np.all(M_mindet[~missing_mask] == MaskCode.VALID)
-
-    print(f"  MinDet: Shape={X_mindet.shape}, No NaNs={not np.any(np.isnan(X_mindet))}")
-    print(f"  Mask codes: {np.sum(M_mindet == MaskCode.IMPUTED)} imputed")
-
     # Test with existing mask
     print("\nTesting with existing mask...")
     M_initial = np.zeros(X_missing.shape, dtype=np.int8)
@@ -513,12 +321,6 @@ if __name__ == "__main__":
     except ScpValueError:
         print("  sigma=0 correctly raises error")
 
-    try:
-        impute_mindet(container, "protein", "raw", sigma=-1)
-        raise AssertionError("Should raise error for sigma=-1")
-    except ScpValueError:
-        print("  sigma=-1 correctly raises error")
-
     print("\nTesting random state reproducibility...")
     result1 = impute_minprob(container, "protein", "raw", sigma=2.0, random_state=123)
     result2 = impute_minprob(container, "protein", "raw", sigma=2.0, random_state=123)
@@ -526,14 +328,6 @@ if __name__ == "__main__":
     X2 = result2.assays["protein"].layers["imputed_minprob"].X
     np.testing.assert_array_equal(X1, X2)
     print("  Same random_state produces identical results")
-
-    print("\nTesting MinDet determinism...")
-    result1 = impute_mindet(container, "protein", "raw", sigma=1.0)
-    result2 = impute_mindet(container, "protein", "raw", sigma=1.0)
-    X1 = result1.assays["protein"].layers["imputed_mindet"].X
-    X2 = result2.assays["protein"].layers["imputed_mindet"].X
-    np.testing.assert_array_equal(X1, X2)
-    print("  MinDet is deterministic")
 
     print("\nTesting no missing values case...")
     assay3 = Assay(var=var)

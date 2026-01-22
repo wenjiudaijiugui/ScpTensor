@@ -1,22 +1,12 @@
-# Normalization functions (new norm_* prefixed API)
-from .global_median import norm_global_median
-from .log import norm_log
-from .median_centering import norm_median_center
-from .median_scaling import norm_median_scale
-from .sample_mean import norm_sample_mean
-from .sample_median import norm_sample_median
-from .tmm import norm_tmm
-from .upper_quartile import norm_quartile
-from .zscore import norm_zscore
+# Normalization and transformation functions
+from .log_transform import log_transform
+from .mean_normalization import norm_mean
+from .median_normalization import norm_median
+from .quantile_normalization import norm_quantile
 
 __all__ = [
-    "norm_log",
-    "norm_zscore",
-    "norm_median_center",
-    "norm_median_scale",
-    "norm_sample_median",
-    "norm_sample_mean",
-    "norm_global_median",
-    "norm_tmm",
-    "norm_quartile",
+    "log_transform",
+    "norm_median",
+    "norm_quantile",
+    "norm_mean",
 ]

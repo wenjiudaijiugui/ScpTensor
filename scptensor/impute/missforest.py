@@ -1,7 +1,12 @@
 """MissForest imputation for single-cell proteomics data."""
 
 import numpy as np
-import sklearn.ensemble
+import scipy.sparse as sp
+from sklearn.ensemble import RandomForestRegressor
+
+# Enable experimental IterativeImputer
+from sklearn.experimental import enable_iterative_imputer  # noqa: F401
+from sklearn.impute import IterativeImputer
 
 from scptensor.core.exceptions import (
     AssayNotFoundError,
@@ -28,8 +33,8 @@ def impute_mf(
     """
     Impute missing values using MissForest (Random Forest imputation).
 
-    Iteratively trains Random Forest on observed values to predict
-    missing values for each feature.
+    Uses sklearn's IterativeImputer with RandomForestRegressor to iteratively
+    train on observed values and predict missing values.
 
     Parameters
     ----------
@@ -37,22 +42,22 @@ def impute_mf(
         Input container with missing values.
     assay_name : str
         Name of the assay to use.
-    source_layer : str, default "raw"
+    source_layer : str
         Name of the layer containing data with missing values.
     new_layer_name : str, default "imputed_missforest"
         Name for the new layer with imputed data.
     max_iter : int, default 10
-        Maximum iterations.
+        Maximum iterations for iterative imputation.
     n_estimators : int, default 100
-        Number of trees in forest.
+        Number of trees in the random forest.
     max_depth : int, optional
-        Maximum tree depth.
+        Maximum tree depth. None for unlimited depth.
     n_jobs : int, default -1
-        Parallel jobs.
+        Number of parallel jobs. -1 uses all available cores.
     random_state : int, default 42
-        Random seed.
+        Random seed for reproducibility.
     verbose : int, default 0
-        Verbosity level.
+        Verbosity level. 0=silent, 1=progress, 2=detailed.
 
     Returns
     -------
@@ -138,65 +143,60 @@ def impute_mf(
         assay.add_layer(new_layer_name or "imputed_missforest", new_matrix)
         return container
 
-    # Initialize with mean imputation
-    X_in = X_original.copy()
+    # Convert sparse to dense for IterativeImputer
+    if sp.issparse(X_original):
+        X_in = X_original.toarray().copy()
+    else:
+        X_in = X_original.copy()
+
+    # Initialize with mean imputation (for initial strategy consistency)
     impute_missing_with_col_means_jit(X_in)
     missing_mask = np.isnan(X_in)
 
-    # Sort columns by missing count (fewest missing first)
-    missing_counts = missing_mask.sum(axis=0)
-    sorted_indices = [idx for idx in np.argsort(missing_counts) if missing_counts[idx] > 0]
-
-    X_old = X_in.copy()
-    gamma = 0.0
-
-    # Iterative imputation
-    for iteration in range(max_iter):
+    # Check if all values are missing (edge case)
+    if np.all(missing_mask):
         if verbose > 0:
-            print(f"MissForest iteration {iteration + 1}/{max_iter}")
-
-        for col_idx in sorted_indices:
-            obs_rows = ~missing_mask[:, col_idx]
-            mis_rows = missing_mask[:, col_idx]
-
-            if not np.any(mis_rows):
-                continue
-
-            # Prepare training data (excluding current column)
-            X_train = np.delete(X_in[obs_rows, :], col_idx, axis=1)
-            y_train = X_in[obs_rows, col_idx]
-            X_test = np.delete(X_in[mis_rows, :], col_idx, axis=1)
-
-            # Train and predict
-            rf = sklearn.ensemble.RandomForestRegressor(
+            print("Warning: All values are missing. Returning mean-imputed data.")
+        X_imputed = X_in
+    else:
+        # Create IterativeImputer with RandomForestRegressor
+        imputer = IterativeImputer(
+            estimator=RandomForestRegressor(
                 n_estimators=n_estimators,
                 max_depth=max_depth,
                 n_jobs=n_jobs,
                 random_state=random_state,
-            )
-            rf.fit(X_train, y_train)
-            X_in[mis_rows, col_idx] = rf.predict(X_test)
+            ),
+            max_iter=max_iter,
+            initial_strategy="mean",
+            verbose=bool(verbose > 0),
+            random_state=random_state,
+        )
 
-        # Check convergence
-        diff = np.sum((X_in[missing_mask] - X_old[missing_mask]) ** 2)
-        norm = np.sum(X_in[missing_mask] ** 2)
-        gamma = diff / (norm + 1e-9)
-
-        if verbose > 0:
-            print(f"  Difference (gamma): {gamma:.6f}")
-
-        if gamma < 1e-4:
+        # Perform imputation
+        try:
             if verbose > 0:
-                print("Converged.")
-            break
+                print(f"Running MissForest imputation with max_iter={max_iter}...")
+            X_imputed = imputer.fit_transform(X_in)
+            if verbose > 0:
+                print("Imputation completed.")
+        except Exception as e:
+            raise ScpValueError(
+                f"IterativeImputer failed: {e}. "
+                "This may occur if there are insufficient observed values for imputation. "
+                "Check your data quality and consider using a simpler imputation method.",
+                parameter="iterative_imputer",
+                value=None,
+            ) from e
 
-        X_old = X_in.copy()
-
-    # Create new layer
-    new_matrix = ScpMatrix(X=X_in, M=_update_imputed_mask(input_matrix.M, missing_mask_original))
+    # Create new layer with updated mask
+    new_matrix = ScpMatrix(
+        X=X_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask_original)
+    )
     layer_name = new_layer_name or "imputed_missforest"
     assay.add_layer(layer_name, new_matrix)
 
+    # Log operation
     container.log_operation(
         action="impute_missforest",
         params={
@@ -205,9 +205,9 @@ def impute_mf(
             "new_layer_name": layer_name,
             "max_iter": max_iter,
             "n_estimators": n_estimators,
-            "gamma": gamma,
+            "max_depth": max_depth,
         },
-        description=f"MissForest imputation on assay '{assay_name}'.",
+        description=f"MissForest imputation on assay '{assay_name}' using sklearn.impute.IterativeImputer.",
     )
 
     return container
@@ -215,7 +215,7 @@ def impute_mf(
 
 if __name__ == "__main__":
     # Test: Basic functionality
-    print("Testing MissForest imputation...")
+    print("Testing MissForest imputation with sklearn.impute.IterativeImputer...")
 
     # Create simple test data
     np.random.seed(42)
@@ -245,7 +245,12 @@ if __name__ == "__main__":
 
     # Test MissForest imputation
     result = impute_mf(
-        container, assay_name="protein", source_layer="raw", max_iter=5, n_estimators=50, verbose=1
+        container,
+        assay_name="protein",
+        source_layer="raw",
+        max_iter=5,
+        n_estimators=50,
+        verbose=1,
     )
 
     # Check results

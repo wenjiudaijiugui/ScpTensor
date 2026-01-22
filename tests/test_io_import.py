@@ -8,8 +8,7 @@ import pytest
 
 def test_round_trip_container(sample_container):
     """Test complete save/load round trip."""
-    from scptensor.io.exporters import save_hdf5
-    from scptensor.io.importers import load_hdf5
+    from scptensor.io.hdf5 import load_hdf5, save_hdf5
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "round_trip.h5"
@@ -28,7 +27,7 @@ def test_load_hdf5_invalid_format():
     import h5py
 
     from scptensor.io.exceptions import IOFormatError
-    from scptensor.io.importers import load_hdf5
+    from scptensor.io.hdf5 import load_hdf5
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "invalid.h5"

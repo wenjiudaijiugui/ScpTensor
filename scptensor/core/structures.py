@@ -14,20 +14,20 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import IntEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    pass
 
 from scptensor.core.exceptions import (
     AssayNotFoundError,
-    DimensionError,
-    ValidationError,
 )
+from scptensor.core.filtering import FilterCriteria, resolve_filter_criteria
+from scptensor.core.types import LayerMetadataDict, ProvenanceParams
 
 
 class MaskCode(IntEnum):
@@ -66,7 +66,7 @@ class ProvenanceLog:
 
     timestamp: str
     action: str
-    params: dict[str, Any]
+    params: ProvenanceParams
     software_version: str | None = None
     description: str | None = None
 
@@ -87,7 +87,7 @@ class MatrixMetadata:
     detection_limits: np.ndarray | sp.spmatrix | None = None
     imputation_quality: np.ndarray | sp.spmatrix | None = None
     outlier_scores: np.ndarray | sp.spmatrix | None = None
-    creation_info: dict[str, Any] | None = None
+    creation_info: LayerMetadataDict | None = None
 
 
 # Valid mask codes for validation
@@ -95,14 +95,20 @@ _VALID_MASK_CODES = {code.value for code in MaskCode}
 
 
 def _validate_mask_matrix(M: np.ndarray | sp.spmatrix, X_shape: tuple[int, int]) -> None:
-    """Validate mask matrix shape and values.
+    """
+    Validate mask matrix shape and values.
 
-    Args:
-        M: Mask matrix to validate
-        X_shape: Expected shape from data matrix
+    Parameters
+    ----------
+    M : np.ndarray | sp.spmatrix
+        Mask matrix to validate
+    X_shape : tuple[int, int]
+        Expected shape from data matrix
 
-    Raises:
-        ValueError: If shape mismatch or invalid mask codes found
+    Raises
+    ------
+    ValueError
+        If shape mismatch or invalid mask codes found
     """
     if M.shape != X_shape:
         raise ValueError(f"Shape mismatch: X {X_shape} != M {M.shape}")
@@ -148,7 +154,14 @@ class ScpMatrix:
                 object.__setattr__(self, "M", self.M.astype(np.int8))
 
     def get_m(self) -> np.ndarray | sp.spmatrix:
-        """Return mask matrix, creating zero matrix if M is None."""
+        """
+        Return mask matrix, creating zero matrix if M is None.
+
+        Returns
+        -------
+        np.ndarray | sp.spmatrix
+            Mask matrix, or zero matrix if M is None
+        """
         if self.M is not None:
             return self.M
 
@@ -157,7 +170,14 @@ class ScpMatrix:
         return np.zeros(self.X.shape, dtype=np.int8)
 
     def copy(self) -> ScpMatrix:
-        """Create a deep copy of the matrix."""
+        """
+        Create a deep copy of the matrix.
+
+        Returns
+        -------
+        ScpMatrix
+            Deep copy of the matrix
+        """
         new_X = self.X.copy()
         new_M = self.M.copy() if self.M is not None else None
         return ScpMatrix(X=new_X, M=new_M, metadata=self.metadata)
@@ -205,6 +225,7 @@ class Assay:
         var: pl.DataFrame,
         layers: dict[str, ScpMatrix] | None = None,
         feature_id_col: str = "_index",
+        validate_on_init: bool = True,
     ) -> None:
         """Initialize an Assay with feature metadata and data layers.
 
@@ -216,6 +237,10 @@ class Assay:
             Dictionary of named data layers. If None, initializes empty dict.
         feature_id_col : str, default "_index"
             Column name in var serving as unique feature identifier.
+        validate_on_init : bool, default True
+            Whether to validate assay integrity on initialization.
+            Set to False to speed up loading of large datasets, then call
+            .validate() manually when ready.
 
         Raises
         ------
@@ -233,7 +258,8 @@ class Assay:
         self.var: pl.DataFrame = var
         self.layers: dict[str, ScpMatrix] = layers if layers is not None else {}
 
-        self._validate()
+        if validate_on_init:
+            self._validate()
 
     def _validate(self) -> None:
         """Validate all layers have matching feature dimensions.
@@ -248,6 +274,20 @@ class Assay:
                 raise ValueError(
                     f"Layer '{name}': Features {matrix.X.shape[1]} != Assay {self.n_features}"
                 )
+
+    def validate(self) -> None:
+        """Manually validate assay integrity.
+
+        This method should be called if the Assay was created with
+        validate_on_init=False. It performs the same validation checks
+        that would have been run during initialization.
+
+        Raises
+        ------
+        ValueError
+            If any layer has feature count different from assay n_features.
+        """
+        self._validate()
 
     @property
     def n_features(self) -> int:
@@ -372,6 +412,7 @@ class ScpContainer:
         links: list[AggregationLink] | None = None,
         history: list[ProvenanceLog] | None = None,
         sample_id_col: str = "_index",
+        validate_on_init: bool = True,
     ) -> None:
         """Initialize a ScpContainer with sample metadata and assays.
 
@@ -387,6 +428,10 @@ class ScpContainer:
             Provenance log of operations. If None, initializes empty list.
         sample_id_col : str, default "_index"
             Column name in obs serving as unique sample identifier.
+        validate_on_init : bool, default True
+            Whether to validate container integrity on initialization.
+            Set to False to speed up loading of large datasets, then call
+            .validate() manually when ready.
 
         Raises
         ------
@@ -406,9 +451,10 @@ class ScpContainer:
         self.links: list[AggregationLink] = links if links is not None else []
         self.history: list[ProvenanceLog] = history if history is not None else []
 
-        self._validate()
-        if self.links:
-            self.validate_links()
+        if validate_on_init:
+            self._validate()
+            if self.links:
+                self.validate_links()
 
     @property
     def n_samples(self) -> int:
@@ -441,7 +487,14 @@ class ScpContainer:
         return (self.n_samples, self.n_features)
 
     def _validate(self) -> None:
-        """Validate all assays have matching sample dimensions."""
+        """
+        Validate all assays have matching sample dimensions.
+
+        Raises
+        ------
+        ValueError
+            If any assay layer has sample count different from n_samples
+        """
         for assay_name, assay in self.assays.items():
             for layer_name, matrix in assay.layers.items():
                 if matrix.X.shape[0] != self.n_samples:
@@ -450,8 +503,33 @@ class ScpContainer:
                         f"Samples {matrix.X.shape[0]} != {self.n_samples}"
                     )
 
+    def validate(self) -> None:
+        """Manually validate container integrity.
+
+        This method should be called if the ScpContainer was created with
+        validate_on_init=False. It performs the same validation checks
+        that would have been run during initialization, including link
+        validation if links are present.
+
+        Raises
+        ------
+        ValueError
+            If any assay layer has sample count different from container n_samples,
+            or if links reference non-existent assays or features.
+        """
+        self._validate()
+        if self.links:
+            self.validate_links()
+
     def validate_links(self) -> None:
-        """Validate that all links connect to existing assays and features."""
+        """
+        Validate that all links connect to existing assays and features.
+
+        Raises
+        ------
+        ValueError
+            If any link references non-existent assay
+        """
         for link in self.links:
             if link.source_assay not in self.assays:
                 raise ValueError(f"Link source assay '{link.source_assay}' not found.")
@@ -459,17 +537,25 @@ class ScpContainer:
                 raise ValueError(f"Link target assay '{link.target_assay}' not found.")
 
     def add_assay(self, name: str, assay: Assay) -> ScpContainer:
-        """Register a new assay to the container.
+        """
+        Register a new assay to the container.
 
-        Args:
-            name: Assay name (e.g., 'proteins', 'peptides')
-            assay: Assay object with matching sample dimension
+        Parameters
+        ----------
+        name : str
+            Assay name (e.g., 'proteins', 'peptides')
+        assay : Assay
+            Assay object with matching sample dimension
 
-        Returns:
+        Returns
+        -------
+        ScpContainer
             Self for method chaining
 
-        Raises:
-            ValueError: If assay already exists or dimensions don't match
+        Raises
+        ------
+        ValueError
+            If assay already exists or dimensions don't match
         """
         if name in self.assays:
             raise ValueError(f"Assay '{name}' already exists.")
@@ -486,17 +572,23 @@ class ScpContainer:
     def log_operation(
         self,
         action: str,
-        params: dict[str, Any],
+        params: ProvenanceParams,
         description: str | None = None,
         software_version: str | None = None,
     ) -> None:
-        """Record an operation to the provenance history.
+        """
+        Record an operation to the provenance history.
 
-        Args:
-            action: Name of the operation
-            params: Parameters passed to the operation
-            description: Human-readable description
-            software_version: Version of software used
+        Parameters
+        ----------
+        action : str
+            Name of the operation
+        params : ProvenanceParams
+            Parameters passed to the operation
+        description : str | None, optional
+            Human-readable description
+        software_version : str | None, optional
+            Version of software used
         """
         log = ProvenanceLog(
             timestamp=datetime.now().isoformat(),
@@ -512,18 +604,30 @@ class ScpContainer:
         return f"<ScpContainer n_samples={self.n_samples}, assays=[{assays_desc}]>"
 
     def copy(self, deep: bool = True) -> ScpContainer:
-        """Copy the container.
+        """
+        Copy the container.
 
-        Args:
-            deep: If True, create deep copy; otherwise shallow copy
+        Parameters
+        ----------
+        deep : bool, default True
+            If True, create deep copy; otherwise shallow copy
 
-        Returns:
+        Returns
+        -------
+        ScpContainer
             Copied container
         """
         return self.deepcopy() if deep else self.shallow_copy()
 
     def shallow_copy(self) -> ScpContainer:
-        """Create a shallow copy of the container."""
+        """
+        Create a shallow copy of the container.
+
+        Returns
+        -------
+        ScpContainer
+            Shallow copy of the container
+        """
         return ScpContainer(
             obs=self.obs,
             assays=self.assays.copy(),
@@ -533,7 +637,14 @@ class ScpContainer:
         )
 
     def deepcopy(self) -> ScpContainer:
-        """Create a deep copy of the container."""
+        """
+        Create a deep copy of the container.
+
+        Returns
+        -------
+        ScpContainer
+            Deep copy of the container
+        """
         new_obs = self.obs.clone()
 
         new_assays: dict[str, Assay] = {}
@@ -561,45 +672,45 @@ class ScpContainer:
 
     def filter_samples(
         self,
-        sample_ids: (
-            Sequence[str] | np.ndarray | pl.Expr | pl.Series | Sequence[int] | None
-        ) = None,
+        criteria: FilterCriteria,
         *,
-        sample_indices: Sequence[int] | np.ndarray | None = None,
-        boolean_mask: np.ndarray | pl.Series | None = None,
-        polars_expression: pl.Expr | None = None,
         copy: bool = True,
     ) -> ScpContainer:
         """Filter samples from the container.
 
-        Provides multiple ways to filter samples:
-        - By sample IDs (list of IDs to keep)
-        - By sample indices (positional indices)
-        - By boolean mask (True = keep)
-        - By Polars expression on the obs DataFrame
+        Parameters
+        ----------
+        criteria : FilterCriteria
+            Filtering criteria object for type-safe filtering. Create using:
+            - FilterCriteria.by_ids(["sample1", "sample2"]) - Filter by sample IDs
+            - FilterCriteria.by_indices([0, 1, 2]) - Filter by positional indices
+            - FilterCriteria.by_mask(mask_array) - Filter by boolean mask
+            - FilterCriteria.by_expression(pl.col("n_detected") > 100) - Filter by expression
+        copy : bool, default=True
+            Whether to copy underlying data
 
-        Args:
-            sample_ids: Sample identifiers to keep
-            sample_indices: Positional indices of samples to keep
-            boolean_mask: Boolean mask where True indicates samples to keep
-            polars_expression: Polars expression evaluated on obs
-            copy: Whether to copy underlying data (default: True)
-
-        Returns:
+        Returns
+        -------
+        ScpContainer
             New container with filtered samples
 
-        Raises:
-            ValidationError: If filtering criteria are invalid
-            DimensionError: If mask has incorrect dimensions
+        Raises
+        ------
+        ValidationError
+            If no filtering criteria specified
+        DimensionError
+            If mask has incorrect dimensions
 
-        Examples:
-            >>> container.filter_samples(["sample1", "sample2"])
-            >>> container.filter_samples(sample_indices=[0, 1, 2])
-            >>> container.filter_samples(pl.col("n_detected") > 100)
+        Examples
+        --------
+        >>> from scptensor.core.filtering import FilterCriteria
+        >>> criteria = FilterCriteria.by_ids(["sample1", "sample2"])
+        >>> filtered = container.filter_samples(criteria)
+        >>> criteria = FilterCriteria.by_expression(pl.col("n_detected") > 100)
+        >>> filtered = container.filter_samples(criteria)
         """
-        indices: np.ndarray = self._resolve_sample_indices(
-            sample_ids, sample_indices, boolean_mask, polars_expression
-        )
+        # Use unified function to resolve indices
+        indices: np.ndarray = resolve_filter_criteria(criteria, self, is_sample=True)
 
         new_obs = self.obs[indices, :]
         new_assays = self._filter_assays_samples(indices, copy)
@@ -624,45 +735,54 @@ class ScpContainer:
     def filter_features(
         self,
         assay_name: str,
-        feature_ids: (
-            Sequence[str] | np.ndarray | pl.Expr | pl.Series | Sequence[int] | None
-        ) = None,
+        criteria: FilterCriteria,
         *,
-        feature_indices: Sequence[int] | np.ndarray | None = None,
-        boolean_mask: np.ndarray | pl.Series | None = None,
-        polars_expression: pl.Expr | None = None,
         copy: bool = True,
     ) -> ScpContainer:
         """Filter features for a specific assay.
 
-        Args:
-            assay_name: Name of the assay to filter
-            feature_ids: Feature identifiers to keep
-            feature_indices: Positional indices of features to keep
-            boolean_mask: Boolean mask where True indicates features to keep
-            polars_expression: Polars expression evaluated on var
-            copy: Whether to copy underlying data (default: True)
+        Parameters
+        ----------
+        assay_name : str
+            Name of the assay to filter
+        criteria : FilterCriteria
+            Filtering criteria object for type-safe filtering. Create using:
+            - FilterCriteria.by_ids(["P123", "P456"]) - Filter by feature IDs
+            - FilterCriteria.by_indices([0, 1, 2]) - Filter by positional indices
+            - FilterCriteria.by_mask(mask_array) - Filter by boolean mask
+            - FilterCriteria.by_expression(pl.col("n_detected") > 10) - Filter by expression
+        copy : bool, default=True
+            Whether to copy underlying data
 
-        Returns:
+        Returns
+        -------
+        ScpContainer
             New container with filtered features in specified assay
 
-        Raises:
-            AssayNotFoundError: If assay doesn't exist
-            ValidationError: If filtering criteria are invalid
-            DimensionError: If mask has incorrect dimensions
+        Raises
+        ------
+        AssayNotFoundError
+            If assay doesn't exist
+        ValidationError
+            If no filtering criteria specified
+        DimensionError
+            If mask has incorrect dimensions
 
-        Examples:
-            >>> container.filter_features("proteins", ["P123", "P456"])
-            >>> container.filter_features("proteins", feature_indices=[0, 1, 2])
-            >>> container.filter_features("proteins", pl.col("n_detected") > 10)
+        Examples
+        --------
+        >>> from scptensor.core.filtering import FilterCriteria
+        >>> criteria = FilterCriteria.by_ids(["P123", "P456"])
+        >>> filtered = container.filter_features("proteins", criteria)
+        >>> criteria = FilterCriteria.by_expression(pl.col("n_detected") > 10)
+        >>> filtered = container.filter_features("proteins", criteria)
         """
         if assay_name not in self.assays:
             raise AssayNotFoundError(assay_name)
 
         assay = self.assays[assay_name]
-        indices = self._resolve_feature_indices(
-            assay, feature_ids, feature_indices, boolean_mask, polars_expression
-        )
+
+        # Use unified function to resolve indices
+        indices = resolve_filter_criteria(criteria, assay, is_sample=False)
 
         new_assays = self._filter_assay_features(assay_name, assay, indices, copy)
         new_history = self._updated_history(
@@ -688,131 +808,22 @@ class ScpContainer:
     # Internal helper methods
     # ==========================================================================
 
-    def _resolve_sample_indices(
-        self,
-        sample_ids,
-        sample_indices,
-        boolean_mask,
-        polars_expression,
-    ) -> np.ndarray:
-        """Resolve various input formats to sample indices array."""
-
-        # Polars expression
-        expr: pl.Expr | None = None
-        if isinstance(sample_ids, pl.Expr):
-            expr = sample_ids
-        elif polars_expression is not None:
-            expr = polars_expression
-
-        if expr is not None:
-            mask_result = self.obs.select(expr).to_series()
-            if mask_result.dtype != pl.Boolean:
-                raise ValueError(f"Expression must produce boolean, got {mask_result.dtype}")
-            return np.where(mask_result.to_numpy())[0]
-
-        # Boolean mask
-        if boolean_mask is not None:
-            mask_arr = (
-                boolean_mask.to_numpy()
-                if isinstance(boolean_mask, pl.Series)
-                else np.asarray(boolean_mask)
-            )
-            if mask_arr.shape[0] != self.n_samples:
-                raise DimensionError(f"Mask length {mask_arr.shape[0]} != samples {self.n_samples}")
-            if mask_arr.dtype != bool:
-                raise ValueError(f"Mask must be boolean, got {mask_arr.dtype}")
-            return np.where(mask_arr)[0]
-
-        # Sample indices
-        if sample_indices is not None:
-            return np.asarray(sample_indices)
-
-        # Sample IDs
-        if sample_ids is not None:
-            if isinstance(sample_ids, np.ndarray):
-                id_list = sample_ids.tolist()
-            elif isinstance(sample_ids, pl.Series):
-                id_list = sample_ids.to_list()
-            else:
-                id_list = list(sample_ids)
-
-            all_ids = self.sample_ids.to_list()
-            id_to_idx = {sid: i for i, sid in enumerate(all_ids)}
-            try:
-                return np.array([id_to_idx[sid] for sid in id_list])
-            except KeyError as e:
-                missing = set(id_list) - set(all_ids)
-                raise ValueError(f"Sample IDs not found: {missing}") from e
-
-        raise ValidationError(
-            "Must specify: sample_ids, sample_indices, boolean_mask, or polars_expression"
-        )
-
-    def _resolve_feature_indices(
-        self,
-        assay: Assay,
-        feature_ids,
-        feature_indices,
-        boolean_mask,
-        polars_expression,
-    ) -> np.ndarray:
-        """Resolve various input formats to feature indices array."""
-
-        # Polars expression
-        expr: pl.Expr | None = None
-        if isinstance(feature_ids, pl.Expr):
-            expr = feature_ids
-        elif polars_expression is not None:
-            expr = polars_expression
-
-        if expr is not None:
-            mask_result = assay.var.select(expr).to_series()
-            if mask_result.dtype != pl.Boolean:
-                raise ValueError(f"Expression must produce boolean, got {mask_result.dtype}")
-            return np.where(mask_result.to_numpy())[0]
-
-        # Boolean mask
-        if boolean_mask is not None:
-            mask_arr = (
-                boolean_mask.to_numpy()
-                if isinstance(boolean_mask, pl.Series)
-                else np.asarray(boolean_mask)
-            )
-            if mask_arr.shape[0] != assay.n_features:
-                raise DimensionError(
-                    f"Mask length {mask_arr.shape[0]} != features {assay.n_features}"
-                )
-            if mask_arr.dtype != bool:
-                raise ValueError(f"Mask must be boolean, got {mask_arr.dtype}")
-            return np.where(mask_arr)[0]
-
-        # Feature indices
-        if feature_indices is not None:
-            return np.asarray(feature_indices)
-
-        # Feature IDs
-        if feature_ids is not None:
-            if isinstance(feature_ids, np.ndarray):
-                id_list = feature_ids.tolist()
-            elif isinstance(feature_ids, pl.Series):
-                id_list = feature_ids.to_list()
-            else:
-                id_list = list(feature_ids)
-
-            all_ids = assay.feature_ids.to_list()
-            id_to_idx = {fid: i for i, fid in enumerate(all_ids)}
-            try:
-                return np.array([id_to_idx[fid] for fid in id_list])
-            except KeyError as e:
-                missing = set(id_list) - set(all_ids)
-                raise ValueError(f"Feature IDs not found in assay: {missing}") from e
-
-        raise ValidationError(
-            "Must specify: feature_ids, feature_indices, boolean_mask, or polars_expression"
-        )
-
     def _filter_assays_samples(self, indices: np.ndarray, copy: bool) -> dict[str, Assay]:
-        """Filter all assays to keep only specified samples."""
+        """
+        Filter all assays to keep only specified samples.
+
+        Parameters
+        ----------
+        indices : np.ndarray
+            Sample indices to keep
+        copy : bool
+            Whether to copy underlying data
+
+        Returns
+        -------
+        dict[str, Assay]
+            Dictionary of filtered assays
+        """
         new_assays: dict[str, Assay] = {}
 
         for assay_name, assay in self.assays.items():
@@ -841,7 +852,25 @@ class ScpContainer:
     def _filter_assay_features(
         self, assay_name: str, assay: Assay, indices: np.ndarray, copy: bool
     ) -> dict[str, Assay]:
-        """Filter specified assay to keep only specified features."""
+        """
+        Filter specified assay to keep only specified features.
+
+        Parameters
+        ----------
+        assay_name : str
+            Name of assay to filter
+        assay : Assay
+            Assay object to filter
+        indices : np.ndarray
+            Feature indices to keep
+        copy : bool
+            Whether to copy underlying data
+
+        Returns
+        -------
+        dict[str, Assay]
+            Dictionary of assays with specified assay filtered
+        """
         new_assays: dict[str, Assay] = {}
 
         for name, current_assay in self.assays.items():
@@ -874,9 +903,25 @@ class ScpContainer:
         return new_assays
 
     def _updated_history(
-        self, action: str, params: dict[str, Any], description: str
+        self, action: str, params: ProvenanceParams, description: str
     ) -> list[ProvenanceLog]:
-        """Create new history list with added log entry."""
+        """
+        Create new history list with added log entry.
+
+        Parameters
+        ----------
+        action : str
+            Action name to log
+        params : ProvenanceParams
+            Parameters passed to the operation
+        description : str
+            Human-readable description
+
+        Returns
+        -------
+        list[ProvenanceLog]
+            New history list with added log entry
+        """
         new_history = list(self.history)
         new_history.append(
             ProvenanceLog(

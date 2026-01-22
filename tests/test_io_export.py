@@ -10,7 +10,7 @@ def test_save_hdf5_basic(sample_container):
     """Test basic HDF5 save functionality."""
     import h5py
 
-    from scptensor.io.exporters import save_hdf5
+    from scptensor.io.hdf5 import save_hdf5
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "output.h5"
@@ -30,7 +30,7 @@ def test_save_hdf5_basic(sample_container):
 def test_save_hdf5_with_overwrite(sample_container):
     """Test overwrite parameter."""
     from scptensor.io.exceptions import IOWriteError
-    from scptensor.io.exporters import save_hdf5
+    from scptensor.io.hdf5 import save_hdf5
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "output.h5"
@@ -48,8 +48,7 @@ def test_save_hdf5_preserves_obs(sample_container):
     """Test that obs metadata is preserved."""
     import h5py
 
-    from scptensor.io.exporters import save_hdf5
-    from scptensor.io.serializers import deserialize_dataframe
+    from scptensor.io.hdf5 import deserialize_dataframe, save_hdf5
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "output.h5"

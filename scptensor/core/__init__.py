@@ -1,7 +1,9 @@
 """ScpTensor core module.
 
 Provides the hierarchical data structure (ScpContainer -> Assay -> ScpMatrix)
-and core I/O operations for single-cell proteomics data analysis.
+and core operations for single-cell proteomics data analysis.
+
+Note: I/O functions have been moved to scptensor.io module.
 """
 
 # Exceptions
@@ -18,25 +20,13 @@ from .exceptions import (
     VisualizationError,
 )
 
-# I/O functions
-from .io import (
-    from_scanpy,
-    load_csv,
-    load_h5ad,
-    load_npz,
-    read_h5ad,
-    save_csv,
-    save_h5ad,
-    save_npz,
-    to_scanpy,
-    write_h5ad,
-)
+# Filtering utilities
+from .filtering import FilterCriteria, resolve_filter_criteria
 
 # JIT operations
 from .jit_ops import (
     NUMBA_AVAILABLE,
     apply_mask_threshold,
-    compute_euclidean_distance,
     count_mask_codes,
     fill_missing_with_value,
     find_missing_indices,
@@ -79,6 +69,25 @@ from .structures import (
     ScpMatrix,
 )
 
+# Type aliases
+from .types import (
+    BooleanMask,
+    DenseMatrix,
+    FeatureIDs,
+    Indices,
+    LayerMetadataDict,
+    MaskMatrix,
+    Matrix,
+    MatrixOperation,
+    MetadataDict,
+    MetadataValue,
+    ProvenanceParams,
+    RowFunction,
+    SampleIDs,
+    SerializableDict,
+    SparseMatrix,
+)
+
 __all__ = [
     # Structures
     "ScpContainer",
@@ -88,20 +97,12 @@ __all__ = [
     "MatrixMetadata",
     "MaskCode",
     "AggregationLink",
+    # Filtering
+    "FilterCriteria",
+    "resolve_filter_criteria",
     # Operations
     "MatrixOps",
     "reader",
-    # I/O
-    "load_csv",
-    "save_csv",
-    "load_h5ad",
-    "save_h5ad",
-    "load_npz",
-    "save_npz",
-    "from_scanpy",
-    "to_scanpy",
-    "read_h5ad",
-    "write_h5ad",
     # Sparse utilities
     "is_sparse_matrix",
     "get_sparsity_ratio",
@@ -123,7 +124,6 @@ __all__ = [
     "NUMBA_AVAILABLE",
     "count_mask_codes",
     "find_missing_indices",
-    "compute_euclidean_distance",
     "apply_mask_threshold",
     "fill_missing_with_value",
     # Exceptions
@@ -137,4 +137,20 @@ __all__ = [
     "ScpValueError",
     "MaskCodeError",
     "VisualizationError",
+    # Type aliases
+    "DenseMatrix",
+    "SparseMatrix",
+    "Matrix",
+    "MaskMatrix",
+    "SerializableDict",
+    "ProvenanceParams",
+    "LayerMetadataDict",
+    "RowFunction",
+    "MatrixOperation",
+    "SampleIDs",
+    "FeatureIDs",
+    "Indices",
+    "BooleanMask",
+    "MetadataValue",
+    "MetadataDict",
 ]

@@ -167,3 +167,16 @@ scptensor/datasets
 
 # Claude
 .claude/
+
+# Claude Code temporary files
+.claude/tmp/
+
+# Test outputs
+test_outputs/
+benchmark_results/figures/
+benchmark_results/**/*.png
+
+# Temporary debug files
+debug_*.py
+tmp_*.py
+*.tmp

@@ -19,7 +19,7 @@ from scptensor.core.exceptions import ScpTensorError
 from scptensor.dim_reduction import reduce_pca as pca
 from scptensor.impute import impute_knn as knn
 from scptensor.integration import integrate_combat as combat
-from scptensor.normalization import norm_log as log_normalize
+from scptensor.normalization import log_transform as log_normalize
 
 
 class TestPipelineBasic:

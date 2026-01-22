@@ -659,56 +659,106 @@ if NUMBA_AVAILABLE:
 
 
 # =============================================================================
-# Legacy Compatibility Functions (deprecated, kept for backwards compat)
+# Sparse Matrix Row Operations
 # =============================================================================
 
 if NUMBA_AVAILABLE:
+    from numba import njit, prange
 
-    @jit(nopython=True, cache=True)
-    def compute_euclidean_distance(
-        X: np.ndarray, y: np.ndarray, mask_codes: np.ndarray | None = None
+    @njit(cache=True, parallel=True, fastmath=True)
+    def _sparse_row_sum_jit(
+        indptr: np.ndarray,
+        data: np.ndarray,
+        n_rows: int,
     ) -> np.ndarray:
-        """Compute Euclidean distance between each row of X and vector y.
+        """JIT-accelerated CSR matrix row sum with parallelization.
 
-        .. deprecated::
-            Use nan_euclidean_distance_row_to_matrix instead for better NaN handling.
+        Computes the sum of each row in a sparse matrix stored in CSR format.
+        Uses parallel processing for improved performance on large matrices.
 
         Parameters
         ----------
-        X : np.ndarray
-            Data matrix (n_samples, n_features)
-        y : np.ndarray
-            Reference vector (n_features,)
-        mask_codes : np.ndarray, optional
-            Mask codes to ignore (deprecated, not used)
+        indptr : np.ndarray
+            CSR index pointer array of shape (n_rows + 1,)
+            indptr[i] to indptr[i+1] contains the range of indices in data
+            corresponding to row i
+        data : np.ndarray
+            CSR data array containing non-zero values
+        n_rows : int
+            Number of rows in the matrix
 
         Returns
         -------
-        distances : np.ndarray
-            Distance vector (n_samples,)
+        np.ndarray
+            Row sums of shape (n_rows,)
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from scipy import sparse
+        >>> X = sparse.csr_matrix([[1, 0, 2], [0, 0, 3], [4, 5, 0]])
+        >>> sums = _sparse_row_sum_jit(X.indptr, X.data, X.shape[0])
+        >>> sums
+        array([3., 3., 9.])
         """
-        n_samples, n_features = X.shape
-        distances = np.empty(n_samples, dtype=np.float64)
+        result = np.empty(n_rows, dtype=np.float64)
+        for i in prange(n_rows):
+            start, end = indptr[i], indptr[i + 1]
+            row_sum = 0.0
+            for j in range(start, end):
+                row_sum += data[j]
+            result[i] = row_sum
+        return result
 
-        for i in range(n_samples):
-            dist = 0.0
-            n_valid = 0
+    @njit(cache=True, parallel=True, fastmath=True)
+    def _sparse_row_mean_jit(
+        indptr: np.ndarray,
+        data: np.ndarray,
+        n_rows: int,
+    ) -> np.ndarray:
+        """JIT-accelerated CSR matrix row mean with parallelization.
 
-            for j in range(n_features):
-                xv = X[i, j]
-                yv = y[j]
-                # Skip NaN pairs
-                if xv == xv and yv == yv:
-                    diff = xv - yv
-                    dist += diff * diff
-                    n_valid += 1
+        Computes the mean of each row in a sparse matrix stored in CSR format.
+        Uses parallel processing for improved performance on large matrices.
+        Handles empty rows (all zeros) by returning 0.0 as the mean.
 
-            if n_valid > 0:
-                distances[i] = np.sqrt(dist / n_valid)
+        Parameters
+        ----------
+        indptr : np.ndarray
+            CSR index pointer array of shape (n_rows + 1,)
+            indptr[i] to indptr[i+1] contains the range of indices in data
+            corresponding to row i
+        data : np.ndarray
+            CSR data array containing non-zero values
+        n_rows : int
+            Number of rows in the matrix
+
+        Returns
+        -------
+        np.ndarray
+            Row means of shape (n_rows,)
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from scipy import sparse
+        >>> X = sparse.csr_matrix([[1, 0, 2], [0, 0, 3], [4, 5, 0]])
+        >>> means = _sparse_row_mean_jit(X.indptr, X.data, X.shape[0])
+        >>> means
+        array([1.5, 3. , 4.5])
+        """
+        result = np.empty(n_rows, dtype=np.float64)
+        for i in prange(n_rows):
+            start, end = indptr[i], indptr[i + 1]
+            n_vals = end - start
+            if n_vals > 0:
+                row_sum = 0.0
+                for j in range(start, end):
+                    row_sum += data[j]
+                result[i] = row_sum / n_vals
             else:
-                distances[i] = np.inf
-
-        return distances
+                result[i] = 0.0
+        return result
 
 
 # =============================================================================
@@ -820,13 +870,6 @@ else:
         """Fallback column mean imputation (pure NumPy)."""
         col_means = np.nanmean(X, axis=0, keepdims=True)
         np.copyto(X, col_means, where=np.isnan(X))
-
-    # Legacy
-    def compute_euclidean_distance(
-        X: np.ndarray, y: np.ndarray, mask_codes: np.ndarray | None = None
-    ) -> np.ndarray:
-        """Fallback distance computation (pure NumPy)."""
-        return np.sqrt(np.sum((X - y) ** 2, axis=1))
 
     # KNN imputation fallbacks
     def knn_weighted_impute(
@@ -1203,6 +1246,30 @@ if NUMBA_AVAILABLE:
         return t_stat, p_val, mean1 - mean2
 
 
+# =============================================================================
+# Fallback Implementations for Sparse Operations
+# =============================================================================
+
+else:
+
+    def _sparse_row_sum_jit(indptr: np.ndarray, data: np.ndarray, n_rows: int) -> np.ndarray:
+        """Fallback row sum computation (pure NumPy)."""
+        result = np.empty(n_rows, dtype=np.float64)
+        for i in range(n_rows):
+            start, end = indptr[i], indptr[i + 1]
+            result[i] = np.sum(data[start:end])
+        return result
+
+    def _sparse_row_mean_jit(indptr: np.ndarray, data: np.ndarray, n_rows: int) -> np.ndarray:
+        """Fallback row mean computation (pure NumPy)."""
+        result = np.empty(n_rows, dtype=np.float64)
+        for i in range(n_rows):
+            start, end = indptr[i], indptr[i + 1]
+            row_data = data[start:end]
+            result[i] = np.mean(row_data) if len(row_data) > 0 else 0.0
+        return result
+
+
 __all__ = [
     "NUMBA_AVAILABLE",
     # Distance functions
@@ -1227,8 +1294,6 @@ __all__ = [
     "fill_nan_with_value",
     "impute_nan_with_row_means",
     "impute_nan_with_col_means",
-    # Legacy
-    "compute_euclidean_distance",
     # KNN imputation functions
     "knn_weighted_impute",
     "knn_find_valid_neighbors",
@@ -1238,6 +1303,9 @@ __all__ = [
     # Differential expression functions
     "vectorized_ttest_row",
     "vectorized_mannwhitney_row",
+    # Sparse matrix row operations
+    "_sparse_row_sum_jit",
+    "_sparse_row_mean_jit",
 ]
 
 

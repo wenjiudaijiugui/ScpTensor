@@ -50,15 +50,8 @@ from scptensor.impute import impute_ppca as ppca
 from scptensor.impute import impute_svd as svd_impute
 from scptensor.integration import integrate_combat as combat
 from scptensor.integration import integrate_mnn as mnn_correct
-from scptensor.normalization import (
-    norm_global_median as global_median_normalization,
-)
-from scptensor.normalization import (
-    norm_log as log_normalize,
-)
-from scptensor.normalization import (
-    norm_tmm as tmm_normalization,
-)
+from scptensor.normalization import log_transform as log_normalize
+from scptensor.normalization import norm_median as norm_median_center
 
 # =============================================================================
 # Helper Functions
@@ -573,7 +566,7 @@ class TestProvenance:
         assert len(container.history) == initial_len + 1, "History should have one new entry"
 
         last_log = container.history[-1]
-        assert last_log.action == "log_normalize"
+        assert last_log.action == "log_transform"
         assert "assay" in last_log.params
 
     def test_imputation_logs_history(self, small_synthetic_container):
@@ -657,7 +650,7 @@ class TestProvenance:
         # Verify all actions were logged
         actions = [log.action for log in container.history]
         expected_actions = [
-            "log_normalize",
+            "log_transform",
             "impute_knn",
             "integration_combat",
             "reduce_pca",
@@ -784,12 +777,16 @@ class TestMethodCombinations:
         assert np.array_equal(M_original, M_corrected)
 
     def test_global_median_normalization_pipeline(self, small_synthetic_container):
-        """Test pipeline with global median normalization."""
+        """Test pipeline with global median normalization (scaling mode)."""
         container = small_synthetic_container
 
-        # Global median normalization
-        global_median_normalization(
-            container, assay_name="protein", source_layer="raw", new_layer_name="norm"
+        # Global median normalization using scaling mode
+        norm_median_center(
+            container,
+            assay_name="protein",
+            source_layer="raw",
+            new_layer_name="norm",
+            add_global_median=True,
         )
         assert "norm" in container.assays["protein"].layers
 
@@ -803,18 +800,6 @@ class TestMethodCombinations:
             new_layer_name="corrected",
         )
         assert "corrected" in container.assays["protein"].layers
-
-    def test_tmm_normalization_pipeline(self, small_synthetic_container):
-        """Test pipeline with TMM normalization."""
-        container = small_synthetic_container
-
-        # TMM normalization
-        tmm_normalization(container, assay_name="protein", source_layer="raw", new_layer_name="tmm")
-        assert "tmm" in container.assays["protein"].layers
-
-        # Continue with imputation
-        knn(container, assay_name="protein", source_layer="tmm", new_layer_name="imputed", k=5)
-        assert "imputed" in container.assays["protein"].layers
 
 
 # =============================================================================

@@ -22,8 +22,11 @@ from scptensor.dim_reduction import reduce_pca as pca
 from scptensor.impute import impute_knn as knn
 from scptensor.impute import impute_ppca as ppca
 from scptensor.integration import integrate_combat as combat
-from scptensor.normalization import norm_log as log_normalize
-from scptensor.qc import qc_basic as basic_qc
+from scptensor.normalization import log_transform as log_normalize
+
+# basic_qc is no longer available, use qc_sample and qc_feature instead
+# from scptensor.qc import qc_basic as basic_qc
+basic_qc = None  # Stub for skipped tests
 
 
 class TestProvenanceLogging:
@@ -41,7 +44,7 @@ class TestProvenanceLogging:
 
         # Check the last log entry
         last_log = container.history[-1]
-        assert last_log.action == "log_normalize"
+        assert last_log.action == "log_transform"
         assert "assay" in last_log.params
         assert last_log.params["assay"] == "protein"
 
@@ -161,9 +164,9 @@ class TestProvenanceLogging:
 
         # Check all actions were logged
         actions = [log.action for log in container.history]
-        # Note: action names are: log_normalize, impute_knn, integration_combat, reduce_pca, cluster_kmeans
+        # Note: action names are: log_transform, impute_knn, integration_combat, reduce_pca, cluster_kmeans
         expected_actions = [
-            "log_normalize",
+            "log_transform",
             "impute_knn",
             "integration_combat",
             "reduce_pca",

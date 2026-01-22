@@ -7,10 +7,10 @@ from __future__ import annotations
 
 import dataclasses
 from enum import Enum
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    pass
 
 
 # =============================================================================
@@ -362,7 +362,9 @@ class MethodRegistry:
         tuple[MethodInfo, ...]
             Methods for the framework.
         """
-        return tuple(m for m in self._methods.values() if m.framework == framework or m.framework == "both")
+        return tuple(
+            m for m in self._methods.values() if m.framework == framework or m.framework == "both"
+        )
 
     def list_scptensor_internal(self) -> tuple[MethodInfo, ...]:
         """List ScpTensor internal methods.
@@ -372,7 +374,9 @@ class MethodRegistry:
         tuple[MethodInfo, ...]
             ScpTensor-only methods.
         """
-        return tuple(m for m in self._methods.values() if m.layer == ComparisonLayer.SCPTENSOR_INTERNAL)
+        return tuple(
+            m for m in self._methods.values() if m.layer == ComparisonLayer.SCPTENSOR_INTERNAL
+        )
 
     def list_scanpy_internal(self) -> tuple[MethodInfo, ...]:
         """List Scanpy internal methods.
@@ -382,7 +386,9 @@ class MethodRegistry:
         tuple[MethodInfo, ...]
             Scanpy-only methods.
         """
-        return tuple(m for m in self._methods.values() if m.layer == ComparisonLayer.SCANPY_INTERNAL)
+        return tuple(
+            m for m in self._methods.values() if m.layer == ComparisonLayer.SCANPY_INTERNAL
+        )
 
 
 # Global registry instance

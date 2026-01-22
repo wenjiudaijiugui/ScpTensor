@@ -16,6 +16,8 @@ from scipy import sparse, stats
 from sklearn.decomposition import PCA
 from sklearn.impute import KNNImputer
 
+from .scanpy_adapter import SCANPY_AVAILABLE, ScanpyMethods
+
 # =============================================================================
 # Context Manager for Resource Tracking
 # =============================================================================
@@ -1082,5 +1084,220 @@ COMPETITOR_REGISTRY.update(
         "scanpy_umap": ScanpyStyleUMAP,
         # Additional clustering
         "sklearn_agglomerative": SklearnAgglomerativeClustering,
+    }
+)
+
+
+# =============================================================================
+# Real Scanpy Competitors
+# =============================================================================
+
+
+class ScanpyLogNormalize:
+    """Real Scanpy log normalization (requires scanpy package).
+
+    This class wraps the actual Scanpy API for fair comparison
+    with ScpTensor implementations.
+    """
+
+    name = "scanpy_log"
+
+    @staticmethod
+    def run(
+        X: np.ndarray,
+        M: np.ndarray | None = None,
+        target_sum: float = 1e4,
+        log_base: float = 2.0,
+    ) -> tuple[np.ndarray, float, float]:
+        """Run log normalization using real Scanpy API.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Input data.
+        M : np.ndarray | None
+            Mask matrix.
+        target_sum : float
+            Target sum for normalization.
+        log_base : float
+            Logarithm base.
+
+        Returns
+        -------
+        tuple[np.ndarray, float, float]
+            (result_array, runtime_seconds, memory_mb)
+
+        Raises
+        ------
+        ImportError
+            If scanpy is not installed.
+        """
+        if not SCANPY_AVAILABLE:
+            raise ImportError("Scanpy is not installed. Install with: pip install scanpy")
+
+        tracker = _ResourceTracker()
+        tracker.start()
+
+        scanpy = ScanpyMethods()
+        X_norm, runtime = scanpy.log_normalize(X, M, target_sum, log_base)
+        memory = tracker.stop()
+
+        return X_norm, runtime, memory
+
+
+class ScanpyPCA:
+    """Real Scanpy PCA (requires scanpy package)."""
+
+    name = "scanpy_pca"
+
+    @staticmethod
+    def run(
+        X: np.ndarray,
+        M: np.ndarray | None = None,
+        n_components: int = 50,
+    ) -> tuple[np.ndarray, float, float]:
+        """Run PCA using real Scanpy API.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Input data.
+        M : np.ndarray | None
+            Mask matrix.
+        n_components : int
+            Number of principal components.
+
+        Returns
+        -------
+        tuple[np.ndarray, float, float]
+            (X_pca, runtime_seconds, memory_mb)
+
+        Raises
+        ------
+        ImportError
+            If scanpy is not installed.
+        """
+        if not SCANPY_AVAILABLE:
+            raise ImportError("Scanpy is not installed. Install with: pip install scanpy")
+
+        tracker = _ResourceTracker()
+        tracker.start()
+
+        scanpy = ScanpyMethods()
+        X_pca, variance_ratio, runtime = scanpy.pca(X, M, n_components)
+        memory = tracker.stop()
+
+        return X_pca, runtime, memory
+
+
+class ScanpyUMAP:
+    """Real Scanpy UMAP (requires scanpy package)."""
+
+    name = "scanpy_umap_real"
+
+    @staticmethod
+    def run(
+        X: np.ndarray,
+        M: np.ndarray | None = None,
+        n_components: int = 2,
+        n_neighbors: int = 15,
+    ) -> tuple[np.ndarray, float, float]:
+        """Run UMAP using real Scanpy API.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Input data.
+        M : np.ndarray | None
+            Mask matrix.
+        n_components : int
+            Number of UMAP dimensions.
+        n_neighbors : int
+            Number of neighbors for UMAP.
+
+        Returns
+        -------
+        tuple[np.ndarray, float, float]
+            (X_umap, runtime_seconds, memory_mb)
+
+        Raises
+        ------
+        ImportError
+            If scanpy is not installed.
+        """
+        if not SCANPY_AVAILABLE:
+            raise ImportError("Scanpy is not installed. Install with: pip install scanpy")
+
+        tracker = _ResourceTracker()
+        tracker.start()
+
+        scanpy = ScanpyMethods()
+        X_umap, runtime = scanpy.umap(X, M, n_components, n_neighbors)
+        memory = tracker.stop()
+
+        return X_umap, runtime, memory
+
+
+class ScanpyKMeans:
+    """Real Scanpy K-means clustering (requires scanpy)."""
+
+    name = "scanpy_kmeans"
+
+    @staticmethod
+    def run(
+        X: np.ndarray,
+        M: np.ndarray | None = None,
+        n_clusters: int = 5,
+        random_state: int = 42,
+    ) -> tuple[np.ndarray, float, float]:
+        """Run K-means using sklearn (as used by Scanpy).
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Input data.
+        M : np.ndarray | None
+            Mask matrix (not used for clustering).
+        n_clusters : int
+            Number of clusters.
+        random_state : int
+            Random state.
+
+        Returns
+        -------
+        tuple[np.ndarray, float, float]
+            (labels, runtime_seconds, memory_mb)
+
+        Raises
+        ------
+        ImportError
+            If scanpy is not installed.
+        """
+        if not SCANPY_AVAILABLE:
+            raise ImportError("Scanpy is not installed. Install with: pip install scanpy")
+
+        tracker = _ResourceTracker()
+        tracker.start()
+
+        scanpy = ScanpyMethods()
+        labels, runtime = scanpy.kmeans(X, M, n_clusters, random_state)
+        memory = tracker.stop()
+
+        return labels, runtime, memory
+
+
+# =============================================================================
+# Update Registry with Real Scanpy Competitors
+# =============================================================================
+
+
+# Add real Scanpy competitors to registry
+COMPETITOR_REGISTRY.update(
+    {
+        # Real Scanpy implementations
+        "scanpy_log": ScanpyLogNormalize,
+        "scanpy_pca": ScanpyPCA,
+        "scanpy_umap_real": ScanpyUMAP,
+        "scanpy_kmeans": ScanpyKMeans,
     }
 )

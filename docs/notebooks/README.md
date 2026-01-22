@@ -1,150 +1,159 @@
 # ScpTensor Tutorial Notebooks
 
-This directory contains interactive Jupyter notebooks demonstrating the ScpTensor single-cell proteomics analysis framework.
+本目录包含交互式Jupyter notebook，演示ScpTensor单细胞蛋白质组学分析框架。
 
-## Prerequisites
+## 快速开始
 
-### Installation
-
-To run these notebooks, you need:
-
-1. **Python 3.11+** with ScpTensor installed:
-   ```bash
-   # Clone the repository
-   git clone https://github.com/your-org/ScpTensor.git
-   cd ScpTensor
-
-   # Install with uv (recommended)
-   uv pip install -e .
-
-   # Or with pip
-   pip install -e .
-   ```
-
-2. **JupyterLab or Jupyter Notebook**:
-   ```bash
-   # Install JupyterLab
-   pip install jupyterlab
-
-   # Or classic Jupyter Notebook
-   pip install notebook
-   ```
-
-3. **Required dependencies** (installed with ScpTensor):
-   - numpy
-   - polars
-   - scipy
-   - scikit-learn
-   - matplotlib
-   - scienceplots
-
-## Running the Notebooks
-
-### Option 1: JupyterLab (Recommended)
+### 1. 安装ScpTensor
 
 ```bash
-# From the project root
-jupyter lab
-```
+# 克隆仓库
+git clone https://github.com/your-org/ScpTensor.git
+cd ScpTensor
 
-Then navigate to `docs/notebooks/` and open a notebook.
+# 使用uv安装（推荐）
+uv pip install -e .
 
-### Option 2: Jupyter Notebook
-
-```bash
-# From the project root
-jupyter notebook
-```
-
-### Option 3: VS Code
-
-1. Install the [Jupyter extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter)
-2. Open any `.ipynb` file in VS Code
-3. Select a kernel (Python with ScpTensor installed)
-
-## Available Tutorials
-
-| Notebook | Topics Covered | Duration |
-|----------|----------------|----------|
-| **01_basic_workflow.ipynb** | Data loading, QC, normalization, imputation, PCA, clustering, visualization | 20 min |
-| **02_batch_correction.ipynb** | Batch effect detection, ComBat correction, integration verification | 25 min |
-
-### Notebook Details
-
-#### 01_basic_workflow.ipynb
-A complete end-to-end analysis pipeline:
-- Generate synthetic SCP data with realistic missing patterns
-- Quality control with completeness visualization
-- Log normalization for variance stabilization
-- KNN imputation for missing values
-- PCA for dimensionality reduction
-- K-means clustering
-- Publication-ready visualizations
-
-**Best for:** New users learning ScpTensor basics
-
-#### 02_batch_correction.ipynb
-Advanced workflow for handling batch effects:
-- Generate data with strong batch effects
-- Detect and visualize batch effects
-- Apply ComBat empirical Bayes correction
-- Verify integration quality
-- Before/after comparison visualizations
-
-**Best for:** Users working with multi-batch data or integrating multiple datasets
-
-## Notebook Tips
-
-1. **Run cells sequentially**: Each notebook builds on previous cells
-2. **Expected outputs**: Descriptions of expected outputs are provided
-3. **Synthetic data**: Notebooks generate reproducible synthetic data - no external files needed
-4. **Publication-ready plots**: All figures use SciencePlots style with 300 DPI
-
-## Troubleshooting
-
-### Import Errors
-
-If you see `ModuleNotFoundError: No module named 'scptensor'`:
-```bash
-# Reinstall ScpTensor in development mode
+# 或使用pip
 pip install -e .
 ```
 
-### Missing SciencePlots
+### 2. 安装Jupyter
 
-If you see a style error:
+```bash
+# JupyterLab（推荐）
+pip install jupyterlab
+
+# 或经典Jupyter Notebook
+pip install notebook
+```
+
+### 3. 启动Jupyter
+
+```bash
+# 从项目根目录
+jupyter lab
+
+# 然后导航到 docs/notebooks/ 并打开notebook
+```
+
+## 可用教程
+
+| Notebook | 主题 | 预计时间 | 状态 |
+|----------|------|----------|------|
+| **01_basic_workflow.ipynb** | QC与归一化完整工作流程 | 30分钟 | ✅ 最新 |
+
+## Notebook详情
+
+### 01_basic_workflow.ipynb
+
+**完整的质控与归一化工作流程**，涵盖：
+
+#### 第一部分：质控(QC)
+1. **PSM层级质控**
+   - 过滤污染物（角蛋白、胰蛋白酶等）
+   - PIF过滤（母离子纯度）
+
+2. **样本层级质控**
+   - 计算QC指标（特征数、总强度）
+   - 过滤低质量样本（基于MAD）
+   - 过滤双细胞（检测右侧离群值）
+
+3. **特征层级质控**
+   - 计算QC指标（缺失率、CV）
+   - 过滤高缺失率蛋白
+   - 过滤高变异系数蛋白
+
+#### 第二部分：归一化
+1. **对数归一化** - 必须步骤，稳定方差
+2. **中位数归一化** - 推荐方法，对异常值鲁棒
+3. **均值归一化** - 可选方法，对异常值敏感
+4. **分位数归一化** - 高级方法，强制相同分布
+
+**适用对象**: 所有ScpTensor用户
+
+**学习成果**:
+- ✅ 理解SCP数据的QC流程
+- ✅ 掌握不同的归一化方法
+- ✅ 学会选择合适的参数
+- ✅ 了解最佳实践
+
+## Notebook特点
+
+1. **自包含**: 所有notebook使用模拟数据，无需外部文件
+2. **可执行**: 逐cell运行，每个输出都有说明
+3. **可视化**: 包含多个出版质量图表（SciencePlots, 300 DPI）
+4. **中文注释**: 详细的中文代码注释和说明
+5. **最佳实践**: 展示推荐的参数和工作流程
+
+## 系统要求
+
+- **Python**: 3.11或更高
+- **内存**: 至少4GB RAM
+- **依赖**: 自动安装（随ScpTensor）
+
+## 依赖包
+
+```
+numpy
+polars
+scipy
+scikit-learn
+matplotlib
+scienceplots
+```
+
+## 常见问题
+
+### 导入错误
+
+如果看到 `ModuleNotFoundError: No module named 'scptensor'`:
+```bash
+# 重新安装ScpTensor（开发模式）
+pip install -e .
+```
+
+### 缺少SciencePlots
+
+如果看到样式错误：
 ```bash
 pip install scienceplots
 ```
 
-### Kernel Issues
+### Kernel问题
 
-If Jupyter can't find the Python kernel:
+如果Jupyter找不到Python kernel：
 ```bash
-# Install ipykernel
+# 安装ipykernel
 pip install ipykernel
 
-# Register your environment
+# 注册环境
 python -m ipykernel install --user --name=scptensor
 ```
 
-## Additional Resources
+## 其他资源
 
-- **API Documentation**: [API Reference](../api/)
-- **Design Documents**: [Design Docs](../design/)
-- **GitHub Repository**: [ScpTensor GitHub](https://github.com/your-org/ScpTensor)
+- **API文档**: [API Reference](../api/)
+- **设计文档**: [Design Docs](../design/)
+- **GitHub仓库**: [ScpTensor GitHub](https://github.com/your-org/ScpTensor)
+- **问题追踪**: [ISSUES_AND_LIMITATIONS.md](../ISSUES_AND_LIMITATIONS.md)
 
-## Citation
+## 引用
 
-If you use ScpTensor in your research, please cite:
+如果您在研究中使用了ScpTensor，请引用：
 ```
 ScpTensor: A Framework for Single-Cell Proteomics Analysis
 [Authors et al., Year]
 ```
 
-## Support
+## 支持
 
-For issues, questions, or contributions:
-- Open an issue on GitHub
-- Check the [Design Documents](../design/) for architecture details
-- See [ISSUES_AND_LIMITATIONS.md](../ISSUES_AND_LIMITATIONS.md) for known issues
+遇到问题？
+- 在GitHub上提issue
+- 查看[设计文档](../design/)了解架构细节
+- 参考[ISSUES_AND_LIMITATIONS.md](../ISSUES_AND_LIMITATIONS.md)了解已知问题
+
+---
+
+**最后更新**: 2026-01-21
+**版本**: v0.1.0-beta

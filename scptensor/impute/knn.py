@@ -12,6 +12,54 @@ from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
 
 
+def _compute_weighted_imputation(
+    neighbor_values: np.ndarray,
+    neighbor_dists: np.ndarray,
+    weights: str,
+    k: int,
+) -> np.ndarray:
+    """Compute weighted imputation for multiple features efficiently.
+
+    Parameters
+    ----------
+    neighbor_values : np.ndarray
+        Shape (n_neighbors, n_features) - values from neighbors
+    neighbor_dists : np.ndarray
+        Shape (n_neighbors,) - distances to neighbors
+    weights : str
+        'uniform' or 'distance'
+    k : int
+        Number of neighbors to use
+
+    Returns
+    -------
+    np.ndarray
+        Shape (n_features,) - imputed values
+    """
+    n_use = min(neighbor_values.shape[0], k)
+    vals = neighbor_values[:n_use]
+    dists = neighbor_dists[:n_use]
+
+    if weights == "uniform":
+        return np.mean(vals, axis=0)
+
+    # Inverse distance weighting with zero-distance handling
+    with np.errstate(divide="ignore", invalid="ignore"):
+        w = 1.0 / dists
+
+    inf_mask = np.isinf(w)
+    if np.any(inf_mask):
+        w[inf_mask] = 1.0
+        w[~inf_mask] = 0.0
+
+    w_sum = np.sum(w)
+    if w_sum < 1e-10:
+        return np.mean(vals, axis=0)
+
+    w_normalized = w / w_sum
+    return vals.T @ w_normalized
+
+
 def impute_knn(
     container: ScpContainer,
     assay_name: str,
@@ -25,9 +73,8 @@ def impute_knn(
     """
     Impute missing values using k-Nearest Neighbors with over-sampling.
 
-    This implementation addresses "effective K decay" by searching for
-    k_search = oversample_factor * k neighbors, then filtering to find
-    valid (non-missing) neighbors per feature.
+    Searches k_search = oversample_factor * k neighbors to handle missing
+    values, then filters to valid (non-missing) neighbors per feature.
 
     Parameters
     ----------
@@ -74,7 +121,6 @@ def impute_knn(
     >>> "imputed_knn" in result.assays["proteins"].layers
     True
     """
-    # Parameter validation
     if k <= 0:
         raise ScpValueError(
             f"Number of neighbors (k) must be positive, got {k}. "
@@ -104,7 +150,6 @@ def impute_knn(
             value=oversample_factor,
         )
 
-    # Validate assay and layer
     if assay_name not in container.assays:
         available = ", ".join(f"'{k}'" for k in container.assays)
         raise AssayNotFoundError(
@@ -122,12 +167,10 @@ def impute_knn(
             f"Use assay.list_layers() to see all layers.",
         )
 
-    # Get data
     matrix = assay.layers[source_layer]
     X = matrix.X.copy()
     n_samples, n_features = X.shape
 
-    # Check for missing values
     missing_mask = np.isnan(X)
     if not np.any(missing_mask):
         print("No missing values found. Copying layer.")
@@ -135,7 +178,6 @@ def impute_knn(
         assay.add_layer(new_layer_name or "imputed_knn", new_matrix)
         return container
 
-    # Imputation setup
     X_imputed = X.copy()
     samples_with_missing = np.where(np.any(missing_mask, axis=1))[0]
     col_means = np.nanmean(X, axis=0)
@@ -144,7 +186,6 @@ def impute_knn(
     # Search k_search neighbors to buffer against missingness
     k_search = min(k * oversample_factor + 1, n_samples)
 
-    # Process in batches to save memory
     for start_idx in range(0, len(samples_with_missing), batch_size):
         end_idx = min(start_idx + batch_size, len(samples_with_missing))
         batch_indices = samples_with_missing[start_idx:end_idx]
@@ -168,48 +209,57 @@ def impute_knn(
             potential_neighbors = neighbor_candidates_sorted[mask_not_self]
             potential_dists = candidate_dists_sorted[mask_not_self]
 
-            # Impute each missing feature
+            # Get missing features for this sample
             sample_missing_feats = np.where(missing_mask[global_idx])[0]
 
-            for f_idx in sample_missing_feats:
-                # Get valid neighbors for this feature
-                neighbor_values = X[potential_neighbors, f_idx]
-                valid_val_mask = ~np.isnan(neighbor_values)
+            if len(sample_missing_feats) == 0:
+                continue
 
-                valid_neighbors_val = neighbor_values[valid_val_mask]
-                valid_neighbors_dist = potential_dists[valid_val_mask]
+            # Get all neighbor values for missing features at once: (n_potential, n_missing)
+            neighbor_values = X[np.ix_(potential_neighbors, sample_missing_feats)]
 
-                # Use top k valid neighbors
-                if len(valid_neighbors_val) > k:
-                    vals = valid_neighbors_val[:k]
-                    ds = valid_neighbors_dist[:k]
-                else:
-                    vals = valid_neighbors_val
-                    ds = valid_neighbors_dist
+            # Filter to valid (non-NaN) neighbors per feature
+            valid_mask = ~np.isnan(neighbor_values)
 
-                # Fallback to column mean if no valid neighbors
-                if len(vals) == 0:
-                    X_imputed[global_idx, f_idx] = col_means[f_idx]
+            # For each feature, count valid neighbors and select top k
+            n_valid_per_feat = np.sum(valid_mask, axis=0)
+
+            # Find features with no valid neighbors (fallback to column mean)
+            no_valid_mask = n_valid_per_feat == 0
+
+            if np.any(no_valid_mask):
+                fallback_feats = sample_missing_feats[no_valid_mask]
+                X_imputed[global_idx, fallback_feats] = col_means[fallback_feats]
+
+                # Keep only features with at least one valid neighbor
+                has_valid_mask = ~no_valid_mask
+                if not np.any(has_valid_mask):
                     continue
 
-                # Compute weighted average
-                if weights == "distance":
-                    with np.errstate(divide="ignore"):
-                        w = 1.0 / ds
+                sample_missing_feats = sample_missing_feats[has_valid_mask]
+                neighbor_values = neighbor_values[:, has_valid_mask]
+                valid_mask = valid_mask[:, has_valid_mask]
 
-                    inf_mask = np.isinf(w)
-                    if np.any(inf_mask):
-                        w[inf_mask] = 1.0
-                        w[~inf_mask] = 0.0
+            # For each feature, impute using top k valid neighbors
+            for feat_idx, feat_pos in enumerate(sample_missing_feats):
+                feat_mask = valid_mask[:, feat_idx]
+                if not np.any(feat_mask):
+                    X_imputed[global_idx, feat_pos] = col_means[feat_pos]
+                    continue
 
-                    w_sum = np.sum(w)
-                    imputed_val = np.dot(vals, w / w_sum) if w_sum > 1e-10 else np.mean(vals)
-                else:
-                    imputed_val = np.mean(vals)
+                # Get valid neighbors for this feature
+                valid_vals = neighbor_values[feat_mask, feat_idx]
+                valid_dists = potential_dists[feat_mask]
 
-                X_imputed[global_idx, f_idx] = imputed_val
+                if len(valid_vals) > 0:
+                    imputed_val = _compute_weighted_imputation(
+                        valid_vals.reshape(-1, 1),
+                        valid_dists,
+                        weights,
+                        k,
+                    )[0]
+                    X_imputed[global_idx, feat_pos] = imputed_val
 
-    # Create new layer with updated mask
     new_matrix = ScpMatrix(X=X_imputed, M=_update_imputed_mask(matrix.M, missing_mask))
     layer_name = new_layer_name or "imputed_knn"
     assay.add_layer(layer_name, new_matrix)

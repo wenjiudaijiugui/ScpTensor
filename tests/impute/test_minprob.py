@@ -1,9 +1,8 @@
 """
-Comprehensive tests for MinProb and MinDet imputation methods.
+Comprehensive tests for MinProb imputation method.
 
 Tests cover:
 - MinProb probabilistic imputation
-- MinDet deterministic imputation
 - Different sigma values
 - Parameter validation
 - Edge cases (all missing, no missing, single sample)
@@ -22,7 +21,7 @@ from scptensor.core.exceptions import (
     LayerNotFoundError,
     ScpValueError,
 )
-from scptensor.impute.minprob import impute_mindet, impute_minprob
+from scptensor.impute.minprob import impute_minprob
 
 # =============================================================================
 # Fixtures
@@ -464,263 +463,12 @@ class TestMinProbImputation:
 
 
 # =============================================================================
-# MinDet Imputation Tests
-# =============================================================================
-
-
-class TestMinDetImputation:
-    """Test MinDet imputation functionality."""
-
-    def test_mindet_basic_imputation(self, minprob_container):
-        """Test basic MinDet imputation."""
-        container, X_true, missing_mask = minprob_container
-
-        result = impute_mindet(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-            sigma=1.0,
-        )
-
-        assert "imputed_mindet" in result.assays["protein"].layers
-        result_matrix = result.assays["protein"].layers["imputed_mindet"]
-        X_imputed = result_matrix.X
-        M_imputed = result_matrix.M
-
-        # Check no NaNs remain
-        assert not np.any(np.isnan(X_imputed))
-
-        # Check shape preserved
-        assert X_imputed.shape == X_true.shape
-
-        # Check mask was created and updated correctly
-        assert M_imputed is not None
-        assert np.all(M_imputed[missing_mask] == MaskCode.IMPUTED)
-        assert np.all(M_imputed[~missing_mask] == MaskCode.VALID)
-
-        # Check imputed values are positive
-        assert np.all(X_imputed >= 0)
-
-    def test_mindet_deterministic(self, minprob_container):
-        """Test that MinDet is deterministic."""
-        container, _, _ = minprob_container
-
-        result1 = impute_mindet(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-            sigma=1.0,
-        )
-
-        result2 = impute_mindet(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-            sigma=1.0,
-        )
-
-        X1 = result1.assays["protein"].layers["imputed_mindet"].X
-        X2 = result2.assays["protein"].layers["imputed_mindet"].X
-
-        # Results should be identical (deterministic)
-        np.testing.assert_array_equal(X1, X2)
-
-    def test_mindet_same_value_per_feature(self, minprob_container):
-        """Test that MinDet uses same value for all missing entries in a feature."""
-        container, _, missing_mask = minprob_container
-
-        result = impute_mindet(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-            sigma=1.0,
-        )
-
-        X_imputed = result.assays["protein"].layers["imputed_mindet"].X
-
-        # For each feature, all imputed values should be the same
-        for j in range(X_imputed.shape[1]):
-            if np.any(missing_mask[:, j]):
-                imputed_vals = X_imputed[missing_mask[:, j], j]
-                # All imputed values for this feature should be identical
-                assert np.allclose(imputed_vals, imputed_vals[0])
-
-    def test_mindet_different_missing_rates(self, create_minprob_container):
-        """Test MinDet with different missing rates."""
-        missing_rates = [0.05, 0.2, 0.5]
-
-        for rate in missing_rates:
-            container, X_true, _ = create_minprob_container(
-                n_samples=50, n_features=20, missing_rate=rate
-            )
-
-            result = impute_mindet(
-                container,
-                assay_name="protein",
-                source_layer="raw",
-            )
-            X_imputed = result.assays["protein"].layers["imputed_mindet"].X
-
-            assert not np.any(np.isnan(X_imputed))
-            assert np.all(np.isfinite(X_imputed))
-
-    def test_mindet_sparse_matrix(self, create_minprob_container):
-        """Test MinDet with sparse input matrix."""
-        container, X_true, missing_mask = create_minprob_container(
-            n_samples=50, n_features=20, missing_rate=0.2, use_sparse=True
-        )
-
-        result = impute_mindet(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-        )
-        X_imputed = result.assays["protein"].layers["imputed_mindet"].X
-
-        assert not np.any(np.isnan(X_imputed))
-        assert X_imputed.shape == X_true.shape
-
-    def test_mindet_different_sigma_values(self, minprob_container):
-        """Test MinDet with different sigma values."""
-        container, _, _ = minprob_container
-
-        for sigma in [0.5, 1.0, 2.0, 3.0]:
-            result = impute_mindet(
-                container,
-                assay_name="protein",
-                source_layer="raw",
-                sigma=sigma,
-            )
-            X_imputed = result.assays["protein"].layers["imputed_mindet"].X
-
-            assert not np.any(np.isnan(X_imputed))
-            assert np.all(X_imputed >= 0)
-
-    def test_mindet_custom_layer_name(self, minprob_container):
-        """Test MinDet with custom output layer name."""
-        container, _, _ = minprob_container
-
-        result = impute_mindet(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-            new_layer_name="mindet_result",
-        )
-
-        assert "mindet_result" in result.assays["protein"].layers
-        assert "imputed_mindet" not in result.assays["protein"].layers
-
-    def test_mindet_no_missing_values(self, container_no_missing):
-        """Test MinDet with no missing values."""
-        container = container_no_missing()
-
-        result = impute_mindet(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-        )
-
-        assert "imputed_mindet" in result.assays["protein"].layers
-
-    def test_mindet_existing_mask_update(self, create_minprob_container):
-        """Test MinDet with existing mask matrix."""
-        container, X_true, missing_mask = create_minprob_container(
-            n_samples=50, n_features=20, missing_rate=0.2, with_mask=True
-        )
-
-        result = impute_mindet(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-        )
-        result_matrix = result.assays["protein"].layers["imputed_mindet"]
-        M_imputed = result_matrix.M
-
-        # Check that imputed values now have IMPUTED (5) code
-        assert M_imputed is not None
-        assert np.all(M_imputed[missing_mask] == MaskCode.IMPUTED)
-        # Check that valid values remain VALID (0)
-        assert np.all(M_imputed[~missing_mask] == MaskCode.VALID)
-
-    def test_mindet_parameter_validation(self, minprob_container):
-        """Test MinDet parameter validation."""
-        container, _, _ = minprob_container
-
-        # Invalid sigma (zero)
-        with pytest.raises(ScpValueError, match="sigma must be positive"):
-            impute_mindet(
-                container,
-                assay_name="protein",
-                source_layer="raw",
-                sigma=0,
-            )
-
-        # Invalid sigma (negative)
-        with pytest.raises(ScpValueError, match="sigma must be positive"):
-            impute_mindet(
-                container,
-                assay_name="protein",
-                source_layer="raw",
-                sigma=-1.0,
-            )
-
-    def test_mindet_assay_not_found(self, minprob_container):
-        """Test MinDet with non-existent assay."""
-        container, _, _ = minprob_container
-
-        with pytest.raises(AssayNotFoundError):
-            impute_mindet(
-                container,
-                assay_name="nonexistent",
-                source_layer="raw",
-            )
-
-    def test_mindet_layer_not_found(self, minprob_container):
-        """Test MinDet with non-existent layer."""
-        container, _, _ = minprob_container
-
-        with pytest.raises(LayerNotFoundError):
-            impute_mindet(
-                container,
-                assay_name="protein",
-                source_layer="nonexistent",
-            )
-
-    def test_mindet_tiny_dataset(self, tiny_container):
-        """Test MinDet with very small dataset."""
-        container = tiny_container(n_samples=3, n_features=3, missing_rate=0.3)
-
-        result = impute_mindet(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-        )
-        X_imputed = result.assays["protein"].layers["imputed_mindet"].X
-
-        assert not np.any(np.isnan(X_imputed))
-
-    def test_mindet_logging(self, minprob_container):
-        """Test that MinDet logs operation."""
-        container, _, _ = minprob_container
-        initial_history_len = len(container.history)
-
-        result = impute_mindet(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-        )
-
-        assert len(result.history) == initial_history_len + 1
-        assert result.history[-1].action == "impute_mindet"
-
-
-# =============================================================================
 # Edge Case Tests
 # =============================================================================
 
 
-class TestMinProbMinDetEdgeCases:
-    """Test edge cases for MinProb and MinDet."""
+class TestMinProbEdgeCases:
+    """Test edge cases for MinProb."""
 
     def test_all_missing_minprob(self, container_all_missing):
         """Test MinProb with all values missing."""
@@ -736,21 +484,6 @@ class TestMinProbMinDetEdgeCases:
         X_imputed = result.assays["protein"].layers["imputed_minprob"].X
 
         # Should fill with small positive values
-        assert not np.any(np.isnan(X_imputed))
-        assert np.all(X_imputed >= 0)
-
-    def test_all_missing_mindet(self, container_all_missing):
-        """Test MinDet with all values missing."""
-        container = container_all_missing()
-
-        result = impute_mindet(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-        )
-        X_imputed = result.assays["protein"].layers["imputed_mindet"].X
-
-        # Should fill with small positive value
         assert not np.any(np.isnan(X_imputed))
         assert np.all(X_imputed >= 0)
 
@@ -773,28 +506,6 @@ class TestMinProbMinDetEdgeCases:
             random_state=42,
         )
         X_imputed = result.assays["protein"].layers["imputed_minprob"].X
-
-        assert X_imputed.shape == (1, 5)
-        assert not np.any(np.isnan(X_imputed))
-
-    def test_single_sample_mindet(self):
-        """Test MinDet with single sample."""
-        np.random.seed(42)
-        X = np.array([[1.0, np.nan, 3.0, np.nan, 5.0]])
-
-        var = pl.DataFrame({"_index": [f"prot_{i}" for i in range(5)]})
-        obs = pl.DataFrame({"_index": ["cell_1"]})
-
-        assay = Assay(var=var)
-        assay.add_layer("raw", ScpMatrix(X=X, M=None))
-        container = ScpContainer(obs=obs, assays={"protein": assay})
-
-        result = impute_mindet(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-        )
-        X_imputed = result.assays["protein"].layers["imputed_mindet"].X
 
         assert X_imputed.shape == (1, 5)
         assert not np.any(np.isnan(X_imputed))
@@ -823,50 +534,6 @@ class TestMinProbMinDetEdgeCases:
         X_minprob = result_minprob.assays["protein"].layers["imputed_minprob"].X
         assert not np.any(np.isnan(X_minprob[:, 0]))
         assert np.all(X_minprob[:, 0] >= 0)
-
-        # Test MinDet
-        result_mindet = impute_mindet(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-        )
-        X_mindet = result_mindet.assays["protein"].layers["imputed_mindet"].X
-        assert not np.any(np.isnan(X_mindet[:, 0]))
-        assert np.all(X_mindet[:, 0] >= 0)
-
-    def test_comparison_minprob_vs_mindet(self, minprob_container):
-        """Compare MinProb and MinDet results."""
-        container, X_true, missing_mask = minprob_container
-
-        result_minprob = impute_minprob(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-            sigma=2.0,
-            random_state=42,
-        )
-
-        # Create fresh container for MinDet
-        container2, _, _ = minprob_container
-        result_mindet = impute_mindet(
-            container2,
-            assay_name="protein",
-            source_layer="raw",
-            sigma=1.0,
-        )
-
-        X_minprob = result_minprob.assays["protein"].layers["imputed_minprob"].X
-        X_mindet = result_mindet.assays["protein"].layers["imputed_mindet"].X
-
-        # Both should have no NaNs
-        assert not np.any(np.isnan(X_minprob))
-        assert not np.any(np.isnan(X_mindet))
-
-        # For each feature, MinDet variance should be 0 (same value for all)
-        for j in range(X_true.shape[1]):
-            if np.any(missing_mask[:, j]):
-                imputed_vals_mindet = X_mindet[missing_mask[:, j], j]
-                assert np.var(imputed_vals_mindet) < 1e-10  # Essentially 0
 
     def test_original_data_preserved(self, create_minprob_container):
         """Test that imputation doesn't modify original data."""
@@ -903,21 +570,6 @@ class TestMinProbMinDetEdgeCases:
         assert not np.any(np.isnan(X_imputed))
         assert np.all(X_imputed >= 0)
 
-    def test_mindet_with_large_sigma(self, minprob_container):
-        """Test MinDet with very large sigma value."""
-        container, _, _ = minprob_container
-
-        result = impute_mindet(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-            sigma=10.0,
-        )
-        X_imputed = result.assays["protein"].layers["imputed_mindet"].X
-
-        assert not np.any(np.isnan(X_imputed))
-        assert np.all(X_imputed >= 0)
-
     def test_minprob_with_small_sigma(self, minprob_container):
         """Test MinProb with very small sigma value."""
         container, _, _ = minprob_container
@@ -930,21 +582,6 @@ class TestMinProbMinDetEdgeCases:
             random_state=42,
         )
         X_imputed = result.assays["protein"].layers["imputed_minprob"].X
-
-        assert not np.any(np.isnan(X_imputed))
-        assert np.all(X_imputed >= 0)
-
-    def test_mindet_with_small_sigma(self, minprob_container):
-        """Test MinDet with very small sigma value."""
-        container, _, _ = minprob_container
-
-        result = impute_mindet(
-            container,
-            assay_name="protein",
-            source_layer="raw",
-            sigma=0.1,
-        )
-        X_imputed = result.assays["protein"].layers["imputed_mindet"].X
 
         assert not np.any(np.isnan(X_imputed))
         assert np.all(X_imputed >= 0)
@@ -962,14 +599,3 @@ class TestMinProbMinDetEdgeCases:
 
         # Observed values should be unchanged
         np.testing.assert_array_equal(X_minprob[~missing_mask], X_true[~missing_mask])
-
-        # Same for MinDet
-        container2, _, _ = minprob_container
-        result_mindet = impute_mindet(
-            container2,
-            assay_name="protein",
-            source_layer="raw",
-        )
-        X_mindet = result_mindet.assays["protein"].layers["imputed_mindet"].X
-
-        np.testing.assert_array_equal(X_mindet[~missing_mask], X_true[~missing_mask])
