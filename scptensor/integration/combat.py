@@ -68,6 +68,7 @@ def integrate_combat(
     Notes
     -----
     The algorithm:
+        0. Impute missing values (NaNs) using batch-specific means (Pre-processing)
         1. Fit linear model with batch and covariates
         2. Estimate batch-specific mean and variance parameters
         3. Apply empirical Bayes shrinkage
@@ -90,7 +91,7 @@ def integrate_combat(
     input_was_sparse = is_sparse_matrix(X)
 
     # Convert to dense for ComBat computation
-    X_dense = X.toarray() if input_was_sparse else np.asarray(X)  # type: ignore[union-attr]
+    X_dense = X.toarray() if input_was_sparse else np.asarray(X)
 
     # Validate batch_key
     obs_df = container.obs
@@ -198,26 +199,25 @@ def integrate_combat(
 
 
 def _impute_nans_batchwise(X: np.ndarray, batches: np.ndarray) -> np.ndarray:
-    """Impute NaN values using batch-specific column means."""
+    """Impute NaN values using batch-specific column means (fully vectorized)."""
     X_imputed = X.copy()
+
     for b in np.unique(batches):
-        batch_idx = np.where(batches == b)[0]
-        batch_data = X_imputed[batch_idx]
+        batch_mask = batches == b
+        batch_data = X_imputed[batch_mask]
         batch_mean = np.nanmean(batch_data, axis=0)
 
         nan_mask = np.isnan(batch_data)
         if nan_mask.any():
-            batch_idx[nan_mask[:, 0]]  # Get affected global rows
-            for col in range(X.shape[1]):
-                col_nans = np.where(nan_mask[:, col])[0]
-                if col_nans.size > 0:
-                    X_imputed[batch_idx[col_nans], col] = batch_mean[col]
+            batch_rows = np.where(batch_mask)[0]
+            nan_rows, nan_cols = np.where(nan_mask)
+            global_rows = batch_rows[nan_rows]
+            X_imputed[global_rows, nan_cols] = batch_mean[nan_cols]
 
-    # Fallback for remaining NaNs
     if np.isnan(X_imputed).any():
         col_mean = np.nan_to_num(np.nanmean(X_imputed, axis=0), nan=0.0)
-        nan_idx = np.where(np.isnan(X_imputed))
-        X_imputed[nan_idx] = np.take(col_mean, nan_idx[1])
+        nan_mask = np.isnan(X_imputed)
+        X_imputed[nan_mask] = np.take(col_mean, np.where(nan_mask)[1])
 
     return X_imputed
 
