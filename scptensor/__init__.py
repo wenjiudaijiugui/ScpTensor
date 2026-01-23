@@ -53,7 +53,6 @@ from scptensor.benchmark import (
 # Clustering
 from scptensor.cluster import (
     cluster_kmeans,
-    cluster_kmeans_assay,
     cluster_leiden,
 )
 
@@ -310,7 +309,6 @@ __all__ = [
     # Clustering
     "cluster_kmeans",
     "cluster_leiden",
-    "cluster_kmeans_assay",
     # Visualization
     "scatter",
     "heatmap",
