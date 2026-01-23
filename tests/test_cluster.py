@@ -461,6 +461,124 @@ class TestBasicKmeans:
         )
         assert "kmeans_k3" in result_norm.obs.columns
 
+    def test_kmeans_backend_sklearn_default(self, pca_container):
+        """Test K-means with default sklearn backend."""
+        result = basic_kmeans(pca_container, assay_name="reduce_pca", n_clusters=3, backend="sklearn")
+
+        assert "kmeans_k3" in result.obs.columns
+        labels = result.obs["kmeans_k3"].cast(pl.Int32).to_numpy()
+        assert np.all((labels >= 0) & (labels < 3))
+        assert result.history[-1].params["backend"] == "sklearn"
+
+    def test_kmeans_backend_sklearn_explicit(self, pca_container):
+        """Test K-means with explicit sklearn backend."""
+        result = basic_kmeans(pca_container, assay_name="reduce_pca", n_clusters=3, backend="sklearn")
+
+        assert "kmeans_k3" in result.obs.columns
+        assert result.history[-1].params["backend"] == "sklearn"
+
+    def test_kmeans_backend_numba(self, pca_container):
+        """Test K-means with numba backend."""
+        from scptensor.core.jit_ops import NUMBA_AVAILABLE
+
+        if not NUMBA_AVAILABLE:
+            pytest.skip("Numba not available")
+
+        result = basic_kmeans(pca_container, assay_name="reduce_pca", n_clusters=3, backend="numba")
+
+        assert "kmeans_k3" in result.obs.columns
+        labels = result.obs["kmeans_k3"].cast(pl.Int32).to_numpy()
+        assert np.all((labels >= 0) & (labels < 3))
+        assert result.history[-1].params["backend"] == "numba"
+
+    def test_kmeans_backend_numba_custom_params(self, pca_container):
+        """Test K-means with numba backend and custom parameters."""
+        from scptensor.core.jit_ops import NUMBA_AVAILABLE
+
+        if not NUMBA_AVAILABLE:
+            pytest.skip("Numba not available")
+
+        result = basic_kmeans(
+            pca_container,
+            assay_name="reduce_pca",
+            n_clusters=3,
+            backend="numba",
+            max_iter=50,
+            tol=1e-3,
+        )
+
+        assert "kmeans_k3" in result.obs.columns
+        assert result.history[-1].params["backend"] == "numba"
+        assert result.history[-1].params["max_iter"] == 50
+        assert result.history[-1].params["tol"] == 1e-3
+
+    def test_kmeans_backend_comparison(self, pca_container):
+        """Test that sklearn and numba backends produce similar results."""
+        from scptensor.core.jit_ops import NUMBA_AVAILABLE
+
+        if not NUMBA_AVAILABLE:
+            pytest.skip("Numba not available")
+
+        # Run with same random state for comparison
+        result_sklearn = basic_kmeans(
+            pca_container, assay_name="reduce_pca", n_clusters=3, backend="sklearn", random_state=42
+        )
+        result_numba = basic_kmeans(
+            pca_container, assay_name="reduce_pca", n_clusters=3, backend="numba", random_state=42
+        )
+
+        # Both should produce valid clusterings
+        sklearn_labels = result_sklearn.obs["kmeans_k3"].cast(pl.Int32).to_numpy()
+        numba_labels = result_numba.obs["kmeans_k3"].cast(pl.Int32).to_numpy()
+
+        # Both should have same number of unique labels
+        assert len(np.unique(sklearn_labels)) == len(np.unique(numba_labels))
+
+        # Both should have all labels in valid range
+        assert np.all((sklearn_labels >= 0) & (sklearn_labels < 3))
+        assert np.all((numba_labels >= 0) & (numba_labels < 3))
+
+    def test_kmeans_backend_invalid(self, pca_container):
+        """Test K-means with invalid backend parameter."""
+        with pytest.raises(ScpValueError) as exc_info:
+            basic_kmeans(pca_container, assay_name="reduce_pca", n_clusters=3, backend="invalid")
+
+        assert "backend" in str(exc_info.value).lower()
+        assert exc_info.value.parameter == "backend"
+
+    def test_kmeans_backend_numba_not_available(self, pca_container, monkeypatch):
+        """Test K-means with numba backend when numba is not available."""
+        from scptensor.core.jit_ops import NUMBA_AVAILABLE
+        import scptensor.cluster.basic as basic_module
+
+        if not NUMBA_AVAILABLE:
+            pytest.skip("Numba not available, cannot test fallback")
+
+        # Temporarily set NUMBA_AVAILABLE to False in the cluster.basic module
+        monkeypatch.setattr(basic_module, "NUMBA_AVAILABLE", False)
+
+        with pytest.raises(ImportError) as exc_info:
+            basic_kmeans(pca_container, assay_name="reduce_pca", n_clusters=3, backend="numba")
+
+        assert "numba" in str(exc_info.value).lower()
+
+    def test_kmeans_backend_sklearn_with_custom_params_ignored(self, pca_container):
+        """Test that max_iter and tol are ignored for sklearn backend."""
+        result = basic_kmeans(
+            pca_container,
+            assay_name="reduce_pca",
+            n_clusters=3,
+            backend="sklearn",
+            max_iter=50,
+            tol=1e-3,
+        )
+
+        assert "kmeans_k3" in result.obs.columns
+        # sklearn backend should log "default" for max_iter and tol
+        assert result.history[-1].params["backend"] == "sklearn"
+        assert result.history[-1].params["max_iter"] == "default"
+        assert result.history[-1].params["tol"] == "default"
+
 
 # =============================================================================
 # leiden tests (graph.py) - currently 0% coverage
