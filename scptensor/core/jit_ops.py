@@ -1247,11 +1247,289 @@ if NUMBA_AVAILABLE:
 
 
 # =============================================================================
-# Fallback Implementations for Sparse Operations
+# KMeans Clustering Functions
+# =============================================================================
+
+if NUMBA_AVAILABLE:
+    from numba import njit, prange
+
+    @njit(cache=True, fastmath=True)
+    def kmeans_plusplus_init_numba(
+        X: np.ndarray, k: int, seed: int
+    ) -> np.ndarray:
+        """KMeans++ initialization for better cluster center starting positions.
+
+        Uses the KMeans++ algorithm to initialize cluster centers, which selects
+        initial centers to be spread out rather than random. This typically leads
+        to better and more consistent convergence.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Input data matrix (n_samples, n_features)
+        k : int
+            Number of clusters
+        seed : int
+            Random seed for reproducibility
+
+        Returns
+        -------
+        centers : np.ndarray
+            Initial cluster centers (k, n_features)
+
+        Notes
+        -----
+        The algorithm selects centers probabilistically, with probability
+        proportional to squared distance from the nearest existing center.
+        This ensures centers are well-spread across the data.
+
+        Examples
+        --------
+        >>> X = np.array([[1, 2], [1.5, 1.8], [5, 8], [8, 8]])
+        >>> centers = kmeans_plusplus_init_numba(X, k=2, seed=42)
+        >>> centers.shape
+        (2, 2)
+        """
+        n, d = X.shape
+        centers = np.zeros((k, d))
+        centers[0] = X[seed % n]
+
+        for c in range(1, k):
+            dists = np.full(n, np.inf)
+            for i in range(n):
+                for j in range(c):
+                    dist = 0.0
+                    for f in range(d):
+                        diff = X[i, f] - centers[j, f]
+                        dist += diff * diff
+                    if dist < dists[i]:
+                        dists[i] = dist
+
+            total = dists.sum()
+            if total == 0:
+                centers[c] = X[(seed + c) % n]
+                continue
+
+            r = ((seed * (c + 1) * 7919) % 1_000_000) / 1_000_000.0 * total
+            cum = 0.0
+            for i in range(n):
+                cum += dists[i]
+                if cum >= r:
+                    centers[c] = X[i]
+                    break
+        return centers
+
+    @njit(cache=True, parallel=True, fastmath=True)
+    def kmeans_core_numba(
+        X: np.ndarray,
+        k: int,
+        max_iter: int,
+        tol: float,
+        init_centers: np.ndarray,
+        rng_seed: int,
+    ) -> tuple[np.ndarray, np.ndarray, float]:
+        """Core KMeans clustering algorithm with parallel assignment.
+
+        Performs iterative KMeans clustering: assign samples to nearest centers,
+        then update centers as mean of assigned samples. Converges when centers
+        stop moving or max_iter is reached.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Input data matrix (n_samples, n_features)
+        k : int
+            Number of clusters
+        max_iter : int
+            Maximum number of iterations
+        tol : float
+            Convergence tolerance (stop when center shift < tol)
+        init_centers : np.ndarray
+            Initial cluster centers (k, n_features)
+        rng_seed : int
+            Random seed for handling empty clusters
+
+        Returns
+        -------
+        centers : np.ndarray
+            Final cluster centers (k, n_features)
+        labels : np.ndarray
+            Cluster assignments for each sample (n_samples,)
+        inertia : float
+            Sum of squared distances to assigned center
+
+        Notes
+        -----
+        - Parallel assignment step using prange for speed
+        - Empty clusters are reinitialized to random data points
+        - Inertia computed at end for quality assessment
+
+        Examples
+        --------
+        >>> X = np.array([[1, 2], [1.5, 1.8], [5, 8], [8, 8]])
+        >>> init = np.array([[1, 2], [5, 8]])
+        >>> centers, labels, inertia = kmeans_core_numba(
+        ...     X, k=2, max_iter=100, tol=1e-4,
+        ...     init_centers=init, rng_seed=42
+        ... )
+        >>> labels.shape
+        (4,)
+        """
+        n_samples, n_features = X.shape
+        centers = init_centers.copy()
+        labels = np.zeros(n_samples, dtype=np.int64)
+
+        for _ in range(max_iter):
+            # Assignment step (Parallel)
+            for i in prange(n_samples):
+                min_dist = np.inf
+                min_idx = 0
+                for j in range(k):
+                    dist = 0.0
+                    for d in range(n_features):
+                        diff = X[i, d] - centers[j, d]
+                        dist += diff * diff
+                    if dist < min_dist:
+                        min_dist = dist
+                        min_idx = j
+                labels[i] = min_idx
+
+            # Update step
+            new_centers = np.zeros((k, n_features), dtype=np.float64)
+            counts = np.zeros(k, dtype=np.int64)
+            for i in range(n_samples):
+                label_idx = labels[i]
+                counts[label_idx] += 1
+                for d in range(n_features):
+                    new_centers[label_idx, d] += X[i, d]
+
+            shift = 0.0
+            for j in range(k):
+                if counts[j] > 0:
+                    for d in range(n_features):
+                        new_centers[j, d] /= counts[j]
+                        diff = new_centers[j, d] - centers[j, d]
+                        shift += diff * diff
+                else:
+                    # Reinitialize empty cluster
+                    idx = (rng_seed + j) % n_samples
+                    for d in range(n_features):
+                        new_centers[j, d] = X[idx, d]
+
+            centers = new_centers
+            if np.sqrt(shift) < tol:
+                break
+
+        # Compute inertia
+        inertia = 0.0
+        for i in prange(n_samples):
+            c = centers[labels[i]]
+            for d in range(n_features):
+                diff = X[i, d] - c[d]
+                inertia += diff * diff
+
+        return centers, labels, inertia
+
+    @njit(cache=True, parallel=True, fastmath=True)
+    def kmeans_predict_numba(
+        X: np.ndarray, centers: np.ndarray
+    ) -> np.ndarray:
+        """Predict cluster assignments for new data.
+
+        Assigns each sample to the nearest cluster center based on
+        Euclidean distance.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Input data matrix (n_samples, n_features)
+        centers : np.ndarray
+            Cluster centers (k, n_features)
+
+        Returns
+        -------
+        labels : np.ndarray
+            Cluster assignments for each sample (n_samples,)
+
+        Examples
+        --------
+        >>> centers = np.array([[1, 2], [5, 8]])
+        >>> X = np.array([[1.1, 2.1], [4.9, 8.1]])
+        >>> labels = kmeans_predict_numba(X, centers)
+        >>> labels
+        array([0, 1])
+        """
+        n = X.shape[0]
+        labels = np.zeros(n, dtype=np.int64)
+        for i in prange(n):
+            min_dist = np.inf
+            idx = 0
+            for j in range(centers.shape[0]):
+                dist = 0.0
+                for k in range(X.shape[1]):
+                    diff = X[i, k] - centers[j, k]
+                    dist += diff * diff
+                if dist < min_dist:
+                    min_dist = dist
+                    idx = j
+            labels[i] = idx
+        return labels
+
+
+# =============================================================================
+# Fallback Implementations for KMeans and Sparse Operations
 # =============================================================================
 
 else:
+    # KMeans fallbacks
+    def kmeans_plusplus_init_numba(
+        X: np.ndarray, k: int, seed: int
+    ) -> np.ndarray:
+        """Fallback KMeans++ initialization using sklearn."""
+        from sklearn.cluster import KMeans
 
+        kmeans = KMeans(
+            n_clusters=k, init="k-means++", random_state=seed, n_init=1, max_iter=1
+        )
+        kmeans.fit(X)
+        return kmeans.cluster_centers_
+
+    def kmeans_core_numba(
+        X: np.ndarray,
+        k: int,
+        max_iter: int,
+        tol: float,
+        init_centers: np.ndarray,
+        rng_seed: int,
+    ) -> tuple[np.ndarray, np.ndarray, float]:
+        """Fallback KMeans using sklearn."""
+        from sklearn.cluster import KMeans
+
+        kmeans = KMeans(
+            n_clusters=k,
+            init=init_centers,
+            max_iter=max_iter,
+            tol=tol,
+            random_state=rng_seed,
+            n_init=1,
+        )
+        kmeans.fit(X)
+        return (
+            kmeans.cluster_centers_,
+            kmeans.labels_.astype(np.int64),
+            kmeans.inertia_,
+        )
+
+    def kmeans_predict_numba(
+        X: np.ndarray, centers: np.ndarray
+    ) -> np.ndarray:
+        """Fallback prediction using sklearn."""
+        from sklearn.metrics.pairwise import euclidean_distances
+
+        distances = euclidean_distances(X, centers)
+        return np.argmin(distances, axis=1).astype(np.int64)
+
+    # Sparse operations fallbacks
     def _sparse_row_sum_jit(indptr: np.ndarray, data: np.ndarray, n_rows: int) -> np.ndarray:
         """Fallback row sum computation (pure NumPy)."""
         result = np.empty(n_rows, dtype=np.float64)
@@ -1303,6 +1581,10 @@ __all__ = [
     # Differential expression functions
     "vectorized_ttest_row",
     "vectorized_mannwhitney_row",
+    # KMeans clustering functions
+    "kmeans_plusplus_init_numba",
+    "kmeans_core_numba",
+    "kmeans_predict_numba",
     # Sparse matrix row operations
     "_sparse_row_sum_jit",
     "_sparse_row_mean_jit",
@@ -1475,5 +1757,48 @@ if __name__ == "__main__":
     assert mean_diff == -1.0
     assert p_val > 0.0 and p_val <= 1.0
     print("vectorized_ttest_row: PASS")
+
+    # Test KMeans functions
+    print("\nTesting KMeans JIT functions...")
+    X_kmeans = np.array(
+        [
+            [1.0, 2.0],
+            [1.5, 1.8],
+            [5.0, 8.0],
+            [8.0, 8.0],
+            [1.0, 0.6],
+            [9.0, 11.0],
+            [1.2, 1.9],
+            [5.2, 8.2],
+            [8.5, 8.5],
+        ]
+    )
+
+    # Test kmeans_plusplus_init_numba
+    init_centers = kmeans_plusplus_init_numba(X_kmeans, k=3, seed=42)
+    print(f"KMeans++ init centers shape: {init_centers.shape}")
+    assert init_centers.shape == (3, 2)
+    print("kmeans_plusplus_init_numba: PASS")
+
+    # Test kmeans_core_numba
+    centers, labels, inertia = kmeans_core_numba(
+        X_kmeans, k=3, max_iter=100, tol=1e-4, init_centers=init_centers, rng_seed=42
+    )
+    print(f"KMeans centers shape: {centers.shape}")
+    print(f"KMeans labels: {labels}")
+    print(f"KMeans inertia: {inertia:.4f}")
+    assert centers.shape == (3, 2)
+    assert labels.shape == (9,)
+    assert len(np.unique(labels)) == 3  # All 3 clusters used
+    assert inertia >= 0.0
+    print("kmeans_core_numba: PASS")
+
+    # Test kmeans_predict_numba
+    X_new = np.array([[1.1, 2.1], [5.1, 8.1], [8.1, 8.1]])
+    predicted_labels = kmeans_predict_numba(X_new, centers)
+    print(f"Predicted labels: {predicted_labels}")
+    assert predicted_labels.shape == (3,)
+    assert predicted_labels.dtype == np.int64
+    print("kmeans_predict_numba: PASS")
 
     print("\nAll tests passed!")
