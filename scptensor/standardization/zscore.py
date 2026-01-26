@@ -115,7 +115,7 @@ def zscore(
 
     # Validate assay and layer existence
     if assay_name not in container.assays:
-        available = ", ".join(f"'{k}'" for k in container.assays.keys())
+        available = ", ".join(f"'{k}'" for k in container.assays)
         raise AssayNotFoundError(
             assay_name,
             hint=f"Available assays: {available}. Use container.list_assays() to see all assays.",
@@ -123,7 +123,7 @@ def zscore(
 
     assay = container.assays[assay_name]
     if source_layer not in assay.layers:
-        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
+        available = ", ".join(f"'{k}'" for k in assay.layers)
         raise LayerNotFoundError(
             source_layer,
             assay_name,
@@ -151,12 +151,12 @@ def zscore(
     std[std == 0] = 1.0
 
     # Apply standardization: z = (x - mean) / std
-    X_z = (input_layer.X - mean) / std
+    x_z = (input_layer.X - mean) / std
 
     # Create new layer with copied mask
     layer_name = new_layer_name or "zscore"
     new_matrix = ScpMatrix(
-        X=X_z,
+        X=x_z,
         M=input_layer.M.copy() if input_layer.M is not None else None,
     )
 
