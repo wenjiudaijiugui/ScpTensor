@@ -154,7 +154,8 @@ class PipelineE(BasePipeline):
         warnings.warn(
             "VSN normalization is not available in ScpTensor. "
             "Using log normalization as a substitute. "
-            "Results should still be comparable for the comparison study."
+            "Results should still be comparable for the comparison study.",
+            stacklevel=2,
         )
 
         return norm_log(

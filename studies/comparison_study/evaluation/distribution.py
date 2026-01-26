@@ -30,7 +30,7 @@ def compute_sparsity(container: Any) -> float:
     float
         Sparsity fraction between 0 and 1
     """
-    X = _get_data_matrix(container)
+    x = _get_data_matrix(container)
 
     # Try to use mask matrix if available
     if hasattr(container, "assays") and container.assays:
@@ -40,18 +40,18 @@ def compute_sparsity(container: Any) -> float:
         # Get the main layer
         layer_name = "log" if "log" in assay.layers else "X"
         if layer_name in assay.layers:
-            M = assay.layers[layer_name].M
+            m = assay.layers[layer_name].M
 
             # Mask codes > 0 indicate missing or imputed
-            if M is not None:
-                if hasattr(M, "toarray"):
-                    M = M.toarray()
-                n_missing = np.sum(M > 0)
-                total = M.size
+            if m is not None:
+                if hasattr(m, "toarray"):
+                    m = m.toarray()
+                n_missing = np.sum(m > 0)
+                total = m.size
                 return float(n_missing / total) if total > 0 else 0.0
 
     # Fallback: count zeros as missing
-    return float(np.sum(X == 0) / X.size)
+    return float(np.sum(x == 0) / x.size)
 
 
 def compute_statistics(container: Any) -> dict[str, float]:
@@ -75,12 +75,12 @@ def compute_statistics(container: Any) -> dict[str, float]:
         - median: Median value
         - mad: Median absolute deviation
     """
-    X = _get_data_matrix(container)
+    x = _get_data_matrix(container)
 
     # Exclude zeros (missing values)
-    X_valid = X[X != 0]
+    x_valid = x[x != 0]
 
-    if X_valid.size == 0:
+    if x_valid.size == 0:
         return {
             "mean": 0.0,
             "std": 0.0,
@@ -92,20 +92,20 @@ def compute_statistics(container: Any) -> dict[str, float]:
         }
 
     # Flatten for scipy stats
-    X_valid_flat = X_valid.flatten()
+    x_valid_flat = x_valid.flatten()
 
-    mean_val = float(np.mean(X_valid))
-    std_val = float(np.std(X_valid))
-    median_val = float(np.median(X_valid))
+    mean_val = float(np.mean(x_valid))
+    std_val = float(np.std(x_valid))
+    median_val = float(np.median(x_valid))
 
     # Compute MAD (median absolute deviation)
-    mad_val = float(np.median(np.abs(X_valid_flat - median_val)))
+    mad_val = float(np.median(np.abs(x_valid_flat - median_val)))
 
     return {
         "mean": mean_val,
         "std": std_val,
-        "skewness": float(stats.skew(X_valid_flat)),
-        "kurtosis": float(stats.kurtosis(X_valid_flat)),
+        "skewness": float(stats.skew(x_valid_flat)),
+        "kurtosis": float(stats.kurtosis(x_valid_flat)),
         "cv": std_val / mean_val if mean_val != 0 else 0.0,
         "median": median_val,
         "mad": mad_val,
@@ -142,18 +142,18 @@ def distribution_test(
     >>> if pval < 0.05:
     ...     print("Distributions are significantly different")
     """
-    X_orig = _get_data_matrix(original)
-    X_result = _get_data_matrix(result)
+    x_orig = _get_data_matrix(original)
+    x_result = _get_data_matrix(result)
 
     # Flatten and exclude zeros (missing values)
-    X_orig_valid = X_orig[X_orig != 0].flatten()
-    X_result_valid = X_result[X_result != 0].flatten()
+    x_orig_valid = x_orig[x_orig != 0].flatten()
+    x_result_valid = x_result[x_result != 0].flatten()
 
-    if X_orig_valid.size == 0 or X_result_valid.size == 0:
+    if x_orig_valid.size == 0 or x_result_valid.size == 0:
         return 0.0, 1.0
 
     # Perform KS test
-    statistic, pvalue = stats.ks_2samp(X_orig_valid, X_result_valid)
+    statistic, pvalue = stats.ks_2samp(x_orig_valid, x_result_valid)
 
     return float(statistic), float(pvalue)
 
@@ -180,13 +180,13 @@ def compute_quantiles(
     if q is None:
         q = (0.25, 0.5, 0.75)
 
-    X = _get_data_matrix(container)
-    X_valid = X[X != 0]
+    x = _get_data_matrix(container)
+    x_valid = x[x != 0]
 
-    if X_valid.size == 0:
+    if x_valid.size == 0:
         return {f"q{int(qi * 100)}": 0.0 for qi in q}
 
-    quantiles = np.quantile(X_valid, q)
+    quantiles = np.quantile(x_valid, q)
 
     return {f"q{int(qi * 100)}": float(qv) for qi, qv in zip(q, quantiles, strict=False)}
 
@@ -221,32 +221,32 @@ def compute_distribution_similarity(
     >>> sim = compute_distribution_similarity(orig, proc, method="wasserstein")
     >>> print(f"Distance: {sim['distance']:.4f}")
     """
-    X_orig = _get_data_matrix(original)
-    X_result = _get_data_matrix(result)
+    x_orig = _get_data_matrix(original)
+    x_result = _get_data_matrix(result)
 
     # Flatten and exclude zeros
-    X_orig_valid = X_orig[X_orig != 0].flatten()
-    X_result_valid = X_result[X_result != 0].flatten()
+    x_orig_valid = x_orig[x_orig != 0].flatten()
+    x_result_valid = x_result[x_result != 0].flatten()
 
-    if X_orig_valid.size == 0 or X_result_valid.size == 0:
+    if x_orig_valid.size == 0 or x_result_valid.size == 0:
         return {"distance": 0.0, "normalized_distance": 0.0}
 
     # Compute distance based on method
     if method == "wasserstein":
         # Earth Mover's Distance
-        distance = stats.wasserstein_distance(X_orig_valid, X_result_valid)
+        distance = stats.wasserstein_distance(x_orig_valid, x_result_valid)
     elif method == "energy":
         # Energy distance
-        distance = stats.energy_distance(X_orig_valid, X_result_valid)
+        distance = stats.energy_distance(x_orig_valid, x_result_valid)
     elif method == "ks":
         # Kolmogorov-Smirnov statistic
-        distance, _ = stats.ks_2samp(X_orig_valid, X_result_valid)
+        distance, _ = stats.ks_2samp(x_orig_valid, x_result_valid)
     else:
         msg = f"Unknown method: {method}. Use 'wasserstein', 'energy', or 'ks'"
         raise ValueError(msg)
 
     # Normalize by data range
-    data_range = np.max(X_orig_valid) - np.min(X_orig_valid)
+    data_range = np.max(x_orig_valid) - np.min(x_orig_valid)
     normalized_distance = distance / data_range if data_range > 0 else 0.0
 
     return {
@@ -279,9 +279,9 @@ def _get_data_matrix(container: Any) -> np.ndarray:
         else:
             raise ValueError("Assay has no layers")
 
-    X = assay.layers[layer_name].X
+    x = assay.layers[layer_name].X
 
     # Convert sparse to dense
-    if hasattr(X, "toarray"):
-        return X.toarray()
-    return X
+    if hasattr(x, "toarray"):
+        return x.toarray()
+    return x

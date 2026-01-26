@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Main runner script for pipeline comparison study.
+Simplified pipeline comparison main runner script.
 
 This script executes the complete pipeline comparison experiment, including:
 - Loading/generating datasets
@@ -45,12 +45,39 @@ _project_root = Path(__file__).parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-import argparse
-import pickle
-import time
-from typing import Any
+import argparse  # noqa: E402
+import pickle  # noqa: E402
+import time  # noqa: E402
+from typing import Any  # noqa: E402
 
-import yaml
+import yaml  # noqa: E402
+
+# =============================================================================
+# Import Streamlined Modules
+# =============================================================================
+# Add current directory to path for imports
+_comparison_dir = Path(__file__).parent
+if str(_comparison_dir) not in sys.path:
+    sys.path.insert(0, str(_comparison_dir))
+
+from studies.comparison_study.comparison_engine import (  # noqa: E402
+    compare_pipelines,
+    generate_comparison_report,
+)
+from studies.comparison_study.data_generation import (  # noqa: E402
+    generate_large_dataset,
+    generate_medium_dataset,
+    generate_small_dataset,
+)
+from studies.comparison_study.plotting import (  # noqa: E402
+    plot_batch_effects,
+    plot_performance_comparison,
+    plot_radar_chart,
+)
+
+# =============================================================================
+# Command Line Interface
+# =============================================================================
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -151,9 +178,11 @@ def setup_output_directory(output_dir: str) -> Path:
     return output_path
 
 
-def load_datasets(use_cache: bool = True, verbose: bool = False) -> dict[str, Any]:
+def load_datasets(
+    use_cache: bool = True, verbose: bool = False, dataset_names: list[str] | None = None
+) -> dict[str, Any]:
     """
-    Load or generate all datasets.
+    Load or generate specified datasets.
 
     Parameters
     ----------
@@ -161,48 +190,42 @@ def load_datasets(use_cache: bool = True, verbose: bool = False) -> dict[str, An
         Whether to use cached datasets if available
     verbose : bool
         Whether to print progress messages
+    dataset_names : list, optional
+        List of dataset names to generate. If None, generates all datasets.
 
     Returns
     -------
     dict
         Dictionary of dataset name → ScpContainer
     """
-    from docs.comparison_study.data import cache_datasets, load_all_datasets, load_cached_datasets
+    datasets = {}
 
-    cache_dir = "docs/comparison_study/outputs/data_cache"
+    # Determine which datasets to generate
+    if dataset_names is None:
+        dataset_names = ["small", "medium", "large"]
 
-    # Try to load from cache
-    if use_cache:
-        try:
+    # Generate datasets
+    for name in dataset_names:
+        if verbose:
+            print(f"Generating {name} dataset...")
+
+        if name == "small":
+            datasets[name] = generate_small_dataset(seed=42)
+        elif name == "medium":
+            datasets[name] = generate_medium_dataset(seed=42)
+        elif name == "large":
+            datasets[name] = generate_large_dataset(seed=42)
+        else:
             if verbose:
-                print("Loading cached datasets...")
-            datasets = load_cached_datasets(cache_dir)
-            if verbose:
-                print("✓ Loaded cached datasets")
-            return datasets
-        except FileNotFoundError:
-            if verbose:
-                print("No cached datasets found, generating new ones...")
+                print(f"  Warning: Unknown dataset '{name}', skipping...")
 
-    # Generate new datasets
-    if verbose:
-        print("Generating synthetic datasets...")
-
-    datasets = load_all_datasets()
-
-    # Cache datasets
-    if verbose:
-        print("Caching datasets...")
-
-    cache_datasets(datasets, cache_dir)
-
-    if verbose:
-        print("✓ Generated and cached datasets")
+        if verbose:
+            print(f"  ✓ Generated {name} dataset")
 
     return datasets
 
 
-def initialize_pipelines(config: dict[str, Any]) -> list:
+def initialize_pipelines(config: dict[str, Any]) -> dict[str, Any]:
     """
     Initialize all pipeline instances.
 
@@ -213,10 +236,10 @@ def initialize_pipelines(config: dict[str, Any]) -> list:
 
     Returns
     -------
-    list
-        List of pipeline instances
+    dict
+        Dictionary of pipeline name → pipeline instance
     """
-    from docs.comparison_study.pipelines import (
+    from studies.comparison_study.pipelines import (
         PipelineA,
         PipelineB,
         PipelineC,
@@ -224,314 +247,20 @@ def initialize_pipelines(config: dict[str, Any]) -> list:
         PipelineE,
     )
 
-    pipelines = [PipelineA(), PipelineB(), PipelineC(), PipelineD(), PipelineE()]
+    pipelines = {
+        "PipelineA": PipelineA(),
+        "PipelineB": PipelineB(),
+        "PipelineC": PipelineC(),
+        "PipelineD": PipelineD(),
+        "PipelineE": PipelineE(),
+    }
 
     return pipelines
 
 
-def run_single_pipeline(
-    pipeline: Any,
-    container: Any,
-    evaluator: Any,
-    pipeline_name: str,
-    dataset_name: str,
-    repeat: int,
-    verbose: bool = False,
-) -> dict[str, Any]:
-    """
-    Run a single pipeline on a dataset and evaluate results.
-
-    Parameters
-    ----------
-    pipeline : BasePipeline
-        Pipeline instance to run
-    container : ScpContainer
-        Input data container
-    evaluator : PipelineEvaluator
-        Evaluator instance
-    pipeline_name : str
-        Name of the pipeline
-    dataset_name : str
-        Name of the dataset
-    repeat : int
-        Repeat number
-    verbose : bool
-        Whether to print progress
-
-    Returns
-    -------
-    dict
-        Evaluation results
-    """
-    if verbose:
-        print(f"  Running {pipeline_name} on {dataset_name} (repeat {repeat + 1})...")
-
-    # Monitor performance
-    from docs.comparison_study.evaluation.performance import monitor_performance
-
-    result_container = None
-    runtime = 0.0
-    memory_peak = 0.0
-
-    try:
-        with monitor_performance() as perf:
-            # Run pipeline
-            result_container = pipeline.run(container)
-
-        # Read performance metrics AFTER context exits
-        runtime = perf["runtime"]
-        memory_peak = perf["memory_peak"]
-
-    except Exception as e:
-        if verbose:
-            print(f"    ✗ Pipeline failed: {e}")
-        # If failed, still try to get performance metrics
-        if "perf" in locals():
-            runtime = perf.get("runtime", 0.0)
-            memory_peak = perf.get("memory_peak", 0.0)
-        return {
-            "pipeline_name": pipeline_name,
-            "dataset_name": dataset_name,
-            "repeat": repeat,
-            "error": str(e),
-            "runtime": runtime,
-            "memory_peak": memory_peak,
-        }
-
-    # Evaluate results
-    try:
-        results = evaluator.evaluate(
-            original_container=container,
-            result_container=result_container,
-            runtime=runtime,
-            memory_peak=memory_peak,
-            pipeline_name=pipeline_name,
-            dataset_name=dataset_name,
-        )
-
-        results["repeat"] = repeat
-
-        if verbose:
-            print(f"    ✓ Completed in {runtime:.2f}s, {memory_peak:.2f}GB")
-
-    except Exception as e:
-        if verbose:
-            print(f"    ✗ Evaluation failed: {e}")
-        results = {
-            "pipeline_name": pipeline_name,
-            "dataset_name": dataset_name,
-            "repeat": repeat,
-            "error": str(e),
-            "runtime": runtime,
-            "memory_peak": memory_peak,
-        }
-
-    return results
-
-
-def run_complete_experiment(
-    datasets: dict[str, Any],
-    pipelines: list,
-    config: dict[str, Any],
-    output_dir: Path,
-    dataset_names: list[str] | None = None,
-    n_repeats: int = 3,
-    verbose: bool = False,
-) -> dict[str, Any]:
-    """
-    Run complete comparison experiment.
-
-    Parameters
-    ----------
-    datasets : dict
-        Dictionary of dataset name → container
-    pipelines : list
-        List of pipeline instances
-    config : dict
-        Configuration dictionary
-    output_dir : Path
-        Output directory
-    dataset_names : list, optional
-        List of dataset names to use. If None, uses all datasets.
-    n_repeats : int
-        Number of repeats per experiment
-    verbose : bool
-        Whether to print progress messages
-
-    Returns
-    -------
-    dict
-        All evaluation results
-    """
-    from docs.comparison_study.evaluation import PipelineEvaluator
-
-    # Initialize evaluator
-    evaluator = PipelineEvaluator(config["evaluation"])
-
-    # Filter datasets if specified
-    if dataset_names is not None:
-        datasets = {name: datasets[name] for name in dataset_names if name in datasets}
-
-    # Results storage
-    all_results = {}
-
-    # Total number of experiments
-    n_experiments = len(datasets) * len(pipelines) * n_repeats
-    experiment_count = 0
-
-    if verbose:
-        print(f"\nRunning {n_experiments} experiments...")
-        print("=" * 60)
-
-    # Run experiments
-    for dataset_name, container in datasets.items():
-        for pipeline in pipelines:
-            pipeline_name = pipeline.name.replace(" ", "_").lower()
-
-            for repeat in range(n_repeats):
-                experiment_count += 1
-
-                if verbose:
-                    print(f"\n[{experiment_count}/{n_experiments}]")
-
-                # Run pipeline and evaluate
-                results = run_single_pipeline(
-                    pipeline=pipeline,
-                    container=container,
-                    evaluator=evaluator,
-                    pipeline_name=pipeline_name,
-                    dataset_name=dataset_name,
-                    repeat=repeat,
-                    verbose=verbose,
-                )
-
-                # Store results
-                key = f"{dataset_name}_{pipeline_name}_r{repeat}"
-                all_results[key] = results
-
-                # Save intermediate results
-                results_path = output_dir / "results" / f"{key}.pkl"
-                with open(results_path, "wb") as f:
-                    pickle.dump(results, f)
-
-    if verbose:
-        print("\n" + "=" * 60)
-        print("✓ All experiments completed!")
-
-    return all_results
-
-
-def aggregate_results(results: dict[str, Any]) -> dict[str, Any]:
-    """
-    Aggregate results across repeats.
-
-    Parameters
-    ----------
-    results : dict
-        All individual results
-
-    Returns
-    -------
-    dict
-        Aggregated results (mean ± std across repeats)
-    """
-    import numpy as np
-
-    aggregated = {}
-
-    # Group results by pipeline and dataset
-    groups = {}
-    for key, result in results.items():
-        if "error" in result:
-            continue
-
-        # Key format: dataset_pipeline_name_r0
-        # We want: dataset_pipeline_name (without _r{repeat} suffix)
-        parts = key.rsplit("_r", 1)  # Split from the right at "_r"
-        base_key = parts[0]  # Get the part before "_r{repeat}"
-
-        if base_key not in groups:
-            groups[base_key] = []
-        groups[base_key].append(result)
-
-    # Compute statistics
-    for base_key, group_results in groups.items():
-        # Aggregate each metric
-        agg_result = {
-            "pipeline_name": group_results[0]["pipeline_name"],
-            "dataset_name": group_results[0]["dataset_name"],
-            "n_repeats": len(group_results),
-        }
-
-        # Aggregate nested metrics
-        for dimension in ["batch_effects", "performance", "distribution", "structure"]:
-            if dimension in group_results[0]:
-                agg_result[dimension] = {}
-
-                for metric_name in group_results[0][dimension].keys():
-                    values = [
-                        r[dimension][metric_name]
-                        for r in group_results
-                        if dimension in r and metric_name in r[dimension]
-                    ]
-
-                    if values:
-                        agg_result[dimension][metric_name] = {
-                            "mean": float(np.mean(values)),
-                            "std": float(np.std(values)),
-                            "min": float(np.min(values)),
-                            "max": float(np.max(values)),
-                        }
-
-        aggregated[base_key] = agg_result
-
-    return aggregated
-
-
-def print_experiment_summary(
-    results: dict[str, Any],
-    datasets: list[str],
-    pipelines: list[str],
-    n_repeats: int,
-    total_runtime: float,
-) -> None:
-    """
-    Print experiment summary to console.
-
-    Parameters
-    ----------
-    results : dict
-        All evaluation results
-    datasets : list
-        Dataset names used
-    pipelines : list
-        Pipeline names used
-    n_repeats : int
-        Number of repeats
-    total_runtime : float
-        Total runtime in seconds
-    """
-    print("\n" + "=" * 60)
-    print("EXPERIMENT SUMMARY")
-    print("=" * 60)
-    print(f"Total runtime: {total_runtime / 60:.2f} minutes")
-    print(f"Datasets used: {datasets}")
-    print(f"Pipelines tested: {len(pipelines)}")
-    print(f"Repeats per experiment: {n_repeats}")
-
-    # Count successful vs failed
-    successful = sum(1 for r in results.values() if "error" not in r)
-    failed = sum(1 for r in results.values() if "error" in r)
-
-    print(f"Total experiments: {len(results)}")
-    print(f"  Successful: {successful}")
-    print(f"  Failed: {failed}")
-
-    if failed > 0:
-        print("\nFailed experiments:")
-        for key, result in results.items():
-            if "error" in result:
-                print(f"  - {key}: {result['error']}")
+# =============================================================================
+# Main Execution Flow
+# =============================================================================
 
 
 def main() -> int:
@@ -570,7 +299,9 @@ def main() -> int:
         print(f"Output directory: {output_dir}")
 
     # Load datasets
-    datasets = load_datasets(use_cache=not args.no_cache, verbose=args.verbose)
+    datasets = load_datasets(
+        use_cache=not args.no_cache, verbose=args.verbose, dataset_names=dataset_names
+    )
 
     # Initialize pipelines
     if args.verbose:
@@ -580,44 +311,78 @@ def main() -> int:
 
     if args.verbose:
         print(f"✓ Initialized {len(pipelines)} pipelines:")
-        for pipeline in pipelines:
-            print(f"  - {pipeline.name}")
+        for pipeline_name in pipelines:
+            print(f"  - {pipeline_name}")
 
-    # Run experiments
+    # Run comparison using streamlined comparison engine
+    if args.verbose:
+        print("\nRunning pipeline comparison...")
+
     start_time = time.time()
 
-    results = run_complete_experiment(
-        datasets=datasets,
+    # Use compare_pipelines from comparison_engine
+    comparison_results = compare_pipelines(
         pipelines=pipelines,
-        config=config,
-        output_dir=output_dir,
-        dataset_names=dataset_names,
-        n_repeats=n_repeats,
-        verbose=args.verbose,
+        datasets=datasets,
+        metrics_list=["kbet", "ilisi", "clisi", "asw"],
     )
 
     total_runtime = time.time() - start_time
 
-    # Aggregate results (even for single repeat, for consistent key format)
-    if n_repeats >= 1:
-        if args.verbose and n_repeats > 1:
-            print("\nAggregating results across repeats...")
-        aggregated = aggregate_results(results)
-    else:
-        aggregated = results
+    if args.verbose:
+        print(f"✓ Comparison completed in {total_runtime:.2f}s")
 
     # Generate visualizations
     if args.verbose:
         print("\nGenerating visualizations...")
 
-    from docs.comparison_study.visualization import generate_all_figures
+    figures = []
+
+    # Prepare data for plotting
+    # Convert results to format expected by plotting functions
+    plotting_results = {}
+    for pipeline_name, pipeline_results in comparison_results.items():
+        plotting_results[pipeline_name] = {}
+        for dataset_name, dataset_results in pipeline_results.items():
+            scores = dataset_results.get("scores", {})
+            plotting_results[pipeline_name][dataset_name] = scores
 
     try:
-        figures = generate_all_figures(
-            results=aggregated if n_repeats > 1 else results,
-            config=config["evaluation"],
-            output_dir=str(output_dir / "figures"),
+        # Plot batch effects for each dataset
+        for dataset_name in datasets:
+            dataset_results = {
+                pipeline_name: pipeline_results.get(dataset_name, {})
+                for pipeline_name, pipeline_results in comparison_results.items()
+            }
+
+            output_path = output_dir / "figures" / f"{dataset_name}_batch_effects.png"
+            fig_path = plot_batch_effects(dataset_results, output_path=output_path)
+            figures.append(fig_path)
+
+        # Plot performance comparison
+        perf_results = {}
+        for pipeline_name, pipeline_results in comparison_results.items():
+            total_time = sum(
+                dataset_results.get("runtime", 0) for dataset_results in pipeline_results.values()
+            )
+            perf_results[pipeline_name] = {"execution_time": total_time}
+
+        fig_path = plot_performance_comparison(
+            perf_results, output_path=output_dir / "figures" / "performance.png"
         )
+        figures.append(fig_path)
+
+        # Plot radar chart (for first dataset)
+        first_dataset = list(datasets.keys())[0]
+        radar_data = {
+            pipeline_name: pipeline_results[first_dataset].get("scores", {})
+            for pipeline_name, pipeline_results in comparison_results.items()
+        }
+
+        fig_path = plot_radar_chart(
+            radar_data, output_path=output_dir / "figures" / "radar_chart.png"
+        )
+        figures.append(fig_path)
 
         if args.verbose:
             print(f"✓ Generated {len(figures)} figures")
@@ -625,20 +390,17 @@ def main() -> int:
     except Exception as e:
         if args.verbose:
             print(f"✗ Failed to generate figures: {e}")
-        figures = []
+            import traceback
 
-    # Generate report
+            traceback.print_exc()
+
+    # Generate comparison report
     if args.verbose:
-        print("\nGenerating report...")
-
-    from docs.comparison_study.visualization import ReportGenerator
+        print("\nGenerating comparison report...")
 
     try:
-        generator = ReportGenerator(config=config["evaluation"], output_dir=str(output_dir))
-
-        report_path = generator.generate_report(
-            results=aggregated if n_repeats > 1 else results, figures=figures
-        )
+        report_path = output_dir / "comparison_report.md"
+        generate_comparison_report(comparison_results, output_path=str(report_path))
 
         if args.verbose:
             print(f"✓ Report generated: {report_path}")
@@ -646,14 +408,16 @@ def main() -> int:
     except Exception as e:
         if args.verbose:
             print(f"✗ Failed to generate report: {e}")
+            import traceback
+
+            traceback.print_exc()
 
     # Save complete results
     results_file = output_dir / "results" / "complete_results.pkl"
     with open(results_file, "wb") as f:
         pickle.dump(
             {
-                "results": results,
-                "aggregated": aggregated,
+                "results": comparison_results,
                 "config": config,
                 "total_runtime": total_runtime,
             },
@@ -662,13 +426,24 @@ def main() -> int:
 
     # Print summary
     if args.verbose:
-        print_experiment_summary(
-            results=results,
-            datasets=list(datasets.keys()),
-            pipelines=[p.name for p in pipelines],
-            n_repeats=n_repeats,
-            total_runtime=total_runtime,
-        )
+        print("\n" + "=" * 60)
+        print("EXPERIMENT SUMMARY")
+        print("=" * 60)
+        print(f"Total runtime: {total_runtime / 60:.2f} minutes")
+        print(f"Datasets used: {list(datasets.keys())}")
+        print(f"Pipelines tested: {len(pipelines)}")
+        print(f"Repeats per experiment: {n_repeats}")
+
+        # Count successful vs failed
+        successful = 0
+        for pipeline_results in comparison_results.values():
+            for dataset_results in pipeline_results.values():
+                if "scores" in dataset_results:
+                    successful += 1
+
+        total = sum(len(pipeline_results) for pipeline_results in comparison_results.values())
+        print(f"Total experiments: {total}")
+        print(f"  Successful: {successful}")
 
         print(f"\nResults saved to: {output_dir}")
         print("=" * 60)

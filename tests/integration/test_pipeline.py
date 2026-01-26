@@ -14,7 +14,7 @@ This module tests the end-to-end workflow including:
 import numpy as np
 import pytest
 
-from scptensor.cluster import cluster_kmeans_assay as run_kmeans
+from scptensor.cluster import cluster_kmeans as run_kmeans
 from scptensor.core.exceptions import ScpTensorError
 from scptensor.dim_reduction import reduce_pca as pca
 from scptensor.impute import impute_knn as knn

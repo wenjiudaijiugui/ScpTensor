@@ -41,10 +41,10 @@ def compute_kbet(container: Any, k: int = 25) -> float:
     Büttner, M. et al. (2019) Nature Methods
     """
     # Get data matrix and batch labels
-    X = _get_embeddings(container)
+    x = _get_embeddings(container)
     batch_labels = _get_batch_labels(container)
 
-    n_cells = X.shape[0]
+    n_cells = x.shape[0]
 
     # Handle edge cases
     if n_cells <= k + 1:
@@ -58,8 +58,8 @@ def compute_kbet(container: Any, k: int = 25) -> float:
         return 1.0
 
     # Compute nearest neighbors
-    nbrs = NearestNeighbors(n_neighbors=min(k + 1, n_cells - 1)).fit(X)
-    distances, indices = nbrs.kneighbors(X)
+    nbrs = NearestNeighbors(n_neighbors=min(k + 1, n_cells - 1)).fit(x)
+    distances, indices = nbrs.kneighbors(x)
 
     # Exclude self (first neighbor)
     neighbor_indices = indices[:, 1 : k + 1]
@@ -113,10 +113,10 @@ def compute_lisi(container: Any, k: int = 25, perplexity: float = 30.0) -> float
     ----------
     Korsunsky, I. et al. (2019) Nature Methods
     """
-    X = _get_embeddings(container)
+    x = _get_embeddings(container)
     batch_labels = _get_batch_labels(container)
 
-    n_cells = X.shape[0]
+    n_cells = x.shape[0]
     n_batches = len(np.unique(batch_labels))
 
     # Handle edge cases
@@ -127,8 +127,8 @@ def compute_lisi(container: Any, k: int = 25, perplexity: float = 30.0) -> float
         return 1.0
 
     # Compute nearest neighbors
-    nbrs = NearestNeighbors(n_neighbors=min(k + 1, n_cells - 1)).fit(X)
-    distances, indices = nbrs.kneighbors(X)
+    nbrs = NearestNeighbors(n_neighbors=min(k + 1, n_cells - 1)).fit(x)
+    distances, indices = nbrs.kneighbors(x)
 
     neighbor_indices = indices[:, 1 : k + 1]
 
@@ -169,10 +169,10 @@ def compute_mixing_entropy(container: Any, k_neighbors: int = 25) -> float:
     float
         Average mixing entropy (higher is better, normalized to [0, 1])
     """
-    X = _get_embeddings(container)
+    x = _get_embeddings(container)
     batch_labels = _get_batch_labels(container)
 
-    n_cells = X.shape[0]
+    n_cells = x.shape[0]
     n_batches = len(np.unique(batch_labels))
 
     # Handle edge cases
@@ -183,8 +183,8 @@ def compute_mixing_entropy(container: Any, k_neighbors: int = 25) -> float:
         return 0.0
 
     # Compute nearest neighbors
-    nbrs = NearestNeighbors(n_neighbors=min(k_neighbors + 1, n_cells - 1)).fit(X)
-    distances, indices = nbrs.kneighbors(X)
+    nbrs = NearestNeighbors(n_neighbors=min(k_neighbors + 1, n_cells - 1)).fit(x)
+    distances, indices = nbrs.kneighbors(x)
 
     neighbor_indices = indices[:, 1 : k_neighbors + 1]
 
@@ -231,7 +231,7 @@ def compute_variance_ratio(container: Any) -> float:
     float
         Variance ratio (within/between). Higher is better for batch correction.
     """
-    X = _get_data_matrix(container)
+    x = _get_data_matrix(container)
     batch_labels = _get_batch_labels(container)
 
     unique_batches = np.unique(batch_labels)
@@ -242,16 +242,15 @@ def compute_variance_ratio(container: Any) -> float:
         return 0.0
 
     # Compute overall mean
-    overall_mean = np.mean(X, axis=0)
+    overall_mean = np.mean(x, axis=0)
 
     # Within-batch and between-batch variance
     within_var = 0.0
     between_var = 0.0
-    n_total = X.shape[0]
 
     for batch in unique_batches:
         batch_mask = batch_labels == batch
-        batch_data = X[batch_mask]
+        batch_data = x[batch_mask]
         n_batch = np.sum(batch_mask)
 
         if n_batch == 0:
@@ -334,12 +333,12 @@ def _get_data_matrix(container: Any) -> np.ndarray:
         else:
             raise ValueError("Assay has no layers")
 
-    X = assay.layers[layer_name].X
+    x = assay.layers[layer_name].X
 
     # Convert sparse to dense
-    if hasattr(X, "toarray"):
-        return X.toarray()
-    return X
+    if hasattr(x, "toarray"):
+        return x.toarray()
+    return x
 
 
 def _get_batch_labels(container: Any) -> np.ndarray:

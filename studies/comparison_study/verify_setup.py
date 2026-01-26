@@ -25,11 +25,7 @@ def verify_imports():
     # Test 1: Import data module
     print("\n[1/5] Testing data module...")
     try:
-        from docs.comparison_study.data import (
-            cache_datasets,
-            load_all_datasets,
-            load_cached_datasets,
-        )
+        from studies.comparison_study import data  # noqa: F401
 
         print("✓ Data module imported successfully")
     except ImportError as e:
@@ -39,8 +35,7 @@ def verify_imports():
     # Test 2: Import pipelines module
     print("\n[2/5] Testing pipelines module...")
     try:
-        from docs.comparison_study.pipelines import (
-            BasePipeline,
+        from studies.comparison_study.pipelines import (
             PipelineA,
             PipelineB,
             PipelineC,
@@ -61,12 +56,7 @@ def verify_imports():
     # Test 3: Import evaluation module
     print("\n[3/5] Testing evaluation module...")
     try:
-        from docs.comparison_study.evaluation import (
-            PipelineEvaluator,
-            compute_kbet,
-            compute_lisi,
-            monitor_performance,
-        )
+        from studies.comparison_study import evaluation  # noqa: F401
 
         print("✓ Evaluation module imported successfully")
     except ImportError as e:
@@ -76,12 +66,7 @@ def verify_imports():
     # Test 4: Import visualization module
     print("\n[4/5] Testing visualization module...")
     try:
-        from docs.comparison_study.visualization import (
-            ComparisonPlotter,
-            ReportGenerator,
-            calculate_overall_scores,
-            generate_all_figures,
-        )
+        from studies.comparison_study import visualization  # noqa: F401
 
         print("✓ Visualization module imported successfully")
     except ImportError as e:
@@ -91,14 +76,7 @@ def verify_imports():
     # Test 5: Import runner functions
     print("\n[5/5] Testing runner script...")
     try:
-        from docs.comparison_study.run_comparison import (
-            aggregate_results,
-            initialize_pipelines,
-            load_config,
-            load_datasets,
-            run_complete_experiment,
-            setup_output_directory,
-        )
+        from studies.comparison_study import run_comparison  # noqa: F401
 
         print("✓ Runner functions imported successfully")
     except ImportError as e:

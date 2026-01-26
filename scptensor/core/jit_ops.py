@@ -1254,9 +1254,7 @@ if NUMBA_AVAILABLE:
     from numba import njit, prange
 
     @njit(cache=True, fastmath=True)
-    def kmeans_plusplus_init_numba(
-        X: np.ndarray, k: int, seed: int
-    ) -> np.ndarray:
+    def kmeans_plusplus_init_numba(X: np.ndarray, k: int, seed: int) -> np.ndarray:
         """KMeans++ initialization for better cluster center starting positions.
 
         Uses the KMeans++ algorithm to initialize cluster centers, which selects
@@ -1431,9 +1429,7 @@ if NUMBA_AVAILABLE:
         return centers, labels, inertia
 
     @njit(cache=True, parallel=True, fastmath=True)
-    def kmeans_predict_numba(
-        X: np.ndarray, centers: np.ndarray
-    ) -> np.ndarray:
+    def kmeans_predict_numba(X: np.ndarray, centers: np.ndarray) -> np.ndarray:
         """Predict cluster assignments for new data.
 
         Assigns each sample to the nearest cluster center based on
@@ -1482,15 +1478,11 @@ if NUMBA_AVAILABLE:
 
 else:
     # KMeans fallbacks
-    def kmeans_plusplus_init_numba(
-        X: np.ndarray, k: int, seed: int
-    ) -> np.ndarray:
+    def kmeans_plusplus_init_numba(X: np.ndarray, k: int, seed: int) -> np.ndarray:
         """Fallback KMeans++ initialization using sklearn."""
         from sklearn.cluster import KMeans
 
-        kmeans = KMeans(
-            n_clusters=k, init="k-means++", random_state=seed, n_init=1, max_iter=1
-        )
+        kmeans = KMeans(n_clusters=k, init="k-means++", random_state=seed, n_init=1, max_iter=1)
         kmeans.fit(X)
         return kmeans.cluster_centers_
 
@@ -1520,9 +1512,7 @@ else:
             kmeans.inertia_,
         )
 
-    def kmeans_predict_numba(
-        X: np.ndarray, centers: np.ndarray
-    ) -> np.ndarray:
+    def kmeans_predict_numba(X: np.ndarray, centers: np.ndarray) -> np.ndarray:
         """Fallback prediction using sklearn."""
         from sklearn.metrics.pairwise import euclidean_distances
 

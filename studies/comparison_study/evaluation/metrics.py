@@ -319,9 +319,9 @@ class PipelineEvaluator:
                 # Get the main layer
                 layer_name = "log" if "log" in assay.layers else "X"
                 if layer_name in assay.layers:
-                    X = assay.layers[layer_name].X
-                    if hasattr(X, "shape"):
-                        return X.shape[:2]
+                    x = assay.layers[layer_name].X
+                    if hasattr(x, "shape"):
+                        return x.shape[:2]
 
             # Fallback to obs
             if hasattr(container, "obs"):

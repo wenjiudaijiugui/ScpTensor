@@ -69,7 +69,7 @@ class ComparisonSuite:
 
     Examples
     --------
-    >>> suite = ComparisonSuite("tests/data/PXD061065.h5ad")
+    >>> suite = ComparisonSuite("data/tests/PXD061065.h5ad")
     >>> result = suite.compare_normalization("log1p")
     >>> print(result)
     >>> suite.summary()
@@ -778,14 +778,6 @@ class ComparisonSuite:
 
         # Create fresh copies
         adata = self.adata_scanpy.copy()
-        container = from_scanpy(self.adata_scanpy, assay_name=self.assay_name)
-
-        # Get base layer name
-        base_layer = "X"
-        for layer_name in ["counts", "raw", "X"]:
-            if layer_name in container.assays[self.assay_name].layers:
-                base_layer = layer_name
-                break
 
         # Scanpy HVG selection
         t0 = time.perf_counter()
@@ -796,11 +788,6 @@ class ComparisonSuite:
             inplace=True,
         )
         time_scanpy = time.perf_counter() - t0
-
-        # Get Scanpy selected features (indices where highly_variable is True)
-        scanpy_hvg_mask = adata.var["highly_variable"].values
-        scanpy_selected = set(np.where(scanpy_hvg_mask)[0])
-        n_scanpy_selected = len(scanpy_selected)
 
         # ScpTensor HVG selection
         # NOTE: select_hvg removed - feature_selection module was deleted

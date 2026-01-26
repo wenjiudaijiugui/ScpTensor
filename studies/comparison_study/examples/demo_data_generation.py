@@ -2,20 +2,13 @@
 
 import sys
 
-sys.path.insert(0, "/home/shenshang/projects/ScpTensor")
-
 import numpy as np
 
-from docs.comparison_study.data import (
-    load_all_datasets,
-)
-from docs.comparison_study.data.load_datasets import (
-    add_batch_effects,
-    create_batch_labels,
-)
-from docs.comparison_study.data.prepare_synthetic import (
-    generate_synthetic_dataset,
-)
+sys.path.insert(0, "/home/shenshang/projects/ScpTensor")
+
+from docs.comparison_study.data import load_all_datasets
+from docs.comparison_study.data.load_datasets import add_batch_effects, create_batch_labels
+from docs.comparison_study.data.prepare_synthetic import generate_synthetic_dataset
 
 
 def main():
@@ -33,11 +26,11 @@ def main():
     # Demo 2: Batch effects
     print("\nDemo 2: Batch Effects")
     np.random.seed(42)
-    X = np.random.rand(100, 5)
+    x = np.random.rand(100, 5)
     batch_labels = np.array([0] * 50 + [1] * 50)
-    X_batched = add_batch_effects(X, batch_labels, effect_size=1.0)
+    x_batched = add_batch_effects(x, batch_labels, effect_size=1.0)
     print("Added batch effects to data")
-    print(f"Shape preserved: {X.shape} -> {X_batched.shape}")
+    print(f"Shape preserved: {x.shape} -> {x_batched.shape}")
 
     # Demo 3: Synthetic dataset
     print("\nDemo 3: Synthetic Dataset")

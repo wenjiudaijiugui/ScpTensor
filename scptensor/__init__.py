@@ -33,23 +33,6 @@ from __future__ import annotations
 __version__ = "0.1.0"
 __author__ = "ScpTensor Team"
 
-# Core data structures and exceptions
-# Benchmarking
-from scptensor.benchmark import (
-    COMPETITOR_REGISTRY,
-    BenchmarkResult,
-    BenchmarkResults,
-    BiologicalMetrics,
-    ComparisonResult,
-    CompetitorBenchmarkSuite,
-    CompetitorResultVisualizer,
-    ScanpyStyleOps,
-    SyntheticDataset,
-    get_competitor,
-    get_competitors_by_operation,
-    list_competitors,
-)
-
 # Clustering
 from scptensor.cluster import (
     cluster_kmeans,
@@ -152,18 +135,13 @@ from scptensor.io import (
     IOFormatError,
     IOPasswordError,
     IOWriteError,
-    from_scanpy,
     load_csv,
-    load_h5ad,
     load_hdf5,
     load_npz,
-    read_h5ad,
+    read_diann,
     save_csv,
-    save_h5ad,
     save_hdf5,
     save_npz,
-    to_scanpy,
-    write_h5ad,
 )
 
 # Normalization and transformation
@@ -234,14 +212,9 @@ __all__ = [
     # Core I/O
     "load_csv",
     "save_csv",
-    "load_h5ad",
-    "save_h5ad",
     "load_npz",
     "save_npz",
-    "from_scanpy",
-    "to_scanpy",
-    "read_h5ad",
-    "write_h5ad",
+    "read_diann",
     # HDF5 I/O
     "save_hdf5",
     "load_hdf5",
@@ -324,19 +297,6 @@ __all__ = [
     "diff_expr_anova",
     "diff_expr_kruskal",
     "adjust_fdr",
-    # Benchmarking
-    "BenchmarkResult",
-    "BenchmarkResults",
-    "BiologicalMetrics",
-    "ComparisonResult",
-    "CompetitorBenchmarkSuite",
-    "CompetitorResultVisualizer",
-    "COMPETITOR_REGISTRY",
-    "ScanpyStyleOps",
-    "list_competitors",
-    "get_competitor",
-    "get_competitors_by_operation",
-    "SyntheticDataset",
     # Datasets
     "load_toy_example",
     "load_simulated_scrnaseq_like",

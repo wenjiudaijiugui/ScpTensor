@@ -18,6 +18,7 @@ from scptensor.core.exceptions import ValidationError
 from scptensor.core.structures import (
     AggregationLink,
     Assay,
+    MatrixMetadata,
     ProvenanceLog,
     ScpContainer,
     ScpMatrix,
@@ -125,7 +126,65 @@ def save_npz(
             else:
                 layer_info["M"] = None
 
-            # Skip metadata serialization (optional field)
+            # Handle metadata
+            if matrix.metadata is not None:
+                metadata_dict: SerializableDict = {}
+                if matrix.metadata.confidence_scores is not None:
+                    if sp.issparse(matrix.metadata.confidence_scores):
+                        metadata_dict["confidence_scores"] = _sparse_to_dict(
+                            matrix.metadata.confidence_scores
+                        )
+                        metadata_dict["confidence_scores_is_sparse"] = True
+                    else:
+                        cs = matrix.metadata.confidence_scores
+                        metadata_dict["confidence_scores"] = (
+                            cs.tolist() if isinstance(cs, np.ndarray) else cs
+                        )
+                        metadata_dict["confidence_scores_is_sparse"] = False
+
+                if matrix.metadata.detection_limits is not None:
+                    if sp.issparse(matrix.metadata.detection_limits):
+                        metadata_dict["detection_limits"] = _sparse_to_dict(
+                            matrix.metadata.detection_limits
+                        )
+                        metadata_dict["detection_limits_is_sparse"] = True
+                    else:
+                        dl = matrix.metadata.detection_limits
+                        metadata_dict["detection_limits"] = (
+                            dl.tolist() if isinstance(dl, np.ndarray) else dl
+                        )
+                        metadata_dict["detection_limits_is_sparse"] = False
+
+                if matrix.metadata.imputation_quality is not None:
+                    if sp.issparse(matrix.metadata.imputation_quality):
+                        metadata_dict["imputation_quality"] = _sparse_to_dict(
+                            matrix.metadata.imputation_quality
+                        )
+                        metadata_dict["imputation_quality_is_sparse"] = True
+                    else:
+                        iq = matrix.metadata.imputation_quality
+                        metadata_dict["imputation_quality"] = (
+                            iq.tolist() if isinstance(iq, np.ndarray) else iq
+                        )
+                        metadata_dict["imputation_quality_is_sparse"] = False
+
+                if matrix.metadata.outlier_scores is not None:
+                    if sp.issparse(matrix.metadata.outlier_scores):
+                        metadata_dict["outlier_scores"] = _sparse_to_dict(
+                            matrix.metadata.outlier_scores
+                        )
+                        metadata_dict["outlier_scores_is_sparse"] = True
+                    else:
+                        os = matrix.metadata.outlier_scores
+                        metadata_dict["outlier_scores"] = (
+                            os.tolist() if isinstance(os, np.ndarray) else os
+                        )
+                        metadata_dict["outlier_scores_is_sparse"] = False
+
+                if matrix.metadata.creation_info is not None:
+                    metadata_dict["creation_info"] = matrix.metadata.creation_info
+
+                layer_info["metadata"] = metadata_dict
 
             layers_dict[layer_name] = layer_info
 
@@ -244,22 +303,56 @@ def load_npz(path: str | Path) -> ScpContainer:
             for layer_name, layer_info in layers_dict.items():
                 # Handle X
                 if layer_info.get("X_is_sparse", False):
-                    x = _dict_to_sparse(layer_info["X"])
+                    X = _dict_to_sparse(layer_info["X"])
                 else:
-                    x = np.array(layer_info["X"])
+                    X = np.array(layer_info["X"])
 
                 # Handle M
-                m = None
+                M = None
                 if layer_info.get("M") is not None:
                     if layer_info.get("M_is_sparse", False):
-                        m = _dict_to_sparse(layer_info["M"])
+                        M = _dict_to_sparse(layer_info["M"])
                     else:
-                        m = np.array(layer_info["M"])
+                        M = np.array(layer_info["M"])
 
-                # Skip metadata deserialization
+                # Handle metadata
                 metadata = None
+                if "metadata" in layer_info:
+                    meta_dict = layer_info["metadata"]
+                    metadata = MatrixMetadata()
 
-                layers[layer_name] = ScpMatrix(X=x, M=m, metadata=metadata)
+                    if "confidence_scores" in meta_dict:
+                        cs = meta_dict["confidence_scores"]
+                        if meta_dict.get("confidence_scores_is_sparse", False):
+                            metadata.confidence_scores = _dict_to_sparse(cs)
+                        else:
+                            metadata.confidence_scores = np.array(cs)
+
+                    if "detection_limits" in meta_dict:
+                        dl = meta_dict["detection_limits"]
+                        if meta_dict.get("detection_limits_is_sparse", False):
+                            metadata.detection_limits = _dict_to_sparse(dl)
+                        else:
+                            metadata.detection_limits = np.array(dl)
+
+                    if "imputation_quality" in meta_dict:
+                        iq = meta_dict["imputation_quality"]
+                        if meta_dict.get("imputation_quality_is_sparse", False):
+                            metadata.imputation_quality = _dict_to_sparse(iq)
+                        else:
+                            metadata.imputation_quality = np.array(iq)
+
+                    if "outlier_scores" in meta_dict:
+                        os = meta_dict["outlier_scores"]
+                        if meta_dict.get("outlier_scores_is_sparse", False):
+                            metadata.outlier_scores = _dict_to_sparse(os)
+                        else:
+                            metadata.outlier_scores = np.array(os)
+
+                    if "creation_info" in meta_dict:
+                        metadata.creation_info = meta_dict["creation_info"]
+
+                layers[layer_name] = ScpMatrix(X=X, M=M, metadata=metadata)
 
             assays[assay_name] = Assay(
                 var=var,

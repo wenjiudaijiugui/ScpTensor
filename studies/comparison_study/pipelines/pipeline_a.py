@@ -214,7 +214,6 @@ class PipelineA(BasePipeline):
         """
         params = self.config["steps"]["imputation"]["params"]
         n_neighbors = params.get("n_neighbors", 5)
-        metric = params.get("metric", "euclidean")
 
         return impute_knn(
             container,

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import polars as pl
@@ -20,6 +21,7 @@ __all__ = [
     "save_csv",
     "load_csv",
     "read_diann",
+    "save_diann",
 ]
 
 
@@ -73,6 +75,45 @@ def read_diann(
     return _read_diann_tsv(path, assay_name)
 
 
+def save_diann(
+    container: ScpContainer,
+    path: str | Path,
+    *,
+    assay_name: str = "proteins",
+    layer_name: str = "MaxLFQ",
+    format: Literal["tsv", "parquet"] = "tsv",
+) -> None:
+    """Export ScpContainer to DIA-NN format.
+
+    Supports export to:
+    1. TSV format: Protein group matrix file.
+    2. Parquet format: Main report file.
+
+    Parameters
+    ----------
+    container : ScpContainer
+        Container to export.
+    path : str | Path
+        Output file path. Extension determines format:
+        - ``.tsv`` for protein group matrix
+        - ``.parquet`` for main report
+    assay_name : str, optional
+        Name of the assay to export. Default is "proteins".
+    layer_name : str, optional
+        Name of the layer to export. Default is "MaxLFQ".
+    format : Literal["tsv", "parquet"], optional
+        Output format. Default is "tsv".
+
+    Raises
+    ------
+    NotImplementedError
+        DIA-NN export is not yet implemented.
+    ValidationError
+        If assay_name or layer_name is not found.
+    """
+    raise NotImplementedError("DIA-NN export not yet implemented")
+
+
 def _read_diann_parquet(path: Path, assay_name: str) -> ScpContainer:
     """Internal handler for report.parquet."""
     # Lazy load and filter
@@ -112,7 +153,7 @@ def _read_diann_parquet(path: Path, assay_name: str) -> ScpContainer:
     # We use 'max' aggregator.
     matrix_df = df.pivot(
         index="Protein.Group",
-        columns="Run",
+        on="Run",
         values="PG.MaxLFQ",
         aggregate_function="max",
     ).fill_null(0.0)
@@ -136,13 +177,13 @@ def _read_diann_parquet(path: Path, assay_name: str) -> ScpContainer:
 
     # Extract X (Data)
     # Transpose to (n_samples x n_features)
-    X_T = aligned_df.select(sample_cols).to_numpy()
-    X = X_T.T.astype(np.float64)
+    x_t = aligned_df.select(sample_cols).to_numpy()
+    x = x_t.T.astype(np.float64)
 
     # Create Assay
     assay = Assay(
         var=var,
-        layers={"MaxLFQ": ScpMatrix(X=X)},
+        layers={"MaxLFQ": ScpMatrix(X=x)},
         feature_id_col="_index",
     )
 
@@ -197,10 +238,10 @@ def _read_diann_tsv(path: Path, assay_name: str) -> ScpContainer:
     # or 0.0 if we assume it's intensity.
     # DIA-NN "omits" zero quantities.
     # Let's fill with 0.0 to match standard proteomics matrix format where 0 = missing/undetected
-    X_T = df.select(sample_cols).fill_null(0.0).to_numpy()
+    x_t = df.select(sample_cols).fill_null(0.0).to_numpy()
 
     # Transpose to (n_samples x n_features)
-    X = X_T.T.astype(np.float64)
+    x = x_t.T.astype(np.float64)
 
     # Create obs (Samples)
     obs = pl.DataFrame({"_index": sample_cols})
@@ -208,7 +249,7 @@ def _read_diann_tsv(path: Path, assay_name: str) -> ScpContainer:
     # Create Assay
     assay = Assay(
         var=var,
-        layers={"MaxLFQ": ScpMatrix(X=X)},
+        layers={"MaxLFQ": ScpMatrix(X=x)},
         feature_id_col="_index",
     )
 
@@ -301,9 +342,9 @@ def save_csv(
 
         # Convert sparse to dense for CSV
         if sp.issparse(matrix.X):
-            X_dense = matrix.X.toarray()  # type: ignore[union-attr]
+            x_dense = matrix.X.toarray()  # type: ignore[union-attr]
         else:
-            X_dense = matrix.X
+            x_dense = matrix.X
 
         # Create DataFrame with sample and feature IDs
         feature_ids = assay.feature_ids.to_list()
@@ -311,7 +352,7 @@ def save_csv(
 
         data_dict = {"_index": sample_ids}
         for i, fid in enumerate(feature_ids):
-            data_dict[str(fid)] = X_dense[:, i]
+            data_dict[str(fid)] = x_dense[:, i]
 
         data_df = pl.DataFrame(data_dict)
         data_df.write_csv(data_path)
@@ -321,13 +362,13 @@ def save_csv(
             mask_path = path / f"assay_{assay_name}_{layer_name}_mask.csv"
 
             if sp.issparse(matrix.M):
-                M_dense = matrix.M.toarray()  # type: ignore[union-attr]
+                m_dense = matrix.M.toarray()  # type: ignore[union-attr]
             else:
-                M_dense = matrix.M
+                m_dense = matrix.M
 
             mask_dict = {"_index": sample_ids}
             for i, fid in enumerate(feature_ids):
-                mask_dict[str(fid)] = M_dense[:, i]
+                mask_dict[str(fid)] = m_dense[:, i]
 
             mask_df = pl.DataFrame(mask_dict)
             mask_df.write_csv(mask_path)
@@ -419,20 +460,20 @@ def load_csv(
         # Build data matrix
         # First column is sample IDs, rest are features
         data_df.columns[0]
-        X_data = data_df.select(data_df.columns[1:]).to_numpy().astype(np.float64)
+        x_data = data_df.select(data_df.columns[1:]).to_numpy().astype(np.float64)
 
         # Load mask if present
-        M_data = None
+        m_data = None
         if mask:
             mask_path = path / f"assay_{assay_name}_{layer_name}_mask.csv"
 
             if mask_path.exists():
                 mask_df = pl.read_csv(mask_path)
-                M_data = mask_df.select(mask_df.columns[1:]).to_numpy().astype(np.int8)
+                m_data = mask_df.select(mask_df.columns[1:]).to_numpy().astype(np.int8)
 
         assays[assay_name] = Assay(
             var=var,
-            layers={layer_name: ScpMatrix(X=X_data, M=M_data)},
+            layers={layer_name: ScpMatrix(X=x_data, M=m_data)},
             feature_id_col=feature_id_col,
         )
 

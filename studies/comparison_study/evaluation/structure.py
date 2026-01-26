@@ -43,13 +43,13 @@ def compute_pca_variance(
     >>> variance = compute_pca_variance(container, n_components=10)
     >>> print(f"Total variance explained: {np.sum(variance):.2%}")
     """
-    X = _get_data_matrix(container)
+    x = _get_data_matrix(container)
 
     # Limit n_components to min(n_samples, n_features)
-    n_components = min(n_components, X.shape[0], X.shape[1])
+    n_components = min(n_components, x.shape[0], x.shape[1])
 
     pca = PCA(n_components=n_components)
-    pca.fit(X)
+    pca.fit(x)
 
     return pca.explained_variance_ratio_
 
@@ -85,24 +85,24 @@ def compute_nn_consistency(
     >>> consistency = compute_nn_consistency(original, processed, k=10)
     >>> print(f"NN consistency: {consistency:.2%}")
     """
-    X_orig = _get_data_matrix(original)
-    X_result = _get_data_matrix(result)
+    x_orig = _get_data_matrix(original)
+    x_result = _get_data_matrix(result)
 
-    n_samples = min(X_orig.shape[0], X_result.shape[0])
-    X_orig = X_orig[:n_samples]
-    X_result = X_result[:n_samples]
+    n_samples = min(x_orig.shape[0], x_result.shape[0])
+    x_orig = x_orig[:n_samples]
+    x_result = x_result[:n_samples]
 
     # Handle edge cases
     if n_samples <= k + 1:
         return 0.0
 
     # Find k-nearest neighbors in original space
-    nbrs_orig = NearestNeighbors(n_neighbors=min(k + 1, n_samples - 1)).fit(X_orig)
-    _, indices_orig = nbrs_orig.kneighbors(X_orig)
+    nbrs_orig = NearestNeighbors(n_neighbors=min(k + 1, n_samples - 1)).fit(x_orig)
+    _, indices_orig = nbrs_orig.kneighbors(x_orig)
 
     # Find k-nearest neighbors in result space
-    nbrs_result = NearestNeighbors(n_neighbors=min(k + 1, n_samples - 1)).fit(X_result)
-    _, indices_result = nbrs_result.kneighbors(X_result)
+    nbrs_result = NearestNeighbors(n_neighbors=min(k + 1, n_samples - 1)).fit(x_result)
+    _, indices_result = nbrs_result.kneighbors(x_result)
 
     # Exclude self (first neighbor)
     indices_orig = indices_orig[:, 1 : k + 1]
@@ -158,16 +158,16 @@ def compute_distance_preservation(
     >>> corr = compute_distance_preservation(orig, proc, method="spearman")
     >>> print(f"Distance correlation: {corr:.3f}")
     """
-    X_orig = _get_data_matrix(original)
-    X_result = _get_data_matrix(result)
+    x_orig = _get_data_matrix(original)
+    x_result = _get_data_matrix(result)
 
-    n_samples = min(X_orig.shape[0], X_result.shape[0])
-    X_orig = X_orig[:n_samples]
-    X_result = X_result[:n_samples]
+    n_samples = min(x_orig.shape[0], x_result.shape[0])
+    x_orig = x_orig[:n_samples]
+    x_result = x_result[:n_samples]
 
     # Compute pairwise distances
-    dist_orig = pdist(X_orig, metric="euclidean")
-    dist_result = pdist(X_result, metric="euclidean")
+    dist_orig = pdist(x_orig, metric="euclidean")
+    dist_result = pdist(x_result, metric="euclidean")
 
     # Sample if needed (for large datasets)
     if sample_size is not None and len(dist_orig) > sample_size:
@@ -211,35 +211,35 @@ def compute_global_structure(
     >>> global_metrics = compute_global_structure(original, processed)
     >>> print(f"Centroid distance: {global_metrics['centroid_distance']:.4f}")
     """
-    X_orig = _get_data_matrix(original)
-    X_result = _get_data_matrix(result)
+    x_orig = _get_data_matrix(original)
+    x_result = _get_data_matrix(result)
 
-    n_samples = min(X_orig.shape[0], X_result.shape[0])
-    X_orig = X_orig[:n_samples]
-    X_result = X_result[:n_samples]
+    n_samples = min(x_orig.shape[0], x_result.shape[0])
+    x_orig = x_orig[:n_samples]
+    x_result = x_result[:n_samples]
 
     # Compute centroid distances
-    centroid_orig = np.mean(X_orig, axis=0)
-    centroid_result = np.mean(X_result, axis=0)
+    centroid_orig = np.mean(x_orig, axis=0)
+    centroid_result = np.mean(x_result, axis=0)
 
     centroid_distance = np.linalg.norm(centroid_orig - centroid_result)
 
     # Compute variance ratio
-    var_orig = np.var(X_orig)
-    var_result = np.var(X_result)
+    var_orig = np.var(x_orig)
+    var_result = np.var(x_result)
 
     variance_ratio = var_result / var_orig if var_orig > 0 else 0.0
 
     # Compute covariance alignment (using subsampled PCA)
-    n_features = X_orig.shape[1]
+    n_features = x_orig.shape[1]
     n_components_pca = min(10, n_samples, n_features)
 
     try:
         pca_orig = PCA(n_components=n_components_pca)
         pca_result = PCA(n_components=n_components_pca)
 
-        pca_orig.fit(X_orig)
-        pca_result.fit(X_result)
+        pca_orig.fit(x_orig)
+        pca_result.fit(x_result)
 
         # Compare principal components using vector cosine similarity
         components_orig = pca_orig.components_.flatten()
@@ -294,19 +294,19 @@ def compute_density_preservation(
     >>> density = compute_density_preservation(original, processed, k=10)
     >>> print(f"Density correlation: {density['density_correlation']:.3f}")
     """
-    X_orig = _get_data_matrix(original)
-    X_result = _get_data_matrix(result)
+    x_orig = _get_data_matrix(original)
+    x_result = _get_data_matrix(result)
 
-    n_samples = min(X_orig.shape[0], X_result.shape[0])
-    X_orig = X_orig[:n_samples]
-    X_result = X_result[:n_samples]
+    n_samples = min(x_orig.shape[0], x_result.shape[0])
+    x_orig = x_orig[:n_samples]
+    x_result = x_result[:n_samples]
 
     # Compute local density using k-NN distances
-    nbrs_orig = NearestNeighbors(n_neighbors=min(k + 1, n_samples - 1)).fit(X_orig)
-    dists_orig, _ = nbrs_orig.kneighbors(X_orig)
+    nbrs_orig = NearestNeighbors(n_neighbors=min(k + 1, n_samples - 1)).fit(x_orig)
+    dists_orig, _ = nbrs_orig.kneighbors(x_orig)
 
-    nbrs_result = NearestNeighbors(n_neighbors=min(k + 1, n_samples - 1)).fit(X_result)
-    dists_result, _ = nbrs_result.kneighbors(X_result)
+    nbrs_result = NearestNeighbors(n_neighbors=min(k + 1, n_samples - 1)).fit(x_result)
+    dists_result, _ = nbrs_result.kneighbors(x_result)
 
     # Exclude self (first neighbor)
     dists_orig = dists_orig[:, 1:]
@@ -352,9 +352,9 @@ def _get_data_matrix(container: Any) -> np.ndarray:
         else:
             raise ValueError("Assay has no layers")
 
-    X = assay.layers[layer_name].X
+    x = assay.layers[layer_name].X
 
     # Convert sparse to dense
-    if hasattr(X, "toarray"):
-        return X.toarray()
-    return X
+    if hasattr(x, "toarray"):
+        return x.toarray()
+    return x

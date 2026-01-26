@@ -7,7 +7,7 @@
 # ==========================================
 # 2. 忽略配置文件 (Configuration files)
 # ==========================================
-# 常用配置文件后缀
+# 常用配置文件后缀（但允许项目配置文件）
 *.toml
 *.yaml
 *.yml
@@ -17,26 +17,20 @@
 *.lock
 *.log
 
+# 项目配置文件例外（需要跟踪）
+!.gitignore
+!pyproject.toml
+!uv.lock
+!.pre-commit-config.yaml
+
 # 数据与模型文件 (Large data & model files)
-*.csv
-*.tsv
-*.pkl
-*.npy
-*.h5ad
-*.h5
-*.mat
-*.parquet
-*.feather
 outputs/
 data/
 **/outputs/
 **/data_cache/
 
-# 具体的项目配置文件
-.pre-commit-config.yaml
+# 其他不需要跟踪的配置文件
 .python-version
-pyproject.toml
-uv.lock
 
 # ==========================================
 # 3. 常见的 Python 忽略项 (Common Python ignores)
@@ -56,7 +50,18 @@ dist/
 htmlcov/
 
 # ==========================================
-# 4. 其它
+# 缓存和输出文件 (Cache & Output files)
 # ==========================================
-data/
-scptensor/datasets
+**/outputs/
+**/data_cache/
+*.pkl
+
+# ==========================================
+# 测试输出文件 (Test outputs)
+# ==========================================
+tests/res/
+
+# ==========================================
+# Serena缓存 (Serena cache)
+# ==========================================
+.serena/

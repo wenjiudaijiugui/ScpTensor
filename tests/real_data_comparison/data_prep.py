@@ -270,12 +270,17 @@ def convert_to_h5ad(
 def main() -> None:
     """Main entry point for data conversion."""
     # Define paths
-    base_dir = Path(__file__).parent.parent / "data" / "PXD061065"
+    # Base project directory
+    project_root = Path(__file__).parents[2]
+
+    # Input data from data/tests/PXD061065
+    base_dir = project_root / "data" / "tests" / "PXD061065"
     tsv_path = base_dir / "20250204_112949_gbm_sc_full_fasta_19.4_Report.tsv"
     design_path = base_dir / "experimentalDesignTemplate.txt"
-    output_dir = Path(__file__).parent / "real_data"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "PXD061065.h5ad"
+
+    # Output to data/tests/PXD061065.h5ad
+    output_path = project_root / "data" / "tests" / "PXD061065.h5ad"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Convert
     print("Converting Spectronaut TSV to h5ad format...")

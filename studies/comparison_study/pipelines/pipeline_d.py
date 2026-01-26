@@ -181,7 +181,8 @@ class PipelineD(BasePipeline):
             # lazy validation for the container
             warnings.warn(
                 "Lazy validation is enabled but not fully implemented. "
-                "Standard validation will be used."
+                "Standard validation will be used.",
+                stacklevel=2,
             )
 
         return container
