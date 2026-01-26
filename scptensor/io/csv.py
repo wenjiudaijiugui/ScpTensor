@@ -19,7 +19,204 @@ from scptensor.core.structures import Assay, ProvenanceLog, ScpContainer, ScpMat
 __all__ = [
     "save_csv",
     "load_csv",
+    "read_diann",
 ]
+
+
+def read_diann(
+    path: str | Path,
+    *,
+    assay_name: str = "proteins",
+) -> ScpContainer:
+    """Import DIA-NN output.
+
+    Supports:
+    1. ``report.pg_matrix.tsv``: The protein group matrix file.
+    2. ``report.parquet``: The main report file (Parquet format).
+
+    For ``report.parquet``, performs:
+    - Filtering: ``Q.Value <= 0.01`` and ``PG.Q.Value <= 0.01``.
+    - Aggregation: Pivots ``PG.MaxLFQ`` to create the protein matrix.
+
+    Parameters
+    ----------
+    path : str | Path
+        Path to the file.
+    assay_name : str, optional
+        Name of the assay to create. Default is "proteins".
+
+    Returns
+    -------
+    ScpContainer
+        Container with:
+        - obs: Sample metadata (filenames).
+        - assays[assay_name]:
+            - X: MaxLFQ intensities (n_samples x n_features).
+            - var: Protein metadata.
+
+    Raises
+    ------
+    FileNotFoundError
+        If file does not exist.
+    ValidationError
+        If file structure is invalid.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {path}")
+
+    # Handle Parquet (Main Report)
+    if path.suffix == ".parquet":
+        return _read_diann_parquet(path, assay_name)
+
+    # Handle TSV (Matrix)
+    return _read_diann_tsv(path, assay_name)
+
+
+def _read_diann_parquet(path: Path, assay_name: str) -> ScpContainer:
+    """Internal handler for report.parquet."""
+    # Lazy load and filter
+    # Filter: Q.Value <= 0.01 (Precursor FDR) AND PG.Q.Value <= 0.01 (Protein FDR)
+    lf = pl.scan_parquet(path)
+
+    required_cols = {"Protein.Group", "Run", "PG.MaxLFQ", "Q.Value", "PG.Q.Value"}
+    if not required_cols.issubset(lf.columns):
+        missing = required_cols - set(lf.columns)
+        raise ValidationError(f"Missing required columns in {path}: {missing}")
+
+    filtered_lf = lf.filter((pl.col("Q.Value") <= 0.01) & (pl.col("PG.Q.Value") <= 0.01))
+
+    # We need to pivot. Polars pivot requires Eager DataFrame.
+    # Collect only necessary columns to minimize memory
+    # Metadata columns to preserve
+    meta_cols = [
+        "Protein.Group",
+        "Protein.Ids",
+        "Protein.Names",
+        "Genes",
+        "First.Protein.Description",
+    ]
+    # Check which exist
+    available_meta = [c for c in meta_cols if c in lf.columns]
+
+    # Columns to fetch
+    cols_to_fetch = list(required_cols.union(available_meta))
+
+    df = filtered_lf.select(cols_to_fetch).collect()
+
+    if df.is_empty():
+        raise ValidationError("No data remains after FDR filtering.")
+
+    # Pivot to Matrix (Protein.Group x Run)
+    # PG.MaxLFQ should be identical for the same Protein.Group in the same Run
+    # We use 'max' aggregator.
+    matrix_df = df.pivot(
+        index="Protein.Group",
+        columns="Run",
+        values="PG.MaxLFQ",
+        aggregate_function="max",
+    ).fill_null(0.0)
+
+    # Extract Var (Protein Metadata)
+    # Get unique metadata for each Protein.Group
+    var_df = df.select(available_meta).unique(subset=["Protein.Group"])
+
+    # Align Var with Matrix
+    # Join var_df to matrix_df on Protein.Group
+    # matrix_df has Protein.Group as the first column
+    aligned_df = matrix_df.join(var_df, on="Protein.Group", how="left")
+
+    # Extract Obs (Samples)
+    # Sample columns are those in matrix_df excluding Protein.Group
+    sample_cols = [c for c in matrix_df.columns if c != "Protein.Group"]
+    obs = pl.DataFrame({"_index": sample_cols})
+
+    # Extract Var
+    var = aligned_df.select(available_meta).rename({"Protein.Group": "_index"})
+
+    # Extract X (Data)
+    # Transpose to (n_samples x n_features)
+    X_T = aligned_df.select(sample_cols).to_numpy()
+    X = X_T.T.astype(np.float64)
+
+    # Create Assay
+    assay = Assay(
+        var=var,
+        layers={"MaxLFQ": ScpMatrix(X=X)},
+        feature_id_col="_index",
+    )
+
+    return ScpContainer(
+        obs=obs,
+        assays={assay_name: assay},
+        sample_id_col="_index",
+    )
+
+
+def _read_diann_tsv(path: Path, assay_name: str) -> ScpContainer:
+    """Internal handler for report.pg_matrix.tsv."""
+    # Read TSV with Polars
+    # DIA-NN output is tab-separated
+    # Handle standard missing value representations
+    df = pl.read_csv(path, separator="\t", null_values=["", "NA", "NaN", "nan"])
+
+    # Identify metadata columns
+    # Standard DIA-NN columns (Protein.Group is the primary ID)
+    meta_cols_set = {
+        "Protein.Group",
+        "Protein.Ids",
+        "Protein.Names",
+        "Genes",
+        "First.Protein.Description",
+    }
+    found_meta_cols = [c for c in df.columns if c in meta_cols_set]
+
+    if "Protein.Group" not in found_meta_cols:
+        raise ValidationError(
+            f"Invalid DIA-NN matrix: 'Protein.Group' column not found in {path}. "
+            "Ensure this is a valid report.pg_matrix.tsv file."
+        )
+
+    # Extract var (Features)
+    var = df.select(found_meta_cols)
+    # Rename Protein.Group to _index for ScpTensor compatibility
+    var = var.rename({"Protein.Group": "_index"})
+
+    # Extract data (Samples)
+    # Any column not in metadata set is considered a sample
+    sample_cols = [c for c in df.columns if c not in found_meta_cols]
+
+    if not sample_cols:
+        raise ValidationError("No sample columns found in DIA-NN matrix.")
+
+    # Convert to numpy array (n_features x n_samples)
+    # Fill nulls with 0.0 or NaN?
+    # MaxLFQ implies valid quantification. Missing usually means < LOD or filtered.
+    # ScpTensor usually handles sparse/dense.
+    # We will keep as NaN for now to represent missingness accurately,
+    # or 0.0 if we assume it's intensity.
+    # DIA-NN "omits" zero quantities.
+    # Let's fill with 0.0 to match standard proteomics matrix format where 0 = missing/undetected
+    X_T = df.select(sample_cols).fill_null(0.0).to_numpy()
+
+    # Transpose to (n_samples x n_features)
+    X = X_T.T.astype(np.float64)
+
+    # Create obs (Samples)
+    obs = pl.DataFrame({"_index": sample_cols})
+
+    # Create Assay
+    assay = Assay(
+        var=var,
+        layers={"MaxLFQ": ScpMatrix(X=X)},
+        feature_id_col="_index",
+    )
+
+    return ScpContainer(
+        obs=obs,
+        assays={assay_name: assay},
+        sample_id_col="_index",
+    )
 
 
 def save_csv(
