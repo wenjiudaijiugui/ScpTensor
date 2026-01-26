@@ -17,6 +17,21 @@
 *.lock
 *.log
 
+# 数据与模型文件 (Large data & model files)
+*.csv
+*.tsv
+*.pkl
+*.npy
+*.h5ad
+*.h5
+*.mat
+*.parquet
+*.feather
+outputs/
+data/
+**/outputs/
+**/data_cache/
+
 # 具体的项目配置文件
 .pre-commit-config.yaml
 .python-version
@@ -39,3 +54,9 @@ dist/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# ==========================================
+# 4. 其它
+# ==========================================
+data/
+scptensor/datasets
