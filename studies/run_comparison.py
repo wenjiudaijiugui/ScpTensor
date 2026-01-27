@@ -60,16 +60,16 @@ _comparison_dir = Path(__file__).parent
 if str(_comparison_dir) not in sys.path:
     sys.path.insert(0, str(_comparison_dir))
 
-from studies.comparison_study.comparison_engine import (  # noqa: E402
+from studies.comparison_engine import (  # noqa: E402
     compare_pipelines,
     generate_comparison_report,
 )
-from studies.comparison_study.data_generation import (  # noqa: E402
+from studies.data_generation import (  # noqa: E402
     generate_large_dataset,
     generate_medium_dataset,
     generate_small_dataset,
 )
-from studies.comparison_study.plotting import (  # noqa: E402
+from studies.plotting import (  # noqa: E402
     plot_batch_effects,
     plot_performance_comparison,
     plot_radar_chart,
@@ -103,7 +103,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=str,
-        default="docs/comparison_study/outputs",
+        default="studies/outputs",
         help="Output directory for results",
     )
 
@@ -239,7 +239,7 @@ def initialize_pipelines(config: dict[str, Any]) -> dict[str, Any]:
     dict
         Dictionary of pipeline name → pipeline instance
     """
-    from studies.comparison_study.pipelines import (
+    from studies.pipelines import (
         PipelineA,
         PipelineB,
         PipelineC,

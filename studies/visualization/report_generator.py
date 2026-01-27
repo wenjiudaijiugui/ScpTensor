@@ -423,13 +423,13 @@ as pickle files for further analysis.
 ### Code Availability
 
 All code is available in the ScpTensor repository:
-`docs/comparison_study/`
+`studies/`
 
 ### Reproducibility
 
 To reproduce these results:
 ```bash
-cd docs/comparison_study
+cd studies
 python run_comparison.py --full
 ```
 

@@ -1,7 +1,10 @@
-"""Pipeline D: Performance-Optimized Pipeline (for large-scale data).
+"""Pipeline E: Conservative Pipeline (minimal assumptions).
 
-This pipeline prioritizes computational efficiency:
-QC → Z-score normalization → Lazy validation → SVD imputation → MNN correction → PCA → K-means
+This pipeline makes minimal assumptions about data distribution:
+QC → VSN normalization → Log transform → PPCA imputation → No batch correction → PCA → K-means
+
+Note: VSN (Variance Stabilizing Normalization) is not directly available in ScpTensor.
+This pipeline uses log normalization as a substitute.
 """
 
 from __future__ import annotations
@@ -12,28 +15,27 @@ from typing import Any
 from scptensor.cluster import cluster_kmeans
 from scptensor.core.structures import ScpContainer
 from scptensor.dim_reduction import reduce_pca
-from scptensor.impute import impute_svd
-from scptensor.integration import integrate_mnn
-from scptensor.normalization import norm_zscore
-from scptensor.qc import qc_basic
+from scptensor.impute import impute_bpca
+from scptensor.normalization import log_transform
+from scptensor.qc.qc_sample import filter_low_quality_samples
 
 from .base import BasePipeline, load_pipeline_config
 
 
-class PipelineD(BasePipeline):
+class PipelineE(BasePipeline):
     """
-    Performance-Optimized Pipeline: For large-scale data.
+    Conservative Pipeline: Minimal assumptions about data distribution.
 
-    This pipeline prioritizes computational efficiency while maintaining
-    good analysis quality. It uses fast methods like Z-score normalization,
-    SVD imputation, and MNN batch correction.
+    This pipeline uses conservative methods that make minimal assumptions
+    about the underlying data distribution. VSN normalization would be
+    ideal but is not available, so we use log normalization instead.
 
     Steps:
         1. Quality Control (basic)
-        2. Z-score normalization
-        3. Lazy validation (if enabled)
-        4. SVD imputation
-        5. MNN batch correction
+        2. VSN normalization (substituted with log normalization)
+        3. Log transform
+        4. PPCA imputation
+        5. No batch correction
         6. PCA dimensionality reduction
         7. K-means clustering
 
@@ -45,15 +47,15 @@ class PipelineD(BasePipeline):
     Examples
     --------
     >>> from scptensor import create_test_container
-    >>> from docs.comparison_study.pipelines.pipeline_d import PipelineD
+    >>> from studies.pipelines.pipeline_e import PipelineE
     >>> container = create_test_container()
-    >>> pipeline = PipelineD()
+    >>> pipeline = PipelineE()
     >>> result = pipeline.run(container)
     """
 
     def __init__(self, config: dict[str, Any] | None = None):
         """
-        Initialize Pipeline D.
+        Initialize Pipeline E.
 
         Parameters
         ----------
@@ -61,7 +63,7 @@ class PipelineD(BasePipeline):
             Pipeline configuration dictionary
         """
         if config is None:
-            config = load_pipeline_config("pipeline_d")
+            config = load_pipeline_config("pipeline_e")
 
         global_config = config.get("global", {})
         super().__init__(
@@ -70,7 +72,7 @@ class PipelineD(BasePipeline):
 
     def run(self, container: ScpContainer) -> ScpContainer:
         """
-        Execute the performance-optimized pipeline.
+        Execute the conservative pipeline.
 
         Parameters
         ----------
@@ -89,24 +91,22 @@ class PipelineD(BasePipeline):
         # Step 1: Quality Control
         container = self._execute_step("qc", self._run_qc, container, assay_name)
 
-        # Step 2: Normalization (Z-score)
+        # Step 2: Normalization (VSN - substituted with log)
         container = self._execute_step(
             "normalization", self._run_normalization, container, assay_name
         )
 
-        # Step 3: Lazy validation (if enabled)
-        if self.config["steps"].get("lazy_validation", {}).get("enabled", False):
+        # Step 3: Log transform (optional after log normalization)
+        if self.config["steps"]["log_transform"]["enabled"]:
             container = self._execute_step(
-                "lazy_validation", self._run_lazy_validation, container, assay_name
+                "log_transform", self._run_log_transform, container, assay_name
             )
 
-        # Step 4: Imputation (SVD)
+        # Step 4: Imputation (PPCA)
         container = self._execute_step("imputation", self._run_imputation, container, assay_name)
 
-        # Step 5: Batch correction (MNN)
-        container = self._execute_step(
-            "batch_correction", self._run_batch_correction, container, assay_name
-        )
+        # Step 5: Batch correction (disabled for Pipeline E)
+        # Skipped
 
         # Step 6: Dimensionality reduction (PCA)
         container = self._execute_step(
@@ -121,18 +121,20 @@ class PipelineD(BasePipeline):
     def _run_qc(self, container: ScpContainer, assay_name: str) -> ScpContainer:
         """Run quality control."""
         params = self.config["steps"]["qc"]["params"]
-        min_features = params.get("min_features_per_feature", 200)  # Note: typo in config
-        if min_features == 100:  # Fix based on config
-            min_features = params.get("min_features_per_cell", 200)
+        min_features = params.get("min_features_per_cell", 200)
         min_cells = params.get("min_cells_per_feature", 3)
 
-        return qc_basic(
+        return filter_low_quality_samples(
             container, assay_name=assay_name, min_features=min_features, min_cells=min_cells
         )
 
     def _run_normalization(self, container: ScpContainer, assay_name: str) -> ScpContainer:
         """
-        Run Z-score normalization.
+        Run VSN normalization (substituted with log normalization).
+
+        Note: VSN (Variance Stabilizing Normalization) is not available in
+        ScpTensor. We use log normalization as a conservative alternative
+        that also stabilizes variance.
 
         Parameters
         ----------
@@ -149,17 +151,28 @@ class PipelineD(BasePipeline):
         params = self.config["steps"]["normalization"]["params"]
         source_layer = params.get("target_layer", "raw")
 
-        return norm_zscore(
-            container, assay_name=assay_name, source_layer=source_layer, new_layer_name="normalized"
+        warnings.warn(
+            "VSN normalization is not available in ScpTensor. "
+            "Using log normalization as a substitute. "
+            "Results should still be comparable for the comparison study.",
+            stacklevel=2,
         )
 
-    def _run_lazy_validation(self, container: ScpContainer, assay_name: str) -> ScpContainer:
-        """
-        Run lazy validation setup.
+        return log_transform(
+            container,
+            assay_name=assay_name,
+            source_layer=source_layer,
+            new_layer_name="normalized",
+            base=2.0,
+            offset=1.0,
+        )
 
-        Note: Lazy validation is a performance optimization that delays
-        validation until data is accessed. This is a placeholder for
-        future implementation.
+    def _run_log_transform(self, container: ScpContainer, assay_name: str) -> ScpContainer:
+        """
+        Run additional log transform if needed.
+
+        This step may be redundant if VSN normalization was already applied,
+        but we include it for consistency with the pipeline specification.
 
         Parameters
         ----------
@@ -171,25 +184,24 @@ class PipelineD(BasePipeline):
         Returns
         -------
         ScpContainer
-            Container with lazy validation enabled
+            Container with log-transformed data
         """
-        params = self.config["steps"]["lazy_validation"]["params"]
-        validate_on_access = params.get("validate_on_access", True)
+        params = self.config["steps"]["log_transform"]["params"]
+        base = params.get("base", 2.0)
+        offset = params.get("offset", 1.0)
 
-        if validate_on_access:
-            # Placeholder: In a full implementation, this would set up
-            # lazy validation for the container
-            warnings.warn(
-                "Lazy validation is enabled but not fully implemented. "
-                "Standard validation will be used.",
-                stacklevel=2,
-            )
-
-        return container
+        return log_transform(
+            container,
+            assay_name=assay_name,
+            source_layer="normalized",
+            new_layer_name="log_transformed",
+            base=base,
+            offset=offset,
+        )
 
     def _run_imputation(self, container: ScpContainer, assay_name: str) -> ScpContainer:
         """
-        Run SVD imputation.
+        Run PPCA imputation.
 
         Parameters
         ----------
@@ -206,36 +218,17 @@ class PipelineD(BasePipeline):
         params = self.config["steps"]["imputation"]["params"]
         n_components = params.get("n_components", 20)
 
-        return impute_svd(
-            container,
-            assay_name=assay_name,
-            source_layer="normalized",
-            new_layer_name="imputed",
-            n_components=n_components,
+        # Use the last available layer (normalized or log_transformed)
+        source_layer = (
+            "log_transformed" if self.config["steps"]["log_transform"]["enabled"] else "normalized"
         )
 
-    def _run_batch_correction(self, container: ScpContainer, assay_name: str) -> ScpContainer:
-        """
-        Run MNN batch correction.
-
-        Parameters
-        ----------
-        container : ScpContainer
-            Input container
-        assay_name : str
-            Name of assay to process
-
-        Returns
-        -------
-        ScpContainer
-            Container with batch-corrected data
-        """
-        params = self.config["steps"]["batch_correction"]["params"]
-        batch_key = params.get("batch_key", "batch")
-        k = params.get("k", 20)
-
-        return integrate_mnn(
-            container, assay_name=assay_name, base_layer="imputed", batch_key=batch_key, k=k
+        return impute_bpca(
+            container,
+            assay_name=assay_name,
+            source_layer=source_layer,
+            new_layer_name="imputed",
+            n_components=n_components,
         )
 
     def _run_dim_reduction(self, container: ScpContainer, assay_name: str) -> ScpContainer:
@@ -247,7 +240,7 @@ class PipelineD(BasePipeline):
         return reduce_pca(
             container,
             assay_name=assay_name,
-            base_layer_name="mnn_corrected",
+            base_layer_name="imputed",
             n_components=n_components,
             center=center,
         )

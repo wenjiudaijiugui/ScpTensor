@@ -6,9 +6,9 @@ import numpy as np
 
 sys.path.insert(0, "/home/shenshang/projects/ScpTensor")
 
-from docs.comparison_study.data import load_all_datasets
-from docs.comparison_study.data.load_datasets import add_batch_effects, create_batch_labels
-from docs.comparison_study.data.prepare_synthetic import generate_synthetic_dataset
+from studies.data import load_all_datasets
+from studies.data.load_datasets import add_batch_effects, create_batch_labels
+from studies.data.prepare_synthetic import generate_synthetic_dataset
 
 
 def main():

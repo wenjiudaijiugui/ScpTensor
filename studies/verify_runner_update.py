@@ -16,7 +16,7 @@ print("=" * 60)
 # Test 1: Import all modules
 print("\n[1/5] Testing imports...")
 try:
-    from studies.comparison_study.data_generation import (
+    from studies.data_generation import (
         generate_small_dataset,
     )
 
@@ -48,7 +48,7 @@ print("\n[2/5] Checking run_comparison.py syntax...")
 try:
     import py_compile
 
-    runner_path = project_root / "studies" / "comparison_study" / "run_comparison.py"
+    runner_path = project_root / "studies" / "run_comparison.py"
     py_compile.compile(str(runner_path), doraise=True)
     print("  ✓ Syntax check passed")
 except Exception as e:
@@ -58,7 +58,7 @@ except Exception as e:
 # Test 3: Import run_comparison module
 print("\n[3/5] Importing run_comparison module...")
 try:
-    from studies.comparison_study import run_comparison
+    from studies import run_comparison
 
     print("  ✓ Module import successful")
 except Exception as e:

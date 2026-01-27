@@ -8,7 +8,7 @@ the implementation meets the requirements.
 
 import sys
 
-sys.path.insert(0, "docs/comparison_study")
+sys.path.insert(0, "studies")
 
 import numpy as np
 import polars as pl

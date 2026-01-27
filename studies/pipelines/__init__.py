@@ -13,7 +13,7 @@ Available Pipelines:
 Examples
 --------
 >>> from scptensor import create_test_container
->>> from docs.comparison_study.pipelines import PipelineA
+>>> from studies.pipelines import PipelineA
 >>> container = create_test_container()
 >>> pipeline = PipelineA()
 >>> result = pipeline.run(container)

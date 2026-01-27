@@ -13,8 +13,8 @@ from scptensor.core.structures import ScpContainer
 from scptensor.dim_reduction import reduce_umap
 from scptensor.impute import impute_mf
 from scptensor.integration import integrate_harmony
-from scptensor.normalization import norm_log, norm_quartile
-from scptensor.qc import qc_basic
+from scptensor.normalization import log_transform, norm_quantile
+from scptensor.qc.qc_sample import filter_low_quality_samples
 
 from .base import BasePipeline, load_pipeline_config
 
@@ -44,7 +44,7 @@ class PipelineC(BasePipeline):
     Examples
     --------
     >>> from scptensor import create_test_container
-    >>> from docs.comparison_study.pipelines.pipeline_c import PipelineC
+    >>> from studies.pipelines.pipeline_c import PipelineC
     >>> container = create_test_container()
     >>> pipeline = PipelineC()
     >>> result = pipeline.run(container)
@@ -122,7 +122,7 @@ class PipelineC(BasePipeline):
         min_features = params.get("min_features_per_cell", 200)
         min_cells = params.get("min_cells_per_feature", 3)
 
-        return qc_basic(
+        return filter_low_quality_samples(
             container, assay_name=assay_name, min_features=min_features, min_cells=min_cells
         )
 
@@ -145,7 +145,7 @@ class PipelineC(BasePipeline):
         params = self.config["steps"]["normalization"]["params"]
         source_layer = params.get("target_layer", "raw")
 
-        return norm_quartile(
+        return norm_quantile(
             container, assay_name=assay_name, source_layer=source_layer, new_layer_name="normalized"
         )
 
@@ -155,7 +155,7 @@ class PipelineC(BasePipeline):
         base = params.get("base", 2.0)
         offset = params.get("offset", 1.0)
 
-        return norm_log(
+        return log_transform(
             container,
             assay_name=assay_name,
             source_layer="normalized",

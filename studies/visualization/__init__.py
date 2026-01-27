@@ -12,14 +12,14 @@ Main Components
 
 Usage Examples
 --------------
->>> from docs.comparison_study.visualization import ComparisonPlotter
+>>> from studies.visualization import ComparisonPlotter
 >>> plotter = ComparisonPlotter(config, output_dir="outputs/figures")
 >>> path = plotter.plot_batch_effects_comparison(results)
 
->>> from docs.comparison_study.visualization import generate_all_figures
+>>> from studies.visualization import generate_all_figures
 >>> figures = generate_all_figures(results, config)
 
->>> from docs.comparison_study.visualization import ReportGenerator
+>>> from studies.visualization import ReportGenerator
 >>> generator = ReportGenerator(config)
 >>> pdf_path = generator.generate_report(results, figures)
 """

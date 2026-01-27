@@ -25,7 +25,7 @@ def verify_imports():
     # Test 1: Import data module
     print("\n[1/5] Testing data module...")
     try:
-        from studies.comparison_study import data  # noqa: F401
+        from studies import data  # noqa: F401
 
         print("✓ Data module imported successfully")
     except ImportError as e:
@@ -35,7 +35,7 @@ def verify_imports():
     # Test 2: Import pipelines module
     print("\n[2/5] Testing pipelines module...")
     try:
-        from studies.comparison_study.pipelines import (
+        from studies.pipelines import (
             PipelineA,
             PipelineB,
             PipelineC,
@@ -56,7 +56,7 @@ def verify_imports():
     # Test 3: Import evaluation module
     print("\n[3/5] Testing evaluation module...")
     try:
-        from studies.comparison_study import evaluation  # noqa: F401
+        from studies import evaluation  # noqa: F401
 
         print("✓ Evaluation module imported successfully")
     except ImportError as e:
@@ -66,7 +66,7 @@ def verify_imports():
     # Test 4: Import visualization module
     print("\n[4/5] Testing visualization module...")
     try:
-        from studies.comparison_study import visualization  # noqa: F401
+        from studies import visualization  # noqa: F401
 
         print("✓ Visualization module imported successfully")
     except ImportError as e:
@@ -76,7 +76,7 @@ def verify_imports():
     # Test 5: Import runner functions
     print("\n[5/5] Testing runner script...")
     try:
-        from studies.comparison_study import run_comparison  # noqa: F401
+        from studies import run_comparison  # noqa: F401
 
         print("✓ Runner functions imported successfully")
     except ImportError as e:
@@ -112,10 +112,10 @@ def verify_imports():
         print("✓ ALL CHECKS PASSED - Setup is ready!")
         print("\nNext steps:")
         print(
-            "  1. Run quick test: python docs/comparison_study/run_comparison.py --test --verbose"
+            "  1. Run quick test: python studies/run_comparison.py --test --verbose"
         )
         print(
-            "  2. Run full experiment: python docs/comparison_study/run_comparison.py --full --verbose"
+            "  2. Run full experiment: python studies/run_comparison.py --full --verbose"
         )
     else:
         print("✗ SOME CHECKS FAILED - Please fix errors above")

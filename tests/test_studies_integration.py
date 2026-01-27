@@ -4,16 +4,16 @@ from pathlib import Path
 
 import numpy as np
 
-from studies.comparison_study.comparison_engine import compare_pipelines
-from studies.comparison_study.data_generation import generate_small_dataset, generate_synthetic_data
-from studies.comparison_study.metrics import (
+from studies.comparison_engine import compare_pipelines
+from studies.data_generation import generate_small_dataset, generate_synthetic_data
+from studies.metrics import (
     calculate_all_metrics,
     calculate_asw,
     calculate_clisi,
     calculate_ilisi,
     calculate_kbet,
 )
-from studies.comparison_study.plotting import plot_batch_effects
+from studies.plotting import plot_batch_effects
 
 
 def test_data_generation():

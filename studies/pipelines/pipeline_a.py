@@ -12,8 +12,8 @@ from scptensor.cluster import cluster_kmeans
 from scptensor.core.structures import ScpContainer
 from scptensor.dim_reduction import reduce_pca
 from scptensor.impute import impute_knn
-from scptensor.normalization import norm_log, norm_median_scale
-from scptensor.qc import qc_basic
+from scptensor.normalization import log_transform, norm_median
+from scptensor.qc.qc_sample import filter_low_quality_samples
 
 from .base import BasePipeline, load_pipeline_config
 
@@ -42,7 +42,7 @@ class PipelineA(BasePipeline):
     Examples
     --------
     >>> from scptensor import create_test_container
-    >>> from docs.comparison_study.pipelines.pipeline_a import PipelineA
+    >>> from studies.pipelines.pipeline_a import PipelineA
     >>> container = create_test_container()
     >>> pipeline = PipelineA()
     >>> result = pipeline.run(container)
@@ -140,7 +140,7 @@ class PipelineA(BasePipeline):
         min_features = params.get("min_features_per_cell", 200)
         min_cells = params.get("min_cells_per_feature", 3)
 
-        return qc_basic(
+        return filter_low_quality_samples(
             container, assay_name=assay_name, min_features=min_features, min_cells=min_cells
         )
 
@@ -163,7 +163,7 @@ class PipelineA(BasePipeline):
         params = self.config["steps"]["normalization"]["params"]
         source_layer = params.get("target_layer", "raw")
 
-        return norm_median_scale(
+        return norm_median(
             container, assay_name=assay_name, source_layer=source_layer, new_layer_name="normalized"
         )
 
@@ -187,7 +187,7 @@ class PipelineA(BasePipeline):
         base = params.get("base", 2.0)
         offset = params.get("offset", 1.0)
 
-        return norm_log(
+        return log_transform(
             container,
             assay_name=assay_name,
             source_layer="normalized",

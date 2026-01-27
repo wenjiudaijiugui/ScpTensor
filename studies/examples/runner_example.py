@@ -16,13 +16,13 @@ def example_cli_usage():
     print("=" * 60)
 
     print("\n# Quick test mode")
-    print("python docs/comparison_study/run_comparison.py --test --verbose")
+    print("python studies/run_comparison.py --test --verbose")
 
     print("\n# Full experiment")
-    print("python docs/comparison_study/run_comparison.py --full --repeats 3 --verbose")
+    print("python studies/run_comparison.py --full --repeats 3 --verbose")
 
     print("\n# Custom configuration")
-    print("python docs/comparison_study/run_comparison.py --config custom.yaml --verbose")
+    print("python studies/run_comparison.py --config custom.yaml --verbose")
 
 
 def example_python_api():
@@ -35,7 +35,7 @@ def example_python_api():
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from docs.comparison_study.run_comparison import (
+from studies.run_comparison import (
     load_config,
     setup_output_directory,
     load_datasets,
@@ -83,19 +83,19 @@ def example_custom_experiment():
     print("=" * 60)
 
     code = """
-from docs.comparison_study.run_comparison import (
+from studies.run_comparison import (
     load_datasets,
     initialize_pipelines,
 )
-from docs.comparison_study.evaluation import PipelineEvaluator
-from docs.comparison_study.evaluation.performance import monitor_performance
+from studies.evaluation import PipelineEvaluator
+from studies.evaluation.performance import monitor_performance
 import pickle
 
 # Load data
 datasets = load_datasets(use_cache=True, verbose=True)
 
 # Initialize specific pipelines only
-from docs.comparison_study.pipelines import PipelineA, PipelineB
+from studies.pipelines import PipelineA, PipelineB
 pipelines = [PipelineA(), PipelineB()]
 
 # Custom evaluator with different weights
@@ -143,7 +143,7 @@ import pandas as pd
 import numpy as np
 
 # Load complete results
-with open("docs/comparison_study/outputs/results/complete_results.pkl", "rb") as f:
+with open("studies/outputs/results/complete_results.pkl", "rb") as f:
     data = pickle.load(f)
 
 results = data["results"]
@@ -193,11 +193,11 @@ def example_visualization():
     print("=" * 60)
 
     code = """
-from docs.comparison_study.visualization import ComparisonPlotter
+from studies.visualization import ComparisonPlotter
 import pickle
 
 # Load results
-with open("docs/comparison_study/outputs/results/complete_results.pkl", "rb") as f:
+with open("studies/outputs/results/complete_results.pkl", "rb") as f:
     data = pickle.load(f)
 
 config = data["config"]
@@ -221,7 +221,7 @@ fig_path = plotter.plot_performance_comparison(results)
 figures.append(fig_path)
 
 # 3. Custom ranking plot
-from docs.comparison_study.visualization import calculate_overall_scores
+from studies.visualization import calculate_overall_scores
 scores = calculate_overall_scores(results, config['evaluation'])
 fig_path = plotter.plot_ranking_barplot(scores)
 figures.append(fig_path)
