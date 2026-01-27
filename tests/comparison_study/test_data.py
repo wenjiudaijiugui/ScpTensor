@@ -2,12 +2,12 @@
 
 import pytest
 
-# Skip all tests in this module because the docs.comparison_study.data module
+# Skip all tests in this module because the studies.data module
 # is not installed as a Python package and cannot be imported during test runs.
-# The comparison study code lives in docs/comparison_study/ for documentation
+# The comparison study code lives in studies/ for documentation
 # purposes but is not part of the scptensor package installation.
 pytest.skip(
-    "docs.comparison_study.data module is not installed as a Python package. "
+    "studies.data module is not installed as a Python package. "
     "The comparison study code is documentation-only and not available for import.",
     allow_module_level=True,
 )
