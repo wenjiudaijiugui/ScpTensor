@@ -86,7 +86,7 @@
 
 ### 3.2 真实 SCP 数据集
 
-从 `scptensor.datasets` 加载真实单细胞蛋白质组数据用于验证。
+从 `studies.comparison_study.data_generation` 加载真实单细胞蛋白质组数据用于验证。
 
 ### 3.3 参数扫描
 
