@@ -67,7 +67,6 @@ ScpTensor is a Python library designed for the analysis of single-cell proteomic
 | `scptensor.feature_selection` | ✅ Complete | HVG, dropout, VST, model-based | 0% (new) | NumPy docstrings |
 | `scptensor.utils` | ✅ Complete | stats, transform, batch, data_generator | 9-12% (new) | NumPy docstrings |
 | `scptensor.diff_expr` | ✅ Complete | t-test, Mann-Whitney, ANOVA, Kruskal | Good coverage | NumPy docstrings |
-| `scptensor.datasets` | ✅ Complete | Toy, simulated, with clusters | Good coverage | NumPy docstrings |
 
 ---
 
@@ -275,13 +274,6 @@ ScpTensor is a Python library designed for the analysis of single-cell proteomic
 | `qc_completeness`, `qc_matrix_spy` | Recipe | QC visualization |
 | `volcano` | Recipe | Volcano plot for differential expression |
 | `impute_missingness_pattern`, `impute_distribution` | Recipe | Imputation assessment |
-
-### Datasets (scptensor.datasets)
-| Dataset | Samples | Features | Description |
-|----------|---------|----------|-------------|
-| `load_toy_example` | ~100 | ~50 | Small synthetic for quick testing |
-| `load_simulated_scrnaseq_like` | ~500 | ~200 | Larger simulated with cell types |
-| `load_example_with_clusters` | ~200 | ~100 | Data with known cluster labels |
 
 ### Benchmarking (scptensor.benchmark)
 | Feature | Description |

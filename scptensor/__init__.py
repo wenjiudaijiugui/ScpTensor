@@ -83,16 +83,6 @@ from scptensor.core import (
     to_sparse_if_beneficial,
 )
 
-# Datasets
-from scptensor.datasets import (
-    REPRODUCIBILITY_NOTE,
-    DatasetSize,
-    DatasetType,
-    load_example_with_clusters,
-    load_simulated_scrnaseq_like,
-    load_toy_example,
-)
-
 # Differential Expression
 from scptensor.diff_expr import (
     DiffExprResult,
@@ -297,13 +287,6 @@ __all__ = [
     "diff_expr_anova",
     "diff_expr_kruskal",
     "adjust_fdr",
-    # Datasets
-    "load_toy_example",
-    "load_simulated_scrnaseq_like",
-    "load_example_with_clusters",
-    "DatasetType",
-    "DatasetSize",
-    "REPRODUCIBILITY_NOTE",
     # Utilities
     "ScpDataGenerator",
     # Standardization (deprecated)
