@@ -13,6 +13,7 @@ dependencies = [
     "polars>=1.0",
     "pyarrow>=14.0",
     "psutil>=6.0",
+    "requests>=2.31",
     "scienceplots>=2.0",
     "scikit-learn>=1.5",
     "scipy>=1.13",
@@ -62,6 +63,7 @@ dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
     "ruff>=0.6",
+    "types-requests>=2.31",
 ]
 
 # Documentation dependencies
@@ -265,6 +267,7 @@ follow_imports = "normal"
 explicit_package_bases = true
 exclude = [
     'scptensor/datasets/external/',
+    'scptensor/datasets/scripts/',
     '.*_external\\.py$',
     'studies/',
 ]

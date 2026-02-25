@@ -40,5 +40,6 @@ repos:
       - id: mypy
         additional_dependencies:
           - polars>=1.0
+          - types-requests>=2.31
         args: [--config-file=pyproject.toml]
-        exclude: ^(tests/|docs/|scripts/|studies/)
+        exclude: ^(tests/|docs/|scripts/|studies/|scptensor/datasets/scripts/)
