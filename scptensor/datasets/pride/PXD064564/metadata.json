@@ -1,0 +1,56 @@
+{
+  "id": "PXD064564",
+  "file": {
+    "report": "report.tsv",
+    "format": "Spectronaut pivot",
+    "path": "pride/PXD064564/report.tsv",
+    "size_bytes": 144550317,
+    "checksum_sha256": "44305dc92acaac370cb51a3d13a11077d2caeb27230f57a5c963044370b1b652"
+  },
+  "dataset_id": "PXD064564",
+  "title": "Challenging the Astral mass analyzer - up to 5300 proteins per single-cell at unseen quantitative accuracy to study cellular heterogeneity",
+  "description": "Single-cell proteomics dataset using Orbitrap Astral mass spectrometer to quantify up to 5,300 proteins per single cell with high accuracy. The dataset includes human pluripotent stem cells (hPSC) and trophectoderm (TE) single-cell proteomics data.",
+  "source": "PRIDE",
+  "source_url": "https://www.ebi.ac.uk/pride/archive/projects/PXD064564",
+  "instrument": "Orbitrap Astral",
+  "software": "Spectronaut",
+  "data_type": "single-cell proteomics",
+  "acquisition_method": "DIA",
+  "species": "Homo sapiens",
+  "tissue": "pluripotent stem cells, trophectoderm",
+  "cell_types": [
+    "hPSC",
+    "TE"
+  ],
+  "n_samples": 165,
+  "n_proteins": null,
+  "publication": {
+    "title": "Challenging the Astral mass analyzer to quantify up to 5,300 proteins per single cell at unseen accuracy to uncover cellular heterogeneity",
+    "journal": "Nature Methods",
+    "year": 2025,
+    "volume": "22(3)",
+    "pages": "510-519",
+    "doi": "10.1038/s41592-024-02559-1",
+    "pubmed_id": "39820751",
+    "authors": [
+      "Bubis JA",
+      "Arrey TN",
+      "Damoc E",
+      "Delanghe B",
+      "Slovakova J",
+      "Sommer TM",
+      "Kagawa H",
+      "Pichler P",
+      "Rivron N",
+      "Mechtler K",
+      "Matzinger M"
+    ]
+  },
+  "download_date": "2026-02-25",
+  "quality_metrics": {
+    "completeness": null,
+    "median_proteins_per_cell": null,
+    "missing_rate": null
+  },
+  "notes": "Downloaded from PRIDE archive. Main file: JB_hPSC_TE_SC_240k_20Th_40ms_50SPD_noMBR_Report_Peptides_JB_Pivot.tsv (137.85 MB). This is a peptide-level report from Spectronaut analysis of single-cell DIA data."
+}

@@ -2,6 +2,7 @@
 # 1. 忽略隐藏文件 (Hidden files & directories)
 # ==========================================
 .*
+!.gitkeep
 !.gitignore
 
 # ==========================================
@@ -65,3 +66,6 @@ tests/res/
 # Serena缓存 (Serena cache)
 # ==========================================
 .serena/
+# Dataset files (large) - download separately
+scptensor/datasets/pride/*/report.tsv
+scptensor/datasets/massive/*/report.tsv
