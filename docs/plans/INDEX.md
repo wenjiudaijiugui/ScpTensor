@@ -44,6 +44,21 @@
 - Usage guidelines
 - Success indicators
 
+### 🧬 Dataset Management System
+**[2026-02-25-dataset-management-design.md](2026-02-25-dataset-management-design.md)** - Dataset system design (10 min read)
+
+- High-quality dataset selection criteria
+- Metadata and registry formats
+- Five-step workflow (search → review → download → validate → register)
+- PRIDE and MassIVE integration
+
+**[2026-02-25-dataset-management-plan.md](2026-02-25-dataset-management-plan.md)** - Implementation tasks (reference during implementation)
+
+- Directory structure setup
+- Registry initialization
+- Search, download, and validation scripts
+- End-to-end workflow execution
+
 ---
 
 ## Document Summary
@@ -54,8 +69,10 @@
 | IMPLEMENTATION.md | 73 KB | 3,134 | Detailed tasks | Implementers |
 | README.md | 5 KB | 243 | Quick reference | All |
 | STRUCTURE.md | 5 KB | 233 | Document structure | All |
+| DATASET_DESIGN.md | 2.7 KB | 123 | Dataset system design | All |
+| DATASET_PLAN.md | ~20 KB | ~700 | Dataset implementation | Implementers |
 
-**Total:** 136 KB, 6,046 lines
+**Total:** ~164 KB, ~6,869 lines
 
 ---
 
@@ -66,12 +83,19 @@
 2. **Strategy:** Read [DESIGN.md](2026-02-25-core-refactoring-design.md) Sections 1-5 (20 min)
 3. **Assign:** Review team division (Section 5 of DESIGN.md)
 4. **Track:** Use validation checklist (Section 12 of IMPLEMENTATION.md)
+5. **Datasets:** Review [DATASET_DESIGN.md](2026-02-25-dataset-management-design.md) for dataset strategy
 
 ### For Module Member
 1. **Start:** Read [README.md](README.md) (5 min)
 2. **Understand:** Read your module section in [DESIGN.md](2026-02-25-core-refactoring-design.md) (10 min)
 3. **Implement:** Follow tasks in [IMPLEMENTATION.md](2026-02-25-core-refactoring-implementation-plan.md) (reference)
 4. **Validate:** Use validation checklist
+
+### For Dataset Management
+1. **Start:** Read [DATASET_DESIGN.md](2026-02-25-dataset-management-design.md) (10 min)
+2. **Implement:** Follow tasks in [DATASET_PLAN.md](2026-02-25-dataset-management-plan.md) (~2.5 hours)
+3. **Validate:** Use validation checklist in Section 7 of DATASET_PLAN.md
+4. **Execute:** Run end-to-end workflow (Task 6)
 
 ### For QA/Reviewer
 1. **Start:** Read [README.md](README.md) (5 min)
@@ -133,6 +157,37 @@
 **Risk Mitigation** (reference)
 - 5 major risks
 - Mitigation strategies
+
+### Dataset Management Plan Highlights
+
+**Task 1: Directory Structure** (5 min)
+- Create pride/, massive/, scripts/ directories
+- Add .gitkeep files
+
+**Task 2: Registry File** (5 min)
+- Initialize registry.json
+- Set up statistics tracking
+
+**Task 3: Search Script** (30 min)
+- PRIDE API integration
+- Filter by instrument and software
+- Output candidates.csv
+
+**Task 4: Download Script** (30 min)
+- Download DIA-NN report files
+- Generate metadata.json
+- Calculate checksums
+
+**Task 5: Validation Script** (30 min)
+- Validate report.tsv format
+- Verify metadata fields
+- Check file integrity
+
+**Task 6: Execute Workflow** (1 hour)
+- Search for datasets
+- Review candidates
+- Download first dataset
+- Validate and register
 
 ---
 
@@ -218,6 +273,17 @@ find scptensor/ -name "*.py" | xargs wc -l
 - [ ] Parameters 40% fewer
 - [ ] Full chaining support
 - [ ] Auto type inference
+
+### Dataset Management
+- [ ] Directory structure created
+- [ ] Registry initialized
+- [ ] Search script functional
+- [ ] Download script functional
+- [ ] Validation script functional
+- [ ] First dataset downloaded and validated
+- [ ] Registry updated with dataset entry
+
+---
 
 ---
 
