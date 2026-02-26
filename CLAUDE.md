@@ -14,103 +14,6 @@ ScpTensor is a Python library for single-cell proteomics (SCP) data analysis wit
 
 ---
 
-## Design Documentation - Progressive Loading System
-
-**CRITICAL:** This project has extensive design documentation (~4000 lines total). **NEVER load all design documents at once.** Always use the progressive loading system.
-
-### Quick Start
-
-```bash
-# Step 1: Always start with INDEX (find what you need)
-python3 scripts/doc_loader.py INDEX 1-100
-
-# Step 2: Load specific sections only
-python3 scripts/doc_loader.py <DOC> <LINE_RANGE>
-
-# Example: Load executive summary (30 lines)
-python3 scripts/doc_loader.py MASTER 1-30
-
-# Example: Load normalization module spec (40 lines)
-python3 scripts/doc_loader.py ARCHITECTURE 310-350
-```
-
-### Available Commands
-
-```bash
-# Load line range
-python3 scripts/doc_loader.py <DOC> <START>-<END>
-
-# Search for keyword
-python3 scripts/doc_loader.py <DOC> search "<keyword>"
-
-# Get document outline
-python3 scripts/doc_loader.py <DOC> outline
-
-# Count lines
-python3 scripts/doc_loader.py <DOC> count
-
-# Load full document (use sparingly!)
-python3 scripts/doc_loader.py <DOC> all
-```
-
-### Available Documents
-
-| Document | Lines | Purpose | Command Example |
-|----------|-------|---------|-----------------|
-| **INDEX** | 400 | Navigation hub - START HERE! | `doc_loader.py INDEX 1-100` |
-| **MASTER** | 639 | Strategic overview, priorities | `doc_loader.py MASTER 1-50` |
-| **ARCHITECTURE** | 1100 | Module specs, data structures | `doc_loader.py ARCHITECTURE 1-100` |
-| **ROADMAP** | 700 | Execution plan, milestones | `doc_loader.py ROADMAP 51-150` |
-| **MIGRATION** | 600 | Upgrade guide alpha→beta | `doc_loader.py MIGRATION 1-50` |
-| **API_REFERENCE** | 900 | Complete API documentation | `doc_loader.py API_REFERENCE 81-200` |
-
-### Common Workflows
-
-#### When Designing New Features
-```bash
-# 1. Check current status
-python3 scripts/doc_loader.py MASTER 1-50
-
-# 2. Find module responsibility
-python3 scripts/doc_loader.py ARCHITECTURE 1-100
-
-# 3. Learn extension points
-python3 scripts/doc_loader.py ARCHITECTURE 751-850
-
-# 4. See similar APIs
-python3 scripts/doc_loader.py API_REFERENCE 201-350
-```
-
-#### When Fixing Bugs
-```bash
-# 1. Check if known issue
-python3 scripts/doc_loader.py INDEX search "bug"
-
-# 2. Understand error handling
-python3 scripts/doc_loader.py ARCHITECTURE 551-650
-
-# 3. Check API contract
-python3 scripts/doc_loader.py API_REFERENCE search "<function>"
-```
-
-#### When Planning Work
-```bash
-# 1. See priority matrix
-python3 scripts/doc_loader.py ROADMAP 51-150
-
-# 2. Check current sprint
-python3 scripts/doc_loader.py ROADMAP 360-380
-
-# 3. Review risks
-python3 scripts/doc_loader.py ROADMAP 501-600
-```
-
-### Detailed Usage Guide
-
-See `scripts/README.md` for complete documentation, examples, and troubleshooting.
-
----
-
 ## Code Style and Standards
 
 ### Core Principles (from global CLAUDE.md)
@@ -228,33 +131,7 @@ uv run pytest --cov=scptensor         # With coverage report
 
 ## Development Workflow
 
-### 1. Before Starting Work
-
-```bash
-# Check project status
-python3 scripts/doc_loader.py MASTER 1-50
-
-# Check what's planned
-python3 scripts/doc_loader.py ROADMAP 51-150
-
-# Check if task is in roadmap
-python3 scripts/doc_loader.py ROADMAP search "<task>"
-```
-
-### 2. Design Phase
-
-```bash
-# Load architecture specs
-python3 scripts/doc_loader.py ARCHITECTURE 1-100
-
-# Check extension points
-python3 scripts/doc_loader.py ARCHITECTURE 751-850
-
-# See similar APIs
-python3 scripts/doc_loader.py API_REFERENCE 201-350
-```
-
-### 3. Implementation Phase
+### 1. Implementation Phase
 
 Follow project coding standards:
 - Add type hints to all functions
@@ -262,7 +139,7 @@ Follow project coding standards:
 - Update ProvenanceLog
 - Add NumPy-style docstrings
 
-### 4. Testing Phase
+### 2. Testing Phase
 
 **Testing infrastructure is now available.**
 
@@ -361,42 +238,16 @@ ScpMatrix (physical storage)
 
 ### Adding a New Normalization Method
 
-```bash
-# 1. Check existing module
-python3 scripts/doc_loader.py ARCHITECTURE 310-350
-
-# 2. Check extension points
-python3 scripts/doc_loader.py ARCHITECTURE 751-850
-
-# 3. See API examples
-python3 scripts/doc_loader.py API_REFERENCE 220-270
-
-# Implementation location: scptensor/normalization/your_method.py
-```
+1. Check existing module structure in `scptensor/normalization/`
+2. Follow the pattern of existing methods (e.g., `log_transform.py`)
+3. Update `scptensor/normalization/__init__.py` to export new function
+4. Add tests in `tests/test_normalization.py`
 
 ### Understanding Data Flow
 
-```bash
-# Load architecture overview
-python3 scripts/doc_loader.py MASTER 78-150
-
-# Load integration patterns
-python3 scripts/doc_loader.py ARCHITECTURE 451-550
-```
-
-### Running Tutorials
-
-The project includes 4 tutorial notebooks in `docs/tutorials/`:
-
-1. **tutorial_01_getting_started.ipynb** - Basic data loading and exploration
-2. **tutorial_02_qc_normalization.ipynb** - Quality control and normalization
-3. **tutorial_03_imputation_integration.ipynb** - Missing value imputation and batch correction
-4. **tutorial_04_clustering_visualization.ipynb** - Clustering and visualization
-
-Run with Jupyter:
-```bash
-uv run jupyter notebook docs/tutorials/
-```
+1. Read core structures in `scptensor/core/structures.py`
+2. Check module-specific patterns in relevant subdirectories
+3. Review existing tests for usage examples
 
 ### Benchmarking
 
@@ -472,27 +323,6 @@ JIT-optimized operations are in `core/jit_ops.py`.
 
 ## Key File Locations
 
-### Documentation
-```
-docs/
-├── ISSUES_AND_LIMITATIONS.md  # Known problems (READ THIS!)
-├── tutorials/                 # 4 Jupyter notebook tutorials
-└── design/
-    ├── INDEX.md                # Design doc navigation (START HERE!)
-    ├── MASTER.md               # Strategic overview
-    ├── ARCHITECTURE.md         # Technical specifications
-    ├── ROADMAP.md              # Execution plan
-    ├── MIGRATION.md            # Upgrade guide
-    └── API_REFERENCE.md        # Complete API
-```
-
-### Scripts
-```
-scripts/
-├── doc_loader.py              # Progressive doc loader (USE THIS!)
-└── README.md                  # Detailed usage guide
-```
-
 ### Source Code
 ```
 scptensor/
@@ -523,79 +353,11 @@ tests/
 └── real_data_comparison/      # Real data validation
 ```
 
----
-
-## When to Use Progressive Loading
-
-### DO Use Progressive Loading For:
-
-- Understanding module architecture
-- Learning API specifications
-- Planning implementation
-- Debugging by checking design docs
-- Reviewing priority matrix
-- Understanding data structures
-- Finding best practices
-
-### DON'T Load Full Documents For:
-
-- Quick syntax checks (use API_REFERENCE specific sections)
-- Simple parameter lookups (use search instead)
-- Routine tasks (memorize common patterns)
-
----
-
-## Context Management Strategy
-
-### When AI Asks About Design
-
-1. **Check INDEX first** to locate relevant section
-2. **Load only that section** (typically 50-200 lines)
-3. **If more needed**, load adjacent sections incrementally
-
-**Example:**
+### Scripts
 ```
-User: "How do I add a new normalization method?"
-
-Step 1: Check INDEX
-→ python3 scripts/doc_loader.py INDEX search "normalization"
-→ Found: ARCHITECTURE lines 310-350
-
-Step 2: Load that section
-→ python3 scripts/doc_loader.py ARCHITECTURE 310-350
-
-Step 3: Load API examples
-→ python3 scripts/doc_loader.py API_REFERENCE 220-270
-
-Total loaded: ~100 lines (instead of 4000+)
-```
-
----
-
-## Troubleshooting Design Doc Issues
-
-### Problem: Can't find information
-
-**Solution:**
-```bash
-# 1. Search INDEX
-python3 scripts/doc_loader.py INDEX search "<keyword>"
-
-# 2. Search specific document
-python3 scripts/doc_loader.py <DOC> search "<keyword>"
-
-# 3. Get document outline
-python3 scripts/doc_loader.py <DOC> outline
-```
-
-### Problem: Line numbers outdated
-
-**Solution:**
-```bash
-# Recount lines
-python3 scripts/doc_loader.py <DOC> count
-
-# Update INDEX.md with correct line numbers
+scripts/
+├── performance_benchmark.py   # Performance benchmarking
+└── README.md                  # Usage guide
 ```
 
 ---
@@ -609,11 +371,6 @@ This project-level CLAUDE.md extends the global CLAUDE.md with ScpTensor-specifi
 ## Quick Command Reference
 
 ```bash
-# Documentation
-python3 scripts/doc_loader.py INDEX 1-100          # Load index
-python3 scripts/doc_loader.py <DOC> <START>-<END>    # Load section
-python3 scripts/doc_loader.py <DOC> search "<kw>"    # Search
-
 # Environment setup
 uv sync                                               # Install dependencies
 uv pip install -e ".[dev]"                           # Install with dev deps
@@ -629,12 +386,12 @@ uv run mypy scptensor/                               # Type check
 uv run pre-commit install                            # Install hooks
 uv run pre-commit run --all-files                    # Run all hooks
 
-# Tutorials
-uv run jupyter notebook docs/tutorials/              # Launch notebooks
-
 # Benchmarking
 uv run python -m scptensor.benchmark.benchmark_suite
 uv run python -m scptensor.benchmark.run_competitor_benchmark
+
+# Performance scripts
+uv run python scripts/performance_benchmark.py
 ```
 
 ---
@@ -642,5 +399,3 @@ uv run python -m scptensor.benchmark.run_competitor_benchmark
 **Last Updated:** 2026-01-14
 **Version:** v0.1.0-beta
 **Maintainer:** ScpTensor Team
-
-For detailed doc loader usage, see: `scripts/README.md`
