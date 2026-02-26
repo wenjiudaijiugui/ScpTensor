@@ -25,15 +25,31 @@
       "doi": "10.1038/s41592-024-02559-1",
       "pubmed_id": "39820751",
       "download_date": "2026-02-26"
+    },
+    {
+      "id": "PXD049211",
+      "title": "Deep single-cell proteomics quantifies low-abundant embryonic transcription factors and lineage markers during induced pluripotent stem cell differentiation",
+      "instrument": "Orbitrap Astral",
+      "software": "DIA-NN",
+      "source": "PRIDE",
+      "path": "pride/PXD049211",
+      "n_samples": null,
+      "doi": null,
+      "pubmed_id": null,
+      "download_date": "2026-02-26"
     }
   ],
   "statistics": {
-    "total_datasets": 2,
+    "total_datasets": 3,
     "by_instrument": {
-      "Orbitrap Astral": 2
+      "Orbitrap Astral": 3
     },
     "by_source": {
-      "PRIDE": 2
+      "PRIDE": 3
+    },
+    "by_software": {
+      "Spectronaut": 2,
+      "DIA-NN": 1
     }
   }
 }
