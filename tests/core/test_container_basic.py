@@ -50,11 +50,10 @@ class TestScpContainerBasic:
 
     def test_import_qc_module(self) -> None:
         """Test that qc module can be imported."""
-        from scptensor.qc import detect_outliers
-        from scptensor.qc import qc_basic as basic_qc
+        from scptensor.qc import calculate_sample_qc_metrics, filter_doublets_mad
 
-        assert callable(basic_qc)
-        assert callable(detect_outliers)
+        assert callable(filter_doublets_mad)
+        assert callable(calculate_sample_qc_metrics)
 
     def test_n_samples_property(self) -> None:
         """Test n_samples property returns correct sample count."""

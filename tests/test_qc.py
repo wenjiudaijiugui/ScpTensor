@@ -380,7 +380,9 @@ class TestFilterContaminants:
 
     def test_filter_contaminants_default(self, qc_container_with_contaminants):
         """Test contaminant filtering with default patterns."""
-        result = qc_psm.filter_contaminants(qc_container_with_contaminants)
+        result = qc_psm.filter_contaminants(
+            qc_container_with_contaminants, assay_name="protein", feature_col="name"
+        )
         assert isinstance(result, ScpContainer)
         # Should have removed some contaminant proteins
         assert (
@@ -391,7 +393,10 @@ class TestFilterContaminants:
     def test_filter_contaminants_custom_patterns(self, qc_container_with_contaminants):
         """Test with custom contaminant patterns."""
         result = qc_psm.filter_contaminants(
-            qc_container_with_contaminants, contaminant_patterns=[r"KRT\d+"]
+            qc_container_with_contaminants,
+            assay_name="protein",
+            feature_col="name",
+            patterns=[r"KRT\d+"],
         )
         assert isinstance(result, ScpContainer)
 
