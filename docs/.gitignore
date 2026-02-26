@@ -1,9 +1,0 @@
-# Sphinx build outputs
-_build/
-_static/
-_templates/
-_templates/.doctrees/
-
-# Sphinx auto-generated files
-*.pyc
-__pycache__/
