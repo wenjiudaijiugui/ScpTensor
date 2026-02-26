@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "last_updated": "2026-02-25",
+  "last_updated": "2026-02-26",
   "datasets": [
     {
       "id": "PXD064564",
@@ -13,15 +13,27 @@
       "doi": "10.1038/s41592-024-02559-1",
       "pubmed_id": "39820751",
       "download_date": "2026-02-25"
+    },
+    {
+      "id": "PXD049412",
+      "title": "Challenging the Astral mass analyzer – up to 5300 proteins per single-cell",
+      "instrument": "Orbitrap Astral",
+      "software": "Spectronaut",
+      "source": "PRIDE",
+      "path": "pride/PXD049412",
+      "n_samples": 15,
+      "doi": "10.1038/s41592-024-02559-1",
+      "pubmed_id": "39820751",
+      "download_date": "2026-02-26"
     }
   ],
   "statistics": {
-    "total_datasets": 1,
+    "total_datasets": 2,
     "by_instrument": {
-      "Orbitrap Astral": 1
+      "Orbitrap Astral": 2
     },
     "by_source": {
-      "PRIDE": 1
+      "PRIDE": 2
     }
   }
 }
