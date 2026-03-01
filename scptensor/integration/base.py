@@ -5,7 +5,8 @@ Provides method registry and validation utilities for batch effect correction.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Protocol, runtime_checkable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import numpy as np
 import polars as pl
@@ -36,9 +37,11 @@ def register_integrate_method(name: str) -> Callable[[IntegrateMethod], Integrat
     Callable
         Decorator function.
     """
+
     def decorator(func: IntegrateMethod) -> IntegrateMethod:
         _INTEGRATE_METHODS[name] = func
         return func
+
     return decorator
 
 
@@ -63,10 +66,9 @@ def get_integrate_method(name: str) -> IntegrateMethod:
     if name not in _INTEGRATE_METHODS:
         available = list(_INTEGRATE_METHODS.keys())
         raise ScpValueError(
-            f"Integration method '{name}' not found.",
+            f"Integration method '{name}' not found. Available methods: {available}",
             parameter="method",
             value=name,
-            hint=f"Available methods: {available}",
         )
     return _INTEGRATE_METHODS[name]
 
@@ -83,10 +85,10 @@ def list_integrate_methods() -> list[str]:
 
 
 def integrate(
-    container: "ScpContainer",
+    container: ScpContainer,
     method: str = "combat",
     **kwargs,
-) -> "ScpContainer":
+) -> ScpContainer:
     """Unified interface for batch effect correction.
 
     Parameters
@@ -108,10 +110,10 @@ def integrate(
 
 
 def validate_layer_params(
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str,
     layer_name: str,
-) -> tuple["Assay", "ScpMatrix"]:
+) -> tuple[Assay, ScpMatrix]:
     """Validate and get assay and layer.
 
     Parameters
@@ -138,7 +140,6 @@ def validate_layer_params(
     if assay_name not in container.assays:
         available = list(container.assays.keys())
         raise AssayNotFoundError(
-            f"Assay '{assay_name}' not found.",
             assay_name=assay_name,
             available_assays=available,
         )
@@ -148,7 +149,6 @@ def validate_layer_params(
     if layer_name not in assay.layers:
         available = list(assay.layers.keys())
         raise LayerNotFoundError(
-            f"Layer '{layer_name}' not found in assay '{assay_name}'.",
             layer_name=layer_name,
             assay_name=assay_name,
             available_layers=available,
@@ -158,7 +158,7 @@ def validate_layer_params(
 
 
 def validate_batch_integration_params(
-    container: "ScpContainer",
+    container: ScpContainer,
     batch_key: str,
     assay_name: str,
     min_batches: int = 2,
@@ -193,10 +193,9 @@ def validate_batch_integration_params(
 
     if batch_key not in obs_df.columns:
         raise ScpValueError(
-            f"Batch key '{batch_key}' not found in obs.",
+            f"Batch key '{batch_key}' not found in obs. Available columns: {obs_df.columns}",
             parameter="batch_key",
             value=batch_key,
-            hint=f"Available columns: {obs_df.columns}",
         )
 
     batches = obs_df[batch_key].to_numpy()
@@ -216,7 +215,7 @@ def validate_batch_integration_params(
             value=batch_key,
         )
 
-    batch_counts_dict = dict(zip(unique_batches, batch_counts))
+    batch_counts_dict = dict(zip(unique_batches, batch_counts, strict=False))
 
     return obs_df, batches, unique_batches, batch_counts_dict
 
@@ -237,7 +236,7 @@ def prepare_integration_data(
         Dense array with NaN values filled with 0.
     """
     if sp.issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
     else:
         X = np.asarray(X)
 

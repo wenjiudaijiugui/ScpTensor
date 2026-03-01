@@ -143,8 +143,8 @@ def log_transform(
     # Check for negative values and clip to 0
     if is_sparse_matrix(X):
         # For sparse matrices, check only non-zero elements
-        if np.any(X.data < 0):
-            min_val = np.nanmin(X.data)
+        if np.any(X.data < 0):  # type: ignore[union-attr,operator]
+            min_val = np.nanmin(X.data)  # type: ignore[union-attr]
             warnings.warn(
                 f"Input contains negative values (min={min_val:.4f}). "
                 f"These will be clipped to 0 before log transform.",
@@ -152,7 +152,7 @@ def log_transform(
                 stacklevel=2,
             )
             X = X.copy()
-            X.data = np.maximum(X.data, 0)
+            X.data = np.maximum(X.data, 0)  # type: ignore[misc]
     else:
         # For dense matrices, check entire array
         if np.any(X < 0):

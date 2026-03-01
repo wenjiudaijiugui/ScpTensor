@@ -14,9 +14,9 @@ if TYPE_CHECKING:
 
 
 def validate_assay(
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str,
-) -> "Assay":
+) -> Assay:
     """Validate assay exists and return it.
 
     Parameters
@@ -39,7 +39,6 @@ def validate_assay(
     if assay_name not in container.assays:
         available = list(container.assays.keys())
         raise AssayNotFoundError(
-            f"Assay '{assay_name}' not found.",
             assay_name=assay_name,
             available_assays=available,
         )
@@ -47,7 +46,7 @@ def validate_assay(
 
 
 def validate_layer(
-    assay: "Assay",
+    assay: Assay,
     layer_name: str,
 ) -> np.ndarray:
     """Validate layer exists and return X matrix.
@@ -72,7 +71,6 @@ def validate_layer(
     if layer_name not in assay.layers:
         available = list(assay.layers.keys())
         raise LayerNotFoundError(
-            f"Layer '{layer_name}' not found.",
             layer_name=layer_name,
             assay_name=assay.feature_id_col,
             available_layers=available,
@@ -144,16 +142,15 @@ def validate_column_exists(
     """
     if column not in df.columns:
         raise ScpValueError(
-            f"Column '{column}' not found in {context}.",
+            f"Column '{column}' not found in {context}. Available columns: {df.columns}",
             parameter=column,
-            hint=f"Available columns: {df.columns}",
         )
 
 
 def compute_detection_stats(
     X: np.ndarray,
     axis: int = 0,
-) -> dict[str, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Compute detection statistics.
 
     Parameters
@@ -165,28 +162,25 @@ def compute_detection_stats(
 
     Returns
     -------
-    dict
-        Dictionary with detection statistics.
+    tuple[np.ndarray, np.ndarray, np.ndarray]
+        Tuple of (n_detected, detection_rate, means).
     """
     n_total = X.shape[axis]
     n_detected = np.sum(~np.isnan(X), axis=axis)
     detection_rate = n_detected / n_total
-    n_missing = n_total - n_detected
 
-    return {
-        "n_detected": n_detected,
-        "n_missing": n_missing,
-        "detection_rate": detection_rate,
-        "n_total": n_total,
-    }
+    # Compute means ignoring NaN
+    means = np.nanmean(X, axis=axis)
+
+    return n_detected, detection_rate, means
 
 
 def log_filtering_operation(
-    container: "ScpContainer",
+    container: ScpContainer,
     action: str,
     params: dict[str, Any],
     description: str,
-) -> "ScpContainer":
+) -> ScpContainer:
     """Log filtering operation to container history.
 
     Parameters

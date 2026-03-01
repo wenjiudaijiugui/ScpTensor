@@ -170,7 +170,7 @@ def filter_features_by_missingness(
 
     # Compute missing rate
     if sp.issparse(X):
-        n_detected = X.getnnz(axis=0)
+        n_detected = X.getnnz(axis=0)  # type: ignore[union-attr]
     else:
         n_detected = np.sum((X > 0) & (~np.isnan(X)), axis=0)
 
@@ -188,11 +188,14 @@ def filter_features_by_missingness(
     n_removed = assay.n_features - len(keep_indices)
     new_container = log_filtering_operation(
         new_container,
-        "filter_features_by_missingness",
-        assay_name,
-        n_removed,
-        assay.n_features,
-        {"max_missing_rate": max_missing_rate},
+        action="filter_features_by_missingness",
+        params={
+            "assay": assay_name,
+            "n_removed": n_removed,
+            "n_total": assay.n_features,
+            "max_missing_rate": max_missing_rate,
+        },
+        description=f"Filtered {n_removed}/{assay.n_features} features from {assay_name} by missingness (max_missing_rate={max_missing_rate}).",
     )
 
     return new_container
@@ -267,11 +270,15 @@ def filter_features_by_cv(
     n_removed = assay.n_features - len(keep_indices)
     new_container = log_filtering_operation(
         new_container,
-        "filter_features_by_cv",
-        assay_name,
-        n_removed,
-        assay.n_features,
-        {"max_cv": max_cv, "min_mean": min_mean},
+        action="filter_features_by_cv",
+        params={
+            "assay": assay_name,
+            "n_removed": n_removed,
+            "n_total": assay.n_features,
+            "max_cv": max_cv,
+            "min_mean": min_mean,
+        },
+        description=f"Filtered {n_removed}/{assay.n_features} features from {assay_name} by CV (max_cv={max_cv}).",
     )
 
     return new_container

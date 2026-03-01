@@ -15,10 +15,10 @@ if TYPE_CHECKING:
 
 
 def _validate_assay_layer(
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str,
     layer_name: str,
-) -> tuple["Assay", np.ndarray | sp.spmatrix]:
+) -> tuple[Assay, np.ndarray | sp.spmatrix]:
     """Validate and get assay and layer data.
 
     Parameters
@@ -45,7 +45,6 @@ def _validate_assay_layer(
     if assay_name not in container.assays:
         available = list(container.assays.keys())
         raise AssayNotFoundError(
-            f"Assay '{assay_name}' not found.",
             assay_name=assay_name,
             available_assays=available,
         )
@@ -55,7 +54,6 @@ def _validate_assay_layer(
     if layer_name not in assay.layers:
         available = list(assay.layers.keys())
         raise LayerNotFoundError(
-            f"Layer '{layer_name}' not found in assay '{assay_name}'.",
             layer_name=layer_name,
             assay_name=assay_name,
             available_layers=available,
@@ -78,7 +76,7 @@ def _prepare_matrix(X: np.ndarray | sp.spmatrix) -> np.ndarray:
         Dense numpy array.
     """
     if sp.issparse(X):
-        return X.toarray()
+        return X.toarray()  # type: ignore[union-attr]
     return np.asarray(X)
 
 
@@ -106,10 +104,10 @@ def _get_default_key(method: str, params: dict) -> str:
 
 
 def _add_labels_to_obs(
-    container: "ScpContainer",
+    container: ScpContainer,
     labels: np.ndarray,
     key: str,
-) -> "ScpContainer":
+) -> ScpContainer:
     """Add cluster labels to obs DataFrame.
 
     Parameters
@@ -126,11 +124,18 @@ def _add_labels_to_obs(
     ScpContainer
         New container with updated obs.
     """
-    new_obs = container.obs.with_columns(
-        pl.Series(name=key, values=labels.astype(str))
-    )
+    new_obs = container.obs.with_columns(pl.Series(name=key, values=labels.astype(str)))
 
-    return container._replace(obs=new_obs)
+    # Create new container with updated obs
+    from scptensor.core.structures import ScpContainer as _ScpContainer
+
+    return _ScpContainer(
+        obs=new_obs,
+        assays=container.assays,
+        links=container.links,
+        history=container.history,
+        sample_id_col=container.sample_id_col,
+    )
 
 
 __all__ = [

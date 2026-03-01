@@ -14,10 +14,10 @@ if TYPE_CHECKING:
 
 
 def _validate_assay_layer(
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str,
     layer_name: str,
-) -> tuple["Assay", np.ndarray | sp.spmatrix]:
+) -> tuple[Assay, np.ndarray | sp.spmatrix]:
     """Validate and get assay and layer data.
 
     Parameters
@@ -44,7 +44,6 @@ def _validate_assay_layer(
     if assay_name not in container.assays:
         available = list(container.assays.keys())
         raise AssayNotFoundError(
-            f"Assay '{assay_name}' not found.",
             assay_name=assay_name,
             available_assays=available,
         )
@@ -54,7 +53,6 @@ def _validate_assay_layer(
     if layer_name not in assay.layers:
         available = list(assay.layers.keys())
         raise LayerNotFoundError(
-            f"Layer '{layer_name}' not found in assay '{assay_name}'.",
             layer_name=layer_name,
             assay_name=assay_name,
             available_layers=available,
@@ -82,7 +80,7 @@ def _prepare_matrix(
         Dense numpy array.
     """
     if sp.issparse(X):
-        X = X.toarray()
+        X = X.toarray()  # type: ignore[union-attr]
 
     if dtype is not None:
         X = X.astype(dtype)

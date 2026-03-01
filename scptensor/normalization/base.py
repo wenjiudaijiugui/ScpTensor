@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import polars as pl
 import scipy.sparse as sp
 
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
@@ -16,11 +16,11 @@ if TYPE_CHECKING:
 
 
 def validate_assay_and_layer(
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str,
     layer_name: str,
-) -> tuple["Assay", np.ndarray | sp.spmatrix]:
-    """Validate and get assay and layer data.
+) -> tuple[Assay, ScpMatrix]:
+    """Validate and get assay and layer.
 
     Parameters
     ----------
@@ -33,8 +33,8 @@ def validate_assay_and_layer(
 
     Returns
     -------
-    tuple[Assay, np.ndarray | sp.spmatrix]
-        Assay object and data matrix X.
+    tuple[Assay, ScpMatrix]
+        Assay object and ScpMatrix layer.
 
     Raises
     ------
@@ -46,7 +46,6 @@ def validate_assay_and_layer(
     if assay_name not in container.assays:
         available = list(container.assays.keys())
         raise AssayNotFoundError(
-            f"Assay '{assay_name}' not found.",
             assay_name=assay_name,
             available_assays=available,
         )
@@ -56,18 +55,17 @@ def validate_assay_and_layer(
     if layer_name not in assay.layers:
         available = list(assay.layers.keys())
         raise LayerNotFoundError(
-            f"Layer '{layer_name}' not found in assay '{assay_name}'.",
             layer_name=layer_name,
             assay_name=assay_name,
             available_layers=available,
         )
 
-    return assay, assay.layers[layer_name].X
+    return assay, assay.layers[layer_name]
 
 
 def create_result_layer(
     X: np.ndarray | sp.spmatrix,
-    source_layer: str,
+    source_layer: str | ScpMatrix = "",
     mask: np.ndarray | sp.spmatrix | None = None,
 ) -> ScpMatrix:
     """Create result ScpMatrix from transformed data.
@@ -76,8 +74,8 @@ def create_result_layer(
     ----------
     X : np.ndarray | sp.spmatrix
         Transformed data matrix.
-    source_layer : str
-        Name of source layer (for provenance).
+    source_layer : str | ScpMatrix
+        Name of source layer (for provenance) or ScpMatrix to copy mask from.
     mask : np.ndarray | sp.spmatrix | None, optional
         Mask matrix to preserve.
 
@@ -86,6 +84,9 @@ def create_result_layer(
     ScpMatrix
         New ScpMatrix with data and optional mask.
     """
+    # If source_layer is a ScpMatrix, extract its mask
+    if isinstance(source_layer, ScpMatrix):
+        mask = source_layer.M
     return ScpMatrix(X=X, M=mask)
 
 
@@ -103,37 +104,39 @@ def ensure_dense(X: np.ndarray | sp.spmatrix) -> np.ndarray:
         Dense numpy array.
     """
     if sp.issparse(X):
-        return X.toarray()
+        return X.toarray()  # type: ignore[union-attr]
     return np.asarray(X)
 
 
 def get_layer_name(
-    source_layer: str,
-    suffix: str,
+    new_layer_name: str | None,
+    default_suffix: str,
 ) -> str:
     """Generate new layer name.
 
     Parameters
     ----------
-    source_layer : str
-        Source layer name.
-    suffix : str
-        Suffix to append.
+    new_layer_name : str | None
+        Desired layer name, or None to use default.
+    default_suffix : str
+        Default suffix to use if new_layer_name is None.
 
     Returns
     -------
     str
-        New layer name.
+        Layer name.
     """
-    return f"{source_layer}_{suffix}" if source_layer != "X" else suffix
+    if new_layer_name is None:
+        return default_suffix
+    return new_layer_name
 
 
 def log_operation(
-    container: "ScpContainer",
+    container: ScpContainer,
     action: str,
     params: dict[str, Any],
     description: str,
-) -> "ScpContainer":
+) -> ScpContainer:
     """Log operation to container history.
 
     Parameters
@@ -157,13 +160,13 @@ def log_operation(
 
 
 def apply_normalization(
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str,
     source_layer: str,
     new_layer_name: str,
     transform_func: Callable[[np.ndarray], np.ndarray],
     operation_name: str,
-) -> "ScpContainer":
+) -> ScpContainer:
     """Apply normalization transformation to a layer.
 
     Parameters
@@ -186,11 +189,11 @@ def apply_normalization(
     ScpContainer
         Container with new layer.
     """
-    assay, X = validate_assay_and_layer(container, assay_name, source_layer)
-    X_dense = ensure_dense(X)
+    assay, layer = validate_assay_and_layer(container, assay_name, source_layer)
+    X_dense = ensure_dense(layer.X)
     X_transformed = transform_func(X_dense)
 
-    new_layer = create_result_layer(X_transformed, source_layer, assay.layers[source_layer].M)
+    new_layer = create_result_layer(X_transformed, layer)
     assay.layers[new_layer_name] = new_layer
 
     return log_operation(
