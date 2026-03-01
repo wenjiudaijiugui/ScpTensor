@@ -21,7 +21,6 @@ from scptensor.core.exceptions import (
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
 
-
 # =============================================================================
 # Core KNN algorithm (pure function for registry)
 # =============================================================================

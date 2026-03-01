@@ -574,5 +574,3 @@ def embedding(
     >>> ax = embedding(container, basis="pca", color="cluster")
     """
     return scatter(container, layer=layer, basis=basis, **kwargs)
-
-

@@ -31,9 +31,9 @@ from scptensor.core.structures import ScpContainer
 
 from .base import (
     create_result_layer,
+    get_layer_name,
     log_operation,
     validate_assay_and_layer,
-    get_layer_name,
 )
 
 
@@ -121,9 +121,7 @@ def norm_mean(
     - Centering mode is useful for removing technical bias between samples.
     """
     # Validate and get objects
-    assay, input_layer = validate_assay_and_layer(
-        container, assay_name, source_layer
-    )
+    assay, input_layer = validate_assay_and_layer(container, assay_name, source_layer)
 
     # Apply mean normalization
     X_centered = input_layer.X - np.nanmean(input_layer.X, axis=1, keepdims=True)

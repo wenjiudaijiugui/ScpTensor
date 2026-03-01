@@ -133,19 +133,6 @@ from scptensor.io.base import (
 # CSV format support
 from scptensor.io.csv import load_csv, load_diann, save_csv
 
-# Spectronaut format support
-from scptensor.io.spectronaut import load_spectronaut
-
-# Pivot report format support
-from scptensor.io.pivot_parser import (
-    _detect_format,
-    _extract_sample_columns,
-    _load_diann_bgs,
-    _load_spectronaut_pivot,
-    _aggregate_to_protein as aggregate_to_protein,
-    load_peptide_pivot,
-)
-
 # Exceptions
 from scptensor.io.exceptions import IOFormatError, IOPasswordError, IOWriteError
 
@@ -161,6 +148,21 @@ from scptensor.io.hdf5 import (
 
 # NPZ format support
 from scptensor.io.npz import load_npz, save_npz
+from scptensor.io.pivot_parser import (
+    _aggregate_to_protein as aggregate_to_protein,
+)
+
+# Pivot report format support
+from scptensor.io.pivot_parser import (
+    _detect_format,
+    _extract_sample_columns,
+    _load_diann_bgs,
+    _load_spectronaut_pivot,
+    load_peptide_pivot,
+)
+
+# Spectronaut format support
+from scptensor.io.spectronaut import load_spectronaut
 
 __all__ = [
     # Exceptions

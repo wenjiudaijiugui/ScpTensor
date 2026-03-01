@@ -95,9 +95,9 @@ from scptensor.diff_expr import (
 
 # Dimensionality Reduction
 from scptensor.dim_reduction import (
+    SolverType,
     reduce_pca,
     reduce_umap,
-    SolverType,
 )
 
 # Imputation

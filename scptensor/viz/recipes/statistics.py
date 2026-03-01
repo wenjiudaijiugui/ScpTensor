@@ -13,7 +13,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
-import polars as pl
 from scipy.cluster.hierarchy import dendrogram as scipy_dendrogram
 from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import pdist
@@ -366,5 +365,3 @@ def dendrogram(
         plt.show()
 
     return fig
-
-

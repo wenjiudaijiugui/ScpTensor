@@ -299,5 +299,3 @@ def cosine_similarity(
         result = sim / norms
 
     return np.nan_to_num(result, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float64)
-
-

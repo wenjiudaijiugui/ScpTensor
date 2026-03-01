@@ -830,5 +830,3 @@ def volcano(
         plt.show()
 
     return fig
-
-

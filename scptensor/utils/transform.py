@@ -313,5 +313,3 @@ def robust_scale(
         return sp.csr_matrix(result)
 
     return result.astype(np.float64)
-
-

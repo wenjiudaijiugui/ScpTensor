@@ -374,7 +374,7 @@ def compute_sample_carrier_ratio(
 
     if len(sample_indices) == 0:
         raise ScpValueError(
-            f"No sample channels found.",
+            "No sample channels found.",
             parameter="sample_identifier",
             value=sample_identifier,
         )
@@ -411,11 +411,13 @@ def compute_sample_carrier_ratio(
     scr_high_count_all[sample_indices] = scr_high_count
 
     new_container = container.copy()
-    new_container.obs = new_container.obs.with_columns([
-        pl.Series("scr_median", scr_median_all),
-        pl.Series("scr_mean", scr_mean_all),
-        pl.Series("scr_high_psm_count", scr_high_count_all),
-    ])
+    new_container.obs = new_container.obs.with_columns(
+        [
+            pl.Series("scr_median", scr_median_all),
+            pl.Series("scr_mean", scr_mean_all),
+            pl.Series("scr_high_psm_count", scr_high_count_all),
+        ]
+    )
 
     new_container.log_operation(
         action="compute_sample_carrier_ratio",
@@ -474,6 +476,7 @@ def compute_median_cv(
 
     if layer_name not in assay.layers:
         from scptensor.core.exceptions import ScpValueError
+
         available = ", ".join(f"'{k}'" for k in assay.layers.keys())
         raise ScpValueError(
             f"Layer '{layer_name}' not found. Available: {available}.",
@@ -487,10 +490,12 @@ def compute_median_cv(
     cv_values = compute_cv(X.T, axis=0)
 
     new_container = container.copy()
-    new_container.obs = new_container.obs.with_columns([
-        pl.Series("median_cv", cv_values),
-        pl.Series("is_high_cv", cv_values > cv_threshold),
-    ])
+    new_container.obs = new_container.obs.with_columns(
+        [
+            pl.Series("median_cv", cv_values),
+            pl.Series("is_high_cv", cv_values > cv_threshold),
+        ]
+    )
 
     n_high_cv = int(np.sum(cv_values > cv_threshold))
     median_cv_all = float(np.nanmedian(cv_values))

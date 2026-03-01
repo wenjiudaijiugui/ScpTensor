@@ -391,5 +391,3 @@ class BatchProcessor:
             Dictionary with total_batches and total_samples.
         """
         return {"total_batches": self.total_batches, "total_samples": self.total_samples}
-
-

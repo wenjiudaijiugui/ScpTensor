@@ -11,18 +11,16 @@ Reference:
 from __future__ import annotations
 
 import numpy as np
-import polars as pl
 from sklearn.neighbors import kneighbors_graph
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
-from scptensor.core.structures import ScpContainer
-from scptensor.core.utils import requires_dependency
 from scptensor.cluster.base import (
     _add_labels_to_obs,
     _get_default_key,
     _prepare_matrix,
     _validate_assay_layer,
 )
+from scptensor.core.exceptions import ScpValueError
+from scptensor.core.structures import ScpContainer
 
 
 def cluster_leiden(

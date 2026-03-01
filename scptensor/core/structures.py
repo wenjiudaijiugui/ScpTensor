@@ -842,9 +842,7 @@ class ScpContainer:
             for layer_name, matrix in assay.layers.items():
                 new_X = self._copy_matrix(matrix.X[indices, :], copy)
                 new_M = (
-                    self._copy_matrix(matrix.M[indices, :], copy)
-                    if matrix.M is not None
-                    else None
+                    self._copy_matrix(matrix.M[indices, :], copy) if matrix.M is not None else None
                 )
                 new_layers[layer_name] = ScpMatrix(X=new_X, M=new_M)
 

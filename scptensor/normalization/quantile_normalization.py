@@ -135,9 +135,7 @@ def norm_quantile(
     - Log-transform before applying for best results.
     """
     # Validate and get objects
-    assay, input_layer = validate_assay_and_layer(
-        container, assay_name, source_layer
-    )
+    assay, input_layer = validate_assay_and_layer(container, assay_name, source_layer)
 
     X = ensure_dense(input_layer.X).copy()
 

@@ -94,7 +94,6 @@ def integrate_mnn(
     >>> container = integrate_mnn(container, batch_key='batch')
     >>> container = integrate_mnn(container, batch_key='batch', k=30, sigma=1.5)
     """
-    from scptensor.core.structures import ScpContainer
 
     # Validate parameters
     if k <= 0:

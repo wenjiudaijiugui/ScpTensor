@@ -25,8 +25,6 @@ Korsunsky I, et al. Fast, sensitive and accurate integration of
 single-cell data with Harmony. Nature Methods (2019).
 """
 
-import numpy as np
-
 from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import ScpMatrix
 from scptensor.core.utils import requires_dependency
@@ -99,8 +97,6 @@ def integrate_harmony(
     >>> container = integrate_harmony(container, batch_key='batch', theta=3, nclust=15)
     """
     import harmonypy as hm
-
-    from scptensor.core.structures import ScpContainer
 
     # Validate assay and layer
     assay, layer = validate_layer_params(container, assay_name, base_layer)

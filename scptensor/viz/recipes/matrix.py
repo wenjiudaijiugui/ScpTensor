@@ -504,5 +504,3 @@ def tracksplot(
         plt.show()
 
     return ax
-
-

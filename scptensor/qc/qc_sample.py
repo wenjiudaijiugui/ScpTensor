@@ -14,7 +14,6 @@ import scipy.sparse as sp
 from scptensor.core.filtering import FilterCriteria
 from scptensor.core.structures import ScpContainer
 from scptensor.qc._utils import (
-    log_filtering_operation,
     validate_assay,
     validate_layer,
 )
@@ -71,11 +70,13 @@ def calculate_sample_qc_metrics(
     log1p_total = np.log1p(total_intensity)
 
     # Create metrics DataFrame with assay-specific column names
-    metrics_df = pl.DataFrame({
-        f"n_features_{assay_name}": n_features,
-        f"total_intensity_{assay_name}": total_intensity,
-        f"log1p_total_intensity_{assay_name}": log1p_total,
-    })
+    metrics_df = pl.DataFrame(
+        {
+            f"n_features_{assay_name}": n_features,
+            f"total_intensity_{assay_name}": total_intensity,
+            f"log1p_total_intensity_{assay_name}": log1p_total,
+        }
+    )
 
     new_obs = container.obs.hstack(metrics_df)
 
@@ -322,20 +323,24 @@ def assess_batch_effects(
         total_intensity = np.nansum(X, axis=1)
 
     # Create temporary DataFrame with batch identifiers and metrics
-    temp_df = container.obs.select(batch_col).with_columns([
-        pl.Series("n_features", n_features),
-        pl.Series("total_intensity", total_intensity),
-    ])
+    temp_df = container.obs.select(batch_col).with_columns(
+        [
+            pl.Series("n_features", n_features),
+            pl.Series("total_intensity", total_intensity),
+        ]
+    )
 
     # Calculate summary statistics per batch
     summary = (
         temp_df.group_by(batch_col)
-        .agg([
-            pl.col("n_features").count().alias("n_cells"),
-            pl.col("n_features").median().alias("median_features"),
-            pl.col("n_features").std().alias("std_features"),
-            pl.col("total_intensity").median().alias("median_intensity"),
-        ])
+        .agg(
+            [
+                pl.col("n_features").count().alias("n_cells"),
+                pl.col("n_features").median().alias("median_features"),
+                pl.col("n_features").std().alias("std_features"),
+                pl.col("total_intensity").median().alias("median_intensity"),
+            ]
+        )
         .sort(batch_col)
     )
 

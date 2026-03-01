@@ -133,9 +133,7 @@ def log_transform(
         )
 
     # Validate and get assay/layer
-    assay, input_layer = validate_assay_and_layer(
-        container, assay_name, source_layer
-    )
+    assay, input_layer = validate_assay_and_layer(container, assay_name, source_layer)
 
     X = input_layer.X
 
@@ -168,9 +166,7 @@ def log_transform(
             X = np.maximum(X, 0)
 
     if is_sparse_matrix(X):
-        X_log = sparse_safe_log1p_with_scale(
-            X, offset=offset, scale=log_scale, use_jit=use_jit
-        )
+        X_log = sparse_safe_log1p_with_scale(X, offset=offset, scale=log_scale, use_jit=use_jit)
         X_log = ensure_sparse_format(X_log, "csr")
     else:
         X_log = np.log(X + offset) / log_scale
