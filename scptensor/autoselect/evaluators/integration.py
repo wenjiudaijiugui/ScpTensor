@@ -9,6 +9,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from scptensor.autoselect.evaluators.base import BaseEvaluator
 
 if TYPE_CHECKING:
@@ -64,6 +66,8 @@ class IntegrationEvaluator(BaseEvaluator):
         dict[str, Callable]
             Dictionary of available methods
         """
+        from scptensor.autoselect.evaluators.base import create_wrapper
+
         if self._available_methods is not None:
             return self._available_methods
 
@@ -73,7 +77,12 @@ class IntegrationEvaluator(BaseEvaluator):
         try:
             from scptensor.integration import integrate_combat
 
-            methods["combat"] = self._wrap_integrate(integrate_combat)
+            methods["combat"] = create_wrapper(
+                integrate_combat,
+                source_layer_param="base_layer",
+                layer_namer="clean",
+                batch_key=self._batch_key,
+            )
         except ImportError:
             pass
 
@@ -81,7 +90,12 @@ class IntegrationEvaluator(BaseEvaluator):
         try:
             from scptensor.integration import integrate_mnn
 
-            methods["mnn"] = self._wrap_integrate(integrate_mnn)
+            methods["mnn"] = create_wrapper(
+                integrate_mnn,
+                source_layer_param="base_layer",
+                layer_namer="clean",
+                batch_key=self._batch_key,
+            )
         except ImportError:
             pass
 
@@ -89,7 +103,12 @@ class IntegrationEvaluator(BaseEvaluator):
         try:
             from scptensor.integration import integrate_harmony
 
-            methods["harmony"] = self._wrap_integrate_harmony(integrate_harmony)
+            methods["harmony"] = create_wrapper(
+                integrate_harmony,
+                source_layer_param="base_layer",
+                layer_namer=lambda src, _: f"{src}_harmony",
+                batch_key=self._batch_key,
+            )
         except ImportError:
             pass
 
@@ -97,7 +116,12 @@ class IntegrationEvaluator(BaseEvaluator):
         try:
             from scptensor.integration import integrate_scanorama
 
-            methods["scanorama"] = self._wrap_integrate(integrate_scanorama)
+            methods["scanorama"] = create_wrapper(
+                integrate_scanorama,
+                source_layer_param="base_layer",
+                layer_namer="clean",
+                batch_key=self._batch_key,
+            )
         except ImportError:
             pass
 
@@ -191,18 +215,18 @@ class IntegrationEvaluator(BaseEvaluator):
             return dict.fromkeys(self.metric_weights, 0.0)
 
         # Get data matrix
-        X = assay.layers[layer_name].X
-        if hasattr(X, "toarray"):
-            X = X.toarray()
+        x_matrix = assay.layers[layer_name].X
+        if hasattr(x_matrix, "toarray"):
+            x_matrix = x_matrix.toarray()
 
         # Compute metrics
         scores: dict[str, float] = {}
 
         # Batch ASW (1 - ASW so higher is better)
-        scores["batch_asw"] = self._compute_batch_asw(X, batches)
+        scores["batch_asw"] = self._compute_batch_asw(x_matrix, batches)
 
         # Batch mixing score
-        scores["batch_mixing"] = self._compute_batch_mixing(X, batches)
+        scores["batch_mixing"] = self._compute_batch_mixing(x_matrix, batches)
 
         # Variance preservation
         scores["variance_preserved"] = self._compute_variance_preserved(
@@ -213,75 +237,75 @@ class IntegrationEvaluator(BaseEvaluator):
         if self._bio_key is not None:
             if self._bio_key in container.obs.columns:
                 bio_labels = container.obs[self._bio_key].to_numpy()
-                scores["bio_asw"] = self._compute_bio_asw(X, bio_labels)
+                scores["bio_asw"] = self._compute_bio_asw(x_matrix, bio_labels)
             else:
                 scores["bio_asw"] = 0.0
 
         return scores
 
-    def _compute_batch_asw(self, X: np.ndarray, batches: np.ndarray) -> float:
+    def _compute_batch_asw(self, x_data: np.ndarray, batches: np.ndarray) -> float:
         """Compute batch average silhouette width (1 - ASW)."""
         from sklearn.metrics import silhouette_score
 
         try:
             # Subsample if too large
-            if X.shape[0] > 5000:
-                idx = np.random.choice(X.shape[0], 5000, replace=False)
-                X_sub = X[idx]
+            if x_data.shape[0] > 5000:
+                idx = np.random.choice(x_data.shape[0], 5000, replace=False)
+                x_sub = x_data[idx]
                 batches_sub = batches[idx]
             else:
-                X_sub = X
+                x_sub = x_data
                 batches_sub = batches
 
             # Handle NaN
-            valid_mask = ~np.isnan(X_sub).any(axis=1)
+            valid_mask = ~np.isnan(x_sub).any(axis=1)
             if not np.any(valid_mask):
                 return 0.0
 
-            X_clean = X_sub[valid_mask]
+            x_clean = x_sub[valid_mask]
             batches_clean = batches_sub[valid_mask]
 
             if len(np.unique(batches_clean)) < 2:
                 return 0.0
 
-            asw = silhouette_score(X_clean, batches_clean)
+            asw = silhouette_score(x_clean, batches_clean)
             # Return 1 - ASW so higher is better
             return float(np.clip(1.0 - asw, 0.0, 1.0))
         except Exception:
             return 0.0
 
-    def _compute_bio_asw(self, X: np.ndarray, bio_labels: np.ndarray) -> float:
+    def _compute_bio_asw(self, x_data: np.ndarray, bio_labels: np.ndarray) -> float:
         """Compute biological group average silhouette width."""
         from sklearn.metrics import silhouette_score
 
         try:
             # Subsample if too large
-            if X.shape[0] > 5000:
-                idx = np.random.choice(X.shape[0], 5000, replace=False)
-                X_sub = X[idx]
+            if x_data.shape[0] > 5000:
+                idx = np.random.choice(x_data.shape[0], 5000, replace=False)
+                x_sub = x_data[idx]
                 bio_sub = bio_labels[idx]
             else:
-                X_sub = X
+                x_sub = x_data
                 bio_sub = bio_labels
 
             # Handle NaN
-            valid_mask = ~np.isnan(X_sub).any(axis=1)
+            valid_mask = ~np.isnan(x_sub).any(axis=1)
             if not np.any(valid_mask):
                 return 0.0
 
-            X_clean = X_sub[valid_mask]
+            x_clean = x_sub[valid_mask]
             bio_clean = bio_sub[valid_mask]
 
             if len(np.unique(bio_clean)) < 2:
                 return 0.0
 
-            asw = silhouette_score(X_clean, bio_clean)
+            asw = silhouette_score(x_clean, bio_clean)
             return float(np.clip(asw, 0.0, 1.0))
         except Exception:
             return 0.0
 
     def _compute_batch_mixing(
-        self, X: np.ndarray, batches: np.ndarray, n_neighbors: int = 30
+        self, x_data: np.ndarray, batches: np.ndarray, n_neighbors: int = 30
     ) -> float:
         """Compute batch mixing score using simplified LISI."""
         from sklearn.neighbors import NearestNeighbors
@@ -293,26 +317,26 @@ class IntegrationEvaluator(BaseEvaluator):
             if n_batches < 2:
                 return 0.0
 
-            n_neighbors = min(n_neighbors, X.shape[0] - 1)
+            n_neighbors = min(n_neighbors, x_data.shape[0] - 1)
             if n_neighbors < 1:
                 return 0.0
 
             # Handle NaN
-            valid_mask = ~np.isnan(X).any(axis=1)
+            valid_mask = ~np.isnan(x_data).any(axis=1)
             if not np.any(valid_mask):
                 return 0.0
 
-            X_clean = X[valid_mask]
+            x_clean = x_data[valid_mask]
             batches_clean = batches[valid_mask]
 
             # Find nearest neighbors
             nn = NearestNeighbors(n_neighbors=n_neighbors + 1)
-            nn.fit(X_clean)
-            _, indices = nn.kneighbors(X_clean)
+            nn.fit(x_clean)
+            _, indices = nn.kneighbors(x_clean)
 
             # Compute mixing score
             scores = []
-            for i in range(len(X_clean)):
+            for i in range(len(x_clean)):
                 neighbor_batches = batches_clean[indices[i, 1:]]
                 unique_in_neighborhood = len(np.unique(neighbor_batches))
                 scores.append(unique_in_neighborhood / n_batches)
@@ -346,19 +370,19 @@ class IntegrationEvaluator(BaseEvaluator):
             if source_layer is None:
                 return 0.5  # Default score if no source layer
 
-            X_orig = original_assay.layers[source_layer].X
-            if hasattr(X_orig, "toarray"):
-                X_orig = X_orig.toarray()
+            x_orig = original_assay.layers[source_layer].X
+            if hasattr(x_orig, "toarray"):
+                x_orig = x_orig.toarray()
 
             # Get integrated variance
             assay = container.assays["proteins"]
-            X_int = assay.layers[layer_name].X
-            if hasattr(X_int, "toarray"):
-                X_int = X_int.toarray()
+            x_int = assay.layers[layer_name].X
+            if hasattr(x_int, "toarray"):
+                x_int = x_int.toarray()
 
             # Compute variance per feature
-            var_orig = np.nanvar(X_orig, axis=0, ddof=1)
-            var_int = np.nanvar(X_int, axis=0, ddof=1)
+            var_orig = np.nanvar(x_orig, axis=0, ddof=1)
+            var_int = np.nanvar(x_int, axis=0, ddof=1)
 
             # Compute correlation of variances
             valid_mask = ~(np.isnan(var_orig) | np.isnan(var_int) | (var_orig == 0))
@@ -380,73 +404,6 @@ class IntegrationEvaluator(BaseEvaluator):
             return float(np.clip((corr + 1) / 2, 0.0, 1.0))
         except Exception:
             return 0.5
-
-    def _wrap_integrate(self, func: Callable) -> Callable:
-        """Wrap integration function to match expected signature.
-
-        Parameters
-        ----------
-        func : Callable
-            Original integration function
-
-        Returns
-        -------
-        Callable
-            Wrapped function with signature:
-            (container, assay_name, source_layer, **kwargs) -> ScpContainer
-        """
-
-        def wrapper(
-            container: ScpContainer,
-            assay_name: str,
-            source_layer: str,
-            **kwargs,
-        ) -> ScpContainer:
-            """Wrapper for integration functions."""
-            return func(
-                container=container,
-                batch_key=self._batch_key,
-                assay_name=assay_name,
-                base_layer=source_layer,
-                new_layer_name=f"{source_layer}_{func.__name__.replace('integrate_', '')}",
-                **kwargs,
-            )
-
-        return wrapper
-
-    def _wrap_integrate_harmony(self, func: Callable) -> Callable:
-        """Wrap Harmony integration function (requires PCA layer).
-
-        Parameters
-        ----------
-        func : Callable
-            Harmony integration function
-
-        Returns
-        -------
-        Callable
-            Wrapped function
-        """
-
-        def wrapper(
-            container: ScpContainer,
-            assay_name: str,
-            source_layer: str,
-            **kwargs,
-        ) -> ScpContainer:
-            """Wrapper for Harmony integration."""
-            # Harmony expects PCA input, so we need to check if we have it
-            # For now, use the source layer directly
-            return func(
-                container=container,
-                batch_key=self._batch_key,
-                assay_name=assay_name,
-                base_layer=source_layer,
-                new_layer_name=f"{source_layer}_harmony",
-                **kwargs,
-            )
-
-        return wrapper
 
 
 __all__ = ["IntegrationEvaluator"]

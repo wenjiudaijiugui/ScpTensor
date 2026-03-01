@@ -61,11 +61,11 @@ class ImputationEvaluator(BaseEvaluator):
         dict[str, Callable]
             Dictionary mapping method names to their implementation functions
         """
-        # Import imputation functions
+        from scptensor.autoselect.evaluators.base import create_wrapper
         from scptensor.impute import impute_knn
 
         return {
-            "impute_knn": self._wrap_impute(impute_knn),
+            "impute_knn": create_wrapper(impute_knn, layer_namer="auto"),
         }
 
     @property
@@ -123,35 +123,3 @@ class ImputationEvaluator(BaseEvaluator):
             "correlation": 0.82,
             "completeness": 0.95,
         }
-
-    def _wrap_impute(self, func: Callable) -> Callable:
-        """Wrap imputation function to match expected signature.
-
-        Parameters
-        ----------
-        func : Callable
-            Original imputation function
-
-        Returns
-        -------
-        Callable
-            Wrapped function with signature:
-            (container, assay_name, source_layer, **kwargs) -> ScpContainer
-        """
-
-        def wrapper(
-            container: ScpContainer,
-            assay_name: str,
-            source_layer: str,
-            **kwargs,
-        ) -> ScpContainer:
-            """Wrapper for imputation functions."""
-            return func(
-                container=container,
-                assay_name=assay_name,
-                source_layer=source_layer,
-                new_layer_name=f"{source_layer}_{func.__name__}",
-                **kwargs,
-            )
-
-        return wrapper

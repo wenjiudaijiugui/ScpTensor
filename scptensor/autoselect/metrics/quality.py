@@ -53,43 +53,26 @@ def cv_stability(X: NDArray[np.float64]) -> float:
     >>> 0.0 <= score <= 1.0
     True
     """
-    # Handle edge cases
-    if X.size == 0 or X.shape[0] < 2 or X.shape[1] < 1:
+    if X.size == 0 or X.shape[0] < 2:
         return 0.0
 
-    # Handle NaN values
-    X_clean = X[~np.isnan(X).any(axis=1)] if X.ndim > 1 else X[~np.isnan(X)]
-    if X_clean.size == 0 or X_clean.shape[0] < 2:
+    # Use nanmean/nanstd to handle NaN automatically
+    means = np.nanmean(X, axis=0)
+    stds = np.nanstd(X, axis=0, ddof=1)
+
+    # Calculate CVs for valid features (non-zero means and non-NaN stds)
+    valid = ~(np.isnan(means) | np.isnan(stds) | (means < _EPS))
+    if not np.any(valid):
         return 0.0
 
-    # Calculate CV for each feature (column)
-    means = np.mean(X_clean, axis=0)
-    stds = np.std(X_clean, axis=0, ddof=1)
-
-    # Avoid division by zero
-    valid_mask = means > _EPS
-    if not np.any(valid_mask):
-        return 0.0
-
-    cvs = np.zeros_like(means)
-    cvs[valid_mask] = stds[valid_mask] / means[valid_mask]
-
-    # Filter out invalid CVs (from zero or near-zero means)
-    cvs_valid = cvs[valid_mask]
-
-    if len(cvs_valid) < 2:
-        return 0.0
+    cvs = stds[valid] / means[valid]
 
     # Calculate stability: low std(CVs) / mean(CVs) = high stability
-    cv_mean = np.mean(cvs_valid)
-    cv_std = np.std(cvs_valid, ddof=1)
-
+    cv_mean = np.mean(cvs)
     if cv_mean < _EPS:
         return 0.0
 
-    # Stability score: 1 - coefficient of variation of CVs
-    stability = 1.0 - min(cv_std / cv_mean, 1.0)
-
+    stability = 1.0 - min(np.std(cvs, ddof=1) / cv_mean, 1.0)
     return float(np.clip(stability, 0.0, 1.0))
 
 
@@ -132,38 +115,25 @@ def skewness_improvement(X_before: NDArray[np.float64], X_after: NDArray[np.floa
     >>> 0.0 <= score <= 1.0
     True
     """
-    # Check shape match
     if X_before.shape != X_after.shape:
         raise ValueError(f"Shape mismatch: X_before {X_before.shape} vs X_after {X_after.shape}")
 
-    # Handle edge cases
     if X_before.size == 0:
         return 0.0
 
-    # Handle NaN values
-    mask = ~np.isnan(X_before) & ~np.isnan(X_after)
-    if not np.any(mask):
-        return 0.0
-
-    # Calculate absolute skewness before and after
-    # Use Fisher's definition (normal => skewness = 0)
-    skew_before = np.abs(skew(X_before[mask], axis=None, nan_policy="omit"))
-    skew_after = np.abs(skew(X_after[mask], axis=None, nan_policy="omit"))
+    # scipy.stats skew already has nan_policy='omit'
+    skew_before = np.abs(skew(X_before, axis=None, nan_policy="omit"))
+    skew_after = np.abs(skew(X_after, axis=None, nan_policy="omit"))
 
     # Handle NaN skewness (e.g., constant data)
     if np.isnan(skew_before) or np.isnan(skew_after):
         return 0.0
 
-    # Calculate improvement
-    # If skewness improved (decreased), score > 0
-    # If skewness got worse (increased), score < 0 (will be clamped to 0)
+    # If already perfect, no room for improvement
     if skew_before < _EPS:
-        # Already perfect, no room for improvement
         return 1.0 if skew_after < _EPS else 0.0
 
     improvement = (skew_before - skew_after) / skew_before
-
-    # Clamp to [0, 1]
     return float(np.clip(improvement, 0.0, 1.0))
 
 
@@ -206,36 +176,23 @@ def kurtosis_improvement(X_before: NDArray[np.float64], X_after: NDArray[np.floa
     >>> 0.0 <= score <= 1.0
     True
     """
-    # Check shape match
     if X_before.shape != X_after.shape:
         raise ValueError(f"Shape mismatch: X_before {X_before.shape} vs X_after {X_after.shape}")
 
-    # Handle edge cases
     if X_before.size == 0:
         return 0.0
 
-    # Handle NaN values
-    mask = ~np.isnan(X_before) & ~np.isnan(X_after)
-    if not np.any(mask):
-        return 0.0
+    # Calculate deviation from normal kurtosis (3)
+    kurt_before = np.abs(kurtosis(X_before, axis=None, fisher=True, nan_policy="omit") + 3)
+    kurt_after = np.abs(kurtosis(X_after, axis=None, fisher=True, nan_policy="omit") + 3)
 
-    # Calculate deviation from normal kurtosis (3) before and after
-    # Use Fisher's definition (normal => kurtosis = 0, so we add 3)
-    kurt_before = np.abs(kurtosis(X_before[mask], axis=None, fisher=True, nan_policy="omit") + 3)
-    kurt_after = np.abs(kurtosis(X_after[mask], axis=None, fisher=True, nan_policy="omit") + 3)
-
-    # Handle NaN kurtosis
     if np.isnan(kurt_before) or np.isnan(kurt_after):
         return 0.0
 
-    # Calculate improvement (reduction in deviation from 3)
     if kurt_before < _EPS:
-        # Already perfect
         return 1.0 if kurt_after < _EPS else 0.0
 
     improvement = (kurt_before - kurt_after) / kurt_before
-
-    # Clamp to [0, 1]
     return float(np.clip(improvement, 0.0, 1.0))
 
 
@@ -270,41 +227,19 @@ def dynamic_range(X: NDArray[np.float64]) -> float:
     >>> 0.0 <= score <= 1.0
     True
     """
-    # Handle edge cases
     if X.size == 0:
         return 0.0
 
-    # Take absolute value to handle negatives
-    X_abs = np.abs(X)
-
-    # Handle NaN values
-    X_clean = X_abs[~np.isnan(X_abs)]
-    if X_clean.size == 0:
-        return 0.0
-
-    # Find min and max (ignoring zeros for min)
-    X_nonzero = X_clean[X_clean > _EPS]
+    # Take absolute value and filter NaN + zeros
+    X_nonzero = np.abs(X)[(np.abs(X) > _EPS) & ~np.isnan(X)]
     if X_nonzero.size == 0:
         return 0.0
 
-    min_val = np.min(X_nonzero)
-    max_val = np.max(X_clean)
-
-    if min_val < _EPS or max_val < _EPS:
-        return 0.0
-
     # Calculate dynamic range in orders of magnitude
-    dyn_range = np.log10(max_val / min_val)
+    dyn_range = np.log10(np.max(X_nonzero) / np.min(X_nonzero))
 
-    # Score based on ideal range (2-10 orders of magnitude)
-    # Use a bell curve centered at 6 with std of 3
-    # Peak score at 6 orders of magnitude
-    ideal_center = 6.0
-    ideal_width = 3.0
-
-    # Gaussian-like scoring
-    score = np.exp(-0.5 * ((dyn_range - ideal_center) / ideal_width) ** 2)
-
+    # Gaussian-like scoring centered at 6 orders of magnitude
+    score = np.exp(-0.5 * ((dyn_range - 6.0) / 3.0) ** 2)
     return float(np.clip(score, 0.0, 1.0))
 
 
@@ -343,37 +278,28 @@ def outlier_ratio(X: NDArray[np.float64]) -> float:
     >>> 0.0 <= score <= 1.0
     True
     """
-    # Handle edge cases
     if X.size == 0:
         return 0.0
 
-    # Flatten array for global outlier detection
-    X_flat = X.flatten()
+    # Flatten and filter NaN
+    X_clean = X.flatten()
+    X_clean = X_clean[~np.isnan(X_clean)]
 
-    # Handle NaN values
-    X_clean = X_flat[~np.isnan(X_flat)]
     if X_clean.size == 0:
         return 0.0
 
     # Calculate quartiles
-    Q1 = np.percentile(X_clean, 25)
-    Q3 = np.percentile(X_clean, 75)
+    Q1, Q3 = np.percentile(X_clean, [25, 75])
     IQR = Q3 - Q1
 
-    # Handle case where IQR is 0 (all values same)
+    # No outliers if all values are identical
     if IQR < _EPS:
-        # No outliers if all values are identical
         return 1.0
 
     # Identify outliers
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
-
     outliers = (X_clean < lower_bound) | (X_clean > upper_bound)
-    n_outliers = np.sum(outliers)
-    n_total = len(X_clean)
 
-    # Calculate score (fewer outliers = higher score)
-    score = 1.0 - (n_outliers / n_total)
-
+    score = 1.0 - np.sum(outliers) / len(X_clean)
     return float(np.clip(score, 0.0, 1.0))

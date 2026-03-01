@@ -13,6 +13,7 @@ BaseEvaluator
 
 from __future__ import annotations
 
+import re
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -22,6 +23,91 @@ from scptensor.autoselect.core import EvaluationResult, StageReport
 
 if TYPE_CHECKING:
     from scptensor.core.structures import ScpContainer, ScpMatrix
+
+
+def create_wrapper(
+    func: Callable,
+    source_layer_param: str = "source_layer",
+    layer_namer: str | Callable[[str, str], str] = "auto",
+    **extra_params,
+) -> Callable:
+    """Create a wrapper function for method functions.
+
+    This factory function creates a wrapper that adapts method functions
+    to the standard evaluator signature: (container, assay_name, source_layer, **kwargs).
+
+    Parameters
+    ----------
+    func : Callable
+        The method function to wrap
+    source_layer_param : str, optional
+        Parameter name in func for the source layer, by default "source_layer"
+    layer_namer : str | Callable[[str, str], str], optional
+        Strategy for naming the new layer:
+        - "auto": Use f"{source_layer}_{func.__name__}" (default)
+        - "clean": Use f"{source_layer}_{cleaned_name}" (removes common prefixes)
+        - callable: Custom function (source_layer, func_name) -> layer_name
+    **extra_params
+        Additional parameters to pass to func (e.g., batch_key, n_components)
+
+    Returns
+    -------
+    Callable
+        Wrapped function with signature:
+        (container, assay_name, source_layer, **kwargs) -> ScpContainer
+
+    Examples
+    --------
+    >>> from scptensor.normalization import log_transform
+    >>> wrapper = create_wrapper(log_transform)
+    >>> result = wrapper(container, "proteins", "raw")
+
+    >>> from scptensor.integration import integrate_combat
+    >>> wrapper = create_wrapper(
+    ...     integrate_combat,
+    ...     source_layer_param="base_layer",
+    ...     layer_namer="clean",
+    ...     batch_key="batch"
+    ... )
+    """
+    # Determine layer naming strategy
+    get_layer_name: Callable[[str, str], str]
+    if layer_namer == "auto":
+
+        def get_layer_name(src: str, fname: str) -> str:
+            return f"{src}_{fname}"
+    elif layer_namer == "clean":
+        # Remove common prefixes like "integrate_", "reduce_", "cluster_", "impute_"
+
+        def get_layer_name(src: str, fname: str) -> str:
+            clean_name = re.sub(r"^(integrate_|reduce_|cluster_|impute_|norm_)", "", fname)
+            return f"{src}_{clean_name}"
+    elif callable(layer_namer):
+        get_layer_name = layer_namer
+    else:
+        raise ValueError(f"layer_namer must be 'auto', 'clean', or callable, got {layer_namer}")
+
+    def wrapper(
+        container: ScpContainer,
+        assay_name: str,
+        source_layer: str,
+        **kwargs,
+    ) -> ScpContainer:
+        """Wrapper for method functions."""
+        new_layer_name = get_layer_name(source_layer, func.__name__)
+
+        params = {
+            "container": container,
+            "assay_name": assay_name,
+            source_layer_param: source_layer,
+            "new_layer_name": new_layer_name,
+            **extra_params,
+            **kwargs,
+        }
+
+        return func(**params)
+
+    return wrapper
 
 
 class BaseEvaluator(ABC):
@@ -216,46 +302,32 @@ class BaseEvaluator(ABC):
         >>> if container is not None:
         ...     print(f"Score: {result.overall_score}")
         """
-        # Determine output layer name
         new_layer_name = f"{source_layer}_{method_name}"
-
-        # Track execution time
         start_time = time.perf_counter()
         result_container: ScpContainer | None = None
         error_msg: str | None = None
+        scores: dict[str, float] = {}
 
         try:
-            # Execute method on a copy of container
             result_container = method_func(
                 container=container.copy(),
                 assay_name=assay_name,
                 source_layer=source_layer,
                 **kwargs,
             )
+            scores = (
+                self.compute_metrics(result_container, container, new_layer_name)
+                if result_container
+                else {}
+            )
         except Exception as e:
-            error_msg = f"{type(e).__name__}: {str(e)}"
+            error_msg = f"{type(e).__name__}: {e}"
             result_container = None
-
-        execution_time = time.perf_counter() - start_time
-
-        # Compute metrics if method succeeded
-        if result_container is not None and error_msg is None:
-            try:
-                scores = self.compute_metrics(
-                    container=result_container,
-                    original_container=container,
-                    layer_name=new_layer_name,
-                )
-            except Exception as e:
-                error_msg = f"Metric computation failed: {type(e).__name__}: {str(e)}"
-                scores = dict.fromkeys(self.metric_weights, 0.0)
-        else:
             scores = dict.fromkeys(self.metric_weights, 0.0)
 
-        # Compute overall score
-        overall_score = 0.0 if error_msg is not None else self.compute_overall_score(scores)
+        execution_time = time.perf_counter() - start_time
+        overall_score = 0.0 if error_msg else self.compute_overall_score(scores)
 
-        # Create evaluation result
         eval_result = EvaluationResult(
             method_name=method_name,
             scores=scores,
@@ -314,68 +386,54 @@ class BaseEvaluator(ABC):
         >>> print(f"Best method: {report.best_method}")
         >>> print(f"Best score: {report.best_result.overall_score}")
         """
-        # Initialize report
         report = StageReport(stage_name=self.stage_name)
-        results: list[EvaluationResult] = []
-
-        # Store successful results for later: method_name -> (layer_name, layer_matrix)
         successful_layers: dict[str, tuple[str, ScpMatrix]] = {}
 
-        # Evaluate each method
+        # Evaluate all methods and store successful results
+        results = []
         for method_name, method_func in self.methods.items():
             result_container, eval_result = self.evaluate_method(
-                container=container,
-                method_name=method_name,
-                method_func=method_func,
-                assay_name=assay_name,
-                source_layer=source_layer,
-                **kwargs,
+                container, method_name, method_func, assay_name, source_layer, **kwargs
             )
-
             results.append(eval_result)
 
-            # Store successful result layer
-            if result_container is not None and eval_result.error is None:
+            if result_container and not eval_result.error:
                 layer_name = eval_result.layer_name
-                layer_matrix = result_container.assays[assay_name].layers[layer_name]
-                successful_layers[method_name] = (layer_name, layer_matrix)
+                successful_layers[method_name] = (
+                    layer_name,
+                    result_container.assays[assay_name].layers[layer_name],
+                )
 
-        # Update report with all results
         report.results = results
 
-        # Find best method (highest score among successful methods)
-        successful_results = [r for r in results if r.error is None]
+        # Find best method
+        successful_results = [r for r in results if not r.error]
 
-        if successful_results:
-            best_result = max(successful_results, key=lambda r: r.overall_score)
-            report.best_method = best_result.method_name
-            report.best_result = best_result
-            report.recommendation_reason = (
-                f"Highest overall score ({best_result.overall_score:.4f}) "
-                f"among {len(successful_results)} successful methods"
-            )
-
-            # Create result container with appropriate layers
-            result_container = container.copy()
-            assay = result_container.assays[assay_name]
-
-            if keep_all:
-                # Add all successful result layers to the container
-                for method_name, (layer_name, layer_matrix) in successful_layers.items():
-                    if method_name != best_result.method_name:
-                        assay.add_layer(layer_name, layer_matrix)
-            # else: only the best layer is added (which we do below)
-
-            # Add the best layer (this may overwrite if keep_all=True and best already added)
-            best_layer_name = best_result.layer_name
-            best_layer_matrix = successful_layers[best_result.method_name][1]
-            assay.add_layer(best_layer_name, best_layer_matrix)
-
-            return result_container, report
-        else:
-            # All methods failed - return original container
+        if not successful_results:
             report.best_method = ""
             report.best_result = None
             report.recommendation_reason = "All methods failed"
-
             return container.copy(), report
+
+        # Select best and build result container
+        best_result = max(successful_results, key=lambda r: r.overall_score)
+        report.best_method = best_result.method_name
+        report.best_result = best_result
+        report.recommendation_reason = f"Highest overall score ({best_result.overall_score:.4f}) among {len(successful_results)} successful methods"
+
+        result_container = container.copy()
+        assay = result_container.assays[assay_name]
+
+        # Add layers: all if keep_all, otherwise only best
+        if keep_all:
+            for method_name, (layer_name, layer_matrix) in successful_layers.items():
+                if method_name != best_result.method_name:
+                    assay.add_layer(layer_name, layer_matrix)
+
+        # Always add best layer
+        assay.add_layer(best_result.layer_name, successful_layers[best_result.method_name][1])
+
+        return result_container, report
+
+
+__all__ = ["BaseEvaluator", "create_wrapper"]
