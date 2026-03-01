@@ -95,10 +95,9 @@ from scptensor.diff_expr import (
 
 # Dimensionality Reduction
 from scptensor.dim_reduction import (
-    get_solver_info,
-    optimal_svd_solver,
     reduce_pca,
     reduce_umap,
+    SolverType,
 )
 
 # Imputation
@@ -126,9 +125,11 @@ from scptensor.io import (
     IOPasswordError,
     IOWriteError,
     load_csv,
+    load_diann,
     load_hdf5,
     load_npz,
-    read_diann,
+    load_peptide_pivot,
+    load_spectronaut,
     save_csv,
     save_hdf5,
     save_npz,
@@ -202,9 +203,11 @@ __all__ = [
     # Core I/O
     "load_csv",
     "save_csv",
+    "load_diann",
     "load_npz",
     "save_npz",
-    "read_diann",
+    "load_peptide_pivot",
+    "load_spectronaut",
     # HDF5 I/O
     "save_hdf5",
     "load_hdf5",
@@ -267,8 +270,7 @@ __all__ = [
     # Dimensionality Reduction
     "reduce_pca",
     "reduce_umap",
-    "get_solver_info",
-    "optimal_svd_solver",
+    "SolverType",
     # Clustering
     "cluster_kmeans",
     "cluster_leiden",

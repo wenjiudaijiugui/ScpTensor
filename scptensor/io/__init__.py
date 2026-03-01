@@ -12,7 +12,9 @@ Main Functions:
     save_hdf5, load_hdf5: HDF5 format (recommended for production)
     save_npz, load_npz: NPZ format (fast, native to ScpTensor)
     save_csv, load_csv: CSV directory format (human-readable)
-    read_diann: DIA-NN mass spectrometry data importer
+    load_diann: DIA-NN mass spectrometry data loader
+    load_spectronaut: Spectronaut mass spectrometry data loader
+    load_peptide_pivot: Peptide pivot report loader (DIA-NN BGS/Spectronaut)
 
 Exceptions:
     IOFormatError: File format corruption or version incompatibility
@@ -46,11 +48,17 @@ CSV Format (Human-Readable):
     >>> # Load from CSV directory
     >>> loaded = load_csv("results_dir/", layer_name="X")
 
-DIA-NN Mass Spectrometry Importer:
-    >>> from scptensor.io import read_diann
+DIA-NN & Spectronaut Mass Spectrometry Importers:
+    >>> from scptensor.io import load_diann, load_spectronaut
     >>>
     >>> # Import DIA-NN output
-    >>> container = read_diann("diann_output.csv")
+    >>> container = load_diann("diann_report.tsv", quantity_column="PG.Quantity")
+    >>>
+    >>> # Import Spectronaut output
+    >>> container = load_spectronaut("spectronaut_pg_matrix.tsv")
+    >>>
+    >>> # Import Spectronaut long format
+    >>> container = load_spectronaut("spectronaut_long.tsv", quantity_column="PG.MaxLFQ")
 
 Selective Export (HDF5):
     >>> # Export only specific assays and layers
@@ -123,7 +131,20 @@ from scptensor.io.base import (
 )
 
 # CSV format support
-from scptensor.io.csv import load_csv, read_diann, save_csv
+from scptensor.io.csv import load_csv, load_diann, save_csv
+
+# Spectronaut format support
+from scptensor.io.spectronaut import load_spectronaut
+
+# Pivot report format support
+from scptensor.io.pivot_parser import (
+    _detect_format,
+    _extract_sample_columns,
+    _load_diann_bgs,
+    _load_spectronaut_pivot,
+    _aggregate_to_protein as aggregate_to_protein,
+    load_peptide_pivot,
+)
 
 # Exceptions
 from scptensor.io.exceptions import IOFormatError, IOPasswordError, IOWriteError
@@ -164,5 +185,14 @@ __all__ = [
     # CSV format
     "save_csv",
     "load_csv",
-    "read_diann",
+    "load_diann",
+    # Spectronaut format
+    "load_spectronaut",
+    # Pivot report format
+    "load_peptide_pivot",
+    "aggregate_to_protein",
+    "_detect_format",
+    "_extract_sample_columns",
+    "_load_diann_bgs",
+    "_load_spectronaut_pivot",
 ]

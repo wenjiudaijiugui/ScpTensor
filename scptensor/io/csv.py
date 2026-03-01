@@ -20,25 +20,25 @@ from scptensor.core.structures import Assay, ProvenanceLog, ScpContainer, ScpMat
 __all__ = [
     "save_csv",
     "load_csv",
-    "read_diann",
+    "load_diann",
     "save_diann",
 ]
 
-
-def read_diann(
+def load_diann(
     path: str | Path,
     *,
     assay_name: str = "proteins",
+    quantity_column: str = "auto",
 ) -> ScpContainer:
     """Import DIA-NN output.
 
     Supports:
     1. ``report.pg_matrix.tsv``: The protein group matrix file.
-    2. ``report.parquet``: The main report file (Parquet format).
+    2. ``report.parquet/tsv``: The main report file (long format).
 
-    For ``report.parquet``, performs:
+    For main report files, performs:
     - Filtering: ``Q.Value <= 0.01`` and ``PG.Q.Value <= 0.01``.
-    - Aggregation: Pivots ``PG.MaxLFQ`` to create the protein matrix.
+    - Aggregation: Pivots quantity column to create the protein matrix.
 
     Parameters
     ----------
@@ -46,6 +46,9 @@ def read_diann(
         Path to the file.
     assay_name : str, optional
         Name of the assay to create. Default is "proteins".
+    quantity_column : str, optional
+        Which quantity column to use. Default "auto" tries:
+        "PG.MaxLFQ", "PG.Normalised", "PG.Quantity", "Precursor.Quantity".
 
     Returns
     -------
@@ -53,7 +56,7 @@ def read_diann(
         Container with:
         - obs: Sample metadata (filenames).
         - assays[assay_name]:
-            - X: MaxLFQ intensities (n_samples x n_features).
+            - X: Intensities (n_samples x n_features).
             - var: Protein metadata.
 
     Raises
@@ -67,12 +70,61 @@ def read_diann(
     if not path.exists():
         raise FileNotFoundError(f"File not found: {path}")
 
-    # Handle Parquet (Main Report)
     if path.suffix == ".parquet":
-        return _read_diann_parquet(path, assay_name)
+        return _load_diann_parquet(path, assay_name, quantity_column)
+    return _load_diann_tsv_or_long(path, assay_name, quantity_column)
+    return _load_diann_tsv_or_long(path, assay_name, quantity_column)
 
-    # Handle TSV (Matrix)
-    return _read_diann_tsv(path, assay_name)
+
+def load_diann(
+    path: str | Path,
+    *,
+    assay_name: str = "proteins",
+    quantity_column: str = "auto",
+) -> ScpContainer:
+    """Import DIA-NN output.
+
+    Supports:
+    1. ``report.pg_matrix.tsv``: The protein group matrix file.
+    2. ``report.parquet/tsv``: The main report file (long format).
+
+    For main report files, performs:
+    - Filtering: ``Q.Value <= 0.01`` and ``PG.Q.Value <= 0.01``.
+    - Aggregation: Pivots quantity column to create the protein matrix.
+
+    Parameters
+    ----------
+    path : str | Path
+        Path to the file.
+    assay_name : str, optional
+        Name of the assay to create. Default is "proteins".
+    quantity_column : str, optional
+        Which quantity column to use. Default "auto" tries:
+        "PG.MaxLFQ", "PG.Normalised", "PG.Quantity", "Precursor.Quantity".
+
+    Returns
+    -------
+    ScpContainer
+        Container with:
+        - obs: Sample metadata (filenames).
+        - assays[assay_name]:
+            - X: Intensities (n_samples x n_features).
+            - var: Protein metadata.
+
+    Raises
+    ------
+    FileNotFoundError
+        If file does not exist.
+    ValidationError
+        If file structure is invalid.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {path}")
+
+    if path.suffix == ".parquet":
+        return _load_diann_parquet(path, assay_name, quantity_column)
+    return _load_diann_tsv_or_long(path, assay_name, quantity_column)
 
 
 def save_diann(
@@ -113,77 +165,58 @@ def save_diann(
     """
     raise NotImplementedError("DIA-NN export not yet implemented")
 
-
-def _read_diann_parquet(path: Path, assay_name: str) -> ScpContainer:
+def _load_diann_parquet(path: Path, assay_name: str, quantity_column: str = "auto") -> ScpContainer:
     """Internal handler for report.parquet."""
-    # Lazy load and filter
-    # Filter: Q.Value <= 0.01 (Precursor FDR) AND PG.Q.Value <= 0.01 (Protein FDR)
     lf = pl.scan_parquet(path)
+    schema_names = lf.collect_schema().names()
 
-    required_cols = {"Protein.Group", "Run", "PG.MaxLFQ", "Q.Value", "PG.Q.Value"}
-    if not required_cols.issubset(lf.columns):
-        missing = required_cols - set(lf.columns)
+    if quantity_column == "auto":
+        for col in ["PG.MaxLFQ", "PG.Normalised", "PG.Quantity", "Precursor.Quantity"]:
+            if col in schema_names:
+                quantity_column = col
+                break
+        if quantity_column == "auto":
+            raise ValidationError(
+                f"No quantity column found in {path}. "
+                f"Expected one of: PG.MaxLFQ, PG.Normalised, PG.Quantity, Precursor.Quantity"
+            )
+
+    required_cols = {"Protein.Group", "Run", quantity_column, "Q.Value", "PG.Q.Value"}
+    if not required_cols.issubset(set(schema_names)):
+        missing = required_cols - set(schema_names)
         raise ValidationError(f"Missing required columns in {path}: {missing}")
 
     filtered_lf = lf.filter((pl.col("Q.Value") <= 0.01) & (pl.col("PG.Q.Value") <= 0.01))
 
-    # We need to pivot. Polars pivot requires Eager DataFrame.
-    # Collect only necessary columns to minimize memory
-    # Metadata columns to preserve
-    meta_cols = [
-        "Protein.Group",
-        "Protein.Ids",
-        "Protein.Names",
-        "Genes",
-        "First.Protein.Description",
-    ]
-    # Check which exist
-    available_meta = [c for c in meta_cols if c in lf.columns]
+    meta_cols = ["Protein.Group", "Protein.Ids", "Protein.Names", "Genes", "First.Protein.Description"]
+    available_meta = [c for c in meta_cols if c in schema_names]
 
-    # Columns to fetch
-    cols_to_fetch = list(required_cols.union(available_meta))
-
+    cols_to_fetch = list(required_cols.union(set(available_meta)))
     df = filtered_lf.select(cols_to_fetch).collect()
 
     if df.is_empty():
         raise ValidationError("No data remains after FDR filtering.")
 
-    # Pivot to Matrix (Protein.Group x Run)
-    # PG.MaxLFQ should be identical for the same Protein.Group in the same Run
-    # We use 'max' aggregator.
     matrix_df = df.pivot(
         index="Protein.Group",
         on="Run",
-        values="PG.MaxLFQ",
+        values=quantity_column,
         aggregate_function="max",
     ).fill_null(0.0)
 
-    # Extract Var (Protein Metadata)
-    # Get unique metadata for each Protein.Group
     var_df = df.select(available_meta).unique(subset=["Protein.Group"])
-
-    # Align Var with Matrix
-    # Join var_df to matrix_df on Protein.Group
-    # matrix_df has Protein.Group as the first column
     aligned_df = matrix_df.join(var_df, on="Protein.Group", how="left")
 
-    # Extract Obs (Samples)
-    # Sample columns are those in matrix_df excluding Protein.Group
     sample_cols = [c for c in matrix_df.columns if c != "Protein.Group"]
     obs = pl.DataFrame({"_index": sample_cols})
-
-    # Extract Var
     var = aligned_df.select(available_meta).rename({"Protein.Group": "_index"})
+    x = aligned_df.select(sample_cols).to_numpy().T.astype(np.float64)
 
-    # Extract X (Data)
-    # Transpose to (n_samples x n_features)
-    x_t = aligned_df.select(sample_cols).to_numpy()
-    x = x_t.T.astype(np.float64)
+    layer_name = quantity_column.replace(".", "_")
 
-    # Create Assay
     assay = Assay(
         var=var,
-        layers={"MaxLFQ": ScpMatrix(X=x)},
+        layers={layer_name: ScpMatrix(X=x)},
         feature_id_col="_index",
     )
 
@@ -194,70 +227,166 @@ def _read_diann_parquet(path: Path, assay_name: str) -> ScpContainer:
     )
 
 
-def _read_diann_tsv(path: Path, assay_name: str) -> ScpContainer:
-    """Internal handler for report.pg_matrix.tsv."""
-    # Read TSV with Polars
-    # DIA-NN output is tab-separated
-    # Handle standard missing value representations
-    df = pl.read_csv(path, separator="\t", null_values=["", "NA", "NaN", "nan"])
+def _load_diann_long_format(
+    path: Path,
+    assay_name: str,
+    quantity_column: str = "auto"
+) -> ScpContainer:
+    """Internal handler for long format TSV (main report)."""
+    df = pl.read_csv(
+        path,
+        separator="\t",
+        null_values=["", "NA", "NaN", "nan"],
+        infer_schema_length=0,
+    )
 
-    # Identify metadata columns
-    # Standard DIA-NN columns (Protein.Group is the primary ID)
-    meta_cols_set = {
-        "Protein.Group",
-        "Protein.Ids",
-        "Protein.Names",
-        "Genes",
-        "First.Protein.Description",
-    }
+    if df.is_empty():
+        raise ValidationError(f"Empty file: {path}")
+
+    if quantity_column == "auto":
+        for col in ["PG.MaxLFQ", "PG.Normalised", "PG.Quantity", "Precursor.Quantity"]:
+            if col in df.columns:
+                quantity_column = col
+                break
+        if quantity_column == "auto":
+            raise ValidationError(f"No quantity column found in {path}")
+
+    required_cols = ["Protein.Group", "Run", quantity_column, "Q.Value", "PG.Q.Value"]
+    missing = [c for c in required_cols if c not in df.columns]
+    if missing:
+        raise ValidationError(f"Missing required columns in {path}: {missing}")
+
+    for col in [quantity_column, "Q.Value", "PG.Q.Value"]:
+        df = df.with_columns(pl.col(col).cast(pl.Float64, strict=False))
+
+    df_filtered = df.filter(
+        (pl.col("Q.Value") <= 0.01) & (pl.col("PG.Q.Value") <= 0.01)
+    )
+
+    if df_filtered.is_empty():
+        raise ValidationError("No data remains after FDR filtering.")
+
+    df_filtered = df_filtered.with_columns(pl.col(quantity_column).fill_null(0.0))
+
+    matrix_df = df_filtered.pivot(
+        index="Protein.Group", on="Run", values=quantity_column, aggregate_function="max"
+    ).fill_null(0.0)
+
+    meta_cols_set = {"Protein.Group", "Protein.Ids", "Protein.Names", "Genes", "First.Protein.Description"}
+    found_meta_cols = [c for c in df_filtered.columns if c in meta_cols_set]
+    var_df = df_filtered.select(found_meta_cols).unique(subset=["Protein.Group"])
+
+    aligned_df = matrix_df.join(var_df, on="Protein.Group", how="left")
+    sample_cols = [c for c in matrix_df.columns if c != "Protein.Group"]
+
+    obs = pl.DataFrame({"_index": sample_cols})
+    var = aligned_df.select(found_meta_cols).rename({"Protein.Group": "_index"})
+    x = aligned_df.select(sample_cols).to_numpy().T.astype(np.float64)
+
+    layer_name = quantity_column.replace(".", "_")
+    assay = Assay(var=var, layers={layer_name: ScpMatrix(X=x)}, feature_id_col="_index")
+
+    return ScpContainer(obs=obs, assays={assay_name: assay}, sample_id_col="_index")
+
+
+def _load_diann_matrix_format(path: Path, assay_name: str) -> ScpContainer:
+    """Internal handler for report.pg_matrix.tsv."""
+    df = pl.read_csv(
+        path, separator="\t", null_values=["", "NA", "NaN", "nan"], infer_schema_length=0
+    )
+
+    if df.is_empty():
+        raise ValidationError(f"Empty file: {path}")
+
+    meta_cols_set = {"Protein.Group", "Protein.Ids", "Protein.Names", "Genes", "First.Protein.Description"}
     found_meta_cols = [c for c in df.columns if c in meta_cols_set]
 
     if "Protein.Group" not in found_meta_cols:
-        raise ValidationError(
-            f"Invalid DIA-NN matrix: 'Protein.Group' column not found in {path}. "
-            "Ensure this is a valid report.pg_matrix.tsv file."
-        )
+        raise ValidationError(f"Invalid DIA-NN matrix: 'Protein.Group' column not found in {path}")
 
-    # Extract var (Features)
-    var = df.select(found_meta_cols)
-    # Rename Protein.Group to _index for ScpTensor compatibility
-    var = var.rename({"Protein.Group": "_index"})
-
-    # Extract data (Samples)
-    # Any column not in metadata set is considered a sample
+    var = df.select(found_meta_cols).rename({"Protein.Group": "_index"})
     sample_cols = [c for c in df.columns if c not in found_meta_cols]
 
     if not sample_cols:
         raise ValidationError("No sample columns found in DIA-NN matrix.")
 
-    # Convert to numpy array (n_features x n_samples)
-    # Fill nulls with 0.0 or NaN?
-    # MaxLFQ implies valid quantification. Missing usually means < LOD or filtered.
-    # ScpTensor usually handles sparse/dense.
-    # We will keep as NaN for now to represent missingness accurately,
-    # or 0.0 if we assume it's intensity.
-    # DIA-NN "omits" zero quantities.
-    # Let's fill with 0.0 to match standard proteomics matrix format where 0 = missing/undetected
-    x_t = df.select(sample_cols).fill_null(0.0).to_numpy()
+    x_df = df.select(sample_cols).with_columns(
+        [pl.col(c).cast(pl.Float64, strict=False).fill_null(0.0) for c in sample_cols]
+    )
+    x = x_df.to_numpy().T.astype(np.float64)
 
-    # Transpose to (n_samples x n_features)
-    x = x_t.T.astype(np.float64)
-
-    # Create obs (Samples)
     obs = pl.DataFrame({"_index": sample_cols})
+    assay = Assay(var=var, layers={"MaxLFQ": ScpMatrix(X=x)}, feature_id_col="_index")
 
-    # Create Assay
-    assay = Assay(
-        var=var,
-        layers={"MaxLFQ": ScpMatrix(X=x)},
-        feature_id_col="_index",
+    return ScpContainer(obs=obs, assays={assay_name: assay}, sample_id_col="_index")
+
+
+def _load_diann_tsv_or_long(
+    path: Path, assay_name: str, quantity_column: str = "auto"
+) -> ScpContainer:
+    """Internal handler for TSV - detects format type."""
+    df = pl.read_csv(
+        path, separator="\t", n_rows=10, null_values=["", "NA", "NaN", "nan"], ignore_errors=True
     )
 
-    return ScpContainer(
-        obs=obs,
-        assays={assay_name: assay},
-        sample_id_col="_index",
+    if "Protein.Group" in df.columns:
+        long_format_indicators = {"Run", "Q.Value", "PG.Q.Value"}
+        if long_format_indicators.issubset(set(df.columns)):
+            return _load_diann_long_format(path, assay_name, quantity_column)
+        else:
+            return _load_diann_matrix_format(path, assay_name)
+
+    return _load_diann_long_format(path, assay_name, quantity_column)
+
+
+def _read_diann_matrix_format(path: Path, assay_name: str) -> ScpContainer:
+    """Internal handler for report.pg_matrix.tsv."""
+    df = pl.read_csv(
+        path, separator="\t", null_values=["", "NA", "NaN", "nan"], infer_schema_length=0
     )
+
+    if df.is_empty():
+        raise ValidationError(f"Empty file: {path}")
+
+    meta_cols_set = {"Protein.Group", "Protein.Ids", "Protein.Names", "Genes", "First.Protein.Description"}
+    found_meta_cols = [c for c in df.columns if c in meta_cols_set]
+
+    if "Protein.Group" not in found_meta_cols:
+        raise ValidationError(f"Invalid DIA-NN matrix: 'Protein.Group' column not found in {path}")
+
+    var = df.select(found_meta_cols).rename({"Protein.Group": "_index"})
+    sample_cols = [c for c in df.columns if c not in found_meta_cols]
+
+    if not sample_cols:
+        raise ValidationError("No sample columns found in DIA-NN matrix.")
+
+    x_df = df.select(sample_cols).with_columns(
+        [pl.col(c).cast(pl.Float64, strict=False).fill_null(0.0) for c in sample_cols]
+    )
+    x = x_df.to_numpy().T.astype(np.float64)
+
+    obs = pl.DataFrame({"_index": sample_cols})
+    assay = Assay(var=var, layers={"MaxLFQ": ScpMatrix(X=x)}, feature_id_col="_index")
+
+    return ScpContainer(obs=obs, assays={assay_name: assay}, sample_id_col="_index")
+
+
+def _read_diann_tsv_or_long(
+    path: Path, assay_name: str, quantity_column: str = "auto"
+) -> ScpContainer:
+    """Internal handler for TSV - detects format type."""
+    df = pl.read_csv(
+        path, separator="\t", n_rows=10, null_values=["", "NA", "NaN", "nan"], ignore_errors=True
+    )
+
+    if "Protein.Group" in df.columns:
+        long_format_indicators = {"Run", "Q.Value", "PG.Q.Value"}
+        if long_format_indicators.issubset(set(df.columns)):
+            return _read_diann_long_format(path, assay_name, quantity_column)
+        else:
+            return _read_diann_matrix_format(path, assay_name)
+
+    return _read_diann_long_format(path, assay_name, quantity_column)
 
 
 def save_csv(

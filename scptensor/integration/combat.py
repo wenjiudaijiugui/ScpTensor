@@ -1,7 +1,32 @@
 """ComBat batch effect correction for single-cell proteomics data.
 
-Reference
+ComBat uses empirical Bayes methods to correct for batch effects while
+preserving biological signals of interest.
+
+Algorithm
 ---------
+
+ComBat models batch-specific location and scale parameters and shrinks them
+towards global estimates using empirical Bayes:
+
+.. math::
+
+    Y_{ij}^{*} = \\frac{Y_{ij} - \\hat{\\gamma}_{\\gamma(i)} - \\hat{\\beta}_{\\gamma(i)} X_{ij}}{\\hat{\\delta}_{\\gamma(i)}}
+
+where:
+- :math:`Y_{ij}` is the expression value for feature i, sample j
+- :math:`\\gamma(i)` is the batch for sample j
+- :math:`\\hat{\\gamma}, \\hat{\\beta}, \\hat{\\delta}` are estimated using empirical Bayes
+- :math:`X_{ij}` are covariate effects
+
+The empirical Bayes shrinkage uses:
+
+.. math::
+
+    \\gamma^* = \\frac{n \\hat{\\tau}^2 \\hat{\\gamma} + \\hat{\\delta} \\bar{\\gamma}}{n \\hat{\\tau}^2 + \\hat{\\delta}}
+
+References
+----------
 Johnson, W. E., Li, C., & Rabinovic, A. (2007). Adjusting batch effects in
 microarray expression data using empirical Bayes methods. Biostatistics.
 
@@ -15,24 +40,22 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
+from scptensor.core.exceptions import LayerNotFoundError
 from scptensor.core.sparse_utils import is_sparse_matrix
-from scptensor.core.structures import ScpContainer, ScpMatrix
+from scptensor.core.structures import ScpMatrix
+from scptensor.integration.base import register_integrate_method, validate_batch_integration_params, validate_layer_params
 
 
+@register_integrate_method("combat")
 def integrate_combat(
-    container: ScpContainer,
+    container,
     batch_key: str,
     assay_name: str = "protein",
     base_layer: str = "raw",
     new_layer_name: str | None = "combat",
     covariates: Sequence[str] | None = None,
-) -> ScpContainer:
+) -> "ScpContainer":
     """Apply ComBat batch effect correction using empirical Bayes.
-
-    ComBat (ComBat for Batch Adjustment) corrects for batch effects using an
-    empirical Bayes framework. It models batch-specific location and scale
-    parameters and shrinks them towards global estimates.
 
     Parameters
     ----------
@@ -40,13 +63,13 @@ def integrate_combat(
         Input container with batch information
     batch_key : str
         Column name in obs containing batch labels
-    assay_name : str, optional
-        Name of the assay to process (default: 'protein')
-    base_layer : str, optional
-        Name of the layer to use as input (default: 'raw')
-    new_layer_name : str, optional
-        Name for the new layer with corrected data (default: 'combat')
-    covariates : Sequence[str] or None, optional
+    assay_name : str, default="protein"
+        Name of the assay to process
+    base_layer : str, default="raw"
+        Name of the layer to use as input
+    new_layer_name : str | None, default="combat"
+        Name for the new layer with corrected data
+    covariates : Sequence[str] | None
         Optional list of covariate column names in obs to preserve
 
     Returns
@@ -65,116 +88,47 @@ def integrate_combat(
     ValueError
         If design matrix is rank deficient
 
-    Notes
-    -----
-    The algorithm:
-        0. Impute missing values (NaNs) using batch-specific means (Pre-processing)
-        1. Fit linear model with batch and covariates
-        2. Estimate batch-specific mean and variance parameters
-        3. Apply empirical Bayes shrinkage
-        4. Adjust data using shrunken parameters
-
     Examples
     --------
     >>> container = integrate_combat(container, batch_key='batch')
     >>> container = integrate_combat(container, batch_key='batch', covariates=['condition'])
     """
-    # Validate assay and layer
-    if assay_name not in container.assays:
-        raise AssayNotFoundError(assay_name)
+    from scptensor.core.structures import ScpContainer
+    from scptensor.core.exceptions import ScpValueError
 
-    assay = container.assays[assay_name]
-    if base_layer not in assay.layers:
-        raise LayerNotFoundError(base_layer, assay_name)
+    # Validate parameters
+    assay, layer = validate_layer_params(container, assay_name, base_layer)
+    obs_df, batches, unique_batches, batch_counts = validate_batch_integration_params(
+        container, batch_key, assay_name, min_batches=2, min_samples_per_batch=2
+    )
 
-    X = assay.layers[base_layer].X.copy()
+    # Get data
+    X = layer.X.copy()
     input_was_sparse = is_sparse_matrix(X)
-
-    # Convert to dense for ComBat computation
     X_dense = X.toarray() if input_was_sparse else np.asarray(X)
-
-    # Validate batch_key
-    obs_df = container.obs
-    if batch_key not in obs_df.columns:
-        raise ScpValueError(
-            f"Batch key '{batch_key}' not found in obs. Available columns: {list(obs_df.columns)}",
-            parameter="batch_key",
-            value=batch_key,
-        )
-
-    batch = obs_df[batch_key]
 
     # Impute NaN values with batch-specific means
     if np.isnan(X_dense).any():
-        X_dense = _impute_nans_batchwise(X_dense, batch.to_numpy())
+        X_dense = _impute_nans_batchwise(X_dense, batches)
 
     # Transpose: (n_features, n_samples) for feature-wise operations
     dat = X_dense.T
+    n_sample = dat.shape[1]
 
-    # Build design matrix
-    batch_items = batch.unique().to_numpy()
-    batch_info = batch.to_dummies()
-    n_batch, n_sample = batch_info.shape[1], batch_info.shape[0]
-    sample_per_batch = batch_info.sum().to_numpy().flatten()
-
-    # Check minimum sample requirement
-    if (sample_per_batch < 2).any():
-        raise ScpValueError(
-            "ComBat requires at least 2 samples per batch.",
-            parameter="batch_key",
-            value=batch_key,
-        )
-
-    # Build covariate design matrix
-    mod = _build_covariate_design(obs_df, covariates, n_sample)
-
-    # Combine batch and covariate matrices (drop intercept to avoid rank deficiency)
-    mod_for_design = mod.drop("intercept") if "intercept" in mod.columns else mod
-    design_matrix = pl.concat([batch_info, mod_for_design], how="horizontal")
-    X_design = design_matrix.to_numpy().astype(float)
+    # Build design matrices
+    design_matrix, n_batch = _build_design_matrices(obs_df, batches, unique_batches, covariates, n_sample)
 
     # Check for rank deficiency
-    rank_design = np.linalg.matrix_rank(X_design)
-    if rank_design < X_design.shape[1]:
+    rank_design = np.linalg.matrix_rank(design_matrix)
+    if rank_design < design_matrix.shape[1]:
         raise ValueError(
-            f"Design matrix is rank deficient (rank={rank_design}, cols={X_design.shape[1]}). "
+            f"Design matrix is rank deficient (rank={rank_design}, cols={design_matrix.shape[1]}). "
             "Batch and biological covariates are confounded."
         )
 
-    # Fit model and extract coefficients
-    B_hat = np.linalg.lstsq(X_design, dat.T, rcond=None)[0].T
-    _B_batch, B_covar = B_hat[:, :n_batch], B_hat[:, n_batch:]
-    X_covar = X_design[:, n_batch:]
-
-    # Compute grand mean and standardize
-    fitted_values = (X_design @ B_hat.T).T  # (n_features, n_samples)
-    grand_mean = np.dot(fitted_values, np.ones(n_sample)) / n_sample  # (n_features,)
-    residuals = dat - fitted_values
-    sigma = np.sqrt(np.sum(residuals**2, axis=1) / (n_sample - rank_design))
-    sigma[sigma == 0] = 1e-8
-
-    # Standardize data
-    covar_effect = (X_covar @ B_covar.T).T
-    Z = (dat - grand_mean[:, None] - covar_effect) / sigma[:, None]
-
-    # Empirical Bayes estimation
-    gamma_hat, delta_hat = _compute_batch_moments(Z, batch.to_numpy(), batch_items, n_batch)
-    gamma_bar, t2, a_prior, b_prior = _compute_eb_priors(gamma_hat, delta_hat)
-    gamma_star, delta_star = _solve_eb_for_batches(
-        gamma_hat,
-        delta_hat,
-        batch.to_numpy(),
-        batch_items,
-        gamma_bar,
-        t2,
-        a_prior,
-        b_prior,
-    )
-
-    # Apply correction
-    out_data = _apply_combat_correction(Z, batch.to_numpy(), batch_items, gamma_star, delta_star)
-    out_data = out_data * sigma[:, None] + grand_mean[:, None] + covar_effect
-    X_corrected = out_data.T
+    # Fit ComBat model
+    X_corrected = _fit_combat(dat, design_matrix, n_batch, batches, unique_batches, n_sample)
+    X_corrected = X_corrected.T
 
     # Preserve sparsity if appropriate
     if input_was_sparse:
@@ -183,7 +137,7 @@ def integrate_combat(
             X_corrected = sp.csr_matrix(X_corrected)
 
     # Create new layer and log
-    M_input = assay.layers[base_layer].M
+    M_input = layer.M
     new_matrix = ScpMatrix(
         X=X_corrected,
         M=M_input.copy() if M_input is not None else None,
@@ -198,8 +152,76 @@ def integrate_combat(
     return container
 
 
+def _build_design_matrices(
+    obs_df: pl.DataFrame,
+    batches: np.ndarray,
+    unique_batches: np.ndarray,
+    covariates: Sequence[str] | None,
+    n_sample: int,
+) -> tuple[np.ndarray, int]:
+    """Build ComBat design matrices for batch and covariates."""
+    # Batch design matrix
+    batch_info = obs_df[obs_df.columns[0]].clone()
+    batch_items = unique_batches
+    n_batch = len(batch_items)
+
+    # Create one-hot encoding for batches
+    batch_dummies = pl.DataFrame({
+        f"batch_{i}": (batches == b).astype(int)
+        for i, b in enumerate(batch_items)
+    })
+
+    # Build covariate design matrix
+    mod = _build_covariate_design(obs_df, covariates, n_sample)
+
+    # Combine batch and covariate matrices
+    mod_for_design = mod.drop("intercept") if "intercept" in mod.columns else mod
+    design_matrix = pl.concat([batch_dummies, mod_for_design], how="horizontal")
+    X_design = design_matrix.to_numpy().astype(float)
+
+    return X_design, n_batch
+
+
+def _fit_combat(
+    dat: np.ndarray,
+    design_matrix: np.ndarray,
+    n_batch: int,
+    batches: np.ndarray,
+    unique_batches: np.ndarray,
+    n_sample: int,
+) -> np.ndarray:
+    """Fit ComBat model and return corrected data."""
+    # Fit model and extract coefficients
+    B_hat = np.linalg.lstsq(design_matrix, dat.T, rcond=None)[0].T
+    _B_batch, B_covar = B_hat[:, :n_batch], B_hat[:, n_batch:]
+    X_covar = design_matrix[:, n_batch:]
+
+    # Compute grand mean and standardize
+    rank_design = np.linalg.matrix_rank(design_matrix)
+    fitted_values = (design_matrix @ B_hat.T).T
+    grand_mean = np.dot(fitted_values, np.ones(n_sample)) / n_sample
+    residuals = dat - fitted_values
+    sigma = np.sqrt(np.sum(residuals**2, axis=1) / (n_sample - rank_design))
+    sigma[sigma == 0] = 1e-8
+
+    # Standardize data
+    covar_effect = (X_covar @ B_covar.T).T
+    Z = (dat - grand_mean[:, None] - covar_effect) / sigma[:, None]
+
+    # Empirical Bayes estimation
+    gamma_hat, delta_hat = _compute_batch_moments(Z, batches, unique_batches, n_batch)
+    gamma_bar, t2, a_prior, b_prior = _compute_eb_priors(gamma_hat, delta_hat)
+    gamma_star, delta_star = _solve_eb_for_batches(
+        gamma_hat, delta_hat, batches, unique_batches, gamma_bar, t2, a_prior, b_prior
+    )
+
+    # Apply correction
+    out_data = _apply_combat_correction(Z, batches, unique_batches, gamma_star, delta_star)
+    return out_data * sigma[:, None] + grand_mean[:, None] + covar_effect
+
+
 def _impute_nans_batchwise(X: np.ndarray, batches: np.ndarray) -> np.ndarray:
-    """Impute NaN values using batch-specific column means (fully vectorized)."""
+    """Impute NaN values using batch-specific column means."""
     X_imputed = X.copy()
 
     for b in np.unique(batches):
@@ -233,7 +255,8 @@ def _build_covariate_design(
 
     covar_df = obs_df.select(covariates)
     cat_cols = [
-        c for c, t in covar_df.schema.items() if t in (pl.String, pl.Categorical, pl.Object)
+        c for c, t in covar_df.schema.items()
+        if t in (pl.String, pl.Categorical, pl.Object)
     ]
 
     mod = covar_df.to_dummies(columns=cat_cols, drop_first=True) if cat_cols else covar_df

@@ -5,20 +5,36 @@ Reference:
     A comparison of normalization methods for high density oligonucleotide
     array data based on variance and bias assessment. BMC Bioinformatics, 4, 9.
 
-This implementation forces all samples to have the same distribution by:
-1. Sorting each column (sample)
-2. Computing row means (reference distribution)
-3. Mapping back to original ranks
+Mathematical Formulation:
+    Quantile normalization forces all samples to have the same distribution
+    by matching their empirical distributions.
+
+    .. math::
+
+        q_k = \\frac{1}{M} \\sum_{j=1}^{M} X_{(k),j}
+
+    where :math:`X_{(k),j}` is the k-th order statistic of column j.
+
+    The normalized value for element :math:`x_{i,j}` with rank :math:`r_{i,j}`:
+
+    .. math::
+
+        x_{i,j}^{normalized} = q_{r_{i,j}}
+
+    Ties are handled using the average rank method.
 """
 
 import numpy as np
 from scipy.stats import rankdata
 
-from scptensor.core.exceptions import (
-    AssayNotFoundError,
-    LayerNotFoundError,
+from scptensor.core.structures import ScpContainer
+
+from .base import (
+    create_result_layer,
+    ensure_dense,
+    log_operation,
+    validate_assay_and_layer,
 )
-from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
 def norm_quantile(
@@ -27,8 +43,7 @@ def norm_quantile(
     source_layer: str = "raw",
     new_layer_name: str = "quantile_norm",
 ) -> ScpContainer:
-    """
-    Quantile normalization for single-cell proteomics data.
+    """Quantile normalization for single-cell proteomics data.
 
     Forces all samples to have the same distribution by matching their
     empirical distributions. This is a powerful normalization technique
@@ -39,22 +54,24 @@ def norm_quantile(
         quantile normalization. This ensures the data meets the normality
         assumptions and makes the distributions more comparable.
         Example:
-            >>> from scptensor.normalization import norm_log
-            >>> container = norm_log(container, base=2.0)
+            >>> from scptensor.normalization import log_transform
+            >>> container = log_transform(container, base=2.0)
             >>> container = norm_quantile(container)
 
     Mathematical Formulation:
         Given matrix X with N proteins (rows) and M samples (cols):
 
-        1. Sort each column:
-           X_sorted[k, j] = k-th order statistic of column j
+        .. math::
 
-        2. Compute reference distribution:
-           q_bar[k] = (1/M) * sum(X_sorted[k, :])
+            q_k = \\frac{1}{M} \\sum_{j=1}^{M} X_{(k),j}
 
-        3. Inverse mapping:
-           For element x[i,j] with rank r[i,j] in column j:
-           x_normalized[i,j] = q_bar[r[i,j]]
+        where :math:`X_{(k),j}` is the k-th order statistic of column j.
+
+        For element :math:`x_{i,j}` with rank :math:`r_{i,j}` in column j:
+
+        .. math::
+
+            x_{i,j}^{normalized} = q_{r_{i,j}}
 
     **Tie Handling:**
         Tied values receive the average of their corresponding quantiles
@@ -79,7 +96,7 @@ def norm_quantile(
     Returns
     -------
     ScpContainer
-        ScpContainer with added quantile normalized layer.
+        Container with added quantile normalized layer.
 
     Raises
     ------
@@ -115,33 +132,14 @@ def norm_quantile(
     - Quantile normalization assumes most features are not differentially
       expressed, which is generally reasonable for large-scale proteomics
       data.
+    - Log-transform before applying for best results.
     """
-    # Validate assay and layer existence
-    if assay_name not in container.assays:
-        available = ", ".join(f"'{k}'" for k in container.assays.keys())
-        raise AssayNotFoundError(
-            assay_name,
-            hint=f"Available assays: {available}. Use container.list_assays() to see all assays.",
-        )
+    # Validate and get objects
+    assay, input_layer = validate_assay_and_layer(
+        container, assay_name, source_layer
+    )
 
-    assay = container.assays[assay_name]
-    if source_layer not in assay.layers:
-        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
-        raise LayerNotFoundError(
-            source_layer,
-            assay_name,
-            hint=f"Available layers in assay '{assay_name}': {available}. "
-            f"Use assay.list_layers() to see all layers.",
-        )
-
-    input_layer = assay.layers[source_layer]
-    X = input_layer.X.copy()
-
-    # Convert sparse to dense if necessary
-    import scipy.sparse as sp
-
-    if sp.issparse(X):
-        X = X.toarray()
+    X = ensure_dense(input_layer.X).copy()
 
     # Get dimensions
     n_samples, n_features = X.shape
@@ -155,20 +153,15 @@ def norm_quantile(
         non_nan = ~nan_mask[:, j]
 
         if non_nan.sum() == 0:
-            # All NaN column
             X_sorted[:, j] = np.nan
             continue
 
-        # Sort non-NaN values
         col_valid = col[non_nan]
         sorted_col = np.sort(col_valid)
-
-        # Place sorted values back
         X_sorted[non_nan, j] = sorted_col
         X_sorted[~non_nan, j] = np.nan
 
     # Step 2: Compute reference distribution as row means
-    # For rows with all NaN, set reference to 0
     row_means = np.nanmean(X_sorted, axis=1)
     all_nan_rows = np.isnan(row_means)
     reference_dist = np.copy(row_means)
@@ -182,34 +175,28 @@ def norm_quantile(
         non_nan = ~nan_mask[:, j]
 
         if non_nan.sum() == 0:
-            # All NaN column - preserve NaN
             X_normalized[:, j] = np.nan
             continue
 
-        # Get ranks for non-NaN values
         col_valid = col[non_nan]
-        ranks = rankdata(col_valid, method="average") - 1  # Convert to 0-indexed
+        ranks = rankdata(col_valid, method="average") - 1  # 0-indexed
 
-        # Map ranks to reference distribution
-        # Use linear interpolation for fractional ranks from ties
         normalized_values = np.interp(
             ranks,
             np.arange(len(reference_dist)),
             reference_dist,
         )
 
-        # Fill in the normalized values
         X_normalized[non_nan, j] = normalized_values
         X_normalized[~non_nan, j] = np.nan
 
-    # Create new layer
-    new_matrix = ScpMatrix(
-        X=X_normalized,
-        M=input_layer.M.copy() if input_layer.M is not None else None,
-    )
+    # Create and add new layer
+    new_matrix = create_result_layer(X_normalized, input_layer)
     assay.add_layer(new_layer_name, new_matrix)
 
-    container.log_operation(
+    # Log operation
+    log_operation(
+        container,
         action="normalization_quantile",
         params={
             "assay": assay_name,

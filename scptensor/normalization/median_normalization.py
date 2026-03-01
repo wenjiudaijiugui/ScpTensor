@@ -1,12 +1,40 @@
-"""Median centering normalization for ScpTensor."""
+"""Median centering normalization for ScpTensor.
+
+This module provides median-based normalization to remove sample-specific bias.
+
+Mathematical Formulation:
+    Centering Mode (add_global_median=False):
+
+    .. math::
+
+        X_{centered} = X - \\tilde{X}_{row}
+
+    where :math:`\\tilde{X}_{row}` is the row-wise median.
+
+    Scaling Mode (add_global_median=True):
+
+    .. math::
+
+        X_{normalized} = X - \\tilde{X}_{row} + \\tilde{X}_{global}
+
+    where :math:`\\tilde{X}_{global}` is the global median.
+
+Reference:
+    Median normalization is robust to outliers and provides a stable
+    centering method for proteomics data. It is preferred over mean
+    normalization when the data contains extreme values or heavy tails.
+"""
 
 import numpy as np
 
-from scptensor.core.exceptions import (
-    AssayNotFoundError,
-    LayerNotFoundError,
+from scptensor.core.structures import ScpContainer
+
+from .base import (
+    create_result_layer,
+    log_operation,
+    validate_assay_and_layer,
+    get_layer_name,
 )
-from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
 def norm_median(
@@ -16,8 +44,7 @@ def norm_median(
     new_layer_name: str | None = "median_centered",
     add_global_median: bool = False,
 ) -> ScpContainer:
-    """
-    Subtract the median of each sample with optional global median restoration.
+    """Subtract the median of each sample with optional global median restoration.
 
     This method provides two modes for median-based normalization:
 
@@ -26,24 +53,26 @@ def norm_median(
         bias while preserving relative differences between features.
 
         Mathematical Formulation:
-            X_centered = X - median(X, axis=1, keepdims=True)
+            .. math::
 
-        This mode is useful for removing sample-specific technical bias
-        while maintaining the relative differences between features within
-        each sample. The output will have median ~0 for each sample.
+                X_{centered} = X - \\tilde{X}_{row}
+
+        Output has median ~0 for each sample.
 
     2. Scaling Mode (add_global_median=True):
         Centers each sample around its median, then adds back the global median
-        across all samples. This aligns samples to a common reference point
-        while preserving the overall intensity distribution.
+        across all samples. This aligns samples to a common reference point.
 
         Mathematical Formulation:
-            X_centered = X - median(X, axis=1, keepdims=True) + global_median
-            where global_median = median(X)
+            .. math::
 
-        This mode is useful when you want to remove sample-specific bias
-        but maintain the overall data scale. The output will have median
-        approximately equal to the global median for all samples.
+                X_{normalized} = X - \\tilde{X}_{row} + \\tilde{X}_{global}
+
+        Output has median approximately equal to the global median.
+
+    **Note:** Median normalization is more robust to outliers than mean
+    normalization (norm_mean). It is recommended for proteomics data with
+    extreme values or heavy-tailed distributions.
 
     Parameters
     ----------
@@ -54,7 +83,7 @@ def norm_median(
     source_layer : str, default="raw"
         Name of the layer to normalize.
     new_layer_name : Optional[str], default="median_centered"
-        Name for the new normalized layer.
+        Name for the new normalized layer. None uses default.
     add_global_median : bool, default=False
         If True, add global median after centering (scaling mode).
         If False, only center each sample (centering mode).
@@ -62,7 +91,7 @@ def norm_median(
     Returns
     -------
     ScpContainer
-        ScpContainer with added normalized layer.
+        Container with added normalized layer.
 
     Raises
     ------
@@ -85,27 +114,33 @@ def norm_median(
     True
     >>> # Scaling mode: add global median back
     >>> result2 = norm_median(container, add_global_median=True)
-    """
-    if assay_name not in container.assays:
-        available = ", ".join(f"'{k}'" for k in container.assays.keys())
-        raise AssayNotFoundError(assay_name, hint=f"Available assays: {available}.")
-    assay = container.assays[assay_name]
-    if source_layer not in assay.layers:
-        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
-        raise LayerNotFoundError(source_layer, assay_name, hint=f"Available layers: {available}.")
-    input_layer = assay.layers[source_layer]
 
+    Notes
+    -----
+    - Median normalization is robust to outliers.
+    - Recommended for proteomics data with skewed distributions.
+    - The median is less affected by extreme values than the mean.
+    """
+    # Validate and get objects
+    assay, input_layer = validate_assay_and_layer(
+        container, assay_name, source_layer
+    )
+
+    # Apply median normalization
     X_centered = input_layer.X - np.nanmedian(input_layer.X, axis=1, keepdims=True)
     if add_global_median:
         X_centered = X_centered + np.nanmedian(input_layer.X)
-    layer_name = new_layer_name or "median_centered"
 
-    assay.add_layer(
-        layer_name,
-        ScpMatrix(X=X_centered, M=input_layer.M.copy() if input_layer.M is not None else None),
-    )
+    # Get layer name
+    layer_name = get_layer_name(new_layer_name, "median_centered")
 
-    container.log_operation(
+    # Create and add new layer
+    new_matrix = create_result_layer(X_centered, input_layer)
+    assay.add_layer(layer_name, new_matrix)
+
+    # Log operation
+    log_operation(
+        container,
         action="normalization_median_centering",
         params={
             "assay": assay_name,

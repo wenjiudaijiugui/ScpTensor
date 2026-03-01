@@ -1,12 +1,40 @@
-"""Sample mean normalization for ScpTensor."""
+"""Sample mean normalization for ScpTensor.
+
+This module provides mean-based normalization to remove sample-specific bias.
+
+Mathematical Formulation:
+    Centering Mode (add_global_mean=False):
+
+    .. math::
+
+        X_{centered} = X - \\bar{X}_{row}
+
+    where :math:`\\bar{X}_{row}` is the row-wise mean.
+
+    Scaling Mode (add_global_mean=True):
+
+    .. math::
+
+        X_{normalized} = X - \\bar{X}_{row} + \\bar{X}_{global}
+
+    where :math:`\\bar{X}_{global}` is the global mean across all values.
+
+Reference:
+    Mean normalization is a simple centering technique to remove
+    sample-specific technical bias while preserving relative differences
+    between features within each sample.
+"""
 
 import numpy as np
 
-from scptensor.core.exceptions import (
-    AssayNotFoundError,
-    LayerNotFoundError,
+from scptensor.core.structures import ScpContainer
+
+from .base import (
+    create_result_layer,
+    log_operation,
+    validate_assay_and_layer,
+    get_layer_name,
 )
-from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
 def norm_mean(
@@ -16,8 +44,7 @@ def norm_mean(
     new_layer_name: str | None = "sample_mean_norm",
     add_global_mean: bool = False,
 ) -> ScpContainer:
-    """
-    Subtract the mean of each sample with optional global mean restoration.
+    """Subtract the mean of each sample with optional global mean restoration.
 
     This method provides two modes for mean-based normalization:
 
@@ -26,28 +53,25 @@ def norm_mean(
         bias while preserving relative differences between features.
 
         Mathematical Formulation:
-            X_centered = X - mean(X, axis=1, keepdims=True)
+            .. math::
 
-        This mode is useful for removing sample-specific technical bias
-        while maintaining the relative differences between features within
-        each sample. The output will have mean ~0 for each sample.
+                X_{centered} = X - \\bar{X}_{row}
+
+        Output has mean ~0 for each sample.
 
     2. Scaling Mode (add_global_mean=True):
         Centers each sample around its mean, then adds back the global mean
-        across all samples. This aligns samples to a common reference point
-        while preserving the overall intensity distribution.
+        across all samples. This aligns samples to a common reference point.
 
         Mathematical Formulation:
-            X_centered = X - mean(X, axis=1, keepdims=True) + global_mean
-            where global_mean = mean(X)
+            .. math::
 
-        This mode is useful when you want to remove sample-specific bias
-        but maintain the overall data scale. The output will have mean
-        approximately equal to the global mean for all samples.
+                X_{normalized} = X - \\bar{X}_{row} + \\bar{X}_{global}
+
+        Output has mean approximately equal to the global mean.
 
     **Note:** Mean normalization is more sensitive to outliers than median
-    normalization. Use median normalization (norm_median) if your data
-    contains extreme outliers.
+    normalization. Use norm_median if your data contains extreme outliers.
 
     Parameters
     ----------
@@ -58,7 +82,7 @@ def norm_mean(
     source_layer : str, default="raw"
         Name of the layer to normalize.
     new_layer_name : Optional[str], default="sample_mean_norm"
-        Name for the new normalized layer.
+        Name for the new normalized layer. None uses default.
     add_global_mean : bool, default=False
         If True, add global mean after centering (scaling mode).
         If False, only center each sample (centering mode).
@@ -66,7 +90,7 @@ def norm_mean(
     Returns
     -------
     ScpContainer
-        ScpContainer with added normalized layer.
+        Container with added normalized layer.
 
     Raises
     ------
@@ -89,38 +113,33 @@ def norm_mean(
     True
     >>> # Scaling mode: add global mean back
     >>> result2 = norm_mean(container, add_global_mean=True)
+
+    Notes
+    -----
+    - Mean normalization assumes data is roughly symmetric.
+    - For skewed data or data with outliers, use median normalization instead.
+    - Centering mode is useful for removing technical bias between samples.
     """
-    # Validate assay and layer existence
-    if assay_name not in container.assays:
-        available = ", ".join(f"'{k}'" for k in container.assays.keys())
-        raise AssayNotFoundError(
-            assay_name,
-            hint=f"Available assays: {available}. Use container.list_assays() to see all assays.",
-        )
+    # Validate and get objects
+    assay, input_layer = validate_assay_and_layer(
+        container, assay_name, source_layer
+    )
 
-    assay = container.assays[assay_name]
-    if source_layer not in assay.layers:
-        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
-        raise LayerNotFoundError(
-            source_layer,
-            assay_name,
-            hint=f"Available layers in assay '{assay_name}': {available}. "
-            f"Use assay.list_layers() to see all layers.",
-        )
-
-    input_layer = assay.layers[source_layer]
-
+    # Apply mean normalization
     X_centered = input_layer.X - np.nanmean(input_layer.X, axis=1, keepdims=True)
     if add_global_mean:
         X_centered = X_centered + np.nanmean(input_layer.X)
-    layer_name = new_layer_name or "sample_mean_norm"
 
-    assay.add_layer(
-        layer_name,
-        ScpMatrix(X=X_centered, M=input_layer.M.copy() if input_layer.M is not None else None),
-    )
+    # Get layer name
+    layer_name = get_layer_name(new_layer_name, "sample_mean_norm")
 
-    container.log_operation(
+    # Create and add new layer
+    new_matrix = create_result_layer(X_centered, input_layer)
+    assay.add_layer(layer_name, new_matrix)
+
+    # Log operation
+    log_operation(
+        container,
         action="normalization_sample_mean",
         params={
             "assay": assay_name,
