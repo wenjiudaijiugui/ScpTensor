@@ -200,6 +200,7 @@ def reduce_pca(
         obs=container.obs,
         assays=new_assays,
         history=list(container.history),
+        sample_id_col=container.sample_id_col,
     )
 
     # Log operation
