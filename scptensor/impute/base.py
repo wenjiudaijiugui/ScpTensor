@@ -5,8 +5,9 @@ Provides unified interface for missing value imputation.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Any
+from typing import TYPE_CHECKING, Any
 
 from scptensor.core.exceptions import ScpValueError
 
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
     from scptensor.core.structures import ScpContainer
 
 # Registry for imputation methods
-_IMPUTE_METHODS: dict[str, "ImputeMethod"] = {}
+_IMPUTE_METHODS: dict[str, ImputeMethod] = {}
 
 
 @dataclass
@@ -32,10 +33,11 @@ class ImputeMethod:
     apply : Callable
         Application function.
     """
+
     name: str
     supports_sparse: bool = True
     validate: Callable[..., Any] | None = None
-    apply: Callable[..., "ScpContainer"] | None = None
+    apply: Callable[..., ScpContainer] | None = None
 
 
 def register_impute_method(method: ImputeMethod) -> ImputeMethod:
@@ -76,10 +78,9 @@ def get_impute_method(name: str) -> ImputeMethod:
     if name not in _IMPUTE_METHODS:
         available = list(_IMPUTE_METHODS.keys())
         raise ScpValueError(
-            f"Imputation method '{name}' not found.",
+            f"Imputation method '{name}' not found. Available methods: {available}",
             parameter="method",
             value=name,
-            hint=f"Available methods: {available}",
         )
     return _IMPUTE_METHODS[name]
 
@@ -96,10 +97,10 @@ def list_impute_methods() -> list[str]:
 
 
 def impute(
-    container: "ScpContainer",
+    container: ScpContainer,
     method: str = "knn",
     **kwargs,
-) -> "ScpContainer":
+) -> ScpContainer:
     """Unified interface for missing value imputation.
 
     Parameters
