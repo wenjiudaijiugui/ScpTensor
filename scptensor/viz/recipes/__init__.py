@@ -5,6 +5,7 @@ from .differential import (
 from .differential import (
     volcano as volcano_enhanced,
 )
+volcano = volcano_enhanced
 from .embedding import embedding, pca, scatter, tsne, umap
 from .feature import dotplot
 from .impute import (
@@ -32,7 +33,6 @@ from .qc_advanced import (
 )
 from .report import ReportTheme, generate_analysis_report
 from .statistics import correlation_matrix, dendrogram
-from .stats import volcano
 
 __all__ = [
     "scatter",
