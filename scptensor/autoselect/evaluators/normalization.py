@@ -61,12 +61,12 @@ class NormalizationEvaluator(BaseEvaluator):
         dict[str, Callable]
             Dictionary mapping method names to their implementation functions
         """
-        # Import normalization functions
+        from scptensor.autoselect.evaluators.base import create_wrapper
         from scptensor.normalization import log_transform, norm_median
 
         return {
-            "log_transform": self._wrap_normalize(log_transform),
-            "norm_median": self._wrap_normalize(norm_median),
+            "log_transform": create_wrapper(log_transform, layer_namer="auto"),
+            "norm_median": create_wrapper(norm_median, layer_namer="auto"),
         }
 
     @property
@@ -124,35 +124,3 @@ class NormalizationEvaluator(BaseEvaluator):
             "batch_effect": 0.80,
             "completeness": 0.90,
         }
-
-    def _wrap_normalize(self, func: Callable) -> Callable:
-        """Wrap normalization function to match expected signature.
-
-        Parameters
-        ----------
-        func : Callable
-            Original normalization function
-
-        Returns
-        -------
-        Callable
-            Wrapped function with signature:
-            (container, assay_name, source_layer, **kwargs) -> ScpContainer
-        """
-
-        def wrapper(
-            container: ScpContainer,
-            assay_name: str,
-            source_layer: str,
-            **kwargs,
-        ) -> ScpContainer:
-            """Wrapper for normalization functions."""
-            return func(
-                container=container,
-                assay_name=assay_name,
-                source_layer=source_layer,
-                new_layer_name=f"{source_layer}_{func.__name__}",
-                **kwargs,
-            )
-
-        return wrapper

@@ -244,6 +244,15 @@ class AutoSelector:
 
     SUPPORTED_STAGES = ["normalize", "impute", "integrate", "reduce", "cluster"]
 
+    # Mapping of stage names to evaluator import paths
+    _EVALUATOR_MAP = {
+        "normalize": ("scptensor.autoselect.evaluators.normalization", "NormalizationEvaluator"),
+        "impute": ("scptensor.autoselect.evaluators.imputation", "ImputationEvaluator"),
+        "integrate": ("scptensor.autoselect.evaluators.integration", "IntegrationEvaluator"),
+        "reduce": ("scptensor.autoselect.evaluators.dim_reduction", "DimReductionEvaluator"),
+        "cluster": ("scptensor.autoselect.evaluators.clustering", "ClusteringEvaluator"),
+    }
+
     def __init__(
         self,
         stages: list[str] | None = None,
@@ -306,27 +315,19 @@ class AutoSelector:
 
         Raises
         ------
-        NotImplementedError
-            If evaluator for stage is not yet implemented
+        ValueError
+            If stage is not in the evaluator map
         """
-        # Lazy import to avoid circular dependencies
-        if stage == "normalize":
-            from scptensor.autoselect.evaluators.normalization import (
-                NormalizationEvaluator,
-            )
-
-            return NormalizationEvaluator()
-        elif stage == "impute":
-            from scptensor.autoselect.evaluators.imputation import ImputationEvaluator
-
-            return ImputationEvaluator()
-        elif stage in ["integrate", "reduce", "cluster"]:
-            raise NotImplementedError(
-                f"Evaluator for stage '{stage}' is not yet implemented. "
-                f"Currently supported: normalize, impute"
-            )
-        else:
+        if stage not in self._EVALUATOR_MAP:
             raise ValueError(f"Unknown stage: {stage}")
+
+        # Lazy import to avoid circular dependencies
+        module_path, class_name = self._EVALUATOR_MAP[stage]
+        import importlib
+
+        module = importlib.import_module(module_path)
+        evaluator_class = getattr(module, class_name)
+        return evaluator_class()
 
     def run_stage(
         self,
@@ -452,17 +453,13 @@ class AutoSelector:
                 # Add stage report to overall report using evaluator's stage_name
                 report.stages[stage_report.stage_name] = stage_report
 
-            except NotImplementedError as e:
-                # Stage not implemented - add warning and continue
-                warning_msg = f"Stage '{stage}' skipped: {str(e)}"
-                warnings.append(warning_msg)
-                # Re-raise for now (tests expect this)
-                raise
             except Exception as e:
                 # Stage failed - add warning and continue
                 warning_msg = f"Stage '{stage}' failed: {type(e).__name__}: {str(e)}"
                 warnings.append(warning_msg)
                 report.warnings.append(warning_msg)
+                # Re-raise the exception to maintain expected behavior
+                raise
 
         # Set total time and warnings
         report.total_time = time.perf_counter() - start_time

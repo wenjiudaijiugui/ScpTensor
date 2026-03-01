@@ -111,18 +111,32 @@ class TestAutoSelectorGetEvaluator:
         evaluator = selector._get_evaluator("impute")
         assert evaluator is not None
 
-    def test_get_evaluator_unimplemented_raises(self):
-        """Test that unimplemented stage raises NotImplementedError."""
-        selector = AutoSelector()
+    def test_get_evaluator_integrate(self):
+        """Test getting integration evaluator."""
+        selector = AutoSelector(stages=["integrate"])
 
-        with pytest.raises(NotImplementedError, match="not yet implemented"):
-            selector._get_evaluator("integrate")
+        # Should not raise NotImplementedError
+        evaluator = selector._get_evaluator("integrate")
+        assert evaluator is not None
+        assert hasattr(evaluator, "stage_name")
 
-        with pytest.raises(NotImplementedError, match="not yet implemented"):
-            selector._get_evaluator("reduce")
+    def test_get_evaluator_reduce(self):
+        """Test getting dimensionality reduction evaluator."""
+        selector = AutoSelector(stages=["reduce"])
 
-        with pytest.raises(NotImplementedError, match="not yet implemented"):
-            selector._get_evaluator("cluster")
+        # Should not raise NotImplementedError
+        evaluator = selector._get_evaluator("reduce")
+        assert evaluator is not None
+        assert hasattr(evaluator, "stage_name")
+
+    def test_get_evaluator_cluster(self):
+        """Test getting clustering evaluator."""
+        selector = AutoSelector(stages=["cluster"])
+
+        # Should not raise NotImplementedError
+        evaluator = selector._get_evaluator("cluster")
+        assert evaluator is not None
+        assert hasattr(evaluator, "stage_name")
 
 
 class TestAutoSelectorRunStage:
@@ -154,15 +168,21 @@ class TestAutoSelectorRunStage:
                 stage="invalid",
             )
 
-    def test_run_stage_unimplemented_raises(self, simple_container):
-        """Test that unimplemented stage raises NotImplementedError."""
+    def test_run_stage_integrate_works(self, simple_container):
+        """Test that integration stage works."""
         selector = AutoSelector(stages=["integrate"])
 
-        with pytest.raises(NotImplementedError):
-            selector.run_stage(
-                container=simple_container,
-                stage="integrate",
-            )
+        # Should not raise NotImplementedError anymore
+        result_container, report = selector.run_stage(
+            container=simple_container,
+            stage="integrate",
+            assay_name="proteins",
+            source_layer="raw",
+        )
+
+        assert isinstance(result_container, ScpContainer)
+        assert isinstance(report, StageReport)
+        assert report.stage_name == "integrate"
 
 
 class TestAutoSelectorRun:
@@ -227,16 +247,21 @@ class TestAutoSelectorRun:
         assert "normalization" in report.stages
         assert "imputation" in report.stages
 
-    def test_run_generates_warnings_for_failures(self, simple_container):
-        """Test that run generates warnings for failed stages."""
-        selector = AutoSelector(stages=["integrate"])  # Not implemented
+    def test_run_integrate_stage_works(self, simple_container):
+        """Test that integration stage works in full pipeline."""
+        selector = AutoSelector(stages=["integrate"])
 
-        with pytest.raises(NotImplementedError):
-            selector.run(
-                container=simple_container,
-                assay_name="proteins",
-                initial_layer="raw",
-            )
+        # Should not raise NotImplementedError anymore
+        result_container, report = selector.run(
+            container=simple_container,
+            assay_name="proteins",
+            initial_layer="raw",
+        )
+
+        assert isinstance(result_container, ScpContainer)
+        assert isinstance(report, AutoSelectReport)
+        assert len(report.stages) == 1
+        assert "integrate" in report.stages
 
     def test_run_keep_all_option(self, simple_container):
         """Test run with keep_all option."""

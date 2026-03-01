@@ -9,9 +9,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from scptensor.autoselect.evaluators.base import BaseEvaluator
 
 if TYPE_CHECKING:
+    from scptensor.autoselect.core import EvaluationResult, StageReport
     from scptensor.core.structures import ScpContainer
 
 
@@ -71,6 +74,8 @@ class DimReductionEvaluator(BaseEvaluator):
         dict[str, Callable]
             Dictionary of available methods
         """
+        from scptensor.autoselect.evaluators.base import create_wrapper
+
         if self._available_methods is not None:
             return self._available_methods
 
@@ -80,7 +85,14 @@ class DimReductionEvaluator(BaseEvaluator):
         try:
             from scptensor.dim_reduction import reduce_pca
 
-            methods["pca"] = self._wrap_reduce_pca(reduce_pca)
+            methods["pca"] = create_wrapper(
+                reduce_pca,
+                source_layer_param="base_layer",
+                layer_namer=lambda _, __: "pca",
+                new_assay_name="pca",
+                n_components=self._n_components,
+                random_state=self._random_state,
+            )
         except ImportError:
             pass
 
@@ -88,7 +100,15 @@ class DimReductionEvaluator(BaseEvaluator):
         try:
             from scptensor.dim_reduction import reduce_umap
 
-            methods["umap"] = self._wrap_reduce_umap(reduce_umap)
+            methods["umap"] = create_wrapper(
+                reduce_umap,
+                source_layer_param="base_layer",
+                layer_namer=lambda _, __: "umap",
+                new_assay_name="umap",
+                n_components=min(self._n_components, 2),  # UMAP usually 2D
+                n_neighbors=self._n_neighbors,
+                random_state=self._random_state,
+            )
         except ImportError:
             pass
 
@@ -156,7 +176,6 @@ class DimReductionEvaluator(BaseEvaluator):
         dict[str, float]
             Dictionary mapping metric names to their scores (0.0 to 1.0)
         """
-        import numpy as np
 
         # Check if assay exists
         if layer_name not in container.assays:
@@ -167,9 +186,9 @@ class DimReductionEvaluator(BaseEvaluator):
             return dict.fromkeys(self.metric_weights, 0.0)
 
         # Get reduced data
-        X_reduced = reduced_assay.layers["X"].X
-        if hasattr(X_reduced, "toarray"):
-            X_reduced = X_reduced.toarray()
+        x_reduced = reduced_assay.layers["X"].X
+        if hasattr(x_reduced, "toarray"):
+            x_reduced = x_reduced.toarray()
 
         # Get original data
         if "proteins" not in original_container.assays:
@@ -186,42 +205,36 @@ class DimReductionEvaluator(BaseEvaluator):
         if source_layer is None:
             return dict.fromkeys(self.metric_weights, 0.5)
 
-        X_original = original_assay.layers[source_layer].X
-        if hasattr(X_original, "toarray"):
-            X_original = X_original.toarray()
+        x_original = original_assay.layers[source_layer].X
+        if hasattr(x_original, "toarray"):
+            x_original = x_original.toarray()
 
         # Compute metrics
         scores: dict[str, float] = {}
 
         # Variance explained (for PCA, get from var; for others, estimate)
         scores["variance_explained"] = self._compute_variance_explained(
-            X_original, X_reduced, reduced_assay
+            x_original, x_reduced, reduced_assay
         )
 
         # Reconstruction error
-        scores["reconstruction_error"] = self._compute_reconstruction_error(
-            X_original, X_reduced
-        )
+        scores["reconstruction_error"] = self._compute_reconstruction_error(x_original, x_reduced)
 
         # Local structure preservation
-        scores["local_structure"] = self._compute_local_structure(
-            X_original, X_reduced
-        )
+        scores["local_structure"] = self._compute_local_structure(x_original, x_reduced)
 
         # Clustering potential
-        scores["clustering_potential"] = self._compute_clustering_potential(X_reduced)
+        scores["clustering_potential"] = self._compute_clustering_potential(x_reduced)
 
         return scores
 
     def _compute_variance_explained(
         self,
-        X_original: np.ndarray,
-        X_reduced: np.ndarray,
+        x_original: np.ndarray,
+        x_reduced: np.ndarray,
         reduced_assay,
     ) -> float:
         """Compute variance explained score."""
-        import numpy as np
-
         try:
             # Check if explained variance is stored in assay var
             if (
@@ -243,21 +256,19 @@ class DimReductionEvaluator(BaseEvaluator):
         except Exception:
             return 0.5
 
-    def _compute_reconstruction_error(
-        self, X_original: np.ndarray, X_reduced: np.ndarray
-    ) -> float:
+    def _compute_reconstruction_error(self, x_original: np.ndarray, x_reduced: np.ndarray) -> float:
         """Compute reconstruction error score (inverted, higher is better)."""
-        import numpy as np
+        from scipy.stats import pearsonr
 
         try:
             # For PCA, we can compute actual reconstruction
             # For other methods, use distance correlation as proxy
 
             # Center original data
-            X_centered = X_original - np.nanmean(X_original, axis=0)
+            x_centered = x_original - np.nanmean(x_original, axis=0)
 
             # Compute total variance
-            total_var = np.nansum(X_centered**2)
+            total_var = np.nansum(x_centered**2)
             if total_var < 1e-10:
                 return 0.5
 
@@ -265,21 +276,18 @@ class DimReductionEvaluator(BaseEvaluator):
             # using the correlation structure
             # Higher correlation = lower reconstruction error = higher score
 
-            # Compute pairwise distance correlation
-            from scipy.stats import pearsonr
-
             # Sample pairs for efficiency
-            n_samples = min(1000, X_original.shape[0])
-            if X_original.shape[0] > n_samples:
-                idx = np.random.choice(X_original.shape[0], n_samples, replace=False)
-                X_orig_sample = X_original[idx]
-                X_red_sample = X_reduced[idx]
+            n_samples = min(1000, x_original.shape[0])
+            if x_original.shape[0] > n_samples:
+                idx = np.random.choice(x_original.shape[0], n_samples, replace=False)
+                x_orig_sample = x_original[idx]
+                x_red_sample = x_reduced[idx]
             else:
-                X_orig_sample = X_original
-                X_red_sample = X_reduced
+                x_orig_sample = x_original
+                x_red_sample = x_reduced
 
             # Compute distance matrices
-            n = len(X_orig_sample)
+            n = len(x_orig_sample)
             if n < 10:
                 return 0.5
 
@@ -290,20 +298,20 @@ class DimReductionEvaluator(BaseEvaluator):
                 i, j = np.random.choice(n, 2, replace=False)
                 pairs.append((i, j))
 
-            dist_orig = []
-            dist_red = []
+            dist_orig: list[float] = []
+            dist_red: list[float] = []
             for i, j in pairs:
-                dist_orig.append(np.linalg.norm(X_orig_sample[i] - X_orig_sample[j]))
-                dist_red.append(np.linalg.norm(X_red_sample[i] - X_red_sample[j]))
+                dist_orig.append(float(np.linalg.norm(x_orig_sample[i] - x_orig_sample[j])))
+                dist_red.append(float(np.linalg.norm(x_red_sample[i] - x_red_sample[j])))
 
-            dist_orig = np.array(dist_orig)
-            dist_red = np.array(dist_red)
+            dist_orig_arr = np.array(dist_orig)
+            dist_red_arr = np.array(dist_red)
 
             # Normalize distances
-            if np.std(dist_orig) < 1e-10 or np.std(dist_red) < 1e-10:
+            if np.std(dist_orig_arr) < 1e-10 or np.std(dist_red_arr) < 1e-10:
                 return 0.5
 
-            corr, _ = pearsonr(dist_orig, dist_red)
+            corr, _ = pearsonr(dist_orig_arr, dist_red_arr)
             if np.isnan(corr):
                 return 0.5
 
@@ -313,38 +321,37 @@ class DimReductionEvaluator(BaseEvaluator):
             return 0.5
 
     def _compute_local_structure(
-        self, X_original: np.ndarray, X_reduced: np.ndarray, k: int = 15
+        self, x_original: np.ndarray, x_reduced: np.ndarray, k: int = 15
     ) -> float:
         """Compute local structure preservation score using kNN agreement."""
-        import numpy as np
         from sklearn.neighbors import NearestNeighbors
 
         try:
-            k = min(k, X_original.shape[0] - 1, X_reduced.shape[0] - 1)
+            k = min(k, x_original.shape[0] - 1, x_reduced.shape[0] - 1)
             if k < 1:
                 return 0.5
 
             # Handle NaN in original
-            valid_mask = ~np.isnan(X_original).any(axis=1)
+            valid_mask = ~np.isnan(x_original).any(axis=1)
             if not np.any(valid_mask):
                 return 0.5
 
-            X_orig_clean = X_original[valid_mask]
-            X_red_clean = X_reduced[valid_mask]
+            x_orig_clean = x_original[valid_mask]
+            x_red_clean = x_reduced[valid_mask]
 
-            n_samples = len(X_orig_clean)
+            n_samples = len(x_orig_clean)
             if n_samples < k + 1:
                 return 0.5
 
             # Find kNN in original space
             nn_orig = NearestNeighbors(n_neighbors=k + 1)
-            nn_orig.fit(X_orig_clean)
-            _, indices_orig = nn_orig.kneighbors(X_orig_clean)
+            nn_orig.fit(x_orig_clean)
+            _, indices_orig = nn_orig.kneighbors(x_orig_clean)
 
             # Find kNN in reduced space
             nn_red = NearestNeighbors(n_neighbors=k + 1)
-            nn_red.fit(X_red_clean)
-            _, indices_red = nn_red.kneighbors(X_red_clean)
+            nn_red.fit(x_red_clean)
+            _, indices_red = nn_red.kneighbors(x_red_clean)
 
             # Compute Jaccard similarity of neighborhoods
             similarities = []
@@ -353,9 +360,7 @@ class DimReductionEvaluator(BaseEvaluator):
                 neighbors_red = set(indices_red[i, 1:])
                 if len(neighbors_orig) == 0:
                     continue
-                jaccard = len(neighbors_orig & neighbors_red) / len(
-                    neighbors_orig | neighbors_red
-                )
+                jaccard = len(neighbors_orig & neighbors_red) / len(neighbors_orig | neighbors_red)
                 similarities.append(jaccard)
 
             if not similarities:
@@ -365,20 +370,19 @@ class DimReductionEvaluator(BaseEvaluator):
         except Exception:
             return 0.5
 
-    def _compute_clustering_potential(self, X_reduced: np.ndarray) -> float:
+    def _compute_clustering_potential(self, x_reduced: np.ndarray) -> float:
         """Compute clustering potential using silhouette analysis."""
-        import numpy as np
         from sklearn.cluster import KMeans
         from sklearn.metrics import silhouette_score
 
         try:
             # Handle NaN
-            valid_mask = ~np.isnan(X_reduced).any(axis=1)
+            valid_mask = ~np.isnan(x_reduced).any(axis=1)
             if not np.any(valid_mask):
                 return 0.5
 
-            X_clean = X_reduced[valid_mask]
-            n_samples = len(X_clean)
+            x_clean = x_reduced[valid_mask]
+            n_samples = len(x_clean)
 
             if n_samples < 10:
                 return 0.5
@@ -386,14 +390,14 @@ class DimReductionEvaluator(BaseEvaluator):
             # Subsample for efficiency
             if n_samples > 1000:
                 idx = np.random.choice(n_samples, 1000, replace=False)
-                X_sample = X_clean[idx]
+                x_sample = x_clean[idx]
             else:
-                X_sample = X_clean
+                x_sample = x_clean
 
             # Try different numbers of clusters
             best_score = 0.0
             for n_clusters in [3, 5, 7, 10]:
-                if n_clusters >= len(X_sample):
+                if n_clusters >= len(x_sample):
                     continue
                 try:
                     kmeans = KMeans(
@@ -401,8 +405,8 @@ class DimReductionEvaluator(BaseEvaluator):
                         random_state=self._random_state,
                         n_init=10,
                     )
-                    labels = kmeans.fit_predict(X_sample)
-                    score = silhouette_score(X_sample, labels)
+                    labels = kmeans.fit_predict(x_sample)
+                    score = silhouette_score(x_sample, labels)
                     best_score = max(best_score, score)
                 except Exception:
                     continue
@@ -410,74 +414,6 @@ class DimReductionEvaluator(BaseEvaluator):
             return float(np.clip(best_score, 0.0, 1.0))
         except Exception:
             return 0.5
-
-    def _wrap_reduce_pca(self, func: Callable) -> Callable:
-        """Wrap PCA reduction function.
-
-        Parameters
-        ----------
-        func : Callable
-            PCA reduction function
-
-        Returns
-        -------
-        Callable
-            Wrapped function
-        """
-
-        def wrapper(
-            container: ScpContainer,
-            assay_name: str,
-            source_layer: str,
-            **kwargs,
-        ) -> ScpContainer:
-            """Wrapper for PCA reduction."""
-            return func(
-                container=container,
-                assay_name=assay_name,
-                base_layer=source_layer,
-                new_assay_name="pca",
-                n_components=self._n_components,
-                random_state=self._random_state,
-                **kwargs,
-            )
-
-        return wrapper
-
-    def _wrap_reduce_umap(self, func: Callable) -> Callable:
-        """Wrap UMAP reduction function.
-
-        Parameters
-        ----------
-        func : Callable
-            UMAP reduction function
-
-        Returns
-        -------
-        Callable
-            Wrapped function
-        """
-
-        def wrapper(
-            container: ScpContainer,
-            assay_name: str,
-            source_layer: str,
-            **kwargs,
-        ) -> ScpContainer:
-            """Wrapper for UMAP reduction."""
-            # UMAP typically uses 2 components for visualization
-            return func(
-                container=container,
-                assay_name=assay_name,
-                base_layer=source_layer,
-                new_assay_name="umap",
-                n_components=min(self._n_components, 2),  # UMAP usually 2D
-                n_neighbors=self._n_neighbors,
-                random_state=self._random_state,
-                **kwargs,
-            )
-
-        return wrapper
 
     def evaluate_method(
         self,
@@ -487,7 +423,7 @@ class DimReductionEvaluator(BaseEvaluator):
         assay_name: str = "proteins",
         source_layer: str = "raw",
         **kwargs,
-    ) -> tuple[ScpContainer | None, "EvaluationResult"]:
+    ) -> tuple[ScpContainer | None, EvaluationResult]:
         """Evaluate a single dimensionality reduction method.
 
         Overrides base method to handle assay-based results instead of layer-based.
@@ -575,7 +511,7 @@ class DimReductionEvaluator(BaseEvaluator):
         source_layer: str = "raw",
         keep_all: bool = False,
         **kwargs,
-    ) -> tuple[ScpContainer, "StageReport"]:
+    ) -> tuple[ScpContainer, StageReport]:
         """Run all dimensionality reduction methods and select the best one.
 
         Overrides base method to handle assay-based results.
@@ -605,7 +541,9 @@ class DimReductionEvaluator(BaseEvaluator):
         results: list = []
 
         # Store successful results: method_name -> (assay_name, assay_object)
-        successful_assays: dict[str, tuple[str, object]] = {}
+        from scptensor.core.structures import Assay
+
+        successful_assays: dict[str, tuple[str, Assay]] = {}
 
         # Evaluate each method
         for method_name, method_func in self.methods.items():
