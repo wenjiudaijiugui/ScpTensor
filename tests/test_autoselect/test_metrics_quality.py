@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from numpy.typing import NDArray
 
 from scptensor.autoselect.metrics.quality import (
     cv_stability,

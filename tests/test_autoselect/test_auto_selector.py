@@ -4,7 +4,6 @@ This module contains tests for the AutoSelector main class that orchestrates
 automatic method selection across multiple analysis stages.
 """
 
-
 import numpy as np
 import polars as pl
 import pytest
