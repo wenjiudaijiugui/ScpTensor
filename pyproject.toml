@@ -231,6 +231,8 @@ known-first-party = ["scptensor"]
 "scptensor/feature_selection/*.py" = ["N803", "N806"]
 # Differential expression: X, M are standard matrix names
 "scptensor/diff_expr/*.py" = ["N803", "N806", "F841", "B007", "SIM102"]
+# Autoselect metrics: X, X_before, X_after are standard matrix names in quality metrics
+"scptensor/autoselect/metrics/*.py" = ["N803", "N806"]
 # Dimension reduction: X, U, Vt, Xv are standard mathematical notation
 "scptensor/dim_reduction/*.py" = ["N803", "N806"]
 # Integration: X, Z, B_hat, etc. are standard mathematical notation
