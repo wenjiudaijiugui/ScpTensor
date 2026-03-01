@@ -149,7 +149,7 @@ class ImputationEvaluator(BaseEvaluator):
             return func(
                 container=container,
                 assay_name=assay_name,
-                base_layer=source_layer,
+                source_layer=source_layer,
                 new_layer_name=f"{source_layer}_{func.__name__}",
                 **kwargs,
             )
