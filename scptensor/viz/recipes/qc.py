@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy import sparse
 
 from scptensor.core.structures import ScpContainer
 from scptensor.viz.base.multi_panel import PanelLayout
@@ -82,7 +83,13 @@ def qc_completeness(
         raise ValueError(f"Layer '{layer}' not found in assay '{assay_name}'.")
 
     # Valid counts: M == 0
-    valid_counts = np.sum(matrix.M == 0, axis=1)
+    if matrix.M is not None:
+        M = matrix.M
+    elif sparse.issparse(matrix.X):
+        M = np.zeros(matrix.X.shape, dtype=np.int8)
+    else:
+        M = np.zeros_like(matrix.X, dtype=np.int8)
+    valid_counts = np.sum(M == 0, axis=1)
 
     # Get grouping labels
     if group_by not in container.obs.columns:
@@ -153,7 +160,12 @@ def qc_matrix_spy(
         _, ax = plt.subplots(figsize=(8, 6))
 
     # Binary spy: 0=Measured, 1=Missing
-    M = matrix.M if matrix.M is not None else np.zeros_like(matrix.X, dtype=np.int8)
+    if matrix.M is not None:
+        M = matrix.M
+    elif sparse.issparse(matrix.X):
+        M = np.zeros(matrix.X.shape, dtype=np.int8)
+    else:
+        M = np.zeros_like(matrix.X, dtype=np.int8)
     spy_data = (M > 0).astype(np.uint8)
 
     # SciencePlots-style colors

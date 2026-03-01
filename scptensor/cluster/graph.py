@@ -1,13 +1,14 @@
-"""Graph-based clustering algorithms.
+"""Graph-based clustering for single-cell proteomics data.
 
-This module provides community detection clustering methods that operate
-on k-nearest neighbor graphs, including the Leiden algorithm.
+This module provides Leiden clustering, aligned with scanpy's tl.leiden API.
+
+Reference:
+    Traag, V. A., Waltman, L., & van Eck, N. J. (2019).
+    From Louvain to Leiden: guaranteeing well-connected communities.
+    Scientific Reports, 9(1), 5233.
 """
 
 from __future__ import annotations
-
-import warnings
-from functools import wraps
 
 import numpy as np
 import polars as pl
@@ -16,55 +17,67 @@ from sklearn.neighbors import kneighbors_graph
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.core.structures import ScpContainer
 from scptensor.core.utils import requires_dependency
+from scptensor.cluster.base import (
+    _add_labels_to_obs,
+    _get_default_key,
+    _prepare_matrix,
+    _validate_assay_layer,
+)
 
 
-def _deprecated_cluster_alias(old_name: str, new_name: str):
-    """Create a deprecated alias wrapper for cluster functions.
+def cluster_leiden(
+    container: ScpContainer,
+    assay_name: str = "pca",
+    base_layer: str = "X",
+    n_neighbors: int = 15,
+    resolution: float = 1.0,
+    random_state: int = 42,
+    key_added: str | None = None,
+) -> ScpContainer:
+    """Leiden clustering.
+
+    Performs community detection using the Leiden algorithm on a
+    k-nearest neighbor graph.
 
     Parameters
     ----------
-    old_name : str
-        Original function name being deprecated.
-    new_name : str
-        New function name with cluster_ prefix.
+    container : ScpContainer
+        Input container.
+    assay_name : str, default="pca"
+        Name of assay to use.
+    base_layer : str, default="X"
+        Name of layer to use.
+    n_neighbors : int, default=15
+        Number of neighbors for kNN graph.
+    resolution : float, default=1.0
+        Resolution parameter (higher = more clusters).
+    random_state : int, default=42
+        Random seed.
+    key_added : str or None, optional
+        Column name for results. If None, auto-generated.
 
     Returns
     -------
-    callable
-        Decorator function that wraps the original with deprecation warning.
-    """
-
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            warnings.warn(
-                f"{old_name}() is deprecated and will be removed in v0.2.0. "
-                f"Use {new_name}() instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
-def _validate_graph_params(n_neighbors: int, resolution: float) -> None:
-    """Validate graph clustering parameters.
-
-    Parameters
-    ----------
-    n_neighbors : int
-        Number of neighbors must be positive.
-    resolution : float
-        Resolution parameter must be positive.
+    ScpContainer
+        Container with clustering results in obs.
 
     Raises
     ------
     ScpValueError
-        If parameters are invalid.
+        If n_neighbors or resolution invalid.
+    ImportError
+        If leidenalg/igraph not installed.
+
+    Examples
+    --------
+    >>> from scptensor import create_test_container
+    >>> from scptensor.cluster import cluster_leiden
+    >>> container = create_test_container()
+    >>> result = cluster_leiden(container, resolution=0.8)
+    >>> "leiden_r0.8" in result.obs.columns
+    True
     """
+    # Validate parameters
     if n_neighbors <= 0:
         raise ScpValueError(
             f"n_neighbors must be positive, got {n_neighbors}.",
@@ -78,106 +91,21 @@ def _validate_graph_params(n_neighbors: int, resolution: float) -> None:
             value=resolution,
         )
 
+    # Get and prepare data
+    assay, X = _validate_assay_layer(container, assay_name, base_layer)
+    X_dense = _prepare_matrix(X)
 
-def _get_input_matrix(
-    container: ScpContainer,
-    assay_name: str,
-    base_layer: str,
-) -> tuple[np.ndarray, str, str]:
-    """Extract and validate input matrix from container.
-
-    Parameters
-    ----------
-    container : ScpContainer
-        Input container.
-    assay_name : str
-        Name of the assay.
-    base_layer : str
-        Name of the layer.
-
-    Returns
-    -------
-    tuple
-        (X, assay_name, base_layer) - data matrix and validated names.
-
-    Raises
-    ------
-    AssayNotFoundError
-        If assay does not exist.
-    LayerNotFoundError
-        If layer does not exist.
-    """
-    if assay_name not in container.assays:
-        raise AssayNotFoundError(assay_name)
-
-    assay = container.assays[assay_name]
-    if base_layer not in assay.layers:
-        raise LayerNotFoundError(base_layer, assay_name)
-
-    return assay.layers[base_layer].X, assay_name, base_layer
-
-
-@requires_dependency("leidenalg", "pip install leidenalg")
-@requires_dependency("igraph", "pip install python-igraph")
-def cluster_leiden(
-    container: ScpContainer,
-    assay_name: str = "pca",
-    base_layer: str = "X",
-    n_neighbors: int = 15,
-    resolution: float = 1.0,
-    random_state: int = 42,
-) -> ScpContainer:
-    """Leiden clustering.
-
-    Performs community detection using the Leiden algorithm on a k-nearest
-    neighbor graph constructed from the specified assay layer.
-
-    Parameters
-    ----------
-    container : ScpContainer
-        Input container.
-    assay_name : str, default="pca"
-        Name of the assay to use.
-    base_layer : str, default="X"
-        Name of the layer to use as input.
-    n_neighbors : int, default=15
-        Number of neighbors for kNN graph construction.
-    resolution : float, default=1.0
-        Resolution parameter for Leiden (higher = more clusters).
-    random_state : int, default=42
-        Random seed for reproducibility.
-
-    Returns
-    -------
-    ScpContainer
-        New container with leiden clustering column added to obs.
-
-    Raises
-    ------
-    AssayNotFoundError
-        If the specified assay does not exist.
-    LayerNotFoundError
-        If the specified layer does not exist.
-    ScpValueError
-        If n_neighbors or resolution is not positive.
-
-    Examples
-    --------
-    >>> container = leiden(container, resolution=0.8)
-    >>> print(container.obs["leiden_r0.8"])
-    """
-    _validate_graph_params(n_neighbors, resolution)
-    X, _, _ = _get_input_matrix(container, assay_name, base_layer)
-
-    import igraph as ig
-    import leidenalg
-
+    # Build kNN graph
     adj_matrix = kneighbors_graph(
-        X,
+        X_dense,
         n_neighbors=n_neighbors,
         mode="connectivity",
         include_self=True,
     )
+
+    # Run Leiden
+    import igraph as ig
+    import leidenalg
 
     sources, targets = adj_matrix.nonzero()
     edges = list(zip(sources.tolist(), targets.tolist(), strict=False))
@@ -195,15 +123,14 @@ def cluster_leiden(
 
     labels = np.array(partition.membership)
 
-    col_name = f"leiden_r{resolution}"
-    new_obs = container.obs.with_columns(pl.Series(col_name, labels).cast(pl.String))
+    # Generate key
+    if key_added is None:
+        key_added = _get_default_key("leiden", {"resolution": resolution})
 
-    new_container = ScpContainer(
-        obs=new_obs,
-        assays=container.assays,
-        history=list(container.history),
-    )
+    # Add to obs
+    new_container = _add_labels_to_obs(container, labels, key_added)
 
+    # Log operation
     new_container.log_operation(
         action="cluster_leiden",
         params={
@@ -212,38 +139,10 @@ def cluster_leiden(
             "n_neighbors": n_neighbors,
             "resolution": resolution,
         },
-        description=f"Leiden clustering (k={n_neighbors}, res={resolution}) on {assay_name}/{base_layer}.",
+        description=f"Leiden (k={n_neighbors}, res={resolution}) on {assay_name}/{base_layer}.",
     )
 
     return new_container
 
 
-if __name__ == "__main__":
-    import numpy as np
-
-    from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
-
-    np.random.seed(42)
-    X_test = np.random.randn(100, 10)
-
-    obs_test = pl.DataFrame({"_index": [f"cell_{i}" for i in range(100)]})
-    var_test = pl.DataFrame({"_index": [f"PC_{i}" for i in range(10)]})
-
-    test_assay = Assay(
-        var=var_test,
-        layers={"X": ScpMatrix(X=X_test)},
-    )
-
-    test_container = ScpContainer(obs=obs_test, assays={"pca": test_assay})
-
-    try:
-        result = cluster_leiden(test_container, n_neighbors=10, resolution=0.5)
-        assert "leiden_r0.5" in result.obs.columns
-        assert len(result.history) == 1
-        print("All tests passed.")
-    except (ImportError, Exception):
-        print("Skipping test: leidenalg/igraph not installed.")
-
-
-# Deprecated alias for backward compatibility
-leiden = _deprecated_cluster_alias("leiden", "cluster_leiden")(cluster_leiden)
+__all__ = ["cluster_leiden"]

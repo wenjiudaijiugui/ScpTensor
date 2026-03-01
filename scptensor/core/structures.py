@@ -121,7 +121,7 @@ def _validate_mask_matrix(M: np.ndarray | sp.spmatrix, X_shape: tuple[int, int])
             )
 
 
-@dataclass
+@dataclass(slots=True)
 class ScpMatrix:
     """Minimal data unit: Physical storage layer for values and status.
 
@@ -808,6 +808,16 @@ class ScpContainer:
     # Internal helper methods
     # ==========================================================================
 
+    def _copy_matrix(
+        self, matrix: np.ndarray | sp.spmatrix, copy: bool
+    ) -> np.ndarray | sp.spmatrix:
+        """Copy matrix if requested, handling both dense and sparse."""
+        if not copy:
+            return matrix
+        if isinstance(matrix, np.ndarray) or sp.issparse(matrix):
+            return matrix.copy()
+        return matrix
+
     def _filter_assays_samples(self, indices: np.ndarray, copy: bool) -> dict[str, Assay]:
         """
         Filter all assays to keep only specified samples.
@@ -830,15 +840,12 @@ class ScpContainer:
             new_layers: dict[str, ScpMatrix] = {}
 
             for layer_name, matrix in assay.layers.items():
-                new_X = matrix.X[indices, :]
-                new_M = matrix.M[indices, :] if matrix.M is not None else None
-
-                if copy:
-                    if isinstance(new_X, np.ndarray) or sp.issparse(new_X):
-                        new_X = new_X.copy()
-                    if new_M is not None and (isinstance(new_M, np.ndarray) or sp.issparse(new_M)):
-                        new_M = new_M.copy()
-
+                new_X = self._copy_matrix(matrix.X[indices, :], copy)
+                new_M = (
+                    self._copy_matrix(matrix.M[indices, :], copy)
+                    if matrix.M is not None
+                    else None
+                )
                 new_layers[layer_name] = ScpMatrix(X=new_X, M=new_M)
 
             new_assays[assay_name] = Assay(
@@ -878,17 +885,12 @@ class ScpContainer:
                 new_layers: dict[str, ScpMatrix] = {}
 
                 for layer_name, matrix in current_assay.layers.items():
-                    new_X = matrix.X[:, indices]
-                    new_M = matrix.M[:, indices] if matrix.M is not None else None
-
-                    if copy:
-                        if isinstance(new_X, np.ndarray) or sp.issparse(new_X):
-                            new_X = new_X.copy()
-                        if new_M is not None and (
-                            isinstance(new_M, np.ndarray) or sp.issparse(new_M)
-                        ):
-                            new_M = new_M.copy()
-
+                    new_X = self._copy_matrix(matrix.X[:, indices], copy)
+                    new_M = (
+                        self._copy_matrix(matrix.M[:, indices], copy)
+                        if matrix.M is not None
+                        else None
+                    )
                     new_layers[layer_name] = ScpMatrix(X=new_X, M=new_M)
 
                 new_var = assay.var[indices, :].clone() if copy else assay.var[indices, :]

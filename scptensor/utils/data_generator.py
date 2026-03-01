@@ -611,34 +611,3 @@ class ScpDataGenerator:
         )
 
 
-if __name__ == "__main__":
-    import time
-
-    print("Initializing Generator...")
-    gen = ScpDataGenerator(
-        n_samples=500, n_features=2000, missing_rate=0.4, lod_ratio=0.6, n_batches=3
-    )
-
-    print("Generating Data...")
-    start = time.time()
-    container = gen.generate()
-    elapsed = time.time() - start
-
-    print(f"Generation took {elapsed:.4f} seconds.")
-    print(container)
-
-    matrix = container.assays["proteins"].layers["raw"]
-
-    n_total = matrix.X.size
-    if matrix.M is not None:
-        n_valid = np.sum(matrix.M == 0)
-        n_random = np.sum(matrix.M == 1)
-        n_lod = np.sum(matrix.M == 2)
-
-        print(f"Total Elements: {n_total}")
-        print(f"Valid: {n_valid} ({n_valid / n_total:.2%})")
-        print(f"MCAR (M=1): {n_random} ({n_random / n_total:.2%})")
-        print(f"MNAR (Probabilistic) (M=2): {n_lod} ({n_lod / n_total:.2%})")
-        print(f"Total Missing: {n_random + n_lod} ({(n_random + n_lod) / n_total:.2%})")
-    else:
-        print("No mask matrix generated (mask_kind='none')")

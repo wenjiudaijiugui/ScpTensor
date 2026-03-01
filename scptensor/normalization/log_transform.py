@@ -1,23 +1,44 @@
-"""Log transformation module for ScpTensor.
+"""Logarithmic transformation for ScpTensor.
 
-Provides log transformation with configurable base and offset for data preprocessing.
-This is a preprocessing step, not a normalization method.
-Optimized for both dense and sparse matrices.
+This module provides log transformation with configurable base and offset.
+This is a preprocessing step, not a normalization method per se.
+
+Mathematical Formulation:
+    The log transformation is defined as:
+
+    .. math::
+
+        X_{log} = \\frac{\\log(X + c)}{\\log(b)}
+
+    where:
+    - :math:`X` is the input data matrix
+    - :math:`b` is the logarithm base (default: 2.0)
+    - :math:`c` is the offset to handle zeros (default: 1.0)
+
+    For :math:`b = 2` (default), this computes :math:`\\log_2(X + c)`.
+    For :math:`b = e`, this computes the natural log :math:`\\ln(X + c)`.
+
+Reference:
+    Log transformation is a standard preprocessing technique in
+    proteomics to reduce skewness and make data more normally distributed.
 """
+
+import warnings
 
 import numpy as np
 
-from scptensor.core.exceptions import (
-    AssayNotFoundError,
-    LayerNotFoundError,
-    ScpValueError,
-)
+from scptensor.core.exceptions import ScpValueError
 from scptensor.core.sparse_utils import (
     ensure_sparse_format,
     is_sparse_matrix,
     sparse_safe_log1p_with_scale,
 )
-from scptensor.core.structures import ScpContainer, ScpMatrix
+from scptensor.core.structures import ScpContainer
+
+from .base import (
+    create_result_layer,
+    validate_assay_and_layer,
+)
 
 
 def log_transform(
@@ -29,47 +50,44 @@ def log_transform(
     offset: float = 1.0,
     use_jit: bool = True,
 ) -> ScpContainer:
-    """
-    Apply log transformation with configurable base and offset.
+    """Apply logarithmic transformation with configurable base and offset.
 
     This is a data preprocessing step that applies log transformation to reduce
-    skewness and make the data more normally distributed. It is NOT a normalization method.
-
-    Supports both dense and sparse matrices. For sparse matrices, the log
-    transformation is applied only to non-zero elements, preserving sparsity
-    for efficiency.
+    skewness and make the data more normally distributed. It is NOT a normalization
+    method in the strict sense, but a preprocessing transformation.
 
     Mathematical Formulation:
-        X_log = log_base(X + offset)
+        .. math::
 
-    Performance Characteristics:
-    - Small/Medium matrices (<500K non-zero elements): NumPy vectorized operations
-      are already optimal; JIT is not used.
-    - Large matrices (>500K non-zero elements): JIT may provide marginal benefits
-      for very large datasets. The threshold can be configured via the
-      SCPTENSOR_JIT_THRESHOLD environment variable.
+            X_{log} = \\frac{\\log(X + c)}{\\log(b)}
+
+        where :math:`b` is the base and :math:`c` is the offset.
+
+    Supports both dense and sparse matrices. For sparse matrices, the log
+    transformation is applied only to non-zero elements, preserving sparsity.
 
     Parameters
     ----------
     container : ScpContainer
-        The ScpContainer object.
+        Input container with data to transform.
     assay_name : str, default="protein"
         Name of the assay to transform.
     source_layer : str, default="raw"
         Name of the layer to use as input.
     new_layer_name : str, default="log"
-        Name of the new layer to create.
+        Name for the new transformed layer.
     base : float, default=2.0
-        Log base (e.g., 2.0 for log2, np.e for natural log).
+        Logarithm base (e.g., 2.0 for log2, np.e for natural log, 10.0 for log10).
     offset : float, default=1.0
-        Offset to add before logging to handle zeros.
+        Offset to add before logging to handle zeros and negative values.
+        Must be non-negative.
     use_jit : bool, default=True
-        Whether to use JIT acceleration for very large matrices.
+        Whether to use JIT acceleration for large sparse matrices.
 
     Returns
     -------
     ScpContainer
-        ScpContainer with added log-transformed layer.
+        Container with added log-transformed layer.
 
     Raises
     ------
@@ -84,7 +102,6 @@ def log_transform(
     --------
     >>> import polars as pl
     >>> from scptensor.core.structures import ScpContainer, Assay, ScpMatrix
-    >>> import numpy as np
     >>> container = ScpContainer(obs=pl.DataFrame({'_index': ['s1', 's2']}))
     >>> assay = Assay(var=pl.DataFrame({'_index': ['p1', 'p2']}))
     >>> assay.add_layer('raw', ScpMatrix(X=np.array([[1, 2], [3, 4]])))
@@ -92,6 +109,12 @@ def log_transform(
     >>> result = log_transform(container, base=2.0)
     >>> 'log' in result.assays['protein'].layers
     True
+
+    Notes
+    -----
+    - Log2 transformation is most common in proteomics (base=2.0).
+    - For counts data, consider using CPM normalization before log transform.
+    - Offset=1.0 is standard to handle zero values in intensity data.
     """
     # Validate parameters
     if base <= 0:
@@ -109,46 +132,51 @@ def log_transform(
             value=offset,
         )
 
-    # Validate assay exists
-    if assay_name not in container.assays:
-        available = ", ".join(f"'{k}'" for k in container.assays.keys())
-        raise AssayNotFoundError(
-            assay_name,
-            hint=f"Available assays: {available}. Use container.list_assays() to see all assays.",
-        )
+    # Validate and get assay/layer
+    assay, input_layer = validate_assay_and_layer(
+        container, assay_name, source_layer
+    )
 
-    assay = container.assays[assay_name]
-    if source_layer not in assay.layers:
-        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
-        raise LayerNotFoundError(
-            source_layer,
-            assay_name,
-            hint=f"Available layers in assay '{assay_name}': {available}. "
-            f"Use assay.list_layers() to see all layers.",
-        )
+    X = input_layer.X
 
-    input_matrix = assay.layers[source_layer]
-    X = input_matrix.X
-    M = input_matrix.M
+    # Apply log transformation: log_b(X + offset) = ln(X + offset) / ln(b)
+    log_scale = np.log(base)
 
-    # Perform log transformation: log_base(X + offset)
-    # Using change of base formula: log_b(x) = ln(x) / ln(b)
-    log_base = np.log(base)
+    # Check for negative values and clip to 0
+    if is_sparse_matrix(X):
+        # For sparse matrices, check only non-zero elements
+        if np.any(X.data < 0):
+            min_val = np.nanmin(X.data)
+            warnings.warn(
+                f"Input contains negative values (min={min_val:.4f}). "
+                f"These will be clipped to 0 before log transform.",
+                UserWarning,
+                stacklevel=2,
+            )
+            X = X.copy()
+            X.data = np.maximum(X.data, 0)
+    else:
+        # For dense matrices, check entire array
+        if np.any(X < 0):
+            min_val = np.nanmin(X)
+            warnings.warn(
+                f"Input contains negative values (min={min_val:.4f}). "
+                f"These will be clipped to 0 before log transform.",
+                UserWarning,
+                stacklevel=2,
+            )
+            X = np.maximum(X, 0)
 
     if is_sparse_matrix(X):
-        # For sparse matrices, use combined log+scale operation
-        # This reduces memory allocations and improves cache locality
-        X_log = sparse_safe_log1p_with_scale(X, offset=offset, scale=log_base, use_jit=use_jit)
-        # Ensure CSR format for efficiency
+        X_log = sparse_safe_log1p_with_scale(
+            X, offset=offset, scale=log_scale, use_jit=use_jit
+        )
         X_log = ensure_sparse_format(X_log, "csr")
     else:
-        # Dense matrix transformation
-        X_log = np.log(X + offset) / log_base
+        X_log = np.log(X + offset) / log_scale
 
-    # Create new matrix
-    new_matrix = ScpMatrix(X=X_log, M=M.copy() if M is not None else None)
-
-    # Add new layer to assay
+    # Create new layer
+    new_matrix = create_result_layer(X_log, input_layer)
     assay.add_layer(new_layer_name, new_matrix)
 
     # Log operation

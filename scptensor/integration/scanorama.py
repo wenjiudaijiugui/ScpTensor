@@ -1,28 +1,46 @@
-"""Scanorama integration wrapper for single-cell proteomics data.
+"""Scanorama integration for single-cell proteomics data.
 
-Reference
+Scanorama performs efficient batch correction and integration using mutual
+nearest neighbors alignment. It is particularly effective for large-scale
+datasets with many batches.
+
+Algorithm
 ---------
+
+Scanorama finds mutual nearest neighbors between batches and performs
+simultaneous alignment and correction:
+
+1. Finds mutual nearest neighbors between all batch pairs
+2. Performs mutual nearest neighbors alignment
+3. Corrects and integrates data in a single step
+
+The alignment parameter sigma controls the aggressiveness of correction.
+
+References
+----------
 Hie B, et al. Efficient integration of heterogeneous single-cell
 transcriptomics data using Scanorama. Nature Biotechnology (2019).
 """
 
 import numpy as np
-import polars as pl
-import scipy.sparse as sp
 
-from scptensor.core.exceptions import (
-    AssayNotFoundError,
-    LayerNotFoundError,
-    ScpValueError,
-)
+from scptensor.core.exceptions import ScpValueError
 from scptensor.core.sparse_utils import is_sparse_matrix
-from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
+from scptensor.core.structures import ScpMatrix
 from scptensor.core.utils import requires_dependency
+from scptensor.integration.base import (
+    prepare_integration_data,
+    preserve_sparsity,
+    register_integrate_method,
+    validate_batch_integration_params,
+    validate_layer_params,
+)
 
 
+@register_integrate_method("scanorama")
 @requires_dependency("scanorama", "pip install scanorama")
 def integrate_scanorama(
-    container: ScpContainer,
+    container,
     batch_key: str,
     assay_name: str = "protein",
     base_layer: str = "raw",
@@ -33,11 +51,8 @@ def integrate_scanorama(
     approx: bool = True,
     return_dimred: bool = False,
     dimred: int | None = None,
-) -> ScpContainer:
+) -> "ScpContainer":
     """Scanorama integration for batch effect correction.
-
-    This function wraps the scanorama package to perform efficient
-    batch correction and integration of single-cell data.
 
     Parameters
     ----------
@@ -45,108 +60,58 @@ def integrate_scanorama(
         Input container with multiple batches
     batch_key : str
         Column name in obs containing batch labels
-    assay_name : str, optional
-        Assay to use for integration (default: 'protein')
-    base_layer : str, optional
-        Layer to use as input (default: 'raw')
-    new_layer_name : str, optional
-        Name for the corrected layer (default: 'scanorama')
-    sigma : float, optional
-        Alignment parameter (default: 15.0)
-        Higher values = more aggressive alignment
-    alpha : float, optional
-        Mixture weight parameter (default: 0.1)
-        Controls balance between mutual nearest neighbors and similarity
-    knn : int, optional
-        Number of nearest neighbors (default: None, auto-detect)
-    approx : bool, optional
-        Use approximate nearest neighbors (default: True)
-        Much faster but slightly less accurate
-    return_dimred : bool, optional
-        Return dimensionality-reduced data (default: False)
-    dimred : int, optional
-        Number of dimensions for reduction (default: 100)
+    assay_name : str, default="protein"
+        Assay to use for integration
+    base_layer : str, default="raw"
+        Layer to use as input
+    new_layer_name : str | None, default="scanorama"
+        Name for the corrected layer
+    sigma : float, default=15.0
+        Alignment parameter (higher = more aggressive)
+    alpha : float, default=0.1
+        Mixture weight parameter
+    knn : int | None
+        Number of nearest neighbors (default: auto-detect)
+    approx : bool, default=True
+        Use approximate nearest neighbors
+    return_dimred : bool, default=False
+        Return dimensionality-reduced data
+    dimred : int | None
+        Number of dimensions for reduction
 
     Returns
     -------
     ScpContainer
         Container with integrated and corrected data
 
-    Raises
-    ------
-    AssayNotFoundError
-        If the specified assay does not exist
-    LayerNotFoundError
-        If the specified layer does not exist in the assay
-    ScpValueError
-        If batch_key not found in obs or parameters are invalid
-    MissingDependencyError
-        If scanorama package is not installed
-
-    Notes
-    -----
-    Scanorama algorithm:
-        1. Finds mutual nearest neighbors between batches
-        2. Performs mutual nearest neighbors alignment
-        3. Corrects and integrates data in a single step
-
-    Scanorama is particularly effective for:
-        - Large-scale datasets (>100k cells)
-        - Integrating many batches simultaneously
-        - Preserving biological variation
-
     Examples
     --------
-    >>> from scptensor.integration import integrate_scanorama
     >>> container = integrate_scanorama(container, batch_key='batch')
     >>> container = integrate_scanorama(container, batch_key='batch', sigma=20.0)
     """
     import scanorama
 
+    from scptensor.core.structures import ScpContainer
+
     # Validate parameters
     if sigma <= 0:
         raise ScpValueError(f"sigma must be positive, got {sigma}.", parameter="sigma", value=sigma)
     if not (0 < alpha < 1):
-        raise ScpValueError(
-            f"alpha must be in (0, 1), got {alpha}.", parameter="alpha", value=alpha
-        )
+        raise ScpValueError(f"alpha must be in (0, 1), got {alpha}.", parameter="alpha", value=alpha)
     if knn is not None and knn <= 0:
         raise ScpValueError(f"knn must be positive or None, got {knn}.", parameter="knn", value=knn)
 
     # Validate assay and layer
-    if assay_name not in container.assays:
-        raise AssayNotFoundError(assay_name)
-
-    assay = container.assays[assay_name]
-    if base_layer not in assay.layers:
-        raise LayerNotFoundError(base_layer, assay_name)
-
-    obs_df = container.obs
-    if batch_key not in obs_df.columns:
-        raise ScpValueError(
-            f"Batch key '{batch_key}' not found in obs. Available columns: {list(obs_df.columns)}",
-            parameter="batch_key",
-            value=batch_key,
-        )
+    assay, layer = validate_layer_params(container, assay_name, base_layer)
+    _, batches, unique_batches, _ = validate_batch_integration_params(
+        container, batch_key, assay_name, min_batches=2
+    )
 
     # Get and prepare data
-    X = assay.layers[base_layer].X.copy()
-    M = assay.layers[base_layer].M
+    X = layer.X.copy()
+    M = layer.M
     input_was_sparse = is_sparse_matrix(X)
-
-    # Convert to dense and impute NaNs
-    X = _prepare_scanorama_data(X)
-
-    # Get batch information
-    batches = obs_df[batch_key].to_numpy()
-    unique_batches = np.unique(batches)
-
-    if len(unique_batches) < 2:
-        raise ScpValueError(
-            "Scanorama requires at least 2 batches.",
-            parameter="batch_key",
-            value=batch_key,
-        )
+    X = prepare_integration_data(X)
 
     # Prepare data list for scanorama
     datasets_list = [X[batches == b] for b in unique_batches]
@@ -170,10 +135,8 @@ def integrate_scanorama(
     X_corrected = np.vstack(integrated)
 
     # Preserve sparsity if appropriate
-    if input_was_sparse and not return_dimred:
-        sparsity_ratio = 1.0 - (np.count_nonzero(X_corrected) / X_corrected.size)
-        if sparsity_ratio > 0.5:
-            X_corrected = sp.csr_matrix(X_corrected)
+    if not return_dimred:
+        X_corrected = preserve_sparsity(X_corrected, input_was_sparse)
 
     # Create new layer
     new_matrix = ScpMatrix(
@@ -201,112 +164,4 @@ def integrate_scanorama(
     return container
 
 
-def _prepare_scanorama_data(X: np.ndarray | sp.spmatrix) -> np.ndarray:
-    """Convert sparse to dense and impute NaN values."""
-    if sp.issparse(X):
-        X = X.toarray()  # type: ignore[union-attr]
-    X = np.asarray(X)
-
-    if np.isnan(X).any():
-        col_mean = np.nan_to_num(np.nanmean(X, axis=0), nan=0.0)
-        nan_idx = np.where(np.isnan(X))
-        X[nan_idx] = np.take(col_mean, nan_idx[1])
-
-    return X
-
-
 __all__ = ["integrate_scanorama"]
-
-
-if __name__ == "__main__":
-    # Test: Basic functionality
-    print("Testing Scanorama integration wrapper...")
-
-    np.random.seed(42)
-    n_samples_per_batch = 50
-    n_features = 30
-
-    # Generate data with batch effects
-    X_batch1 = np.random.randn(n_samples_per_batch, n_features) * 0.5
-    X_batch2 = np.random.randn(n_samples_per_batch, n_features) * 0.5 + 2.0
-    X = np.vstack([X_batch1, X_batch2])
-
-    # Create container
-    var = pl.DataFrame({"_index": [f"prot_{i}" for i in range(n_features)]})
-    obs = pl.DataFrame(
-        {
-            "_index": [f"cell_{i}" for i in range(2 * n_samples_per_batch)],
-            "batch": ["batch1"] * n_samples_per_batch + ["batch2"] * n_samples_per_batch,
-        }
-    )
-
-    assay = Assay(var=var)
-    assay.add_layer("raw", ScpMatrix(X=X, M=None))
-    container = ScpContainer(obs=obs, assays={"protein": assay})
-
-    try:
-        result = integrate_scanorama(
-            container,
-            batch_key="batch",
-            assay_name="protein",
-            base_layer="raw",
-            sigma=15.0,
-            alpha=0.1,
-        )
-
-        assert "scanorama" in result.assays["protein"].layers
-        X_corrected = result.assays["protein"].layers["scanorama"].X
-
-        mean1 = np.mean(X_corrected[:n_samples_per_batch], axis=0)
-        mean2 = np.mean(X_corrected[n_samples_per_batch:], axis=0)
-        batch_diff = np.linalg.norm(mean1 - mean2)
-        original_diff = np.linalg.norm(np.mean(X_batch1, axis=0) - np.mean(X_batch2, axis=0))
-
-        print(f"  Original batch difference: {original_diff:.3f}")
-        print(f"  Corrected batch difference: {batch_diff:.3f}")
-        print(f"  Reduction ratio: {batch_diff / original_diff:.3f}")
-        print(f"  Shape: {X_corrected.shape}")
-
-        # Test with sparse input
-        print("  Testing with sparse input...")
-        X_sparse = sp.csr_matrix(X)
-        assay2 = Assay(var=var)
-        assay2.add_layer("raw", ScpMatrix(X=X_sparse, M=None))
-        container2 = ScpContainer(obs=obs, assays={"protein": assay2})
-
-        result2 = integrate_scanorama(
-            container2,
-            batch_key="batch",
-            assay_name="protein",
-            base_layer="raw",
-            sigma=15.0,
-            alpha=0.1,
-        )
-
-        assert "scanorama" in result2.assays["protein"].layers
-        print("  Sparse input test passed")
-
-        # Test with dimensionality reduction
-        print("  Testing with dimensionality reduction...")
-        assay3 = Assay(var=var)
-        assay3.add_layer("raw", ScpMatrix(X=X.copy(), M=None))
-        container3 = ScpContainer(obs=obs, assays={"protein": assay3})
-
-        result3 = integrate_scanorama(
-            container3,
-            batch_key="batch",
-            assay_name="protein",
-            base_layer="raw",
-            sigma=15.0,
-            alpha=0.1,
-            return_dimred=True,
-            dimred=15,
-        )
-
-        assert "scanorama" in result3.assays["protein"].layers
-        X_dimred = result3.assays["protein"].layers["scanorama"].X
-        print(f"  Dimension-reduced shape: {X_dimred.shape}")
-        print("  All tests passed")
-    except ImportError:
-        print("  scanorama not installed, skipping test")
-        print("  Install with: pip install scanorama")
