@@ -16,7 +16,6 @@ from scptensor.qc._utils import (
     compute_detection_stats,
     log_filtering_operation,
     validate_assay,
-    validate_column_exists,
     validate_layer,
     validate_threshold,
 )
@@ -73,12 +72,14 @@ def calculate_feature_qc_metrics(
     cv = compute_cv(X, axis=0)
 
     # Create new metrics DataFrame
-    new_metrics = pl.DataFrame({
-        "missing_rate": missing_rate,
-        "detection_rate": detection_rate,
-        "mean_expression": means,
-        "cv": cv,
-    })
+    new_metrics = pl.DataFrame(
+        {
+            "missing_rate": missing_rate,
+            "detection_rate": detection_rate,
+            "mean_expression": means,
+            "cv": cv,
+        }
+    )
 
     # Merge with existing var
     current_var = assay.var
@@ -90,8 +91,7 @@ def calculate_feature_qc_metrics(
 
     # Create new container
     new_assays = {
-        name: new_assay if name == assay_name else a
-        for name, a in container.assays.items()
+        name: new_assay if name == assay_name else a for name, a in container.assays.items()
     }
 
     new_container = ScpContainer(
@@ -237,6 +237,7 @@ def filter_features_by_cv(
     """
     if max_cv <= 0:
         from scptensor.core.exceptions import ScpValueError
+
         raise ScpValueError(
             f"max_cv must be positive, got {max_cv}.",
             parameter="max_cv",

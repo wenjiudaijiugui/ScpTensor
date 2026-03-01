@@ -24,6 +24,7 @@ __all__ = [
     "save_diann",
 ]
 
+
 def load_diann(
     path: str | Path,
     *,
@@ -165,6 +166,7 @@ def save_diann(
     """
     raise NotImplementedError("DIA-NN export not yet implemented")
 
+
 def _load_diann_parquet(path: Path, assay_name: str, quantity_column: str = "auto") -> ScpContainer:
     """Internal handler for report.parquet."""
     lf = pl.scan_parquet(path)
@@ -188,7 +190,13 @@ def _load_diann_parquet(path: Path, assay_name: str, quantity_column: str = "aut
 
     filtered_lf = lf.filter((pl.col("Q.Value") <= 0.01) & (pl.col("PG.Q.Value") <= 0.01))
 
-    meta_cols = ["Protein.Group", "Protein.Ids", "Protein.Names", "Genes", "First.Protein.Description"]
+    meta_cols = [
+        "Protein.Group",
+        "Protein.Ids",
+        "Protein.Names",
+        "Genes",
+        "First.Protein.Description",
+    ]
     available_meta = [c for c in meta_cols if c in schema_names]
 
     cols_to_fetch = list(required_cols.union(set(available_meta)))
@@ -228,9 +236,7 @@ def _load_diann_parquet(path: Path, assay_name: str, quantity_column: str = "aut
 
 
 def _load_diann_long_format(
-    path: Path,
-    assay_name: str,
-    quantity_column: str = "auto"
+    path: Path, assay_name: str, quantity_column: str = "auto"
 ) -> ScpContainer:
     """Internal handler for long format TSV (main report)."""
     df = pl.read_csv(
@@ -259,9 +265,7 @@ def _load_diann_long_format(
     for col in [quantity_column, "Q.Value", "PG.Q.Value"]:
         df = df.with_columns(pl.col(col).cast(pl.Float64, strict=False))
 
-    df_filtered = df.filter(
-        (pl.col("Q.Value") <= 0.01) & (pl.col("PG.Q.Value") <= 0.01)
-    )
+    df_filtered = df.filter((pl.col("Q.Value") <= 0.01) & (pl.col("PG.Q.Value") <= 0.01))
 
     if df_filtered.is_empty():
         raise ValidationError("No data remains after FDR filtering.")
@@ -272,7 +276,13 @@ def _load_diann_long_format(
         index="Protein.Group", on="Run", values=quantity_column, aggregate_function="max"
     ).fill_null(0.0)
 
-    meta_cols_set = {"Protein.Group", "Protein.Ids", "Protein.Names", "Genes", "First.Protein.Description"}
+    meta_cols_set = {
+        "Protein.Group",
+        "Protein.Ids",
+        "Protein.Names",
+        "Genes",
+        "First.Protein.Description",
+    }
     found_meta_cols = [c for c in df_filtered.columns if c in meta_cols_set]
     var_df = df_filtered.select(found_meta_cols).unique(subset=["Protein.Group"])
 
@@ -298,7 +308,13 @@ def _load_diann_matrix_format(path: Path, assay_name: str) -> ScpContainer:
     if df.is_empty():
         raise ValidationError(f"Empty file: {path}")
 
-    meta_cols_set = {"Protein.Group", "Protein.Ids", "Protein.Names", "Genes", "First.Protein.Description"}
+    meta_cols_set = {
+        "Protein.Group",
+        "Protein.Ids",
+        "Protein.Names",
+        "Genes",
+        "First.Protein.Description",
+    }
     found_meta_cols = [c for c in df.columns if c in meta_cols_set]
 
     if "Protein.Group" not in found_meta_cols:
@@ -348,7 +364,13 @@ def _read_diann_matrix_format(path: Path, assay_name: str) -> ScpContainer:
     if df.is_empty():
         raise ValidationError(f"Empty file: {path}")
 
-    meta_cols_set = {"Protein.Group", "Protein.Ids", "Protein.Names", "Genes", "First.Protein.Description"}
+    meta_cols_set = {
+        "Protein.Group",
+        "Protein.Ids",
+        "Protein.Names",
+        "Genes",
+        "First.Protein.Description",
+    }
     found_meta_cols = [c for c in df.columns if c in meta_cols_set]
 
     if "Protein.Group" not in found_meta_cols:

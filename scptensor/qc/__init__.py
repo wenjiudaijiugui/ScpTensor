@@ -13,9 +13,9 @@ from scptensor.qc.qc_feature import (
     filter_features_by_missingness,
 )
 from scptensor.qc.qc_psm import (
+    DEFAULT_CONTAMINANT_PATTERNS,
     compute_median_cv,
     compute_sample_carrier_ratio,
-    DEFAULT_CONTAMINANT_PATTERNS,
     divide_by_reference,
     filter_contaminants,
     filter_psms_by_pif,

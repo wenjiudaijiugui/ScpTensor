@@ -40,10 +40,13 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
-from scptensor.core.exceptions import LayerNotFoundError
 from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import ScpMatrix
-from scptensor.integration.base import register_integrate_method, validate_batch_integration_params, validate_layer_params
+from scptensor.integration.base import (
+    register_integrate_method,
+    validate_batch_integration_params,
+    validate_layer_params,
+)
 
 
 @register_integrate_method("combat")
@@ -93,8 +96,6 @@ def integrate_combat(
     >>> container = integrate_combat(container, batch_key='batch')
     >>> container = integrate_combat(container, batch_key='batch', covariates=['condition'])
     """
-    from scptensor.core.structures import ScpContainer
-    from scptensor.core.exceptions import ScpValueError
 
     # Validate parameters
     assay, layer = validate_layer_params(container, assay_name, base_layer)
@@ -116,7 +117,9 @@ def integrate_combat(
     n_sample = dat.shape[1]
 
     # Build design matrices
-    design_matrix, n_batch = _build_design_matrices(obs_df, batches, unique_batches, covariates, n_sample)
+    design_matrix, n_batch = _build_design_matrices(
+        obs_df, batches, unique_batches, covariates, n_sample
+    )
 
     # Check for rank deficiency
     rank_design = np.linalg.matrix_rank(design_matrix)
@@ -166,10 +169,9 @@ def _build_design_matrices(
     n_batch = len(batch_items)
 
     # Create one-hot encoding for batches
-    batch_dummies = pl.DataFrame({
-        f"batch_{i}": (batches == b).astype(int)
-        for i, b in enumerate(batch_items)
-    })
+    batch_dummies = pl.DataFrame(
+        {f"batch_{i}": (batches == b).astype(int) for i, b in enumerate(batch_items)}
+    )
 
     # Build covariate design matrix
     mod = _build_covariate_design(obs_df, covariates, n_sample)
@@ -255,8 +257,7 @@ def _build_covariate_design(
 
     covar_df = obs_df.select(covariates)
     cat_cols = [
-        c for c, t in covar_df.schema.items()
-        if t in (pl.String, pl.Categorical, pl.Object)
+        c for c, t in covar_df.schema.items() if t in (pl.String, pl.Categorical, pl.Object)
     ]
 
     mod = covar_df.to_dummies(columns=cat_cols, drop_first=True) if cat_cols else covar_df

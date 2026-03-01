@@ -609,5 +609,3 @@ class ScpDataGenerator:
             description="Generated synthetic single-cell proteomics data with "
             "biological correlations, heteroscedastic noise, groups, and batch effects.",
         )
-
-

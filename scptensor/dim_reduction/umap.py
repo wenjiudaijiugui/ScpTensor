@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING
 import numpy as np
 import polars as pl
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.dim_reduction.base import (
     _check_no_nan_inf,

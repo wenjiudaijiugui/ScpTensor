@@ -14,15 +14,14 @@ Unified interface:
 """
 
 # Import individual methods
+# Import unified interface
+from .base import impute, list_impute_methods
 from .bpca import impute_bpca
 from .knn import impute_knn
 from .lls import impute_lls
 from .minprob import impute_minprob
 from .missforest import impute_mf
 from .qrilc import impute_qrilc
-
-# Import unified interface
-from .base import impute, list_impute_methods
 
 __all__ = [
     # Individual methods

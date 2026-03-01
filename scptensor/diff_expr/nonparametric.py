@@ -21,11 +21,8 @@ from scptensor.core.exceptions import (
     ValidationError,
 )
 from scptensor.core.structures import ScpContainer
-
 from scptensor.diff_expr._utils import (
     extract_group_indices_from_obs,
-    handle_mask_values,
-    isna,
     log2_fold_change,
     rank_biserial_correlation,
     validate_pairing,

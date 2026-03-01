@@ -8,7 +8,6 @@ train on observed values and predict missing values.
 import numpy as np
 import scipy.sparse as sp
 from sklearn.ensemble import RandomForestRegressor
-
 from sklearn.experimental import enable_iterative_imputer  # noqa: F401
 from sklearn.impute import IterativeImputer
 
@@ -20,7 +19,6 @@ from scptensor.core.exceptions import (
 from scptensor.core.jit_ops import impute_missing_with_col_means_jit
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
-
 
 # =============================================================================
 # Core MissForest algorithm (pure function for registry)
@@ -261,7 +259,7 @@ def impute_mf(
 
 
 # Register with base interface
-from scptensor.impute.base import register_impute_method, ImputeMethod
+from scptensor.impute.base import ImputeMethod, register_impute_method
 
 register_impute_method(
     ImputeMethod(

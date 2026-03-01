@@ -91,13 +91,13 @@ def integrate_scanorama(
     """
     import scanorama
 
-    from scptensor.core.structures import ScpContainer
-
     # Validate parameters
     if sigma <= 0:
         raise ScpValueError(f"sigma must be positive, got {sigma}.", parameter="sigma", value=sigma)
     if not (0 < alpha < 1):
-        raise ScpValueError(f"alpha must be in (0, 1), got {alpha}.", parameter="alpha", value=alpha)
+        raise ScpValueError(
+            f"alpha must be in (0, 1), got {alpha}.", parameter="alpha", value=alpha
+        )
     if knn is not None and knn <= 0:
         raise ScpValueError(f"knn must be positive or None, got {knn}.", parameter="knn", value=knn)
 

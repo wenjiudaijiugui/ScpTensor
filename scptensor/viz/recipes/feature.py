@@ -223,5 +223,3 @@ def dotplot(
         plt.show()
 
     return ax
-
-

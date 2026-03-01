@@ -31,9 +31,9 @@ from scptensor.core.structures import ScpContainer
 
 from .base import (
     create_result_layer,
+    get_layer_name,
     log_operation,
     validate_assay_and_layer,
-    get_layer_name,
 )
 
 
@@ -122,9 +122,7 @@ def norm_median(
     - The median is less affected by extreme values than the mean.
     """
     # Validate and get objects
-    assay, input_layer = validate_assay_and_layer(
-        container, assay_name, source_layer
-    )
+    assay, input_layer = validate_assay_and_layer(container, assay_name, source_layer)
 
     # Apply median normalization
     X_centered = input_layer.X - np.nanmedian(input_layer.X, axis=1, keepdims=True)

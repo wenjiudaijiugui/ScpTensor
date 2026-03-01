@@ -17,7 +17,6 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.dim_reduction.base import (
     _check_no_nan_inf,
@@ -115,8 +114,7 @@ def reduce_pca(
 
     if n_components > min_dim:
         raise ValueError(
-            f"n_components ({n_components}) cannot exceed "
-            f"min(n_samples, n_features) ({min_dim})."
+            f"n_components ({n_components}) cannot exceed min(n_samples, n_features) ({min_dim})."
         )
 
     # Solver selection
@@ -142,9 +140,7 @@ def reduce_pca(
         std = None
 
     # Compute SVD
-    scores, loadings, eigenvalues = _compute_svd(
-        X_dense, n_components, svd_solver, random_state
-    )
+    scores, loadings, eigenvalues = _compute_svd(X_dense, n_components, svd_solver, random_state)
 
     # Compute explained variance
     total_variance = _compute_total_variance(X_dense, center)
@@ -177,8 +173,7 @@ def reduce_pca(
     # Store loadings in original assay
     if len(container.history) > 0 or True:  # Always update loadings
         loading_cols = {
-            f"{new_assay_name}_PC{i + 1}_loading": loadings[:, i]
-            for i in range(n_components)
+            f"{new_assay_name}_PC{i + 1}_loading": loadings[:, i] for i in range(n_components)
         }
         loadings_df = pl.DataFrame(loading_cols)
 

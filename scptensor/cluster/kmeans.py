@@ -11,19 +11,17 @@ from __future__ import annotations
 
 from typing import Literal
 
-import numpy as np
-import polars as pl
 from sklearn.cluster import KMeans as SKLearnKMeans
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
-from scptensor.core.jit_ops import NUMBA_AVAILABLE, kmeans_core_numba, kmeans_plusplus_init_numba
-from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.cluster.base import (
     _add_labels_to_obs,
     _get_default_key,
     _prepare_matrix,
     _validate_assay_layer,
 )
+from scptensor.core.exceptions import ScpValueError
+from scptensor.core.jit_ops import NUMBA_AVAILABLE, kmeans_core_numba, kmeans_plusplus_init_numba
+from scptensor.core.structures import ScpContainer
 
 
 def cluster_kmeans(

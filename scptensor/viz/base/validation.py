@@ -152,5 +152,3 @@ def validate_plot_data(X: np.ndarray, n_min: int = 1) -> None:  # noqa: N803
         raise VisualizationError(
             f"Insufficient data for plotting: {X.size} elements < {n_min} required"
         )
-
-

@@ -20,9 +20,8 @@ from scptensor.core.exceptions import (
     LayerNotFoundError,
     ScpValueError,
 )
-from scptensor.core.structures import MaskCode, ScpContainer, ScpMatrix
+from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
-
 
 # =============================================================================
 # Internal utility functions
@@ -369,7 +368,7 @@ def impute_bpca(
 
 
 # Register with base interface
-from scptensor.impute.base import register_impute_method, ImputeMethod
+from scptensor.impute.base import ImputeMethod, register_impute_method
 
 register_impute_method(
     ImputeMethod(

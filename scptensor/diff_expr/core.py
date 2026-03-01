@@ -926,12 +926,14 @@ def check_homoscedasticity(
 
     p_values_adj = adjust_fdr(p_values, method="bh")
 
-    return pl.DataFrame({
-        "feature_id": assay.var[assay.feature_id_col].to_numpy(),
-        "statistic": test_stats,
-        "p_value": p_values,
-        "p_value_adj": p_values_adj,
-    }).sort("p_value")
+    return pl.DataFrame(
+        {
+            "feature_id": assay.var[assay.feature_id_col].to_numpy(),
+            "statistic": test_stats,
+            "p_value": p_values,
+            "p_value_adj": p_values_adj,
+        }
+    ).sort("p_value")
 
 
 def diff_expr_permutation_test(
@@ -1031,8 +1033,8 @@ def diff_expr_permutation_test(
         extreme_count = 0
         for _ in range(n_permutations):
             permuted = rng.permutation(combined)
-            perm_g1 = permuted[:len(g1_vals)]
-            perm_g2 = permuted[len(g1_vals):]
+            perm_g1 = permuted[: len(g1_vals)]
+            perm_g2 = permuted[len(g1_vals) :]
 
             perm_diff = np.median(perm_g1) - np.median(perm_g2)
 
