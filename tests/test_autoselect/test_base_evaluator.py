@@ -5,14 +5,13 @@ This module contains tests for the BaseEvaluator abstract class and its
 concrete implementations.
 """
 
-import time
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 import polars as pl
 import pytest
 
-from scptensor.autoselect import EvaluationResult, StageReport
+from scptensor.autoselect import StageReport
 from scptensor.autoselect.evaluators.base import BaseEvaluator
 from scptensor.core import Assay, ScpContainer, ScpMatrix
 
@@ -100,15 +99,19 @@ def simple_container() -> ScpContainer:
     rng = np.random.default_rng(42)
     X = rng.random((5, 3))
 
-    obs = pl.DataFrame({
-        "_index": ["S1", "S2", "S3", "S4", "S5"],
-        "batch": ["B1", "B1", "B2", "B2", "B1"],
-    })
+    obs = pl.DataFrame(
+        {
+            "_index": ["S1", "S2", "S3", "S4", "S5"],
+            "batch": ["B1", "B1", "B2", "B2", "B1"],
+        }
+    )
 
-    var = pl.DataFrame({
-        "_index": ["P1", "P2", "P3"],
-        "protein": ["A", "B", "C"],
-    })
+    var = pl.DataFrame(
+        {
+            "_index": ["P1", "P2", "P3"],
+            "protein": ["A", "B", "C"],
+        }
+    )
 
     matrix = ScpMatrix(X=X)
     assay = Assay(var=var)

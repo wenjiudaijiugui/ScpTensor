@@ -35,10 +35,16 @@ Example
 
 from __future__ import annotations
 
-from scptensor.autoselect.core import AutoSelectReport, EvaluationResult, StageReport
+from scptensor.autoselect.core import (
+    AutoSelector,
+    AutoSelectReport,
+    EvaluationResult,
+    StageReport,
+)
 
 __all__ = [
     "EvaluationResult",
     "StageReport",
     "AutoSelectReport",
+    "AutoSelector",
 ]
