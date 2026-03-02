@@ -213,6 +213,8 @@ known-first-party = ["scptensor"]
 
 # Documentation notebooks in docs/notebooks/: Allow relaxed naming and module level imports
 "docs/notebooks/**/*.ipynb" = ["N", "E402", "F811"]
+# Tutorial notebooks in docs/: Allow undefined names across cells (F821)
+"docs/*.ipynb" = ["F821"]
 
 # Benchmark files: X and M are standard names for data/mask matrices in scientific computing
 "scptensor/benchmark/*.py" = ["N803", "N806"]
