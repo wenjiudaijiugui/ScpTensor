@@ -61,45 +61,48 @@ class ImputationEvaluator(BaseEvaluator):
         methods: dict[str, Callable] = {}
 
         # Core imputation methods (always available)
+        # Use "clean" layer_namer to remove "impute_" prefix from function names
+        # This ensures layer names match what evaluate_method expects:
+        # {source_layer}_{method_name} instead of {source_layer}_{func.__name__}
         try:
             from scptensor.impute import impute_knn
 
-            methods["knn"] = create_wrapper(impute_knn, layer_namer="auto")
+            methods["knn"] = create_wrapper(impute_knn, layer_namer="clean")
         except ImportError:
             pass
 
         try:
             from scptensor.impute import impute_bpca
 
-            methods["bpca"] = create_wrapper(impute_bpca, layer_namer="auto")
+            methods["bpca"] = create_wrapper(impute_bpca, layer_namer="clean")
         except ImportError:
             pass
 
         try:
             from scptensor.impute import impute_mf
 
-            methods["mf"] = create_wrapper(impute_mf, layer_namer="auto")
+            methods["mf"] = create_wrapper(impute_mf, layer_namer="clean")
         except ImportError:
             pass
 
         try:
             from scptensor.impute import impute_minprob
 
-            methods["minprob"] = create_wrapper(impute_minprob, layer_namer="auto")
+            methods["minprob"] = create_wrapper(impute_minprob, layer_namer="clean")
         except ImportError:
             pass
 
         try:
             from scptensor.impute import impute_qrilc
 
-            methods["qrilc"] = create_wrapper(impute_qrilc, layer_namer="auto")
+            methods["qrilc"] = create_wrapper(impute_qrilc, layer_namer="clean")
         except ImportError:
             pass
 
         try:
             from scptensor.impute import impute_lls
 
-            methods["lls"] = create_wrapper(impute_lls, layer_namer="auto")
+            methods["lls"] = create_wrapper(impute_lls, layer_namer="clean")
         except ImportError:
             pass
 
