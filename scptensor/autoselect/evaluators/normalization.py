@@ -59,14 +59,17 @@ class NormalizationEvaluator(BaseEvaluator):
         Returns
         -------
         dict[str, Callable]
-            Dictionary mapping method names to their implementation functions
+            Dictionary mapping method names to their implementation functions.
+            Only includes true normalization methods (not log_transform, which is
+            a preprocessing step).
         """
         from scptensor.autoselect.evaluators.base import create_wrapper
-        from scptensor.normalization import log_transform, norm_median
+        from scptensor.normalization import norm_mean, norm_median, norm_quantile
 
         return {
-            "log_transform": create_wrapper(log_transform, layer_namer="auto"),
+            "norm_mean": create_wrapper(norm_mean, layer_namer="auto"),
             "norm_median": create_wrapper(norm_median, layer_namer="auto"),
+            "norm_quantile": create_wrapper(norm_quantile, layer_namer="auto"),
         }
 
     @property

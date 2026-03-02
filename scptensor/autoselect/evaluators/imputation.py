@@ -41,6 +41,71 @@ class ImputationEvaluator(BaseEvaluator):
     ... )
     """
 
+    def __init__(self) -> None:
+        """Initialize the imputation evaluator."""
+        self._available_methods: dict[str, Callable] | None = None
+
+    def _get_available_methods(self) -> dict[str, Callable]:
+        """Get available imputation methods.
+
+        Returns
+        -------
+        dict[str, Callable]
+            Dictionary of available methods
+        """
+        from scptensor.autoselect.evaluators.base import create_wrapper
+
+        if self._available_methods is not None:
+            return self._available_methods
+
+        methods: dict[str, Callable] = {}
+
+        # Core imputation methods (always available)
+        try:
+            from scptensor.impute import impute_knn
+
+            methods["knn"] = create_wrapper(impute_knn, layer_namer="auto")
+        except ImportError:
+            pass
+
+        try:
+            from scptensor.impute import impute_bpca
+
+            methods["bpca"] = create_wrapper(impute_bpca, layer_namer="auto")
+        except ImportError:
+            pass
+
+        try:
+            from scptensor.impute import impute_mf
+
+            methods["mf"] = create_wrapper(impute_mf, layer_namer="auto")
+        except ImportError:
+            pass
+
+        try:
+            from scptensor.impute import impute_minprob
+
+            methods["minprob"] = create_wrapper(impute_minprob, layer_namer="auto")
+        except ImportError:
+            pass
+
+        try:
+            from scptensor.impute import impute_qrilc
+
+            methods["qrilc"] = create_wrapper(impute_qrilc, layer_namer="auto")
+        except ImportError:
+            pass
+
+        try:
+            from scptensor.impute import impute_lls
+
+            methods["lls"] = create_wrapper(impute_lls, layer_namer="auto")
+        except ImportError:
+            pass
+
+        self._available_methods = methods
+        return methods
+
     @property
     def stage_name(self) -> str:
         """Return the name of the analysis stage.
@@ -59,14 +124,10 @@ class ImputationEvaluator(BaseEvaluator):
         Returns
         -------
         dict[str, Callable]
-            Dictionary mapping method names to their implementation functions
+            Dictionary mapping method names to their implementation functions.
+            Only methods with installed dependencies are included.
         """
-        from scptensor.autoselect.evaluators.base import create_wrapper
-        from scptensor.impute import impute_knn
-
-        return {
-            "impute_knn": create_wrapper(impute_knn, layer_namer="auto"),
-        }
+        return self._get_available_methods()
 
     @property
     def metric_weights(self) -> dict[str, float]:
