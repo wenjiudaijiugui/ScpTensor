@@ -6,7 +6,8 @@ Provides method registry and validation utilities for batch effect correction.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import polars as pl
@@ -19,18 +20,45 @@ if TYPE_CHECKING:
 
 # Type alias for integrate method
 IntegrateMethod = Callable[..., "ScpContainer"]
+IntegrationLevel = Literal["matrix", "embedding"]
+
+
+@dataclass(frozen=True, slots=True)
+class IntegrationMethodInfo:
+    """Metadata describing an integration method contract."""
+
+    name: str
+    function_name: str
+    integration_level: IntegrationLevel
+    recommended_for_de: bool
+
 
 # Registry for integration methods
 _INTEGRATE_METHODS: dict[str, IntegrateMethod] = {}
+_INTEGRATE_METHOD_INFO: dict[str, IntegrationMethodInfo] = {}
+
+# Accepted aliases for protein-level assays in integration APIs.
+_PROTEIN_ASSAY_ALIASES: tuple[str, str] = ("protein", "proteins")
 
 
-def register_integrate_method(name: str) -> Callable[[IntegrateMethod], IntegrateMethod]:
+def register_integrate_method(
+    name: str,
+    *,
+    integration_level: IntegrationLevel = "matrix",
+    recommended_for_de: bool = True,
+) -> Callable[[IntegrateMethod], IntegrateMethod]:
     """Decorator to register an integration method.
 
     Parameters
     ----------
     name : str
         Name to register the method under.
+    integration_level : {"matrix", "embedding"}, default="matrix"
+        Declares whether method output is intended as matrix-level corrected
+        quantification or embedding-level integrated representation.
+    recommended_for_de : bool, default=True
+        Whether method output is generally suitable for differential analysis
+        on the corrected matrix.
 
     Returns
     -------
@@ -40,6 +68,12 @@ def register_integrate_method(name: str) -> Callable[[IntegrateMethod], Integrat
 
     def decorator(func: IntegrateMethod) -> IntegrateMethod:
         _INTEGRATE_METHODS[name] = func
+        _INTEGRATE_METHOD_INFO[name] = IntegrationMethodInfo(
+            name=name,
+            function_name=func.__name__,
+            integration_level=integration_level,
+            recommended_for_de=recommended_for_de,
+        )
         return func
 
     return decorator
@@ -73,6 +107,18 @@ def get_integrate_method(name: str) -> IntegrateMethod:
     return _INTEGRATE_METHODS[name]
 
 
+def get_integrate_method_info(name: str) -> IntegrationMethodInfo:
+    """Get metadata of a registered integration method by name."""
+    if name not in _INTEGRATE_METHOD_INFO:
+        available = list(_INTEGRATE_METHOD_INFO.keys())
+        raise ScpValueError(
+            f"Integration method '{name}' metadata not found. Available methods: {available}",
+            parameter="method",
+            value=name,
+        )
+    return _INTEGRATE_METHOD_INFO[name]
+
+
 def list_integrate_methods() -> list[str]:
     """List all registered integration methods.
 
@@ -82,6 +128,11 @@ def list_integrate_methods() -> list[str]:
         List of method names.
     """
     return list(_INTEGRATE_METHODS.keys())
+
+
+def list_integrate_method_info() -> dict[str, IntegrationMethodInfo]:
+    """List metadata for all registered integration methods."""
+    return dict(_INTEGRATE_METHOD_INFO)
 
 
 def integrate(
@@ -107,6 +158,19 @@ def integrate(
     """
     func = get_integrate_method(method)
     return func(container, **kwargs)
+
+
+def _resolve_assay_alias(container: ScpContainer, assay_name: str) -> str:
+    """Resolve singular/plural protein assay aliases."""
+    if assay_name in container.assays:
+        return assay_name
+
+    if assay_name == _PROTEIN_ASSAY_ALIASES[0] and _PROTEIN_ASSAY_ALIASES[1] in container.assays:
+        return _PROTEIN_ASSAY_ALIASES[1]
+    if assay_name == _PROTEIN_ASSAY_ALIASES[1] and _PROTEIN_ASSAY_ALIASES[0] in container.assays:
+        return _PROTEIN_ASSAY_ALIASES[0]
+
+    return assay_name
 
 
 def validate_layer_params(
@@ -137,20 +201,22 @@ def validate_layer_params(
     LayerNotFoundError
         If layer not found.
     """
-    if assay_name not in container.assays:
+    resolved_assay_name = _resolve_assay_alias(container, assay_name)
+
+    if resolved_assay_name not in container.assays:
         available = list(container.assays.keys())
         raise AssayNotFoundError(
             assay_name=assay_name,
             available_assays=available,
         )
 
-    assay = container.assays[assay_name]
+    assay = container.assays[resolved_assay_name]
 
     if layer_name not in assay.layers:
         available = list(assay.layers.keys())
         raise LayerNotFoundError(
             layer_name=layer_name,
-            assay_name=assay_name,
+            assay_name=resolved_assay_name,
             available_layers=available,
         )
 
@@ -280,9 +346,13 @@ def preserve_sparsity(
 
 __all__ = [
     "IntegrateMethod",
+    "IntegrationLevel",
+    "IntegrationMethodInfo",
     "register_integrate_method",
     "get_integrate_method",
+    "get_integrate_method_info",
     "list_integrate_methods",
+    "list_integrate_method_info",
     "integrate",
     "validate_layer_params",
     "validate_batch_integration_params",

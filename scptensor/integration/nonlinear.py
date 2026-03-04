@@ -31,6 +31,7 @@ from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.core.utils import requires_dependency
 from scptensor.integration.base import (
+    get_integrate_method_info,
     prepare_integration_data,
     preserve_sparsity,
     register_integrate_method,
@@ -39,8 +40,8 @@ from scptensor.integration.base import (
 )
 
 
-@register_integrate_method("harmony")
-@register_integrate_method("nonlinear")
+@register_integrate_method("harmony", integration_level="embedding", recommended_for_de=False)
+@register_integrate_method("nonlinear", integration_level="embedding", recommended_for_de=False)
 @requires_dependency("harmonypy", "pip install harmonypy")
 def integrate_harmony(
     container: ScpContainer,
@@ -141,9 +142,10 @@ def integrate_harmony(
         X=res,
         M=M_input.copy() if M_input is not None else None,
     )
-    container.assays[assay_name].add_layer(new_layer_name or "harmony", new_matrix)
+    assay.add_layer(new_layer_name or "harmony", new_matrix)
 
     # Log operation
+    method_info = get_integrate_method_info("harmony")
     container.log_operation(
         action="integration_harmony",
         params={
@@ -153,6 +155,8 @@ def integrate_harmony(
             "sigma": harmony_params["sigma"],
             "nclust": harmony_params["nclust"],
             "n_batches": len(unique_batches),
+            "integration_level": method_info.integration_level,
+            "recommended_for_de": method_info.recommended_for_de,
         },
         description=f"Harmony integration (theta={harmony_params['theta']}, "
         f"lamb={harmony_params['lamb']}) on layer '{base_layer}'.",

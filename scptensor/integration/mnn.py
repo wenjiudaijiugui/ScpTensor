@@ -40,6 +40,7 @@ from scptensor.core.exceptions import ScpValueError
 from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.integration.base import (
+    get_integrate_method_info,
     prepare_integration_data,
     preserve_sparsity,
     register_integrate_method,
@@ -48,7 +49,7 @@ from scptensor.integration.base import (
 )
 
 
-@register_integrate_method("mnn")
+@register_integrate_method("mnn", integration_level="embedding", recommended_for_de=False)
 def integrate_mnn(
     container: ScpContainer,
     batch_key: str,
@@ -134,6 +135,7 @@ def integrate_mnn(
     assay.add_layer(new_layer_name or "mnn_corrected", new_matrix)
 
     # Log operation
+    method_info = get_integrate_method_info("mnn")
     container.log_operation(
         action="integration_mnn",
         params={
@@ -143,6 +145,8 @@ def integrate_mnn(
             "sigma": sigma,
             "use_pca": use_pca,
             "n_batches": len(unique_batches),
+            "integration_level": method_info.integration_level,
+            "recommended_for_de": method_info.recommended_for_de,
         },
         description=f"MNN correction (k={k}, sigma={sigma}) on assay '{assay_name}'.",
     )

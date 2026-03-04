@@ -114,6 +114,7 @@ from scptensor.integration import (
     integrate_combat,
     integrate_harmony,
     integrate_mnn,
+    integrate_none,
     integrate_scanorama,
 )
 
@@ -261,6 +262,7 @@ __all__ = [
     "impute_qrilc",
     "impute_minprob",
     # Integration
+    "integrate_none",
     "integrate_combat",
     "integrate_harmony",
     "integrate_mnn",

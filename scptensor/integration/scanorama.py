@@ -31,6 +31,7 @@ from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.core.utils import requires_dependency
 from scptensor.integration.base import (
+    get_integrate_method_info,
     prepare_integration_data,
     preserve_sparsity,
     register_integrate_method,
@@ -39,7 +40,7 @@ from scptensor.integration.base import (
 )
 
 
-@register_integrate_method("scanorama")
+@register_integrate_method("scanorama", integration_level="embedding", recommended_for_de=False)
 @requires_dependency("scanorama", "pip install scanorama")
 def integrate_scanorama(
     container: ScpContainer,
@@ -148,6 +149,7 @@ def integrate_scanorama(
     assay.add_layer(new_layer_name or "scanorama", new_matrix)
 
     # Log operation
+    method_info = get_integrate_method_info("scanorama")
     container.log_operation(
         action="integration_scanorama",
         params={
@@ -159,6 +161,8 @@ def integrate_scanorama(
             "approx": approx,
             "return_dimred": return_dimred,
             "n_batches": len(unique_batches),
+            "integration_level": method_info.integration_level,
+            "recommended_for_de": method_info.recommended_for_de,
         },
         description=f"Scanorama integration (sigma={sigma}, alpha={alpha}) on assay '{assay_name}'.",
     )

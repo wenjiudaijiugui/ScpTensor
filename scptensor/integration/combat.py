@@ -46,13 +46,14 @@ import scipy.sparse as sp
 from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.integration.base import (
+    get_integrate_method_info,
     register_integrate_method,
     validate_batch_integration_params,
     validate_layer_params,
 )
 
 
-@register_integrate_method("combat")
+@register_integrate_method("combat", integration_level="matrix", recommended_for_de=True)
 def integrate_combat(
     container: ScpContainer,
     batch_key: str,
@@ -151,10 +152,16 @@ def integrate_combat(
         X=X_corrected,
         M=M_input.copy() if M_input is not None else None,
     )
-    container.assays[assay_name].add_layer(new_layer_name or "combat", new_matrix)
+    assay.add_layer(new_layer_name or "combat", new_matrix)
+    method_info = get_integrate_method_info("combat")
     container.log_operation(
         action="integration_combat",
-        params={"batch_key": batch_key, "covariates": list(covariates) if covariates else None},
+        params={
+            "batch_key": batch_key,
+            "covariates": list(covariates) if covariates else None,
+            "integration_level": method_info.integration_level,
+            "recommended_for_de": method_info.recommended_for_de,
+        },
         description="ComBat batch correction.",
     )
 
