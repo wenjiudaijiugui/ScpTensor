@@ -6,6 +6,7 @@ from multiple experiments, runs, or platforms.
 Available Methods
 -----------------
 - integrate: Unified interface for all integration methods
+- integrate_none: No-correction baseline (matrix-level)
 - integrate_combat: ComBat batch correction (empirical Bayes) - built-in
 - integrate_harmony: Harmony integration (iterative clustering) - requires harmonypy
 - integrate_mnn: Mutual Nearest Neighbors correction - built-in
@@ -23,10 +24,12 @@ Examples
 >>> from scptensor.integration import integrate, integrate_combat, integrate_harmony
 >>>
 >>> # Unified interface - easiest way to use any method
+>>> container = integrate(container, method='none', batch_key='batch')
 >>> container = integrate(container, method='combat', batch_key='batch')
 >>> container = integrate(container, method='harmony', batch_key='batch', theta=2.0)
 >>>
 >>> # Direct function calls
+>>> container = integrate_none(container, batch_key='batch')
 >>> container = integrate_combat(container, batch_key='batch')
 >>> container = integrate_harmony(container, batch_key='batch', base_layer='pca')
 >>> container = integrate_mnn(container, batch_key='batch', k=20)
@@ -42,8 +45,11 @@ References
 
 from scptensor.integration.base import (
     IntegrateMethod,
+    IntegrationMethodInfo,
     get_integrate_method,
+    get_integrate_method_info,
     integrate,
+    list_integrate_method_info,
     list_integrate_methods,
     register_integrate_method,
 )
@@ -56,6 +62,7 @@ from scptensor.integration.diagnostics import (
 )
 from scptensor.integration.harmony import integrate_harmony
 from scptensor.integration.mnn import integrate_mnn
+from scptensor.integration.none import integrate_none
 from scptensor.integration.nonlinear import integrate_harmony as integrate_nonlinear
 from scptensor.integration.scanorama import integrate_scanorama
 
@@ -65,8 +72,12 @@ __all__ = [
     "list_integrate_methods",
     "get_integrate_method",
     "IntegrateMethod",
+    "IntegrationMethodInfo",
     "register_integrate_method",
+    "get_integrate_method_info",
+    "list_integrate_method_info",
     # Individual methods
+    "integrate_none",
     "integrate_combat",
     "integrate_harmony",
     "integrate_mnn",

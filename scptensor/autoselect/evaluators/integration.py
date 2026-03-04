@@ -73,6 +73,19 @@ class IntegrationEvaluator(BaseEvaluator):
 
         methods: dict[str, Callable] = {}
 
+        # Explicit no-batch-correction baseline
+        try:
+            from scptensor.integration import integrate_none
+
+            methods["none"] = create_wrapper(
+                integrate_none,
+                source_layer_param="base_layer",
+                layer_namer="clean",
+                batch_key=self._batch_key,
+            )
+        except ImportError:
+            pass
+
         # ComBat is always available (built-in)
         try:
             from scptensor.integration import integrate_combat

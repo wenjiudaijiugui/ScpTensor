@@ -28,6 +28,7 @@ from scptensor.core.exceptions import (
     ScpValueError,
 )
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
+from scptensor.integration import get_integrate_method_info, integrate_none
 from scptensor.integration import integrate_combat as combat
 from scptensor.integration import integrate_harmony as harmony
 from scptensor.integration import integrate_mnn as mnn_correct
@@ -1482,3 +1483,83 @@ class TestHistoryLogging:
 
         assert len(result.history) == initial_len + 1
         assert result.history[-1].action == "integration_combat"
+
+
+class TestIntegrationBaselineAndMetadata:
+    """Tests for explicit no-correction baseline and method metadata."""
+
+    def test_integrate_none_creates_copied_layer_and_logs(self):
+        """No-op integration should copy values into a new layer and log metadata."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+        )
+        x_before = container.assays["protein"].layers["raw"].X
+
+        result = integrate_none(
+            container,
+            batch_key="batch",
+            assay_name="protein",
+            base_layer="raw",
+            new_layer_name="none",
+        )
+
+        assert "none" in result.assays["protein"].layers
+        x_after = result.assays["protein"].layers["none"].X
+        assert np.array_equal(x_before, x_after)
+        assert x_before is not x_after
+
+        log_entry = result.history[-1]
+        assert log_entry.action == "integration_none"
+        assert log_entry.params["integration_level"] == "matrix"
+        assert log_entry.params["recommended_for_de"] is True
+
+    def test_integrate_none_missing_batch_key_raises_error(self):
+        """No-op integration still validates batch_key for API consistency."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+        )
+
+        with pytest.raises(ScpValueError, match="Batch key.*not found"):
+            integrate_none(
+                container,
+                batch_key="missing_batch",
+                assay_name="protein",
+                base_layer="raw",
+            )
+
+    def test_assay_alias_allows_proteins_for_default_protein_methods(self):
+        """Methods with default assay='protein' should work on assay named 'proteins'."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+        )
+        protein_assay = container.assays.pop("protein")
+        container.assays["proteins"] = protein_assay
+
+        result = combat(
+            container,
+            batch_key="batch",
+            base_layer="raw",
+            new_layer_name="combat",
+        )
+
+        assert "combat" in result.assays["proteins"].layers
+
+    def test_registered_method_metadata_exposed(self):
+        """Integration methods should expose level/de suitability metadata."""
+        none_info = get_integrate_method_info("none")
+        combat_info = get_integrate_method_info("combat")
+        mnn_info = get_integrate_method_info("mnn")
+        harmony_info = get_integrate_method_info("harmony")
+        scanorama_info = get_integrate_method_info("scanorama")
+
+        assert none_info.integration_level == "matrix"
+        assert none_info.recommended_for_de is True
+        assert combat_info.integration_level == "matrix"
+        assert combat_info.recommended_for_de is True
+
+        assert mnn_info.integration_level == "embedding"
+        assert mnn_info.recommended_for_de is False
+        assert harmony_info.integration_level == "embedding"
+        assert harmony_info.recommended_for_de is False
+        assert scanorama_info.integration_level == "embedding"
+        assert scanorama_info.recommended_for_de is False
