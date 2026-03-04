@@ -8,6 +8,7 @@ Available Methods
 - integrate: Unified interface for all integration methods
 - integrate_none: No-correction baseline (matrix-level)
 - integrate_combat: ComBat batch correction (empirical Bayes) - built-in
+- integrate_limma: limma-style linear-model batch correction - built-in
 - integrate_harmony: Harmony integration (iterative clustering) - requires harmonypy
 - integrate_mnn: Mutual Nearest Neighbors correction - built-in
 - integrate_scanorama: Scanorama integration - requires scanorama
@@ -31,6 +32,7 @@ Examples
 >>> # Direct function calls
 >>> container = integrate_none(container, batch_key='batch')
 >>> container = integrate_combat(container, batch_key='batch')
+>>> container = integrate_limma(container, batch_key='batch', covariates=['condition'])
 >>> container = integrate_harmony(container, batch_key='batch', base_layer='pca')
 >>> container = integrate_mnn(container, batch_key='batch', k=20)
 >>> container = integrate_scanorama(container, batch_key='batch', sigma=15.0)
@@ -61,6 +63,7 @@ from scptensor.integration.diagnostics import (
     integration_quality_report,
 )
 from scptensor.integration.harmony import integrate_harmony
+from scptensor.integration.limma import integrate_limma
 from scptensor.integration.mnn import integrate_mnn
 from scptensor.integration.none import integrate_none
 from scptensor.integration.nonlinear import integrate_harmony as integrate_nonlinear
@@ -79,6 +82,7 @@ __all__ = [
     # Individual methods
     "integrate_none",
     "integrate_combat",
+    "integrate_limma",
     "integrate_harmony",
     "integrate_mnn",
     "integrate_scanorama",

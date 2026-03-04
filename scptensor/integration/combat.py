@@ -37,12 +37,13 @@ microarray data using empirical Bayes methods. bioRxiv.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import cast
+from typing import Literal, cast
 
 import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
+from scptensor.core.exceptions import ScpValueError
 from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.integration.base import (
@@ -51,6 +52,8 @@ from scptensor.integration.base import (
     validate_batch_integration_params,
     validate_layer_params,
 )
+
+EbMode = Literal["parametric", "nonparametric"]
 
 
 @register_integrate_method("combat", integration_level="matrix", recommended_for_de=True)
@@ -61,6 +64,7 @@ def integrate_combat(
     base_layer: str = "raw",
     new_layer_name: str | None = "combat",
     covariates: Sequence[str] | None = None,
+    eb_mode: EbMode = "parametric",
 ) -> ScpContainer:
     """Apply ComBat batch effect correction using empirical Bayes.
 
@@ -78,6 +82,10 @@ def integrate_combat(
         Name for the new layer with corrected data
     covariates : Sequence[str] | None
         Optional list of covariate column names in obs to preserve
+    eb_mode : {"parametric", "nonparametric"}, default="parametric"
+        Empirical Bayes mode for ComBat shrinkage.
+        ``parametric`` uses normal/inverse-gamma priors (classic ComBat).
+        ``nonparametric`` uses robust, distribution-free shrinkage.
 
     Returns
     -------
@@ -102,6 +110,13 @@ def integrate_combat(
     """
 
     # Validate parameters
+    if eb_mode not in ("parametric", "nonparametric"):
+        raise ScpValueError(
+            f"eb_mode must be one of ['parametric', 'nonparametric'], got '{eb_mode}'.",
+            parameter="eb_mode",
+            value=eb_mode,
+        )
+
     assay, layer = validate_layer_params(container, assay_name, base_layer)
     obs_df, batches, unique_batches, batch_counts = validate_batch_integration_params(
         container, batch_key, assay_name, min_batches=2, min_samples_per_batch=2
@@ -124,20 +139,30 @@ def integrate_combat(
     n_sample = dat.shape[1]
 
     # Build design matrices
-    design_matrix, n_batch = _build_design_matrices(
+    design_matrix, design_columns, n_batch = _build_design_matrices(
         obs_df, batches, unique_batches, covariates, n_sample
     )
 
     # Check for rank deficiency
     rank_design = np.linalg.matrix_rank(design_matrix)
     if rank_design < design_matrix.shape[1]:
+        col_text = ", ".join(design_columns)
         raise ValueError(
             f"Design matrix is rank deficient (rank={rank_design}, cols={design_matrix.shape[1]}). "
-            "Batch and biological covariates are confounded."
+            "Batch and biological covariates are likely confounded. "
+            f"Design columns: [{col_text}]"
         )
 
     # Fit ComBat model
-    X_corrected = _fit_combat(dat, design_matrix, n_batch, batches, unique_batches, n_sample)
+    X_corrected = _fit_combat(
+        dat,
+        design_matrix,
+        n_batch,
+        batches,
+        unique_batches,
+        n_sample,
+        eb_mode=eb_mode,
+    )
     X_corrected = X_corrected.T
 
     # Preserve sparsity if appropriate
@@ -159,10 +184,11 @@ def integrate_combat(
         params={
             "batch_key": batch_key,
             "covariates": list(covariates) if covariates else None,
+            "eb_mode": eb_mode,
             "integration_level": method_info.integration_level,
             "recommended_for_de": method_info.recommended_for_de,
         },
-        description="ComBat batch correction.",
+        description=f"ComBat batch correction (eb_mode={eb_mode}).",
     )
 
     return container
@@ -174,7 +200,7 @@ def _build_design_matrices(
     unique_batches: np.ndarray,
     covariates: Sequence[str] | None,
     n_sample: int,
-) -> tuple[np.ndarray, int]:
+) -> tuple[np.ndarray, list[str], int]:
     """Build ComBat design matrices for batch and covariates."""
     # Batch design matrix
     batch_items = unique_batches
@@ -193,7 +219,7 @@ def _build_design_matrices(
     design_matrix = pl.concat([batch_dummies, mod_for_design], how="horizontal")
     X_design = design_matrix.to_numpy().astype(float)
 
-    return X_design, n_batch
+    return X_design, design_matrix.columns, n_batch
 
 
 def _fit_combat(
@@ -203,6 +229,8 @@ def _fit_combat(
     batches: np.ndarray,
     unique_batches: np.ndarray,
     n_sample: int,
+    *,
+    eb_mode: EbMode,
 ) -> np.ndarray:
     """Fit ComBat model and return corrected data."""
     # Fit model and extract coefficients
@@ -224,10 +252,18 @@ def _fit_combat(
 
     # Empirical Bayes estimation
     gamma_hat, delta_hat = _compute_batch_moments(Z, batches, unique_batches, n_batch)
-    gamma_bar, t2, a_prior, b_prior = _compute_eb_priors(gamma_hat, delta_hat)
-    gamma_star, delta_star = _solve_eb_for_batches(
-        gamma_hat, delta_hat, batches, unique_batches, gamma_bar, t2, a_prior, b_prior
-    )
+    if eb_mode == "parametric":
+        gamma_bar, t2, a_prior, b_prior = _compute_eb_priors(gamma_hat, delta_hat)
+        gamma_star, delta_star = _solve_eb_for_batches(
+            gamma_hat, delta_hat, batches, unique_batches, gamma_bar, t2, a_prior, b_prior
+        )
+    else:
+        gamma_star, delta_star = _solve_nonparametric_for_batches(
+            gamma_hat,
+            delta_hat,
+            batches,
+            unique_batches,
+        )
 
     # Apply correction
     out_data = _apply_combat_correction(Z, batches, unique_batches, gamma_star, delta_star)
@@ -371,6 +407,52 @@ def _solve_eb(
     return g_old, d_old
 
 
+def _robust_scale(values: np.ndarray) -> float:
+    """Robust scale estimator via MAD with std fallback."""
+    mad = np.median(np.abs(values - np.median(values)))
+    if mad > 0:
+        return float(1.4826 * mad)
+    std = float(np.std(values, ddof=1))
+    return std if std > 0 else 1.0
+
+
+def _solve_nonparametric_for_batches(
+    gamma_hat: np.ndarray,
+    delta_hat: np.ndarray,
+    batches: np.ndarray,
+    batch_items: np.ndarray,
+    *,
+    prior_strength: float = 5.0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Robust nonparametric shrinkage for ComBat batch parameters.
+
+    This approximation avoids parametric prior assumptions by shrinking
+    batch-wise estimates toward robust centers (median/MAD scale).
+    """
+    n_batch, _ = gamma_hat.shape
+    gamma_star = np.zeros_like(gamma_hat)
+    delta_star = np.zeros_like(delta_hat)
+
+    for i, b in enumerate(batch_items):
+        n_samples = float(np.sum(batches == b))
+        weight = n_samples / (n_samples + prior_strength)
+
+        g = gamma_hat[i]
+        g_loc = float(np.median(g))
+        g_scale = _robust_scale(g)
+        g_clip = np.clip(g, g_loc - 6 * g_scale, g_loc + 6 * g_scale)
+        gamma_star[i] = weight * g_clip + (1.0 - weight) * g_loc
+
+        d = np.clip(delta_hat[i], 1e-8, None)
+        log_d = np.log(d)
+        d_loc = float(np.median(log_d))
+        d_scale = _robust_scale(log_d)
+        log_d_clip = np.clip(log_d, d_loc - 6 * d_scale, d_loc + 6 * d_scale)
+        delta_star[i] = np.exp(weight * log_d_clip + (1.0 - weight) * d_loc)
+
+    return gamma_star, delta_star
+
+
 def _apply_combat_correction(
     Z: np.ndarray,
     batches: np.ndarray,
@@ -383,7 +465,8 @@ def _apply_combat_correction(
 
     for i, b in enumerate(batch_items):
         idx = np.where(batches == b)[0]
-        out_data[:, idx] = (Z[:, idx] - gamma_star[i][:, None]) / np.sqrt(delta_star[i][:, None])
+        delta = np.clip(delta_star[i], 1e-8, None)
+        out_data[:, idx] = (Z[:, idx] - gamma_star[i][:, None]) / np.sqrt(delta[:, None])
 
     return out_data
 
