@@ -113,6 +113,7 @@ from scptensor.impute import (
 from scptensor.integration import (
     integrate_combat,
     integrate_harmony,
+    integrate_limma,
     integrate_mnn,
     integrate_none,
     integrate_scanorama,
@@ -264,6 +265,7 @@ __all__ = [
     # Integration
     "integrate_none",
     "integrate_combat",
+    "integrate_limma",
     "integrate_harmony",
     "integrate_mnn",
     "integrate_scanorama",

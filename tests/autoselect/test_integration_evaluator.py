@@ -77,8 +77,10 @@ class TestIntegrationEvaluatorProperties:
         evaluator = IntegrationEvaluator()
         methods = evaluator.methods
         assert isinstance(methods, dict)
-        # At minimum, combat and mnn should be available (built-in)
-        assert "combat" in methods or "mnn" in methods
+        # Built-in baselines/matrix methods should be available.
+        assert "none" in methods
+        assert "combat" in methods
+        assert "limma" in methods
 
     def test_metric_weights(self):
         """Test metric_weights property."""

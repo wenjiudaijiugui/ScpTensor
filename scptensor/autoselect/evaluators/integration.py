@@ -99,6 +99,19 @@ class IntegrationEvaluator(BaseEvaluator):
         except ImportError:
             pass
 
+        # limma-style linear correction is built-in
+        try:
+            from scptensor.integration import integrate_limma
+
+            methods["limma"] = create_wrapper(
+                integrate_limma,
+                source_layer_param="base_layer",
+                layer_namer="clean",
+                batch_key=self._batch_key,
+            )
+        except ImportError:
+            pass
+
         # MNN is always available (built-in)
         try:
             from scptensor.integration import integrate_mnn

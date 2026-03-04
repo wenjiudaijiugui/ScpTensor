@@ -31,6 +31,7 @@ from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.integration import get_integrate_method_info, integrate_none
 from scptensor.integration import integrate_combat as combat
 from scptensor.integration import integrate_harmony as harmony
+from scptensor.integration import integrate_limma as limma_correct
 from scptensor.integration import integrate_mnn as mnn_correct
 from scptensor.integration import integrate_scanorama as scanorama_integrate
 
@@ -1184,6 +1185,157 @@ class TestComBatAdditional:
         assert M_combat is not None
         assert np.array_equal(M_combat, M)
 
+    def test_combat_nonparametric_mode(self):
+        """Test ComBat nonparametric EB mode."""
+        container = create_batch_container(
+            n_samples_per_batch=30, n_features=40, n_batches=2, random_state=42
+        )
+
+        result = combat(
+            container,
+            batch_key="batch",
+            assay_name="protein",
+            base_layer="raw",
+            new_layer_name="combat_np",
+            eb_mode="nonparametric",
+        )
+
+        assert "combat_np" in result.assays["protein"].layers
+        x = result.assays["protein"].layers["combat_np"].X
+        assert x.shape == (60, 40)
+        assert np.isfinite(x).all()
+        assert result.history[-1].params["eb_mode"] == "nonparametric"
+
+    def test_combat_invalid_eb_mode_raises_error(self):
+        """Test ComBat validates EB mode values."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=30, n_batches=2, random_state=42
+        )
+
+        with pytest.raises(ScpValueError, match="eb_mode must be one of"):
+            combat(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                eb_mode="invalid_mode",  # type: ignore[arg-type]
+            )
+
+
+class TestLimmaIntegration:
+    """Tests for limma-style matrix-level batch correction."""
+
+    def test_limma_basic_two_batches(self):
+        """Test limma correction adds output layer with preserved shape."""
+        container = create_batch_container(
+            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+        )
+
+        result = limma_correct(
+            container,
+            batch_key="batch",
+            assay_name="protein",
+            base_layer="raw",
+            new_layer_name="limma",
+        )
+
+        assert "limma" in result.assays["protein"].layers
+        x = result.assays["protein"].layers["limma"].X
+        assert x.shape == (60, 50)
+
+    def test_limma_with_covariates(self):
+        """Test limma correction with biological covariates."""
+        np.random.seed(42)
+        n_samples_per_batch = 30
+        n_features = 40
+        batches = np.array(["batch1"] * n_samples_per_batch + ["batch2"] * n_samples_per_batch)
+        groups = np.array(["GroupA"] * 15 + ["GroupB"] * 15 + ["GroupA"] * 15 + ["GroupB"] * 15)
+
+        obs = pl.DataFrame(
+            {
+                "_index": [f"S{i:03d}" for i in range(2 * n_samples_per_batch)],
+                "batch": batches.tolist(),
+                "group": groups.tolist(),
+            }
+        )
+
+        X = np.random.randn(2 * n_samples_per_batch, n_features)
+        X[batches == "batch2"] += 1.5
+        X[groups == "GroupB", : n_features // 2] += 0.8
+
+        var = pl.DataFrame({"_index": [f"P{i:03d}" for i in range(n_features)]})
+        assay = Assay(var=var, layers={"raw": ScpMatrix(X=X, M=None)})
+        container = ScpContainer(obs=obs, assays={"protein": assay})
+
+        result = limma_correct(
+            container,
+            batch_key="batch",
+            assay_name="protein",
+            base_layer="raw",
+            new_layer_name="limma",
+            covariates=["group"],
+        )
+
+        assert "limma" in result.assays["protein"].layers
+        assert np.isfinite(result.assays["protein"].layers["limma"].X).all()
+
+    def test_limma_confounded_design_raises_error(self):
+        """Test limma raises clear error when batch and covariates are confounded."""
+        container = create_batch_container(
+            n_samples_per_batch=30, n_features=40, n_batches=2, random_state=42
+        )
+        # In this fixture, group is fully aligned with batch by construction.
+        with pytest.raises(ValueError, match="rank deficient"):
+            limma_correct(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                covariates=["group"],
+            )
+
+    def test_limma_preserves_mask(self):
+        """Test limma preserves mask matrix."""
+        container = create_batch_container(
+            n_samples_per_batch=30, n_features=25, n_batches=2, random_state=42
+        )
+        M = np.zeros((60, 25), dtype=np.int8)
+        M[0:10, 0:10] = 1
+        container.assays["protein"].layers["raw"] = ScpMatrix(
+            X=container.assays["protein"].layers["raw"].X,
+            M=M,
+        )
+
+        result = limma_correct(container, batch_key="batch", assay_name="protein", base_layer="raw")
+        m_out = result.assays["protein"].layers["limma"].M
+        assert m_out is not None
+        assert np.array_equal(m_out, M)
+
+    def test_limma_reduces_batch_effect(self):
+        """Test limma correction reduces ANOVA-style batch metric."""
+        container = create_batch_container(
+            n_samples_per_batch=40, n_features=50, n_batches=2, random_state=42
+        )
+        X_orig = container.assays["protein"].layers["raw"].X
+        batches = container.obs["batch"].to_numpy()
+        before = compute_batch_effect_metric(X_orig, batches)
+
+        result = limma_correct(container, batch_key="batch", assay_name="protein", base_layer="raw")
+        after = compute_batch_effect_metric(result.assays["protein"].layers["limma"].X, batches)
+        assert after < before
+
+    def test_limma_logs_history(self):
+        """Test limma logs method metadata in provenance."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=20, n_batches=2, random_state=42
+        )
+
+        result = limma_correct(container, batch_key="batch", assay_name="protein", base_layer="raw")
+        log_entry = result.history[-1]
+        assert log_entry.action == "integration_limma"
+        assert log_entry.params["integration_level"] == "matrix"
+        assert log_entry.params["recommended_for_de"] is True
+
 
 # =============================================================================
 # Test Batch Effect Reduction
@@ -1548,6 +1700,7 @@ class TestIntegrationBaselineAndMetadata:
         """Integration methods should expose level/de suitability metadata."""
         none_info = get_integrate_method_info("none")
         combat_info = get_integrate_method_info("combat")
+        limma_info = get_integrate_method_info("limma")
         mnn_info = get_integrate_method_info("mnn")
         harmony_info = get_integrate_method_info("harmony")
         scanorama_info = get_integrate_method_info("scanorama")
@@ -1556,6 +1709,8 @@ class TestIntegrationBaselineAndMetadata:
         assert none_info.recommended_for_de is True
         assert combat_info.integration_level == "matrix"
         assert combat_info.recommended_for_de is True
+        assert limma_info.integration_level == "matrix"
+        assert limma_info.recommended_for_de is True
 
         assert mnn_info.integration_level == "embedding"
         assert mnn_info.recommended_for_de is False
