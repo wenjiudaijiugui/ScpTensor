@@ -676,7 +676,9 @@ def sparse_multiply_colwise(X: sp.spmatrix, factors: np.ndarray) -> sp.spmatrix:
     return result
 
 
-def sparse_center_rows(X: sp.spmatrix, row_means: np.ndarray | None = None) -> sp.spmatrix:
+def sparse_center_rows(
+    X: sp.spmatrix, row_means: np.ndarray | None = None
+) -> tuple[sp.spmatrix, np.ndarray]:
     """
     Center each row of a sparse matrix by subtracting its mean.
 

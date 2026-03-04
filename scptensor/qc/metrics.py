@@ -3,7 +3,7 @@
 Provides robust statistical functions for QC across all levels (PSM, Sample, Feature).
 """
 
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 import scipy.sparse as sp
@@ -125,10 +125,9 @@ def compute_cv(
     CV per column: [0.63245553 0.4472136  0.31649661]
     """
     if sp.issparse(data):
-        # Sparse: Var[X] = E[X²] - (E[X])²
-        mean = np.array(data.mean(axis=axis)).flatten()
-        data_sq = data.copy()
-        data_sq.data **= 2
+        data_sparse = cast(sp.spmatrix, data)
+        mean = np.array(data_sparse.mean(axis=axis)).flatten()
+        data_sq = data_sparse.multiply(data_sparse)
         mean_sq = np.array(data_sq.mean(axis=axis)).flatten()
         var = mean_sq - mean**2
         var[var < 0] = 0

@@ -11,6 +11,8 @@ Supported methods:
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 import scipy.sparse as sp
 import scipy.stats as stats
@@ -170,9 +172,9 @@ def diff_expr_wilcoxon(
     n_features = X.shape[1]
 
     if sp.issparse(X):
-        X = X.toarray()
+        X = cast(sp.spmatrix, X).toarray()
     if M is not None and sp.issparse(M):
-        M = M.toarray()
+        M = cast(sp.spmatrix, M).toarray()
 
     X_arr = X.astype(np.float64, copy=False)
     M_arr = M.astype(np.float64, copy=False) if M is not None else None
@@ -419,9 +421,9 @@ def diff_expr_brunner_munzel(
     n_features = X.shape[1]
 
     if sp.issparse(X):
-        X = X.toarray()
+        X = cast(sp.spmatrix, X).toarray()
     if M is not None and sp.issparse(M):
-        M = M.toarray()
+        M = cast(sp.spmatrix, M).toarray()
 
     X_arr = X.astype(np.float64, copy=False)
     M_arr = M.astype(np.float64, copy=False) if M is not None else None

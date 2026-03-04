@@ -10,7 +10,10 @@ where:
 - :math:`w_k` are the weights (uniform or distance-based)
 """
 
+from typing import cast
+
 import numpy as np
+import scipy.sparse as sp
 from sklearn.metrics.pairwise import nan_euclidean_distances
 
 from scptensor.core.exceptions import (
@@ -20,6 +23,7 @@ from scptensor.core.exceptions import (
 )
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
+from scptensor.impute.base import ImputeMethod, register_impute_method
 
 # =============================================================================
 # Core KNN algorithm (pure function for registry)
@@ -53,16 +57,21 @@ def knn_impute(
     np.ndarray
         Data with imputed values.
     """
-    X = data.copy()
+    X = np.asarray(data, dtype=np.float64).copy()
     n_samples, n_features = X.shape
     missing_mask = np.isnan(X)
 
     if not np.any(missing_mask):
         return X
 
+    if np.all(missing_mask):
+        return np.zeros_like(X)
+
     # Initialize with column means
-    col_means = np.nanmean(X, axis=0)
-    col_means[np.isnan(col_means)] = 0.0
+    col_means = np.zeros(n_features, dtype=np.float64)
+    for j in range(n_features):
+        observed = X[~missing_mask[:, j], j]
+        col_means[j] = float(np.mean(observed)) if observed.size > 0 else 0.0
 
     samples_with_missing = np.where(np.any(missing_mask, axis=1))[0]
     k_search = min(n_neighbors * oversample_factor + 1, n_samples)
@@ -109,23 +118,35 @@ def knn_impute(
 
                 valid_vals = neighbor_values[feat_mask, feat_idx]
                 valid_dists = potential_dists[feat_mask]
+                finite_dist_mask = np.isfinite(valid_dists)
+                valid_vals = valid_vals[finite_dist_mask]
+                valid_dists = valid_dists[finite_dist_mask]
+
+                if len(valid_vals) == 0:
+                    X[global_idx, feat_pos] = col_means[feat_pos]
+                    continue
+
+                n_use = min(len(valid_vals), n_neighbors)
+                vals_use = valid_vals[:n_use]
+                dists_use = valid_dists[:n_use]
 
                 if weights == "uniform":
-                    X[global_idx, feat_pos] = np.mean(valid_vals[:n_neighbors])
+                    X[global_idx, feat_pos] = float(np.mean(vals_use))
                 else:
                     # Inverse distance weighting
+                    zero_dist_mask = dists_use <= 1e-12
+                    if np.any(zero_dist_mask):
+                        X[global_idx, feat_pos] = float(np.mean(vals_use[zero_dist_mask]))
+                        continue
+
                     with np.errstate(divide="ignore", invalid="ignore"):
-                        w = 1.0 / valid_dists
-                    inf_mask = np.isinf(w)
-                    if np.any(inf_mask):
-                        w[inf_mask] = 1.0
-                        w[~inf_mask] = 0.0
-                    w_sum = np.sum(w)
-                    if w_sum < 1e-10:
-                        X[global_idx, feat_pos] = np.mean(valid_vals[:n_neighbors])
+                        w = 1.0 / dists_use
+                    w[~np.isfinite(w)] = 0.0
+                    w_sum = float(np.sum(w))
+                    if w_sum < 1e-12:
+                        X[global_idx, feat_pos] = float(np.mean(vals_use))
                     else:
-                        n_use = min(len(valid_vals), n_neighbors)
-                        X[global_idx, feat_pos] = np.sum(valid_vals[:n_use] * (w[:n_use] / w_sum))
+                        X[global_idx, feat_pos] = float(np.dot(vals_use, w / w_sum))
 
     return X
 
@@ -237,7 +258,11 @@ def impute_knn(
         )
 
     matrix = assay.layers[source_layer]
-    X = matrix.X.copy()
+    x_raw = matrix.X
+    if sp.issparse(x_raw):
+        X = cast(sp.spmatrix, x_raw).toarray().astype(np.float64, copy=False)
+    else:
+        X = np.asarray(x_raw, dtype=np.float64).copy()
     missing_mask = np.isnan(X)
 
     if not np.any(missing_mask):
@@ -253,6 +278,7 @@ def impute_knn(
         oversample_factor=oversample_factor,
         batch_size=batch_size,
     )
+    X_imputed[~missing_mask] = X[~missing_mask]
 
     # Create new layer
     new_matrix = ScpMatrix(X=X_imputed, M=_update_imputed_mask(matrix.M, missing_mask))
@@ -275,14 +301,11 @@ def impute_knn(
     return container
 
 
-# Register with base interface
-from scptensor.impute.base import ImputeMethod, register_impute_method
-
 register_impute_method(
     ImputeMethod(
         name="knn",
         supports_sparse=False,
         validate=validate_knn,
-        apply=knn_impute,
+        apply=impute_knn,
     )
 )

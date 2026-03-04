@@ -12,7 +12,7 @@ Supported methods:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import scipy.sparse as sp
@@ -118,7 +118,7 @@ def _to_dense(X: np.ndarray | sp.spmatrix) -> np.ndarray:
         Dense matrix
     """
     if sp.issparse(X):
-        return X.toarray()
+        return cast(sp.spmatrix, X).toarray()
     return X
 
 

@@ -59,8 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Competitor benchmark runner (`competitor_benchmark.py`)
 
 - **Dataset Module** (`scptensor/datasets/`):
-  - Dataset registry with multiple SCP datasets
-  - Support for DIA, PlexDIA, PScope, SCoPE2, cell cycle, clinical, and spatial data
+  - Dataset registry for DIA-focused examples and tests
+  - Support for DIA-NN and Spectronaut-style quantification tables
   - External dataset integrations
   - Example dataset loader (`_example.py`)
 
@@ -80,7 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Performance
 - **Sparse Matrix Optimizations** (`scptensor/core/sparse_utils.py`):
   - Sparse-aware matrix operations
-  - Memory-efficient storage for sparse SCP data
+  - Memory-efficient storage for sparse proteomics matrices
   - Optimized mask operations for sparse matrices
 
 - **JIT Compilation** (`scptensor/core/jit_ops.py`):

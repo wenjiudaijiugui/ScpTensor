@@ -1,4 +1,4 @@
-"""Harmony integration wrapper for single-cell proteomics data.
+"""Harmony integration wrapper for DIA-based single-cell proteomics data.
 
 This module re-exports the Harmony implementation from nonlinear.py
 with the new integrate_* naming convention.

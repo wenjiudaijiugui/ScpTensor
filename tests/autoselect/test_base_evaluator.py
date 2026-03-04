@@ -211,6 +211,29 @@ class TestComputeOverallScore:
 
         assert result == 0.0
 
+    def test_compute_overall_score_override_weights(self):
+        """Test override metric weights."""
+        evaluator = MockEvaluator()
+        evaluator.set_metric_weights({"metric1": 0.0, "metric2": 1.0, "metric3": 0.0})
+
+        scores = {"metric1": 0.2, "metric2": 0.4, "metric3": 0.9}
+        result = evaluator.compute_overall_score(scores)
+
+        assert result == pytest.approx(0.4, rel=1e-3)
+
+    def test_set_metric_weights_validation(self):
+        """Test metric weight validation."""
+        evaluator = MockEvaluator()
+
+        with pytest.raises(ValueError):
+            evaluator.set_metric_weights({"unknown": 1.0})
+
+        with pytest.raises(ValueError):
+            evaluator.set_metric_weights({"metric1": -0.1})
+
+        with pytest.raises(ValueError):
+            evaluator.set_metric_weights({"metric2": np.nan})
+
 
 class TestEvaluateMethod:
     """Test evaluate_method method."""

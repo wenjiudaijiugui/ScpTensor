@@ -1,9 +1,9 @@
-"""Utility functions for single-cell proteomics data analysis.
+"""Utility functions for DIA-based single-cell proteomics data analysis.
 
 This module provides various utility functions including:
 - Data generation for synthetic datasets
 - Statistical operations (correlation, similarity)
-- Data transformations (asinh, logicle, quantile normalization)
+- Data transformations (quantile normalization, robust scaling)
 - Batch processing for large datasets
 """
 
@@ -21,8 +21,6 @@ from .stats import (
     spearman_correlation,
 )
 from .transform import (
-    asinh_transform,
-    logicle_transform,
     quantile_normalize,
     robust_scale,
 )
@@ -36,8 +34,6 @@ __all__ = [
     "spearman_correlation",
     "cosine_similarity",
     # Transformations
-    "asinh_transform",
-    "logicle_transform",
     "quantile_normalize",
     "robust_scale",
     # Batch processing

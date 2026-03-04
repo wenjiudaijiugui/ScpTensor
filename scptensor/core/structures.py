@@ -119,6 +119,12 @@ def _validate_mask_matrix(M: np.ndarray | sp.spmatrix, X_shape: tuple[int, int])
             raise ValueError(
                 f"Invalid mask codes: {invalid_values}. Valid: {sorted(_VALID_MASK_CODES)}"
             )
+    elif sp.issparse(M):
+        invalid_values = np.setdiff1d(np.unique(M.data), list(_VALID_MASK_CODES))
+        if invalid_values.size > 0:
+            raise ValueError(
+                f"Invalid mask codes: {invalid_values}. Valid: {sorted(_VALID_MASK_CODES)}"
+            )
 
 
 @dataclass(slots=True)
@@ -180,7 +186,8 @@ class ScpMatrix:
         """
         new_X = self.X.copy()
         new_M = self.M.copy() if self.M is not None else None
-        return ScpMatrix(X=new_X, M=new_M, metadata=self.metadata)
+        new_metadata = copy.deepcopy(self.metadata) if self.metadata is not None else None
+        return ScpMatrix(X=new_X, M=new_M, metadata=new_metadata)
 
 
 @dataclass
@@ -941,68 +948,53 @@ class ScpContainer:
         compression_level: int = 4,
         overwrite: bool = False,
     ) -> None:
-        """Save container to file, auto-detecting format from extension.
+        """Save container to file.
 
         Parameters
         ----------
         path : str | Path
-            Output file path. Extension determines format (.h5, .parquet)
+            Output file path.
         compression : str | None, default "gzip"
-            Compression algorithm for HDF5
+            Reserved for backward compatibility.
         compression_level : int, default 4
-            Compression level (0-9)
+            Reserved for backward compatibility.
         overwrite : bool, default False
-            Whether to overwrite existing file
+            Reserved for backward compatibility.
 
         Raises
         ------
-        ValueError
-            If file extension is not recognized
+        NotImplementedError
+            Generic container serialization has been removed from ``scptensor.io``.
         """
-        from scptensor.io import save_hdf5
-
-        path = Path(path)
-        suffix = path.suffix.lower()
-
-        if suffix == ".h5" or suffix == ".hdf5":
-            save_hdf5(
-                self,
-                path,
-                compression=compression,
-                compression_level=compression_level,
-                overwrite=overwrite,
-            )
-        else:
-            raise ValueError(f"Unsupported file format: {suffix}. Use .h5")
+        raise NotImplementedError(
+            "ScpContainer.save() is no longer supported in the mass-spec-only I/O design. "
+            "Use scptensor.io.load_diann/load_spectronaut for vendor quant-table imports."
+        )
 
     @classmethod
     def load(cls, path: str | Path) -> ScpContainer:
-        """Load container from file, auto-detecting format from extension.
+        """Load container from file.
 
         Parameters
         ----------
         path : str | Path
-            Input file path. Extension determines format
+            Input file path.
 
         Returns
         -------
         ScpContainer
-            Loaded container
+            Loaded container.
 
         Raises
         ------
-        ValueError
-            If file extension is not recognized
+        NotImplementedError
+            Generic container deserialization has been removed from ``scptensor.io``.
         """
-        from scptensor.io import load_hdf5
-
-        path = Path(path)
-        suffix = path.suffix.lower()
-
-        if suffix == ".h5" or suffix == ".hdf5":
-            return load_hdf5(path)
-        else:
-            raise ValueError(f"Unsupported file format: {suffix}. Use .h5")
+        _ = path
+        raise NotImplementedError(
+            "ScpContainer.load() is no longer supported in the mass-spec-only I/O design. "
+            "Use scptensor.io.load_diann/load_spectronaut for vendor quant-table imports."
+        )
 
     # ==========================================================================
     # Convenience methods

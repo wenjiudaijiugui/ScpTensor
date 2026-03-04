@@ -1,4 +1,4 @@
-"""Nonlinear integration methods for single-cell proteomics data.
+"""Nonlinear integration methods for DIA-based single-cell proteomics data.
 
 Harmony uses an iterative clustering and correction approach to remove
 batch effects while preserving biological variation.
@@ -25,8 +25,10 @@ Korsunsky I, et al. Fast, sensitive and accurate integration of
 single-cell data with Harmony. Nature Methods (2019).
 """
 
+from __future__ import annotations
+
 from scptensor.core.sparse_utils import is_sparse_matrix
-from scptensor.core.structures import ScpMatrix
+from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.core.utils import requires_dependency
 from scptensor.integration.base import (
     prepare_integration_data,
@@ -41,7 +43,7 @@ from scptensor.integration.base import (
 @register_integrate_method("nonlinear")
 @requires_dependency("harmonypy", "pip install harmonypy")
 def integrate_harmony(
-    container,
+    container: ScpContainer,
     batch_key: str,
     assay_name: str = "protein",
     base_layer: str = "pca",
@@ -54,7 +56,7 @@ def integrate_harmony(
     max_iter_cluster: int = 20,
     epsilon_cluster: float = 1e-5,
     epsilon_harmony: float = 1e-4,
-) -> "ScpContainer":
+) -> ScpContainer:
     """Harmony integration for batch effect correction.
 
     Parameters
@@ -160,7 +162,7 @@ def integrate_harmony(
 
 
 def harmony(
-    container,
+    container: ScpContainer,
     batch_key: str,
     assay_name: str = "protein",
     base_layer: str = "pca",
@@ -173,7 +175,7 @@ def harmony(
     max_iter_cluster: int = 20,
     epsilon_cluster: float = 1e-5,
     epsilon_harmony: float = 1e-4,
-) -> "ScpContainer":
+) -> ScpContainer:
     """Harmony integration for batch effect correction.
 
     .. deprecated:: 0.1.0

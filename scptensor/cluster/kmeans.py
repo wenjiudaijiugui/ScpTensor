@@ -1,4 +1,4 @@
-"""K-Means clustering for single-cell proteomics data.
+"""K-Means clustering for DIA-based single-cell proteomics data.
 
 This module provides K-means clustering, aligned with scanpy's API.
 
@@ -32,6 +32,7 @@ def cluster_kmeans(
     random_state: int = 42,
     backend: Literal["sklearn", "numba"] = "sklearn",
     key_added: str | None = None,
+    storage: Literal["obs"] | None = None,
 ) -> ScpContainer:
     """K-Means clustering.
 
@@ -53,6 +54,8 @@ def cluster_kmeans(
         Clustering backend.
     key_added : str or None, optional
         Column name for results. If None, auto-generated.
+    storage : {"obs"} or None, optional
+        Deprecated compatibility parameter. Clustering labels are always stored in obs.
 
     Returns
     -------
@@ -87,6 +90,12 @@ def cluster_kmeans(
             f"backend must be 'sklearn' or 'numba', got '{backend}'.",
             parameter="backend",
             value=backend,
+        )
+    if storage not in (None, "obs"):
+        raise ScpValueError(
+            f"storage must be None or 'obs', got '{storage}'.",
+            parameter="storage",
+            value=storage,
         )
 
     # Get and prepare data

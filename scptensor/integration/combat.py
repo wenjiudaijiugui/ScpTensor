@@ -1,4 +1,4 @@
-"""ComBat batch effect correction for single-cell proteomics data.
+"""ComBat batch effect correction for DIA-based single-cell proteomics data.
 
 ComBat uses empirical Bayes methods to correct for batch effects while
 preserving biological signals of interest.
@@ -34,14 +34,17 @@ Fortin, J.-P., et al. (2017). Correction of unwanted variation in
 microarray data using empirical Bayes methods. bioRxiv.
 """
 
+from __future__ import annotations
+
 from collections.abc import Sequence
+from typing import cast
 
 import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
 from scptensor.core.sparse_utils import is_sparse_matrix
-from scptensor.core.structures import ScpMatrix
+from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.integration.base import (
     register_integrate_method,
     validate_batch_integration_params,
@@ -51,13 +54,13 @@ from scptensor.integration.base import (
 
 @register_integrate_method("combat")
 def integrate_combat(
-    container,
+    container: ScpContainer,
     batch_key: str,
     assay_name: str = "protein",
     base_layer: str = "raw",
     new_layer_name: str | None = "combat",
     covariates: Sequence[str] | None = None,
-) -> "ScpContainer":
+) -> ScpContainer:
     """Apply ComBat batch effect correction using empirical Bayes.
 
     Parameters
@@ -106,7 +109,10 @@ def integrate_combat(
     # Get data
     X = layer.X.copy()
     input_was_sparse = is_sparse_matrix(X)
-    X_dense = X.toarray() if input_was_sparse else np.asarray(X)
+    if sp.issparse(X):
+        X_dense = cast(sp.spmatrix, X).toarray()
+    else:
+        X_dense = np.asarray(X)
 
     # Impute NaN values with batch-specific means
     if np.isnan(X_dense).any():
@@ -164,7 +170,6 @@ def _build_design_matrices(
 ) -> tuple[np.ndarray, int]:
     """Build ComBat design matrices for batch and covariates."""
     # Batch design matrix
-    batch_info = obs_df[obs_df.columns[0]].clone()
     batch_items = unique_batches
     n_batch = len(batch_items)
 

@@ -69,3 +69,7 @@ tests/res/
 # Dataset files (large) - download separately
 scptensor/datasets/pride/*/report.tsv
 scptensor/datasets/massive/*/report.tsv
+
+# Benchmark artifacts (downloaded/generated)
+benchmark/**/data/
+benchmark/**/outputs/

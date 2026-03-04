@@ -1,6 +1,6 @@
 # ScpTensor Project Instructions
 
-**Project:** ScpTensor - Single-Cell Proteomics Analysis Framework
+**Project:** ScpTensor - DIA-Based Single-Cell Proteomics Preprocessing Toolkit
 **Version:** v0.1.0-beta
 **Last Updated:** 2026-01-14
 
@@ -8,9 +8,11 @@
 
 ## Project-Specific Context
 
-ScpTensor is a Python library for single-cell proteomics (SCP) data analysis with a hierarchical data structure (`ScpContainer` → `Assay` → `ScpMatrix`) and comprehensive analysis tools (QC, normalization, imputation, batch correction, dimensionality reduction, clustering, feature selection, differential expression).
+ScpTensor is a Python library for DIA-based single-cell proteomics data analysis with a hierarchical data structure (`ScpContainer` → `Assay` → `ScpMatrix`) and comprehensive analysis tools (QC, normalization, imputation, batch correction, dimensionality reduction, clustering, feature selection, differential expression).
 
 **Current Status:** Functional framework with comprehensive analysis capabilities. Core modules are complete and tested. Includes benchmarking suite with competitor comparison, tutorial notebooks, and CI/CD pipeline.
+
+**Authoritative scope contract:** `AGENTS.md` (root). If this file conflicts with `AGENTS.md`, follow `AGENTS.md`.
 
 ---
 

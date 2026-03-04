@@ -1,4 +1,4 @@
-"""Graph-based clustering for single-cell proteomics data.
+"""Graph-based clustering for DIA-based single-cell proteomics data.
 
 This module provides Leiden clustering, aligned with scanpy's tl.leiden API.
 

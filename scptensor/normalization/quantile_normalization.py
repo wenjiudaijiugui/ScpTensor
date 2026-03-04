@@ -29,12 +29,76 @@ from scipy.stats import rankdata
 
 from scptensor.core.structures import ScpContainer
 
-from .base import (
-    create_result_layer,
-    ensure_dense,
-    log_operation,
-    validate_assay_and_layer,
-)
+from .base import create_result_layer, ensure_dense, log_operation, validate_assay_and_layer
+
+
+def _quantile_normalize_rows(X: np.ndarray) -> np.ndarray:  # noqa: N803
+    """Quantile-normalize a dense matrix row-wise.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Input matrix of shape (n_rows, n_cols). Each row is normalized
+        against the shared reference distribution.
+
+    Returns
+    -------
+    np.ndarray
+        Quantile-normalized matrix with NaN positions preserved.
+    """
+    n_rows, n_cols = X.shape
+
+    # Step 1: Sort each row independently (ignoring NaN)
+    X_sorted = np.empty_like(X)
+    nan_mask = np.isnan(X)
+
+    for i in range(n_rows):
+        row = X[i, :]
+        non_nan = ~nan_mask[i, :]
+
+        if non_nan.sum() == 0:
+            X_sorted[i, :] = np.nan
+            continue
+
+        row_valid = row[non_nan]
+        sorted_row = np.sort(row_valid)
+        X_sorted[i, :] = np.nan
+        X_sorted[i, : sorted_row.size] = sorted_row
+
+    # Step 2: Compute rank-wise shared reference
+    valid_counts = np.sum(~np.isnan(X_sorted), axis=0)
+    rank_sums = np.nansum(X_sorted, axis=0)
+    reference_dist = np.divide(
+        rank_sums,
+        valid_counts,
+        out=np.zeros_like(rank_sums, dtype=float),
+        where=valid_counts > 0,
+    )
+
+    # Step 3: Map row values back by rank
+    X_normalized = np.empty_like(X)
+
+    for i in range(n_rows):
+        row = X[i, :]
+        non_nan = ~nan_mask[i, :]
+
+        if non_nan.sum() == 0:
+            X_normalized[i, :] = np.nan
+            continue
+
+        row_valid = row[non_nan]
+        ranks = rankdata(row_valid, method="average") - 1  # 0-indexed
+
+        normalized_values = np.interp(
+            ranks,
+            np.arange(len(reference_dist)),
+            reference_dist,
+        )
+
+        X_normalized[i, non_nan] = normalized_values
+        X_normalized[i, ~non_nan] = np.nan
+
+    return X_normalized
 
 
 def norm_quantile(
@@ -43,7 +107,7 @@ def norm_quantile(
     source_layer: str = "raw",
     new_layer_name: str = "quantile_norm",
 ) -> ScpContainer:
-    """Quantile normalization for single-cell proteomics data.
+    """Quantile normalization for DIA-based single-cell proteomics data.
 
     Forces all samples to have the same distribution by matching their
     empirical distributions. This is a powerful normalization technique
@@ -54,28 +118,28 @@ def norm_quantile(
         quantile normalization. This ensures the data meets the normality
         assumptions and makes the distributions more comparable.
         Example:
-            >>> from scptensor.normalization import log_transform
+            >>> from scptensor.transformation import log_transform
             >>> container = log_transform(container, base=2.0)
             >>> container = norm_quantile(container)
 
     Mathematical Formulation:
-        Given matrix X with N proteins (rows) and M samples (cols):
+        Given matrix X with N samples (rows) and M proteins (cols):
 
         .. math::
 
-            q_k = \\frac{1}{M} \\sum_{j=1}^{M} X_{(k),j}
+            q_k = \\frac{1}{N} \\sum_{i=1}^{N} X_{i,(k)}
 
-        where :math:`X_{(k),j}` is the k-th order statistic of column j.
+        where :math:`X_{i,(k)}` is the k-th order statistic of sample i.
 
-        For element :math:`x_{i,j}` with rank :math:`r_{i,j}` in column j:
+        For element :math:`x_{i,j}` with rank :math:`r_{i,j}` in sample i:
 
         .. math::
 
             x_{i,j}^{normalized} = q_{r_{i,j}}
 
     **Tie Handling:**
-        Tied values receive the average of their corresponding quantiles
-        using scipy.stats.rankdata with method='average'.
+        Tied values receive the average of their corresponding quantiles using
+        ``scipy.stats.rankdata(method="average")``.
 
     **Missing Value Handling:**
         Only non-missing observations are used for computing quantiles.
@@ -88,8 +152,8 @@ def norm_quantile(
     assay_name : str, default="protein"
         Name of the assay to process.
     source_layer : str, default="raw"
-        Name of the layer to normalize. Should be log-transformed data
-        for best results.
+        Name of the layer to normalize. Input matrix is expected as
+        (samples x proteins), and normalization is performed per-sample.
     new_layer_name : str, default="quantile_norm"
         Name for the new normalized layer.
 
@@ -127,7 +191,7 @@ def norm_quantile(
     -----
     - This implementation uses scipy.stats.rankdata for efficient rank
       computation with proper tie handling.
-    - The algorithm is applied per-column (per-sample) to align all
+    - The algorithm is applied per-row (each row is a sample) to align all
       sample distributions.
     - Quantile normalization assumes most features are not differentially
       expressed, which is generally reasonable for large-scale proteomics
@@ -138,55 +202,7 @@ def norm_quantile(
     assay, input_layer = validate_assay_and_layer(container, assay_name, source_layer)
 
     X = ensure_dense(input_layer.X).copy()
-
-    # Get dimensions
-    n_samples, n_features = X.shape
-
-    # Step 1: Sort each column (sample) independently
-    X_sorted = np.empty_like(X)
-    nan_mask = np.isnan(X)
-
-    for j in range(n_features):
-        col = X[:, j]
-        non_nan = ~nan_mask[:, j]
-
-        if non_nan.sum() == 0:
-            X_sorted[:, j] = np.nan
-            continue
-
-        col_valid = col[non_nan]
-        sorted_col = np.sort(col_valid)
-        X_sorted[non_nan, j] = sorted_col
-        X_sorted[~non_nan, j] = np.nan
-
-    # Step 2: Compute reference distribution as row means
-    row_means = np.nanmean(X_sorted, axis=1)
-    all_nan_rows = np.isnan(row_means)
-    reference_dist = np.copy(row_means)
-    reference_dist[all_nan_rows] = 0.0
-
-    # Step 3: Inverse mapping - assign reference values based on ranks
-    X_normalized = np.empty_like(X)
-
-    for j in range(n_features):
-        col = X[:, j]
-        non_nan = ~nan_mask[:, j]
-
-        if non_nan.sum() == 0:
-            X_normalized[:, j] = np.nan
-            continue
-
-        col_valid = col[non_nan]
-        ranks = rankdata(col_valid, method="average") - 1  # 0-indexed
-
-        normalized_values = np.interp(
-            ranks,
-            np.arange(len(reference_dist)),
-            reference_dist,
-        )
-
-        X_normalized[non_nan, j] = normalized_values
-        X_normalized[~non_nan, j] = np.nan
+    X_normalized = _quantile_normalize_rows(X)
 
     # Create and add new layer
     new_matrix = create_result_layer(X_normalized, input_layer)
@@ -205,3 +221,6 @@ def norm_quantile(
     )
 
     return container
+
+
+__all__ = ["norm_quantile"]

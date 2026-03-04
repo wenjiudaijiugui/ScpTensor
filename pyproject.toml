@@ -1,7 +1,7 @@
 [project]
 name = "scptensor"
 version = "0.1.0"
-description = "Single-cell proteomics (SCP) data analysis framework with comprehensive tools for quality control, normalization, imputation, batch correction, and dimensionality reduction."
+description = "DIA-based single-cell proteomics preprocessing framework with DIA-NN/Spectronaut I/O, peptide-to-protein aggregation, and downstream preprocessing/analysis tools."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -218,6 +218,8 @@ known-first-party = ["scptensor"]
 
 # Benchmark files: X and M are standard names for data/mask matrices in scientific computing
 "scptensor/benchmark/*.py" = ["N803", "N806"]
+# Benchmark helper scripts (standalone analysis/report scripts with dynamic imports)
+"benchmark/autoselect/**/*.py" = ["UP009", "E402", "F401", "F841", "B905", "C408"]
 # Cluster: X and M_cluster are standard variable names in clustering algorithms
 "scptensor/cluster/*.py" = ["N806", "N803"]
 # Core I/O and sparse utils: X, M, X_dense, M_dense, X_data, M_data are standard matrix names

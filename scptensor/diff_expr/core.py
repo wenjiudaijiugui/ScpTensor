@@ -1,7 +1,7 @@
 """Differential expression analysis core module.
 
 This module provides statistical tests for identifying features (proteins/peptides)
-that differ significantly between groups in single-cell proteomics data.
+that differ significantly between groups in DIA-based single-cell proteomics data.
 
 Supported tests:
     - t-test: Two-group comparison (Student's and Welch's)
@@ -491,7 +491,8 @@ def _run_multi_group_test(
     }
 
     for j in range(n_features):
-        group_data: list[np.ndarray] | None = []
+        group_data: list[np.ndarray] = []
+        valid_group = True
         for g in unique_groups:
             idx = group_indices[g]
             g_vals = X_proc[idx, j]
@@ -500,14 +501,14 @@ def _run_multi_group_test(
                 g_vals = g_vals[valid_mask[idx, j]]
 
             if len(g_vals) < 2:
-                group_data = None
+                valid_group = False
                 break
 
             group_data.append(g_vals)
             group_means[f"{g}_mean"][j] = np.mean(g_vals)
             group_medians[f"{g}_median"][j] = np.median(g_vals)
 
-        if group_data is None:
+        if not valid_group:
             continue
 
         try:
@@ -899,7 +900,8 @@ def check_homoscedasticity(
     test_fn = stats.levene if test_type == "levene" else stats.brownforsythe
 
     for j in range(n_features):
-        group_data = []
+        group_data: list[np.ndarray] = []
+        valid_group = True
         for g in unique_groups:
             idx = group_indices[g]
             g_vals = X_proc[idx, j]
@@ -908,12 +910,12 @@ def check_homoscedasticity(
                 g_vals = g_vals[valid_mask[idx, j]]
 
             if len(g_vals) < 2:
-                group_data = None
+                valid_group = False
                 break
 
             group_data.append(g_vals)
 
-        if group_data is None:
+        if not valid_group:
             continue
 
         try:

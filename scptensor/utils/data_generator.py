@@ -1,7 +1,7 @@
-"""Synthetic single-cell proteomics data generator.
+"""Synthetic DIA-based single-cell proteomics data generator.
 
-This module generates realistic synthetic SCP data using statistical models
-that capture the key characteristics of real single-cell proteomics data:
+This module generates realistic synthetic DIA-based single-cell proteomics data using statistical models
+that capture the key characteristics of real DIA-based single-cell proteomics data:
 
 1. MNAR + MAR missing mechanisms: Uses probabilistic dropout (sigmoid-based)
    to simulate intensity-dependent missing values, combined with random missing.
@@ -14,7 +14,7 @@ that capture the key characteristics of real single-cell proteomics data:
 References
 ----------
 - Lazar et al. (2016): Probabilistic dropout model for mass spectrometry data
-- Vanderaa & Gatto (2021): Review of missing value mechanisms in SCP
+- Vanderaa & Gatto (2021): Review of missing value mechanisms in proteomics
 - Zappia et al. (2017): Splatter for simulating single-cell RNA data
 - Rocke & Lorenzato (1995): Additive + multiplicative noise model
 """
@@ -55,9 +55,9 @@ _REGULARIZATION_EPS = 1e-8
 
 
 class ScpDataGenerator:
-    """Generator for synthetic single-cell proteomics data in ScpContainer format.
+    """Generator for synthetic DIA-based single-cell proteomics data in ScpContainer format.
 
-    This class creates realistic synthetic SCP data by modeling:
+    This class creates realistic synthetic DIA-based single-cell proteomics data by modeling:
     - Biological variation through latent factors (pathway-like co-expression)
     - Technical variation (sample efficiency, batch effects)
     - Heteroscedastic noise (intensity-dependent variance)
@@ -606,6 +606,6 @@ class ScpDataGenerator:
                 "use_sparse_X": self.use_sparse_X,
                 "use_sparse_M": self.use_sparse_M,
             },
-            description="Generated synthetic single-cell proteomics data with "
+            description="Generated synthetic DIA-based single-cell proteomics data with "
             "biological correlations, heteroscedastic noise, groups, and batch effects.",
         )

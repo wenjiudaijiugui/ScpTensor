@@ -1,4 +1,4 @@
-"""Mutual Nearest Neighbors (MNN) correction for single-cell proteomics data.
+"""Mutual Nearest Neighbors (MNN) correction for DIA-based single-cell proteomics data.
 
 MNN identifies pairs of cells from different batches that are mutual nearest
 neighbors in the high-dimensional space. These pairs are used to estimate and
@@ -27,6 +27,8 @@ Haghverdi L, et al. Batch effects in single-cell RNA-sequencing data
 are corrected by matching mutual nearest neighbors. Nature Biotechnology (2018).
 """
 
+from __future__ import annotations
+
 from collections import defaultdict
 from typing import Any
 
@@ -36,7 +38,7 @@ from sklearn.neighbors import NearestNeighbors
 
 from scptensor.core.exceptions import ScpValueError
 from scptensor.core.sparse_utils import is_sparse_matrix
-from scptensor.core.structures import ScpMatrix
+from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.integration.base import (
     prepare_integration_data,
     preserve_sparsity,
@@ -48,7 +50,7 @@ from scptensor.integration.base import (
 
 @register_integrate_method("mnn")
 def integrate_mnn(
-    container,
+    container: ScpContainer,
     batch_key: str,
     assay_name: str = "protein",
     base_layer: str = "raw",
@@ -58,7 +60,7 @@ def integrate_mnn(
     n_pcs: int | None = None,
     use_pca: bool = True,
     use_anchor_correction: bool = True,
-) -> "ScpContainer":
+) -> ScpContainer:
     """Correct batch effects using Mutual Nearest Neighbors (MNN) method.
 
     Parameters

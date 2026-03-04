@@ -297,6 +297,17 @@ class TestScpMatrixCopyEdgeCases:
         assert matrix_copy.metadata is not None
         assert matrix_copy.metadata.creation_info == {"test": "value"}
 
+    def test_copy_metadata_independence(self):
+        """Test that metadata is deep-copied."""
+        X = np.random.rand(2, 2)
+        metadata = MatrixMetadata(creation_info={"nested": {"a": 1}})
+        matrix = ScpMatrix(X=X, metadata=metadata)
+        matrix_copy = matrix.copy()
+
+        matrix_copy.metadata.creation_info["nested"]["a"] = 99
+
+        assert matrix.metadata.creation_info["nested"]["a"] == 1
+
 
 class TestScpMatrixGetM:
     """Test get_m method variations."""

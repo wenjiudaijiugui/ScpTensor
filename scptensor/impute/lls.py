@@ -2,12 +2,13 @@
 Local Least Squares imputation.
 
 Reference:
-    Kim H, et al. BMC Bioinformatics 2008;9:72.
+    Kim H, et al. Bioinformatics 2005;21(2):187-198.
     Missing value estimation for DNA microarray gene expression data:
     Local least squares imputation.
 """
 
 import numpy as np
+import scipy.sparse as sp
 from sklearn.neighbors import NearestNeighbors
 
 from scptensor.core.exceptions import (
@@ -17,6 +18,7 @@ from scptensor.core.exceptions import (
 )
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
+from scptensor.impute.base import ImputeMethod, register_impute_method
 
 # =============================================================================
 # Core LLS algorithm (pure function for registry)
@@ -28,7 +30,8 @@ def lls_impute(
     k: int = 10,
     max_iter: int = 100,
     tol: float = 1e-6,
-) -> np.ndarray:
+    return_n_iter: bool = False,
+) -> np.ndarray | tuple[np.ndarray, int]:
     """Local Least Squares imputation (core algorithm).
 
     Parameters
@@ -54,15 +57,19 @@ def lls_impute(
     if not np.any(missing_mask):
         return X
 
-    # Initialize with column means
-    col_means = np.nanmean(X, axis=0)
-    col_means[np.isnan(col_means)] = 0.0
+    # Initialize with column means (safe for all-NaN columns).
+    col_means = np.zeros(n_features, dtype=np.float64)
+    for j in range(n_features):
+        observed = X[~missing_mask[:, j], j]
+        col_means[j] = float(np.mean(observed)) if observed.size > 0 else 0.0
 
     for j in range(n_features):
         X[missing_mask[:, j], j] = col_means[j]
 
     # Iterative imputation
+    n_iterations = 0
     for iteration in range(max_iter):
+        n_iterations = iteration + 1
         prev_X = X.copy()
         samples_with_missing = np.where(missing_mask.any(axis=1))[0]
 
@@ -152,6 +159,8 @@ def lls_impute(
         if max_change / mean_val < tol:
             break
 
+    if return_n_iter:
+        return X, n_iterations
     return X
 
 
@@ -253,7 +262,11 @@ def impute_lls(
         )
 
     input_matrix = assay.layers[source_layer]
-    X_original = input_matrix.X.copy()
+    X_raw = input_matrix.X.copy()
+    if sp.issparse(X_raw):
+        X_original = X_raw.toarray().astype(np.float64, copy=False)
+    else:
+        X_original = np.asarray(X_raw, dtype=np.float64)
 
     missing_mask = np.isnan(X_original)
     if not np.any(missing_mask):
@@ -268,8 +281,14 @@ def impute_lls(
         return container
 
     # Apply LLS imputation
-    iterations = 0
-    X_imputed = lls_impute(X_original, k=k, max_iter=max_iter, tol=tol)
+    X_imputed, iterations = lls_impute(
+        X_original,
+        k=k,
+        max_iter=max_iter,
+        tol=tol,
+        return_n_iter=True,
+    )
+    X_imputed[~missing_mask] = X_original[~missing_mask]
 
     # Create new layer
     new_matrix = ScpMatrix(X=X_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask))
@@ -292,14 +311,11 @@ def impute_lls(
     return container
 
 
-# Register with base interface
-from scptensor.impute.base import ImputeMethod, register_impute_method
-
 register_impute_method(
     ImputeMethod(
         name="lls",
         supports_sparse=False,
         validate=validate_lls,
-        apply=lls_impute,
+        apply=impute_lls,
     )
 )

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import polars as pl
@@ -219,15 +219,15 @@ def resolve_filter_criteria(
 
     # Get metadata DataFrame and dimensions based on filter target
     if is_sample:
-        # Type narrowing: when is_sample=True, target must be ScpContainer
-        metadata_df = target.obs  # type: ignore[attr-defined]
-        n_items = target.n_samples  # type: ignore[attr-defined]
-        id_col = target.sample_id_col  # type: ignore[attr-defined]
+        container = cast("ScpContainer", target)
+        metadata_df = container.obs
+        n_items = container.n_samples
+        id_col = container.sample_id_col
     else:
-        # Type narrowing: when is_sample=False, use var for both
-        metadata_df = target.var  # type: ignore[attr-defined]
-        n_items = target.n_features  # type: ignore[attr-defined]
-        id_col = "_index"
+        assay = cast("Assay", target)
+        metadata_df = assay.var
+        n_items = assay.n_features
+        id_col = assay.feature_id_col
 
     # Resolve based on criteria type
     if criteria.criteria_type == "expression":
@@ -271,8 +271,10 @@ def resolve_filter_criteria(
             id_list = ids.tolist()
         elif isinstance(ids, pl.Series):
             id_list = ids.to_list()
+        elif isinstance(ids, Sequence):
+            id_list = list(ids)
         else:
-            id_list = list(ids)  # type: ignore[arg-type]
+            raise ValueError("IDs must be a sequence of identifiers.")
 
         # Build ID to index mapping
         all_ids = metadata_df[id_col].to_list()

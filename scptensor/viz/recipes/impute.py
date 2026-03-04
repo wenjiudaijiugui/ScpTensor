@@ -1,7 +1,7 @@
 """Visualization recipes for imputation assessment.
 
 This module provides specialized visualization functions for assessing imputation
-quality and comparing different imputation methods in single-cell proteomics data.
+quality and comparing different imputation methods in DIA-based single-cell proteomics data.
 
 Functions include:
 - plot_imputation_comparison: Compare multiple methods side-by-side

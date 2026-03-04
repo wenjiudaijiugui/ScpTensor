@@ -59,10 +59,13 @@ def calculate_feature_qc_metrics(
     if layer_name is None:
         layer = next(iter(assay.layers.values()))
     else:
-        validate_layer(assay, layer_name)
+        validate_layer(assay, layer_name, assay_name=assay_name)
         layer = assay.layers[layer_name]
 
     X = layer.X
+    if sp.issparse(X):
+        X = X.toarray()  # type: ignore[union-attr]
+    X = np.asarray(X, dtype=np.float64)
 
     # Compute detection statistics
     n_detected, detection_rate, means = compute_detection_stats(X)
@@ -156,13 +159,13 @@ def filter_features_by_missingness(
     >>> result.assays['protein'].n_features
     4
     """
-    validate_threshold(max_missing_rate, "max_missing_rate")
+    validate_threshold(max_missing_rate, "max_missing_rate", min_val=0.0, max_val=1.0)
     assay = validate_assay(container, assay_name)
 
     if layer_name is None:
         layer = next(iter(assay.layers.values()))
     else:
-        validate_layer(assay, layer_name)
+        validate_layer(assay, layer_name, assay_name=assay_name)
         layer = assay.layers[layer_name]
 
     X = layer.X
@@ -252,7 +255,7 @@ def filter_features_by_cv(
     if layer_name is None:
         layer = next(iter(assay.layers.values()))
     else:
-        validate_layer(assay, layer_name)
+        validate_layer(assay, layer_name, assay_name=assay_name)
         layer = assay.layers[layer_name]
 
     X = layer.X

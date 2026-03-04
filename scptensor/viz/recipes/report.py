@@ -577,6 +577,7 @@ def _render_diff_expr_panel(
     assay_name: str = "proteins",
     group1: str = "group_0",
     group2: str = "group_1",
+    group_col: str = "group",
 ) -> None:
     """Render differential expression volcano panel.
 
@@ -616,7 +617,22 @@ def _render_diff_expr_panel(
     p_values = []
     log2_fc = []
 
-    groups = container.obs["group"].to_numpy()
+    if group_col not in container.obs.columns:
+        for fallback_col in ("group", "batch", "condition"):
+            if fallback_col in container.obs.columns:
+                group_col = fallback_col
+                break
+        else:
+            ax.text(
+                0.5,
+                0.5,
+                f"Grouping column '{group_col}' not found",
+                ha="center",
+                va="center",
+            )
+            return
+
+    groups = container.obs[group_col].to_numpy()
     idx1 = np.where(groups == group1)[0] if group1 in groups else np.array([])
     idx2 = np.where(groups == group2)[0] if group2 in groups else np.array([])
 
@@ -767,7 +783,12 @@ def generate_analysis_report(
     ax8 = fig.add_subplot(gs[2, 2])
     if diff_expr_groups:
         _render_diff_expr_panel(
-            ax8, container, assay_name, diff_expr_groups[0], diff_expr_groups[1]
+            ax8,
+            container,
+            assay_name,
+            diff_expr_groups[0],
+            diff_expr_groups[1],
+            group_col,
         )
     else:
         ax8.text(0.5, 0.5, "Specify diff_expr_groups\nfor DE analysis", ha="center", va="center")

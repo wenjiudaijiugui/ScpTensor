@@ -14,7 +14,7 @@ def reader(
     batch: dict[str, str],
     software: Literal["DIA-NN", "Spectronaut"],
 ) -> ScpContainer:
-    """Main reader function for SCP data.
+    """Main reader function for DIA-based single-cell proteomics data.
 
     Args:
         data_path: Path to the data directory.

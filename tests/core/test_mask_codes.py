@@ -92,6 +92,16 @@ class TestMaskCodeValidation:
         matrix = ScpMatrix(X=X, M=M_sparse)
         assert sparse.issparse(matrix.M)
 
+    def test_sparse_invalid_mask_code_raises_error(self):
+        """Test that invalid mask codes in sparse matrices raise ValueError."""
+        X = np.random.rand(3, 3)
+        M_dense = np.zeros((3, 3), dtype=np.int8)
+        M_dense[1, 1] = 9
+        M_sparse = sparse.csr_matrix(M_dense)
+
+        with pytest.raises(ValueError, match="Invalid mask codes"):
+            ScpMatrix(X=X, M=M_sparse)
+
 
 class TestMaskCodeOperations:
     """Test operations with mask codes."""

@@ -1,6 +1,6 @@
 """UMAP (Uniform Manifold Approximation and Projection) for dimensionality reduction.
 
-This module provides UMAP embedding for single-cell proteomics data,
+This module provides UMAP embedding for DIA-based single-cell proteomics data,
 aligned with scanpy's tl.umap API.
 
 Reference:

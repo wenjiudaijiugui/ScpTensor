@@ -1,4 +1,4 @@
-"""Quality Control (QC) module for single-cell proteomics.
+"""Quality Control (QC) module for DIA-based single-cell proteomics.
 
 Provides hierarchical QC workflow:
 1. PSM Level (qc_psm): Filter raw peptide matches (PIF, Contaminants, FDR)
@@ -15,8 +15,6 @@ from scptensor.qc.qc_feature import (
 from scptensor.qc.qc_psm import (
     DEFAULT_CONTAMINANT_PATTERNS,
     compute_median_cv,
-    compute_sample_carrier_ratio,
-    divide_by_reference,
     filter_contaminants,
     filter_psms_by_pif,
     filter_psms_by_qvalue,
@@ -39,9 +37,7 @@ __all__ = [
     "filter_psms_by_pif",
     "filter_psms_by_qvalue",
     "pep_to_qvalue",
-    "compute_sample_carrier_ratio",
     "compute_median_cv",
-    "divide_by_reference",
     "DEFAULT_CONTAMINANT_PATTERNS",
     # Sample functions
     "calculate_sample_qc_metrics",

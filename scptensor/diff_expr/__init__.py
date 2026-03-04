@@ -1,4 +1,4 @@
-"""Differential expression analysis for single-cell proteomics.
+"""Differential expression analysis for DIA-based single-cell proteomics.
 
 This module provides statistical tests for identifying features (proteins/peptides)
 that differ significantly between groups.

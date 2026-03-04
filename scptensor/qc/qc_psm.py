@@ -4,18 +4,16 @@ Handles filtering and QC for Peptide Spectrum Matches (PSMs):
 - Contaminant filtering (keratins, trypsin, albumin, etc.)
 - PIF (Parent Ion Fraction) filtering for co-elution detection
 - FDR control via PEP to q-value conversion
-- Sample-to-carrier ratio computation
-- Reference channel normalization
 """
 
 from typing import Literal
 
 import numpy as np
 import polars as pl
-import scipy.sparse as sp
 
 from scptensor.core.filtering import FilterCriteria
-from scptensor.core.structures import ScpContainer, ScpMatrix
+from scptensor.core.structures import ScpContainer
+from scptensor.core.types import JsonValue
 from scptensor.qc._utils import validate_assay, validate_column_exists, validate_threshold
 
 # Default contaminant patterns for proteomics
@@ -70,7 +68,7 @@ def filter_psms_by_pif(
     """
     validate_threshold(min_pif, "min_pif")
     assay = validate_assay(container, assay_name)
-    validate_column_exists(assay, pif_col, "PIF column", "assay.var")
+    validate_column_exists(assay.var, pif_col, "assay.var")
 
     pif_series = assay.var[pif_col]
     keep_mask = (pif_series >= min_pif).fill_null(False)
@@ -134,7 +132,7 @@ def filter_contaminants(
     >>> result = filter_contaminants(container, patterns=custom)
     """
     assay = validate_assay(container, assay_name)
-    validate_column_exists(assay, feature_col, "Feature column", "assay.var")
+    validate_column_exists(assay.var, feature_col, "assay.var")
 
     regex_patterns = patterns or DEFAULT_CONTAMINANT_PATTERNS
     combined_pattern = "|".join(f"({p})" for p in regex_patterns)
@@ -150,13 +148,14 @@ def filter_contaminants(
     n_removed = assay.n_features - len(keep_indices)
     percent_removed = (n_removed / assay.n_features * 100) if assay.n_features > 0 else 0
 
+    pattern_preview: list[JsonValue] = [str(p) for p in regex_patterns[:5]]
     new_container.log_operation(
         action="filter_contaminants",
         params={
             "assay": assay_name,
             "feature_col": feature_col,
             "patterns_count": len(regex_patterns),
-            "patterns": regex_patterns[:5],
+            "patterns": pattern_preview,
         },
         description=(
             f"Removed {n_removed}/{assay.n_features} features ({percent_removed:.1f}%) "
@@ -218,7 +217,7 @@ def pep_to_qvalue(
     ranks = np.arange(1, n + 1)
 
     if method == "storey":
-        pi0 = np.sum(pep > lambda_param) / (n * (1 - lambda_param))
+        pi0 = float(np.sum(pep > lambda_param) / (n * (1 - lambda_param)))
         pi0 = min(max(pi0, 1.0 / n), 1.0)
         qvals = sorted_pep * pi0 * n / ranks
     else:  # bh
@@ -271,7 +270,7 @@ def filter_psms_by_qvalue(
     """
     validate_threshold(qvalue_threshold, "qvalue_threshold")
     assay = validate_assay(container, assay_name)
-    validate_column_exists(assay, qvalue_col, "Q-value column", "assay.var")
+    validate_column_exists(assay.var, qvalue_col, "assay.var")
 
     qvalue_series = assay.var[qvalue_col]
     keep_mask = (qvalue_series < qvalue_threshold).fill_null(False)
@@ -295,141 +294,6 @@ def filter_psms_by_qvalue(
             f"Removed {n_removed}/{assay.n_features} PSMs ({percent_removed:.1f}%) "
             f"with {qvalue_col} >= {qvalue_threshold} from assay '{assay_name}'. "
             f"FDR controlled at {qvalue_threshold * 100:.1f}%."
-        ),
-    )
-
-    return new_container
-
-
-def compute_sample_carrier_ratio(
-    container: ScpContainer,
-    assay_name: str = "peptide",
-    layer_name: str = "raw",
-    carrier_identifier: str = "Carrier",
-    sample_identifier: str | None = None,
-    max_scr: float = 0.1,
-) -> ScpContainer:
-    """Compute Sample-to-Carrier Ratio (SCR) for isobaric labeling experiments.
-
-    SCR = sample_intensity / (sample_intensity + carrier_intensity)
-    High SCR (>0.1) may indicate overloaded sample or carrier issues.
-
-    Parameters
-    ----------
-    container : ScpContainer
-        ScpContainer with intensity data from isobaric labeling experiment.
-    assay_name : str, default="peptide"
-        Name of the assay containing PSM or protein data.
-    layer_name : str, default="raw"
-        Name of the layer containing intensity values.
-    carrier_identifier : str, default="Carrier"
-        String identifier for carrier channels in sample names.
-    sample_identifier : str, optional
-        String identifier for sample channels. If None, all non-carriers are samples.
-    max_scr : float, default=0.1
-        Maximum acceptable SCR threshold.
-
-    Returns
-    -------
-    ScpContainer
-        ScpContainer with SCR metrics added to obs:
-        - scr_median: Median SCR across features
-        - scr_mean: Mean SCR across features
-        - scr_high_psm_count: Number of features with SCR > max_scr
-
-    Examples
-    --------
-    >>> result = compute_sample_carrier_ratio(container, carrier_identifier="Carrier")
-    >>> result.obs[['scr_median', 'scr_mean', 'scr_high_psm_count']]
-    """
-    from scptensor.core.exceptions import ScpValueError
-
-    assay = validate_assay(container, assay_name)
-
-    if layer_name not in assay.layers:
-        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
-        raise ScpValueError(
-            f"Layer '{layer_name}' not found. Available: {available}.",
-            parameter="layer_name",
-            value=layer_name,
-        )
-
-    sample_names = container.obs["_index"].to_numpy()
-    is_carrier = np.array([carrier_identifier in name for name in sample_names])
-    carrier_indices = np.where(is_carrier)[0]
-
-    if len(carrier_indices) == 0:
-        raise ScpValueError(
-            f"No carrier channels found with identifier '{carrier_identifier}'.",
-            parameter="carrier_identifier",
-            value=carrier_identifier,
-        )
-
-    if sample_identifier is not None:
-        is_sample = np.array([sample_identifier in name for name in sample_names])
-    else:
-        is_sample = ~is_carrier
-
-    sample_indices = np.where(is_sample)[0]
-
-    if len(sample_indices) == 0:
-        raise ScpValueError(
-            "No sample channels found.",
-            parameter="sample_identifier",
-            value=sample_identifier,
-        )
-
-    layer = assay.layers[layer_name]
-    X = layer.X
-
-    if sp.issparse(X):
-        X = X.toarray()
-
-    carrier_signal = X[carrier_indices, :].sum(axis=0)
-
-    scr_median = []
-    scr_mean = []
-    scr_high_count = []
-
-    for sample_idx in sample_indices:
-        sample_signal = X[sample_idx, :]
-        total_signal = sample_signal + carrier_signal
-
-        with np.errstate(divide="ignore", invalid="ignore"):
-            scr = np.where(total_signal > 0, sample_signal / total_signal, 0.0)
-
-        scr_median.append(np.nanmedian(scr))
-        scr_mean.append(np.nanmean(scr))
-        scr_high_count.append(np.sum(scr > max_scr))
-
-    scr_median_all = np.full(len(sample_names), np.nan)
-    scr_mean_all = np.full(len(sample_names), np.nan)
-    scr_high_count_all = np.full(len(sample_names), 0, dtype=int)
-
-    scr_median_all[sample_indices] = scr_median
-    scr_mean_all[sample_indices] = scr_mean
-    scr_high_count_all[sample_indices] = scr_high_count
-
-    new_container = container.copy()
-    new_container.obs = new_container.obs.with_columns(
-        [
-            pl.Series("scr_median", scr_median_all),
-            pl.Series("scr_mean", scr_mean_all),
-            pl.Series("scr_high_psm_count", scr_high_count_all),
-        ]
-    )
-
-    new_container.log_operation(
-        action="compute_sample_carrier_ratio",
-        params={
-            "assay": assay_name,
-            "layer": layer_name,
-            "carrier_identifier": carrier_identifier,
-            "max_scr": max_scr,
-        },
-        description=(
-            f"Computed SCR for {len(sample_indices)} samples. "
-            f"Identified {sum(1 for m in scr_median if m > max_scr)} with SCR > {max_scr}."
         ),
     )
 
@@ -510,113 +374,6 @@ def compute_median_cv(
         description=(
             f"Computed median CV. Median across samples: {median_cv_all:.3f}. "
             f"Identified {n_high_cv} samples with CV > {cv_threshold}."
-        ),
-    )
-
-    return new_container
-
-
-def divide_by_reference(
-    container: ScpContainer,
-    assay_name: str = "peptide",
-    layer_name: str = "raw",
-    reference_channel: str = "Reference",
-    new_layer_name: str = "reference_normalized",
-    epsilon: float = 1e-6,
-) -> ScpContainer:
-    """Normalize channels by dividing by reference channel.
-
-    Used in isobaric labeling experiments (TMT, iTRAQ) to remove
-    technical variation between runs.
-
-    Parameters
-    ----------
-    container : ScpContainer
-        ScpContainer with intensity data including reference channel.
-    assay_name : str, default="peptide"
-        Name of the assay containing data.
-    layer_name : str, default="raw"
-        Name of the source layer containing raw intensities.
-    reference_channel : str, default="Reference"
-        Name of the reference channel in obs['_index'].
-    new_layer_name : str, default="reference_normalized"
-        Name for the new normalized layer.
-    epsilon : float, default=1e-6
-        Small constant to avoid division by zero.
-
-    Returns
-    -------
-    ScpContainer
-        ScpContainer with new layer containing normalized data.
-
-    Examples
-    --------
-    >>> result = divide_by_reference(container, reference_channel="Reference")
-    >>> X_norm = result.assays['peptide'].layers['reference_normalized'].X
-    """
-    from scptensor.core.exceptions import ScpValueError
-
-    assay = validate_assay(container, assay_name)
-
-    if layer_name not in assay.layers:
-        available = ", ".join(f"'{k}'" for k in assay.layers.keys())
-        raise ScpValueError(
-            f"Layer '{layer_name}' not found. Available: {available}.",
-            parameter="layer_name",
-            value=layer_name,
-        )
-
-    sample_names = container.obs["_index"].to_numpy()
-    reference_matches = np.where(sample_names == reference_channel)[0]
-
-    if len(reference_matches) == 0:
-        available = ", ".join(f"'{name}'" for name in sample_names[:5])
-        raise ScpValueError(
-            f"Reference channel '{reference_channel}' not found. Available: {available}.",
-            parameter="reference_channel",
-            value=reference_channel,
-        )
-
-    if len(reference_matches) > 1:
-        raise ScpValueError(
-            f"Multiple channels match '{reference_channel}'. Reference must be unique.",
-            parameter="reference_channel",
-            value=reference_channel,
-        )
-
-    reference_idx = reference_matches[0]
-
-    source_layer = assay.layers[layer_name]
-    X_source = source_layer.X
-    M_source = source_layer.M
-
-    if sp.issparse(X_source):
-        X_source = X_source.toarray()
-
-    reference_intensity = X_source[reference_idx, :].reshape(1, -1)
-    X_normalized = X_source / (reference_intensity + epsilon)
-
-    new_layer = ScpMatrix(X=X_normalized, M=M_source)
-
-    new_container = container.copy()
-    new_container.assays[assay_name].layers[new_layer_name] = new_layer
-
-    n_samples, n_features = X_source.shape
-    median_ref_intensity = float(np.nanmedian(reference_intensity))
-
-    new_container.log_operation(
-        action="divide_by_reference",
-        params={
-            "assay": assay_name,
-            "source_layer": layer_name,
-            "reference_channel": reference_channel,
-            "new_layer": new_layer_name,
-            "epsilon": epsilon,
-        },
-        description=(
-            f"Normalized {n_samples} channels by reference '{reference_channel}'. "
-            f"Created layer '{new_layer_name}' with {n_features} features. "
-            f"Reference median intensity: {median_ref_intensity:.2f}."
         ),
     )
 

@@ -31,7 +31,7 @@ class PlotStyle:
 
     Provides methods for applying publication-ready plotting styles
     and retrieving appropriate color schemes for different visualization
-    purposes in single-cell proteomics analysis.
+    purposes in DIA-based single-cell proteomics analysis.
     """
 
     @staticmethod

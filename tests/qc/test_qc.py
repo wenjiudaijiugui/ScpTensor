@@ -20,7 +20,7 @@ import pytest
 from scipy import sparse
 
 from scptensor.core import Assay, ScpContainer, ScpMatrix
-from scptensor.core.exceptions import AssayNotFoundError, ScpValueError
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 
 # New imports from refactored QC module
 from scptensor.qc import qc_feature, qc_psm, qc_sample
@@ -180,7 +180,7 @@ class TestCalculateSampleQCMetrics:
 
     def test_calculate_sample_qc_metrics_invalid_layer(self, qc_container):
         """Test that invalid layer raises error."""
-        with pytest.raises(ScpValueError):
+        with pytest.raises(LayerNotFoundError):
             qc_sample.calculate_sample_qc_metrics(qc_container, layer_name="nonexistent")
 
 

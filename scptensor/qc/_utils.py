@@ -48,6 +48,7 @@ def validate_assay(
 def validate_layer(
     assay: Assay,
     layer_name: str,
+    assay_name: str | None = None,
 ) -> np.ndarray:
     """Validate layer exists and return X matrix.
 
@@ -72,7 +73,7 @@ def validate_layer(
         available = list(assay.layers.keys())
         raise LayerNotFoundError(
             layer_name=layer_name,
-            assay_name=assay.feature_id_col,
+            assay_name=assay_name or "<unknown>",
             available_layers=available,
         )
     X = assay.layers[layer_name].X

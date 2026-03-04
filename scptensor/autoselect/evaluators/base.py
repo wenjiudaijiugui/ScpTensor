@@ -13,6 +13,7 @@ BaseEvaluator
 
 from __future__ import annotations
 
+import math
 import re
 import time
 from abc import ABC, abstractmethod
@@ -58,7 +59,7 @@ def create_wrapper(
 
     Examples
     --------
-    >>> from scptensor.normalization import log_transform
+    >>> from scptensor.transformation import log_transform
     >>> wrapper = create_wrapper(log_transform)
     >>> result = wrapper(container, "proteins", "raw")
 
@@ -223,6 +224,30 @@ class BaseEvaluator(ABC):
         """
         pass
 
+    def get_metric_weights(self) -> dict[str, float]:
+        """Return metric weights, applying overrides if present."""
+        override = getattr(self, "_metric_weights_override", None)
+        return override if override is not None else self.metric_weights
+
+    def set_metric_weights(self, weights: dict[str, float] | None) -> None:
+        """Override metric weights for scoring."""
+        if not weights:
+            self._metric_weights_override = None
+            return
+
+        default_weights = self.metric_weights
+        unknown = [key for key in weights if key not in default_weights]
+        if unknown:
+            raise ValueError(f"Unknown metric keys: {unknown}")
+
+        merged = default_weights.copy()
+        merged.update(weights)
+        invalid = [key for key, value in merged.items() if value < 0 or not math.isfinite(value)]
+        if invalid:
+            raise ValueError(f"Invalid metric weights for keys: {invalid}")
+
+        self._metric_weights_override = merged
+
     def compute_overall_score(self, scores: dict[str, float]) -> float:
         """Compute weighted overall score from individual metric scores.
 
@@ -242,7 +267,7 @@ class BaseEvaluator(ABC):
         >>> scores = {"metric1": 0.9, "metric2": 0.8}
         >>> overall = evaluator.compute_overall_score(scores)
         """
-        weights = self.metric_weights
+        weights = self.get_metric_weights()
         total_weight = sum(weights.values())
 
         if total_weight == 0:
@@ -323,7 +348,7 @@ class BaseEvaluator(ABC):
         except Exception as e:
             error_msg = f"{type(e).__name__}: {e}"
             result_container = None
-            scores = dict.fromkeys(self.metric_weights, 0.0)
+            scores = dict.fromkeys(self.get_metric_weights(), 0.0)
 
         execution_time = time.perf_counter() - start_time
         overall_score = 0.0 if error_msg else self.compute_overall_score(scores)
@@ -386,7 +411,7 @@ class BaseEvaluator(ABC):
         >>> print(f"Best method: {report.best_method}")
         >>> print(f"Best score: {report.best_result.overall_score}")
         """
-        report = StageReport(stage_name=self.stage_name)
+        report = StageReport(stage_name=self.stage_name, metric_weights=self.get_metric_weights())
         successful_layers: dict[str, tuple[str, ScpMatrix]] = {}
 
         # Evaluate all methods and store successful results
