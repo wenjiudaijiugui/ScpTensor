@@ -87,6 +87,7 @@ class StageReport:
     best_method: str = ""
     best_result: EvaluationResult | None = None
     recommendation_reason: str = ""
+    metric_weights: dict[str, float] = field(default_factory=dict)
 
     @property
     def success_rate(self) -> float:
@@ -373,11 +374,8 @@ class AutoSelector:
         if source_layer is None:
             source_layer = "raw"
 
-        # Apply custom weights if provided
         if stage in self.weights:
-            # Note: This would require evaluator to support weight updates
-            # For now, evaluators use their default weights
-            pass
+            evaluator.set_metric_weights(self.weights[stage])
 
         # Run evaluator
         result_container, report = evaluator.run_all(

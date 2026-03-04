@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 def compute_batch_asw(
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str = "pca",
     layer_name: str = "X",
     batch_key: str = "batch",
@@ -73,7 +73,7 @@ def compute_batch_asw(
 
 
 def compute_batch_mixing_metric(
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str = "pca",
     layer_name: str = "X",
     batch_key: str = "batch",
@@ -133,7 +133,7 @@ def compute_batch_mixing_metric(
     batch_frequencies = np.array([np.sum(batches == b) for b in unique_batches]) / len(batches)
 
     scores = []
-    for i, idx in enumerate(indices):
+    for idx in indices:
         # Skip self
         neighbor_batches = batches[idx[1:]]
         # Expected frequency if perfectly mixed
@@ -148,7 +148,7 @@ def compute_batch_mixing_metric(
 
 
 def compute_lisi_approx(
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str = "pca",
     layer_name: str = "X",
     batch_key: str = "batch",
@@ -205,14 +205,14 @@ def compute_lisi_approx(
     _, indices = nbrs.kneighbors(X)
 
     # Compute approximate LISI
-    lisi_scores = []
+    lisi_scores: list[float] = []
     for idx in indices:
         neighbor_batches = batches[idx[1:]]  # Skip self
         # Count per batch
         counts = np.array([np.sum(neighbor_batches == b) for b in unique_batches])
         # Simpson's index
         proportions = counts / n_neighbors
-        simpson = np.sum(proportions ** 2)
+        simpson = np.sum(proportions**2)
         # Inverse Simpson's index
         if simpson > 0:
             lisi_scores.append(1.0 / simpson)
@@ -223,7 +223,7 @@ def compute_lisi_approx(
 
 
 def integration_quality_report(
-    container: "ScpContainer",
+    container: ScpContainer,
     assay_name: str = "pca",
     layer_name: str = "X",
     batch_key: str = "batch",
@@ -246,7 +246,7 @@ def integration_quality_report(
     dict
         Dictionary with quality metrics.
     """
-    report = {
+    report: dict[str, float | dict[str, str]] = {
         "batch_asw": compute_batch_asw(container, assay_name, layer_name, batch_key),
         "batch_mixing": compute_batch_mixing_metric(container, assay_name, layer_name, batch_key),
         "lisi_approx": compute_lisi_approx(container, assay_name, layer_name, batch_key),

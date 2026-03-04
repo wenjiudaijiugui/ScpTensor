@@ -1,7 +1,7 @@
 """Batch effect metrics for automatic method selection.
 
 This module provides functions to compute batch effect related metrics
-for evaluating batch correction effectiveness in single-cell proteomics analysis.
+for evaluating batch correction effectiveness in DIA-based single-cell proteomics analysis.
 
 All metrics return values in the range [0, 1], where higher values indicate
 better batch mixing or biological signal preservation.
@@ -286,9 +286,7 @@ def batch_mixing_score(
 
     try:
         # Find nearest neighbors
-        nbrs = NearestNeighbors(n_neighbors=n_neighbors + 1, algorithm="auto").fit(
-            X_clean
-        )
+        nbrs = NearestNeighbors(n_neighbors=n_neighbors + 1, algorithm="auto").fit(X_clean)
         distances, indices = nbrs.kneighbors(X_clean)
 
         # Calculate mixing score for each sample
@@ -299,9 +297,7 @@ def batch_mixing_score(
             neighbor_batches = batch_labels_clean[neighbor_indices]
 
             # Count batch proportions
-            batch_counts = np.bincount(
-                neighbor_batches, minlength=len(unique_batches_clean)
-            )
+            batch_counts = np.bincount(neighbor_batches, minlength=len(unique_batches_clean))
             proportions = batch_counts / len(neighbor_batches)
 
             # Simpson's diversity index: 1 - sum(p^2)

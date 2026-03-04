@@ -1,7 +1,7 @@
-"""Data transformation utilities for single-cell proteomics data.
+"""Data transformation utilities for DIA-based single-cell proteomics data.
 
 This module provides common data transformations used in proteomics analysis,
-including inverse hyperbolic sine (asinh), logicle, and quantile normalization.
+including quantile normalization and robust scaling.
 """
 
 from __future__ import annotations
@@ -13,150 +13,6 @@ import scipy.sparse as sp
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-
-
-# Constants
-_LOG_10 = np.log(10)
-_DEFAULT_LOGICLE_T = 262144.0
-_DEFAULT_LOGICLE_W = 0.5
-_DEFAULT_LOGICLE_M = 4.5
-_DEFAULT_ASINH_COFACTOR = 5.0
-
-
-def asinh_transform(
-    X: NDArray[np.float64] | sp.spmatrix,
-    cofactor: float = _DEFAULT_ASINH_COFACTOR,
-    copy: bool = True,
-) -> NDArray[np.float64] | sp.spmatrix:
-    """Apply inverse hyperbolic sine (asinh) transformation.
-
-    The asinh transformation is commonly used in cytometry and proteomics
-    to handle data with both negative and positive values while maintaining
-    symmetry around zero. It behaves linearly near zero and logarithmically
-    for large values.
-
-    The transformation is: asinh(x / cofactor) * ln(10)
-
-    Parameters
-    ----------
-    X : Union[NDArray[np.float64], sp.spmatrix]
-        Input data matrix of shape (n_samples, n_features).
-    cofactor : float, default=5.0
-        The cofactor determines the transition point between linear and
-        logarithmic behavior. Larger values make the transformation more
-        linear near zero. Typical values are 5-150 for cytometry data.
-    copy : bool, default=True
-        Whether to create a copy of the input data. If False, modifies
-        in-place (only for dense arrays).
-
-    Returns
-    -------
-    Union[NDArray[np.float64], sp.spmatrix]
-        Transformed data with same shape as input.
-
-    Raises
-    ------
-    ValueError
-        If cofactor is not positive.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> X = np.array([[0, 1, 10], [0, 5, 100]])
-    >>> X_transformed = asinh_transform(X, cofactor=5.0)
-    >>> X_transformed.shape
-    (2, 3)
-    """
-    if cofactor <= 0:
-        raise ValueError(f"cofactor must be positive, got {cofactor}")
-
-    if sp.issparse(X):
-        X_copy = X.copy()
-        X_copy.data = np.arcsinh(X_copy.data / cofactor) * _LOG_10  # type: ignore[misc,operator]
-        return X_copy
-
-    X_working = X.copy() if copy else X
-    np.arcsinh(X_working / cofactor, out=X_working)
-    X_working *= _LOG_10
-    return X_working
-
-
-def logicle_transform(
-    X: NDArray[np.float64] | sp.spmatrix,
-    T: float = _DEFAULT_LOGICLE_T,
-    W: float = _DEFAULT_LOGICLE_W,
-    M: float = _DEFAULT_LOGICLE_M,
-    A: float = 0.0,
-    copy: bool = True,
-) -> NDArray[np.float64] | sp.spmatrix:
-    """Apply Logicle transformation for flow cytometry data.
-
-    The Logicle transformation combines the benefits of logarithmic and
-    linear scales, displaying both positive and negative values clearly.
-    It is widely used in cytometry data analysis.
-
-    Parameters
-    ----------
-    X : Union[NDArray[np.float64], sp.spmatrix]
-        Input data matrix of shape (n_samples, n_features).
-    T : float, default=262144.0
-        Maximum range value (typically 2^18 for 18-bit data).
-    W : float, default=0.5
-        Logicle width parameter (in log decades). Controls how much
-        negative data is shown.
-    M : float, default=4.5
-        Logicle magnitude (in log decades). Controls the number of
-        decades shown.
-    A : float, default=0.0
-        Additional negative range to display.
-    copy : bool, default=True
-        Whether to create a copy of the input data.
-
-    Returns
-    -------
-    Union[NDArray[np.float64], sp.spmatrix]
-        Transformed data with same shape as input.
-
-    Raises
-    ------
-    ValueError
-        If T, W, or M are not positive.
-
-    Notes
-    -----
-    The Logicle transformation is defined as:
-    - x = T * 10^(-M - W) for x <= 0
-    - x = T * (10^(x/T * (M + W) - M) / (1 + 10^(x/T * (M + W) - M)) + W / (M + W)) for x > 0
-
-    For computational efficiency, this implementation uses a simplified
-    approximation based on the asinh transform with adjusted parameters.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> X = np.array([[-10, 0, 10, 100]])
-    >>> X_transformed = logicle_transform(X)
-    >>> X_transformed.shape
-    (1, 4)
-    """
-    if T <= 0:
-        raise ValueError(f"T must be positive, got {T}")
-    if W <= 0:
-        raise ValueError(f"W must be positive, got {W}")
-    if M <= 0:
-        raise ValueError(f"M must be positive, got {M}")
-
-    # Use asinh-based approximation for efficiency
-    cofactor = T / (10**M)
-    result = asinh_transform(X, cofactor=cofactor, copy=copy)
-
-    # Apply Logicle scaling
-    if sp.issparse(result):
-        result.data *= M  # type: ignore[misc,operator]
-    else:
-        result *= M
-
-    return result
 
 
 def quantile_normalize(
@@ -176,8 +32,8 @@ def quantile_normalize(
         Input data matrix of shape (n_samples, n_features).
     axis : int, default=0
         Axis along which to normalize.
-        - 0: Normalize each column (make samples identical)
-        - 1: Normalize each row (make features identical)
+        - 0: Normalize each column (all features share the same distribution)
+        - 1: Normalize each row (all samples share the same distribution)
     copy : bool, default=True
         Whether to create a copy of the input data.
 

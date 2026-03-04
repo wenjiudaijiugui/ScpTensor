@@ -97,8 +97,13 @@ def _get_default_key(method: str, params: dict) -> str:
     """
     parts = [method]
     for key, value in params.items():
-        # Shorten key names
-        short_key = key[0] if len(key) > 3 else key
+        if key == "n_clusters":
+            short_key = "k"
+        elif key == "resolution":
+            short_key = "r"
+        else:
+            # Generic shortening fallback
+            short_key = key[0] if len(key) > 3 else key
         parts.append(f"{short_key}{value}")
     return "_".join(parts)
 

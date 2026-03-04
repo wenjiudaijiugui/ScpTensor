@@ -1,4 +1,4 @@
-"""Integration module for batch effect correction in single-cell proteomics data.
+"""Integration module for batch effect correction in DIA-based single-cell proteomics data.
 
 This module provides methods for removing batch effects and integrating data
 from multiple experiments, runs, or platforms.

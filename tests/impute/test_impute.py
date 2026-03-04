@@ -194,16 +194,11 @@ class TestKNNImputation:
             # Imputed values should be in reasonable range
             assert np.all(np.isfinite(X_imputed))
 
-    @pytest.mark.xfail(
-        reason="KNN with sparse matrices containing NaN is not supported - "
-        "nan_euclidean_distances requires dense input"
-    )
     def test_knn_sparse_matrix(self, create_impute_container):
         """Test KNN with sparse input matrix.
 
-        Note: Sparse matrices with NaN values are problematic for sklearn.
-        The nan_euclidean_distances function requires dense arrays.
-        This test is marked as xfail to document this known limitation.
+        Sparse input is accepted by the wrapper and internally converted to
+        dense arrays before distance computation.
         """
         container, X_true, missing_mask = create_impute_container(
             n_samples=50, n_features=20, missing_rate=0.2, use_sparse=True

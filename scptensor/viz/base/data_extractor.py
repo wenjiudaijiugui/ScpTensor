@@ -53,7 +53,12 @@ class DataExtractor:
         X = scpmatrix.X  # noqa: N806
         if sparse.issparse(X):
             X = cast("spmatrix", X).toarray()  # noqa: N806
+        X = np.asarray(X)  # noqa: N806
+
         M = scpmatrix.M if scpmatrix.M is not None else np.zeros_like(X, dtype=int)  # noqa: N806
+        if sparse.issparse(M):
+            M = cast("spmatrix", M).toarray()  # noqa: N806
+        M = np.asarray(M)  # noqa: N806
 
         # Filter samples
         if samples is not None:
@@ -68,7 +73,8 @@ class DataExtractor:
 
         # Filter features
         if var_names is not None:
-            feature_idx = [i for i, v in enumerate(assay.var["protein"]) if v in var_names]
+            feature_id_col = assay.feature_id_col
+            feature_idx = [i for i, v in enumerate(assay.var[feature_id_col]) if v in var_names]
             X = X[:, feature_idx]  # noqa: N806
             M = M[:, feature_idx]  # noqa: N806
             var = assay.var[feature_idx]

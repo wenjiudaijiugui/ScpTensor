@@ -1,7 +1,7 @@
 """Clustering evaluation metrics for automatic method selection.
 
 This module provides functions to compute clustering quality metrics
-for evaluating clustering effectiveness in single-cell proteomics analysis.
+for evaluating clustering effectiveness in DIA-based single-cell proteomics analysis.
 
 All metrics return values in the range [0, 1], where higher values indicate
 better clustering quality.
@@ -76,8 +76,7 @@ def silhouette_score(X: NDArray[np.float64], labels: NDArray[np.int_]) -> float:
 
     if len(labels) != X.shape[0]:
         raise ValueError(
-            f"Shape mismatch: X has {X.shape[0]} samples but "
-            f"labels has {len(labels)} elements"
+            f"Shape mismatch: X has {X.shape[0]} samples but labels has {len(labels)} elements"
         )
 
     # Check for minimum number of clusters
@@ -111,9 +110,7 @@ def silhouette_score(X: NDArray[np.float64], labels: NDArray[np.int_]) -> float:
         return 0.0
 
 
-def calinski_harabasz_score(
-    X: NDArray[np.float64], labels: NDArray[np.int_]
-) -> float:
+def calinski_harabasz_score(X: NDArray[np.float64], labels: NDArray[np.int_]) -> float:
     """Calculate Calinski-Harabasz index (higher is better).
 
     Measures the ratio of between-cluster dispersion to within-cluster
@@ -159,8 +156,7 @@ def calinski_harabasz_score(
 
     if len(labels) != X.shape[0]:
         raise ValueError(
-            f"Shape mismatch: X has {X.shape[0]} samples but "
-            f"labels has {len(labels)} elements"
+            f"Shape mismatch: X has {X.shape[0]} samples but labels has {len(labels)} elements"
         )
 
     # Check for minimum number of clusters
@@ -250,8 +246,7 @@ def davies_bouldin_score(X: NDArray[np.float64], labels: NDArray[np.int_]) -> fl
 
     if len(labels) != X.shape[0]:
         raise ValueError(
-            f"Shape mismatch: X has {X.shape[0]} samples but "
-            f"labels has {len(labels)} elements"
+            f"Shape mismatch: X has {X.shape[0]} samples but labels has {len(labels)} elements"
         )
 
     # Check for minimum number of clusters
@@ -348,8 +343,7 @@ def clustering_stability(
 
     if len(labels) != X.shape[0]:
         raise ValueError(
-            f"Shape mismatch: X has {X.shape[0]} samples but "
-            f"labels has {len(labels)} elements"
+            f"Shape mismatch: X has {X.shape[0]} samples but labels has {len(labels)} elements"
         )
 
     # Check for minimum number of clusters
@@ -386,9 +380,7 @@ def clustering_stability(
 
         for _ in range(n_subsamples):
             # Create random subsample indices
-            subsample_indices = rng.choice(
-                n_samples, size=subsample_size, replace=False
-            )
+            subsample_indices = rng.choice(n_samples, size=subsample_size, replace=False)
 
             X_sub = X_clean[subsample_indices]
             labels_sub_original = labels_clean[subsample_indices]

@@ -1,7 +1,7 @@
 """Quality metrics for automatic method selection.
 
 This module provides functions to compute various quality metrics for evaluating
-data processing effectiveness in single-cell proteomics analysis.
+data processing effectiveness in DIA-based single-cell proteomics analysis.
 
 All metrics return values in the range [0, 1], where higher values indicate
 better quality.
@@ -200,7 +200,7 @@ def dynamic_range(X: NDArray[np.float64]) -> float:
     """Calculate dynamic range appropriateness.
 
     Evaluates whether the dynamic range (span of values) is appropriate
-    for single-cell proteomics data. Ideal range is 2-10 orders of magnitude.
+    for DIA-based single-cell proteomics data. Ideal range is 2-10 orders of magnitude.
 
     Parameters
     ----------

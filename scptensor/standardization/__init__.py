@@ -1,4 +1,4 @@
-"""Standardization module for single-cell proteomics data.
+"""Standardization module for DIA-based single-cell proteomics data.
 
 This module provides feature scaling methods that transform data to have
 specific statistical properties (e.g., mean=0, std=1 for z-score).
@@ -27,8 +27,8 @@ specific statistical properties (e.g., mean=0, std=1 for z-score).
 
 **References:**
 
-    Vanderaa, C., & Gatto, L. (2023). Revisiting the analysis of single-cell
-    proteomics data. Expert Review of Proteomics.
+    Lazar, C., et al. (2016). Accounting for the Multiple Natures of Missing
+    Values in Label-Free Quantitative Proteomics Data. Journal of Proteome Research.
 """
 
 from typing import TYPE_CHECKING

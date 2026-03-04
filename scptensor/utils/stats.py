@@ -1,4 +1,4 @@
-"""Statistical utilities for single-cell proteomics data analysis.
+"""Statistical utilities for DIA-based single-cell proteomics data analysis.
 
 This module provides functions for computing various correlation and similarity
 metrics with support for both dense and sparse matrices.

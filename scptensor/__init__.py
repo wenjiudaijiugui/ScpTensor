@@ -1,37 +1,29 @@
-"""ScpTensor: Single-Cell Proteomics Analysis Framework.
+"""ScpTensor: DIA-based single-cell proteomics preprocessing framework.
 
-A comprehensive Python library for analyzing single-cell proteomics (SCP) data
-with an intuitive hierarchical data structure (ScpContainer -> Assay -> ScpMatrix)
-and a complete analysis pipeline.
+ScpTensor provides an end-to-end analysis stack built around a hierarchical
+container model (ScpContainer -> Assay -> ScpMatrix), with strong support for
+DIA quant-table workflows.
 
-Key Features:
-    - Hierarchical data structure: ScpContainer -> Assay -> ScpMatrix
-    - Quality control: Basic QC, outlier detection, feature/sample filtering
-    - Data transformation: Log transformation for preprocessing
-    - Normalization: TMM, median scaling, upper quartile, and more
-    - Imputation: KNN, LLS, BPCA, MissForest, QRILC, MinProb
-    - Batch correction: ComBat, Harmony, MNN, Scanorama
-    - Dimensionality reduction: PCA, UMAP
-    - Clustering: K-means, graph-based clustering
-    - Visualization: Scatter plots, heatmaps, violin plots, and more
-    - Differential expression: t-test, Mann-Whitney, ANOVA, Kruskal-Wallis
-    - Benchmarking: Comprehensive performance evaluation tools
+Current I/O scope focuses on DIA-NN and Spectronaut outputs at protein and
+peptide/precursor levels (long and matrix table shapes).
 
 Quick Start:
-    >>> from scptensor import ScpContainer, load_csv, log_transform, reduce_pca, cluster_kmeans
-    >>> container = load_csv("data.csv")
-    >>> container = log_transform(container, assay_name="proteins")
-    >>> container = reduce_pca(container, assay_name="proteins")
-    >>> container = cluster_kmeans(container, n_clusters=5)
-
-Version: v0.1.0-beta
-Documentation: https://github.com/your-org/scptensor
+    >>> from scptensor import aggregate_to_protein, load_diann, log_transform
+    >>> from scptensor import norm_median, reduce_pca
+    >>> container = load_diann("report.tsv", level="peptide", table_format="long")
+    >>> container = aggregate_to_protein(container, source_assay="peptides", target_assay="proteins")
+    >>> container = log_transform(container, assay_name="proteins", source_layer="raw", new_layer_name="log2")
+    >>> container = norm_median(container, assay_name="proteins", source_layer="log2", new_layer_name="norm")
+    >>> container = reduce_pca(container, assay_name="proteins", base_layer="norm")
 """
 
 from __future__ import annotations
 
 __version__ = "0.1.0"
 __author__ = "ScpTensor Team"
+
+# Aggregation
+from scptensor.aggregation import aggregate_to_protein
 
 # Clustering
 from scptensor.cluster import (
@@ -103,11 +95,18 @@ from scptensor.dim_reduction import (
 # Imputation
 from scptensor.impute import (
     impute_bpca,
+    impute_half_row_min,
+    impute_iterative_svd,
     impute_knn,
     impute_lls,
     impute_mf,
     impute_minprob,
+    impute_none,
     impute_qrilc,
+    impute_row_mean,
+    impute_row_median,
+    impute_softimpute,
+    impute_zero,
 )
 
 # Integration (Batch Correction)
@@ -118,29 +117,24 @@ from scptensor.integration import (
     integrate_scanorama,
 )
 
-# CSV, NPZ, and Scanpy I/O functions
-# HDF5 I/O
+# Mass-spec I/O functions
 from scptensor.io import (
     IOFormatError,
     IOPasswordError,
     IOWriteError,
-    load_csv,
     load_diann,
-    load_hdf5,
-    load_npz,
     load_peptide_pivot,
     load_spectronaut,
-    save_csv,
-    save_hdf5,
-    save_npz,
 )
 
-# Normalization and transformation
+# Normalization
 from scptensor.normalization import (
-    log_transform,
     norm_mean,
     norm_median,
+    norm_none,
     norm_quantile,
+    norm_trqn,
+    normalize,
 )
 
 # Quality Control
@@ -162,6 +156,9 @@ from scptensor.qc import (
 # Standardization (deprecated, re-exported for backward compatibility)
 from scptensor.standardization import zscore
 
+# Transformation
+from scptensor.transformation import log_transform
+
 # Utilities
 from scptensor.utils import ScpDataGenerator
 
@@ -169,6 +166,14 @@ from scptensor.utils import ScpDataGenerator
 from scptensor.viz import (
     embedding,
     heatmap,
+    plot_data_overview,
+    plot_embedding_panels,
+    plot_missingness_reduction,
+    plot_preprocessing_summary,
+    plot_qc_filtering_summary,
+    plot_recent_operations,
+    plot_reduction_summary,
+    plot_saved_artifact_sizes,
     qc_completeness,
     qc_matrix_spy,
     scatter,
@@ -201,16 +206,11 @@ __all__ = [
     "ScpValueError",
     "VisualizationError",
     # Core I/O
-    "load_csv",
-    "save_csv",
     "load_diann",
-    "load_npz",
-    "save_npz",
     "load_peptide_pivot",
     "load_spectronaut",
-    # HDF5 I/O
-    "save_hdf5",
-    "load_hdf5",
+    # Aggregation
+    "aggregate_to_protein",
     "IOFormatError",
     "IOPasswordError",
     "IOWriteError",
@@ -237,14 +237,25 @@ __all__ = [
     "find_missing_indices",
     "apply_mask_threshold",
     "fill_missing_with_value",
-    # Normalization and transformation
+    # Transformation
     "log_transform",
+    # Normalization
+    "norm_none",
     "norm_mean",
     "norm_median",
     "norm_quantile",
+    "norm_trqn",
+    "normalize",
     # Imputation
+    "impute_none",
+    "impute_zero",
+    "impute_row_mean",
+    "impute_row_median",
+    "impute_half_row_min",
     "impute_knn",
     "impute_lls",
+    "impute_iterative_svd",
+    "impute_softimpute",
     "impute_bpca",
     "impute_mf",
     "impute_qrilc",
@@ -282,6 +293,14 @@ __all__ = [
     "qc_completeness",
     "qc_matrix_spy",
     "volcano",
+    "plot_data_overview",
+    "plot_qc_filtering_summary",
+    "plot_preprocessing_summary",
+    "plot_missingness_reduction",
+    "plot_reduction_summary",
+    "plot_embedding_panels",
+    "plot_saved_artifact_sizes",
+    "plot_recent_operations",
     # Differential Expression
     "DiffExprResult",
     "diff_expr_ttest",

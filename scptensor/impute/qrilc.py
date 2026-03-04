@@ -9,8 +9,11 @@ Designed specifically for MNAR (Missing Not At Random) data where missingness
 is due to low abundance (left-censored) values.
 """
 
+from typing import cast
+
 import numpy as np
 import scipy.sparse as sp
+from scipy.stats import truncnorm
 
 from scptensor.core.exceptions import (
     AssayNotFoundError,
@@ -19,6 +22,7 @@ from scptensor.core.exceptions import (
 )
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
+from scptensor.impute.base import ImputeMethod, register_impute_method
 
 # =============================================================================
 # Core QRILC algorithm (pure function for registry)
@@ -46,15 +50,22 @@ def qrilc_impute(
     np.ndarray
         Data with imputed values.
     """
-    X = data.copy()
-    n_samples, n_features = X.shape
+    X = np.asarray(data, dtype=np.float64).copy()
+    _, n_features = X.shape
     missing_mask = np.isnan(X)
 
     if not np.any(missing_mask):
         return X
+    if not 0 < q < 1:
+        raise ScpValueError(
+            f"Quantile q must be between 0 and 1, got {q}.",
+            parameter="q",
+            value=q,
+        )
 
-    if random_state is not None:
-        np.random.seed(random_state)
+    rng = np.random.default_rng(random_state)
+    global_detected = X[np.isfinite(X)]
+    global_non_negative = global_detected.size == 0 or bool(np.all(global_detected >= 0))
 
     # For each feature, estimate distribution and impute
     for feat_idx in range(n_features):
@@ -71,7 +82,8 @@ def qrilc_impute(
 
         if n_detected < 3:
             min_detected = np.min(detected_values) if n_detected > 0 else 0.0
-            X[missing_in_feat, feat_idx] = min_detected
+            fill_value = max(min_detected, 0.0) if global_non_negative else min_detected
+            X[missing_in_feat, feat_idx] = fill_value
             continue
 
         # Estimate detection limit
@@ -93,33 +105,24 @@ def qrilc_impute(
                 if sigma <= 0:
                     sigma = 1.0
 
-        # Sample from left-censored distribution
-        n_samples_to_generate = n_missing * 2
-        samples = np.random.randn(n_samples_to_generate) * sigma + mu
-        left_censored = samples[samples < detection_limit]
+        lower_bound = 0.0 if np.all(detected_values >= 0) else (mu - 8.0 * sigma)
+        a = (lower_bound - mu) / sigma
+        b = (detection_limit - mu) / sigma
 
-        if len(left_censored) >= n_missing:
-            imputed_values = left_censored[:n_missing]
+        if not np.isfinite(a) or not np.isfinite(b) or b <= a:
+            # Conservative fallback when truncation interval degenerates.
+            lo = min(np.min(detected_values), detection_limit)
+            hi = max(np.min(detected_values), detection_limit)
+            if hi <= lo:
+                hi = lo + 1e-8
+            imputed_values = rng.uniform(lo, hi, size=n_missing)
         else:
-            min_detected = np.min(detected_values)
-            if min_detected < detection_limit:
-                supplement = np.random.uniform(
-                    min_detected,
-                    detection_limit,
-                    size=n_missing - len(left_censored),
-                )
-                imputed_values = np.concatenate([left_censored, supplement])
-            else:
-                from scipy.stats import truncnorm
+            imputed_values = truncnorm.rvs(
+                a, b, loc=mu, scale=sigma, size=n_missing, random_state=rng
+            )
 
-                a = (min_detected - mu) / sigma
-                b = (detection_limit - mu) / sigma
-                imputed_values = truncnorm.rvs(
-                    a, b, loc=mu, scale=sigma, size=n_missing, random_state=random_state
-                )
-
-        # Ensure non-negative
-        imputed_values = np.maximum(imputed_values, 0)
+        if np.all(detected_values >= 0):
+            imputed_values = np.maximum(imputed_values, 0.0)
         X[missing_in_feat, feat_idx] = imputed_values
 
     return X
@@ -211,7 +214,10 @@ def impute_qrilc(
     X_original = input_matrix.X.copy()
 
     # Convert sparse to dense
-    X_dense = X_original.toarray() if sp.issparse(X_original) else X_original
+    if sp.issparse(X_original):
+        X_dense = cast(sp.spmatrix, X_original).toarray()
+    else:
+        X_dense = np.asarray(X_original)
 
     missing_mask = np.isnan(X_dense)
     if not np.any(missing_mask):
@@ -227,6 +233,7 @@ def impute_qrilc(
 
     # Apply QRILC imputation
     X_imputed = qrilc_impute(X_dense, q=q, random_state=random_state)
+    X_imputed[~missing_mask] = X_dense[~missing_mask]
 
     # Create new layer
     new_matrix = ScpMatrix(X=X_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask))
@@ -248,14 +255,11 @@ def impute_qrilc(
     return container
 
 
-# Register with base interface
-from scptensor.impute.base import ImputeMethod, register_impute_method
-
 register_impute_method(
     ImputeMethod(
         name="qrilc",
         supports_sparse=False,
         validate=validate_qrilc,
-        apply=qrilc_impute,
+        apply=impute_qrilc,
     )
 )

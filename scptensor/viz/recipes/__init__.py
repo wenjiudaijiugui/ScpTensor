@@ -1,11 +1,5 @@
-from .differential import (
-    rank_genes_groups_dotplot,
-    rank_genes_groups_stacked_violin,
-)
-from .differential import (
-    volcano as volcano_enhanced,
-)
-volcano = volcano_enhanced
+from .differential import rank_genes_groups_dotplot, rank_genes_groups_stacked_violin
+from .differential import volcano as volcano_enhanced
 from .embedding import embedding, pca, scatter, tsne, umap
 from .feature import dotplot
 from .impute import (
@@ -15,12 +9,7 @@ from .impute import (
     plot_missing_pattern,
 )
 from .matrix import heatmap, matrixplot, tracksplot
-from .qc import (
-    missing_value_patterns,
-    pca_overview,
-    qc_completeness,
-    qc_matrix_spy,
-)
+from .qc import missing_value_patterns, pca_overview, qc_completeness, qc_matrix_spy
 from .qc_advanced import (
     plot_cumulative_sensitivity,
     plot_cv_by_feature,
@@ -33,6 +22,18 @@ from .qc_advanced import (
 )
 from .report import ReportTheme, generate_analysis_report
 from .statistics import correlation_matrix, dendrogram
+from .workflow import (
+    plot_data_overview,
+    plot_embedding_panels,
+    plot_missingness_reduction,
+    plot_preprocessing_summary,
+    plot_qc_filtering_summary,
+    plot_recent_operations,
+    plot_reduction_summary,
+    plot_saved_artifact_sizes,
+)
+
+volcano = volcano_enhanced
 
 __all__ = [
     "scatter",
@@ -69,6 +70,15 @@ __all__ = [
     "plot_imputation_scatter",
     "plot_imputation_metrics",
     "plot_missing_pattern",
+    # Workflow visualizations
+    "plot_data_overview",
+    "plot_qc_filtering_summary",
+    "plot_preprocessing_summary",
+    "plot_missingness_reduction",
+    "plot_reduction_summary",
+    "plot_embedding_panels",
+    "plot_saved_artifact_sizes",
+    "plot_recent_operations",
     "generate_analysis_report",
     "ReportTheme",
 ]

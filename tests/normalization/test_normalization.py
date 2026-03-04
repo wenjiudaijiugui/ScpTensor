@@ -19,16 +19,6 @@ from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
 # =============================================================================
-# Pytest markers for sparse matrix tests
-# =============================================================================
-
-sparse_unsupported = pytest.mark.skipif(
-    True,
-    reason="Sparse matrices are not yet supported by normalization functions. "
-    "They will be converted to dense internally or raise an error.",
-)
-
-# =============================================================================
 # Helper Functions
 # =============================================================================
 
@@ -154,16 +144,10 @@ class TestMedianCentering:
         normalized_M = result.assays["protein"].layers["median_centered"].M
         assert np.array_equal(original_M, normalized_M)
 
-    @sparse_unsupported
     def test_median_centering_sparse_matrix(self):
-        """Test median centering with sparse matrices.
-
-        Note: Current implementation converts sparse to dense internally.
-        This test verifies the function works, but output will be dense.
-        """
+        """Test median centering with sparse matrix input."""
         container = create_normalization_test_container(sparse=True, seed=42)
 
-        # The function should work, but will convert sparse to dense
         result = median_centering(container)
 
         # Check that layer was created
@@ -336,13 +320,8 @@ class TestSampleMeanNormalization:
         normalized_M = result.assays["protein"].layers["sample_mean_norm"].M
         assert np.array_equal(original_M, normalized_M)
 
-    @sparse_unsupported
     def test_sample_mean_sparse_matrix(self):
-        """Test sample mean normalization with sparse matrices.
-
-        Note: Current implementation converts sparse to dense internally.
-        This test verifies the function works, but output will be dense.
-        """
+        """Test sample mean normalization with sparse matrix input."""
         container = create_normalization_test_container(sparse=True, seed=42)
 
         result = sample_mean_normalization(container)

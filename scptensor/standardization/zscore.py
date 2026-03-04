@@ -1,14 +1,12 @@
 """Z-score standardization for ScpTensor.
 
 References:
-    Specht, H., et al. (2021). Single-cell proteomic and transcriptomic analysis
-    of macrophage heterogeneity using SCoPE2. Genome Biology.
-
     Lazar, C., et al. (2016). Accounting for the Multiple Natures of Missing
     Values in Label-Free Quantitative Proteomics Data. Journal of Proteome Research.
 
-    Vanderaa, C., & Gatto, L. (2023). Revisiting the analysis of single-cell
-    proteomics data. Expert Review of Proteomics.
+    Chawade, A., Alexandersson, E., & Levander, F. (2014). Normalyzer:
+    a tool for rapid evaluation of normalization methods for omics data sets.
+    Journal of Proteome Research.
 """
 
 import numpy as np
@@ -38,7 +36,8 @@ def zscore(
     removing scale differences.
 
     **Important:** Z-score standardization must be performed on a complete matrix
-    (no missing values) as per Lazar et al. (2016) and Vanderaa & Gatto (2023).
+    (no missing values) as recommended in proteomics preprocessing literature
+    (for example Lazar et al., 2016; Chawade et al., 2014).
     Apply imputation before using this function.
 
     **Mathematical Formulation:**
@@ -139,7 +138,7 @@ def zscore(
             "Z-score standardization requires a complete matrix (no missing values). "
             f"Layer '{source_layer}' contains NaNs. "
             "Please apply imputation before z-score standardization. "
-            "Reference: Vanderaa, C. & Gatto, L. (2023). Expert Review of Proteomics.",
+            "Reference: Lazar et al. (2016). Journal of Proteome Research.",
             field="X",
         )
 

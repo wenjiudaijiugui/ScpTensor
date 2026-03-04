@@ -1,7 +1,7 @@
 """ScpTensor core module.
 
 Provides the hierarchical data structure (ScpContainer -> Assay -> ScpMatrix)
-and core operations for single-cell proteomics data analysis.
+and core operations for DIA-based single-cell proteomics data analysis.
 
 Note: I/O functions have been moved to scptensor.io module.
 """

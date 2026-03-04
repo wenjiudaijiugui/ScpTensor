@@ -1,22 +1,22 @@
 """Normalization methods for ScpTensor.
 
-This module provides normalization and transformation functions for
-single-cell proteomics data preprocessing.
+This module provides *normalization-only* functions for DIA-based single-cell proteomics
+data preprocessing.
 
 Available Methods:
-    log_transform: Logarithmic transformation (base configurable)
+    norm_none: Explicit no-op normalization (passthrough layer)
     norm_mean: Mean centering/scaling normalization
     norm_median: Median centering/scaling normalization (robust to outliers)
-    norm_quantile: Quantile normalization (aligns distributions)
+    norm_quantile: Quantile normalization (aligns sample distributions)
+    norm_trqn: Tail-robust quantile normalization for protein-level matrices
+    normalize: Unified normalization dispatcher
 
-Common Workflow:
-    >>> from scptensor.normalization import log_transform, norm_quantile
-    >>> container = log_transform(container, base=2.0)
-    >>> container = norm_quantile(container)
-
-For advanced usage, see individual function documentation.
+Note
+----
+Log transformation is categorized under :mod:`scptensor.transformation`.
 """
 
+from .api import norm_none, normalize
 from .base import (
     apply_normalization,
     create_result_layer,
@@ -25,17 +25,19 @@ from .base import (
     log_operation,
     validate_assay_and_layer,
 )
-from .log_transform import log_transform
 from .mean_normalization import norm_mean
 from .median_normalization import norm_median
 from .quantile_normalization import norm_quantile
+from .trqn_normalization import norm_trqn
 
 __all__ = [
     # Public API
-    "log_transform",
+    "norm_none",
     "norm_mean",
     "norm_median",
     "norm_quantile",
+    "norm_trqn",
+    "normalize",
     # Base utilities (for internal use)
     "apply_normalization",
     "create_result_layer",

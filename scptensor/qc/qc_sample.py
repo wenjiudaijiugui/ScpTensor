@@ -7,6 +7,8 @@ Handles QC for cells/samples including:
 - Batch effect assessment
 """
 
+from typing import cast
+
 import numpy as np
 import polars as pl
 import scipy.sparse as sp
@@ -54,14 +56,15 @@ def calculate_sample_qc_metrics(
     >>> result.obs[['n_features_protein', 'total_intensity_protein']]
     """
     assay = validate_assay(container, assay_name)
-    validate_layer(assay, layer_name)
+    validate_layer(assay, layer_name, assay_name=assay_name)
 
     X = assay.layers[layer_name].X
 
     # Calculate metrics based on matrix type
     if sp.issparse(X):
-        n_features = X.getnnz(axis=1)
-        total_intensity = np.array(X.sum(axis=1)).flatten()
+        X_sparse = cast(sp.spmatrix, X)
+        n_features = X_sparse.getnnz(axis=1)
+        total_intensity = np.array(X_sparse.sum(axis=1)).flatten()
     else:
         is_detected = (X > 0) & (~np.isnan(X))
         n_features = np.sum(is_detected, axis=1)
@@ -133,7 +136,8 @@ def filter_low_quality_samples(
 
     # Calculate number of detected features per sample
     if sp.issparse(X):
-        n_features = X.getnnz(axis=1)
+        X_sparse = cast(sp.spmatrix, X)
+        n_features = X_sparse.getnnz(axis=1)
     else:
         n_features = np.sum((X > 0) & (~np.isnan(X)), axis=1)
 
@@ -316,8 +320,9 @@ def assess_batch_effects(
 
     # Calculate QC metrics for each sample
     if sp.issparse(X):
-        n_features = X.getnnz(axis=1)
-        total_intensity = np.array(X.sum(axis=1)).flatten()
+        X_sparse = cast(sp.spmatrix, X)
+        n_features = X_sparse.getnnz(axis=1)
+        total_intensity = np.array(X_sparse.sum(axis=1)).flatten()
     else:
         n_features = np.sum((X > 0) & (~np.isnan(X)), axis=1)
         total_intensity = np.nansum(X, axis=1)

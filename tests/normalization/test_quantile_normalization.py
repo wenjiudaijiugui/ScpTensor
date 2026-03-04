@@ -107,7 +107,7 @@ class TestQuantileNormalization:
         assert X_norm.shape == (5, 10)
 
     def test_quantile_distributions_match(self):
-        """Test that quantile normalization makes all distributions identical."""
+        """Test that quantile normalization makes sample distributions identical."""
         # Create simple test case
         obs = pl.DataFrame({"_index": ["s1", "s2", "s3"]})
         var = pl.DataFrame({"_index": ["p1", "p2", "p3", "p4"]})
@@ -126,12 +126,11 @@ class TestQuantileNormalization:
         result = norm_quantile(container)
         X_norm = result.assays["protein"].layers["quantile_norm"].X
 
-        # After quantile normalization, sorted columns should be identical
-        for j in range(X_norm.shape[1]):
-            sorted_col = np.sort(X_norm[:, j])
-            # All sorted columns should be identical
-            if j > 0:
-                assert np.allclose(sorted_col, np.sort(X_norm[:, 0]))
+        # After quantile normalization, sorted rows (samples) should be identical
+        sorted_first = np.sort(X_norm[0, :])
+        for i in range(1, X_norm.shape[0]):
+            sorted_i = np.sort(X_norm[i, :])
+            assert np.allclose(sorted_first, sorted_i)
 
     def test_quantile_with_mask(self):
         """Test that mask matrix is preserved."""
@@ -289,7 +288,7 @@ class TestQuantileNormalization:
         assert np.isclose(X_norm[0, 0], X_norm[0, 1])
 
     def test_quantile_rank_preservation(self):
-        """Test that ranks are preserved within each column."""
+        """Test that ranks are preserved within each sample (row)."""
         container = create_quantile_test_container(n_samples=5, n_features=20, seed=42)
 
         result = norm_quantile(container)
@@ -302,18 +301,18 @@ class TestQuantileNormalization:
         if sp.issparse(X_original):
             X_original = X_original.toarray()
 
-        # For each column, ranks should be preserved
-        for j in range(X_norm.shape[1]):
-            original_ranks = np.argsort(np.argsort(X_original[:, j]))
-            normalized_ranks = np.argsort(np.argsort(X_norm[:, j]))
+        # For each sample row, ranks should be preserved
+        for i in range(X_norm.shape[0]):
+            original_ranks = np.argsort(np.argsort(X_original[i, :]))
+            normalized_ranks = np.argsort(np.argsort(X_norm[i, :]))
 
             # Handle NaN values
-            valid_mask = ~np.isnan(X_original[:, j]) & ~np.isnan(X_norm[:, j])
+            valid_mask = ~np.isnan(X_original[i, :]) & ~np.isnan(X_norm[i, :])
 
             assert np.array_equal(original_ranks[valid_mask], normalized_ranks[valid_mask])
 
     def test_quantile_identical_distributions(self):
-        """Test that all samples have identical distributions after normalization."""
+        """Test that all sample rows share identical distributions."""
         container = create_quantile_test_container(n_samples=10, n_features=50, seed=42)
 
         result = norm_quantile(container)
@@ -322,11 +321,11 @@ class TestQuantileNormalization:
         if sp.issparse(X_norm):
             X_norm = X_norm.toarray()
 
-        # Check that sorted columns are identical
-        sorted_first = np.sort(X_norm[:, 0])
-        for j in range(1, X_norm.shape[1]):
-            sorted_j = np.sort(X_norm[:, j])
-            assert np.allclose(sorted_first, sorted_j, rtol=1e-10)
+        # Check that sorted rows are identical
+        sorted_first = np.sort(X_norm[0, :])
+        for i in range(1, X_norm.shape[0]):
+            sorted_i = np.sort(X_norm[i, :])
+            assert np.allclose(sorted_first, sorted_i, rtol=1e-10)
 
 
 # =============================================================================

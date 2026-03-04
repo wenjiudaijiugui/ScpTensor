@@ -1,4 +1,4 @@
-"""Scanorama integration for single-cell proteomics data.
+"""Scanorama integration for DIA-based single-cell proteomics data.
 
 Scanorama performs efficient batch correction and integration using mutual
 nearest neighbors alignment. It is particularly effective for large-scale
@@ -22,11 +22,13 @@ Hie B, et al. Efficient integration of heterogeneous single-cell
 transcriptomics data using Scanorama. Nature Biotechnology (2019).
 """
 
+from __future__ import annotations
+
 import numpy as np
 
 from scptensor.core.exceptions import ScpValueError
 from scptensor.core.sparse_utils import is_sparse_matrix
-from scptensor.core.structures import ScpMatrix
+from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.core.utils import requires_dependency
 from scptensor.integration.base import (
     prepare_integration_data,
@@ -40,7 +42,7 @@ from scptensor.integration.base import (
 @register_integrate_method("scanorama")
 @requires_dependency("scanorama", "pip install scanorama")
 def integrate_scanorama(
-    container,
+    container: ScpContainer,
     batch_key: str,
     assay_name: str = "protein",
     base_layer: str = "raw",
@@ -51,7 +53,7 @@ def integrate_scanorama(
     approx: bool = True,
     return_dimred: bool = False,
     dimred: int | None = None,
-) -> "ScpContainer":
+) -> ScpContainer:
     """Scanorama integration for batch effect correction.
 
     Parameters

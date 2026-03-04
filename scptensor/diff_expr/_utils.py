@@ -97,6 +97,14 @@ def extract_group_indices_from_obs(
     tuple[np.ndarray, np.ndarray]
         Indices for group1 and group2.
     """
+    from scptensor.core.exceptions import ValidationError
+
+    if group_col not in obs.columns:
+        raise ValidationError(
+            f"group_col '{group_col}' not found in obs.",
+            field="group_col",
+        )
+
     groups = obs[group_col].to_numpy()
     idx1 = np.where(groups == group1)[0]
     idx2 = np.where(groups == group2)[0]
@@ -251,20 +259,26 @@ def validate_pairing(
         )
 
     pairs = []
-    pair_ids = obs[pair_id_col].unique().to_list()
+    obs_with_idx = obs.with_row_index("_row_idx")
+    pair_ids = obs_with_idx[pair_id_col].unique().to_list()
 
     for pid in pair_ids:
-        pair_mask = obs[pair_id_col] == pid
-        pair_obs = obs.filter(pair_mask)
-
+        pair_obs = obs_with_idx.filter(pl.col(pair_id_col) == pid)
         groups_in_pair = pair_obs[group_col].unique().to_list()
 
-        if group1 in groups_in_pair and group2 in groups_in_pair:
-            idx1 = obs.filter((obs[pair_id_col] == pid) & (obs[group_col] == group1)).row(0)[0]
-            idx2_row = obs.filter((obs[pair_id_col] == pid) & (obs[group_col] == group2))
-            if len(idx2_row) > 0:
-                idx2 = idx2_row.row(0)[0]
-                pairs.append((idx1, idx2))
+        if group1 not in groups_in_pair or group2 not in groups_in_pair:
+            continue
+
+        idx1_series = pair_obs.filter(pl.col(group_col) == group1)["_row_idx"]
+        idx2_series = pair_obs.filter(pl.col(group_col) == group2)["_row_idx"]
+
+        if idx1_series.len() == 0 or idx2_series.len() == 0:
+            continue
+
+        # Use positional row indices for matrix indexing (not sample IDs).
+        idx1 = int(idx1_series[0])
+        idx2 = int(idx2_series[0])
+        pairs.append((idx1, idx2))
 
     return pairs
 

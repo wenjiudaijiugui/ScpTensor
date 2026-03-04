@@ -31,6 +31,7 @@ from scptensor.core.structures import ScpContainer
 
 from .base import (
     create_result_layer,
+    ensure_dense,
     get_layer_name,
     log_operation,
     validate_assay_and_layer,
@@ -122,11 +123,12 @@ def norm_mean(
     """
     # Validate and get objects
     assay, input_layer = validate_assay_and_layer(container, assay_name, source_layer)
+    x_dense = ensure_dense(input_layer.X)
 
     # Apply mean normalization
-    X_centered = input_layer.X - np.nanmean(input_layer.X, axis=1, keepdims=True)
+    X_centered = x_dense - np.nanmean(x_dense, axis=1, keepdims=True)
     if add_global_mean:
-        X_centered = X_centered + np.nanmean(input_layer.X)
+        X_centered = X_centered + np.nanmean(x_dense)
 
     # Get layer name
     layer_name = get_layer_name(new_layer_name, "sample_mean_norm")

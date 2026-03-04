@@ -1,7 +1,7 @@
 """Automatic method selection system for ScpTensor.
 
 This module provides intelligent automatic selection of optimal analysis methods
-for single-cell proteomics data. It evaluates multiple methods across different
+for DIA-based single-cell proteomics data. It evaluates multiple methods across different
 analysis stages and recommends the best performing ones.
 
 Main Classes

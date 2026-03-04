@@ -210,7 +210,7 @@ def validate_batch_integration_params(
 
     if min(batch_counts) < min_samples_per_batch:
         raise ScpValueError(
-            f"Each batch needs at least {min_samples_per_batch} samples.",
+            f"Each batch needs at least {min_samples_per_batch} samples per batch.",
             parameter="batch_key",
             value=batch_key,
         )

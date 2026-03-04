@@ -1,4 +1,4 @@
-"""Advanced QC visualization recipes for single-cell proteomics data.
+"""Advanced QC visualization recipes for DIA-based single-cell proteomics data.
 
 This module provides specialized visualization functions for advanced quality control
 analysis, including sensitivity analysis, cumulative detection curves, and sample
