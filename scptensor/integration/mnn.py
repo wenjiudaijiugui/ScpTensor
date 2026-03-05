@@ -173,7 +173,8 @@ def _apply_mnn_correction(
     """Apply MNN correction using anchor-based or pairwise approach."""
     X_corrected = X.copy()
 
-    if use_anchor_correction and len(unique_batches) > 2:
+    # Use progressive anchor correction by default to match MNN integration semantics.
+    if use_anchor_correction and len(unique_batches) >= 2:
         return _anchor_based_correction(X, X_pca, batches, unique_batches, k, sigma)
 
     # Pairwise correction for two batches
@@ -250,10 +251,9 @@ def _anchor_based_correction(
         if len(mnn_pairs) == 0:
             continue
 
-        mnn_pairs_global = [(anchor_idx[p[0]], batch_idx[p[1]]) for p in mnn_pairs]
-        batch_corrections = _compute_batch_correction(
-            X, X_pca, mnn_pairs_global, anchor_idx, batch_idx, sigma
-        )
+        # Keep pair ordering as (target_cell, reference_cell) for correction.
+        mnn_pairs_global = [(batch_idx[p[1]], anchor_idx[p[0]]) for p in mnn_pairs]
+        batch_corrections = _compute_batch_correction(X, X_pca, mnn_pairs_global, batch_idx, sigma)
 
         for i, local_idx in enumerate(batch_idx):
             if i in batch_corrections:
@@ -308,7 +308,6 @@ def _compute_batch_correction(
     X: np.ndarray,
     X_pca: np.ndarray,
     mnn_pairs: list[tuple[int, int]],
-    anchor_idx: np.ndarray,
     batch_idx: np.ndarray,
     sigma: float = 1.0,
 ) -> dict[int, np.ndarray]:
@@ -316,9 +315,9 @@ def _compute_batch_correction(
     global_to_local_batch = {global_idx: i for i, global_idx in enumerate(batch_idx)}
 
     cell_pairs = defaultdict(list)
-    for anchor_global, batch_global in mnn_pairs:
+    for batch_global, anchor_global in mnn_pairs:
         batch_local = global_to_local_batch[batch_global]
-        cell_pairs[batch_local].append((anchor_global, batch_global))
+        cell_pairs[batch_local].append((batch_global, anchor_global))
 
     correction_dict = {}
     for batch_local, pairs in cell_pairs.items():
@@ -339,7 +338,8 @@ def _compute_weighted_correction(
     total_weight = 0.0
 
     for i, j in pairs:
-        diff = X[j] - X[i]
+        # Pairs are ordered as (target_cell, reference_cell).
+        diff = X[i] - X[j]
         pca_dist = np.linalg.norm(X_pca[i] - X_pca[j])
         weight = np.exp(-(pca_dist**2) / (2 * sigma**2))
 

@@ -13,14 +13,18 @@ BaseEvaluator
 
 from __future__ import annotations
 
+import inspect
 import math
 import re
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+import numpy as np
 
 from scptensor.autoselect.core import EvaluationResult, StageReport
+from scptensor.autoselect.strategy import get_strategy_preset
 
 if TYPE_CHECKING:
     from scptensor.core.structures import ScpContainer, ScpMatrix
@@ -96,8 +100,14 @@ def create_wrapper(
     ) -> ScpContainer:
         """Wrapper for method functions."""
         new_layer_name = get_layer_name(source_layer, func.__name__)
+        signature = inspect.signature(func)
+        accepted = set(signature.parameters.keys())
+        supports_var_kwargs = any(
+            param.kind == inspect.Parameter.VAR_KEYWORD
+            for param in signature.parameters.values()
+        )
 
-        params = {
+        raw_params = {
             "container": container,
             "assay_name": assay_name,
             source_layer_param: source_layer,
@@ -105,8 +115,11 @@ def create_wrapper(
             **extra_params,
             **kwargs,
         }
+        if supports_var_kwargs:
+            return func(**raw_params)
 
-        return func(**params)
+        filtered = {k: v for k, v in raw_params.items() if k in accepted}
+        return func(**filtered)
 
     return wrapper
 
@@ -276,6 +289,179 @@ class BaseEvaluator(ABC):
         weighted_sum = sum(scores.get(k, 0.0) * v for k, v in weights.items())
         return weighted_sum / total_weight
 
+    def _extract_eval_controls(
+        self,
+        kwargs: dict[str, Any],
+    ) -> tuple[int, float, str, dict[str, Any]]:
+        """Extract and validate evaluator control arguments."""
+        method_kwargs = dict(kwargs)
+        n_repeats = int(method_kwargs.pop("n_repeats", 1))
+        confidence_level = float(method_kwargs.pop("confidence_level", 0.95))
+        strategy = get_strategy_preset(
+            str(method_kwargs.pop("selection_strategy", "balanced"))
+        ).name
+
+        if n_repeats < 1:
+            raise ValueError(f"n_repeats must be >= 1, got {n_repeats}")
+        if not (0.0 < confidence_level < 1.0):
+            raise ValueError(
+                f"confidence_level must be in (0, 1), got {confidence_level}"
+            )
+        return n_repeats, confidence_level, strategy, method_kwargs
+
+    def _with_repeat_random_state(
+        self,
+        method_kwargs: dict[str, Any],
+        repeat_idx: int,
+    ) -> dict[str, Any]:
+        """Derive repeat-specific kwargs, including random_state jitter."""
+        repeat_kwargs = dict(method_kwargs)
+        base_rs = repeat_kwargs.get("random_state")
+        if isinstance(base_rs, int):
+            repeat_kwargs["random_state"] = base_rs + repeat_idx
+        return repeat_kwargs
+
+    def _compute_confidence_interval(
+        self,
+        values: list[float],
+        confidence_level: float,
+    ) -> tuple[float, float]:
+        """Compute empirical confidence interval using quantiles."""
+        if not values:
+            return 0.0, 0.0
+        if len(values) == 1:
+            return values[0], values[0]
+
+        alpha = 1.0 - confidence_level
+        lower = float(np.quantile(values, alpha / 2.0))
+        upper = float(np.quantile(values, 1.0 - alpha / 2.0))
+        return lower, upper
+
+    def evaluate_method_repeated(
+        self,
+        container: ScpContainer,
+        method_name: str,
+        method_func: Callable,
+        assay_name: str = "proteins",
+        source_layer: str = "raw",
+        n_repeats: int = 1,
+        confidence_level: float = 0.95,
+        **kwargs,
+    ) -> tuple[ScpContainer | None, EvaluationResult]:
+        """Evaluate a method multiple times and aggregate the results."""
+        repeat_results: list[EvaluationResult] = []
+        best_container: ScpContainer | None = None
+        best_success_score = -math.inf
+        layer_name = f"{source_layer}_{method_name}"
+
+        for idx in range(n_repeats):
+            repeat_kwargs = self._with_repeat_random_state(kwargs, idx)
+            result_container, result = self.evaluate_method(
+                container=container,
+                method_name=method_name,
+                method_func=method_func,
+                assay_name=assay_name,
+                source_layer=source_layer,
+                **repeat_kwargs,
+            )
+            repeat_results.append(result)
+            layer_name = result.layer_name
+            if (
+                result.error is None
+                and result_container is not None
+                and result.overall_score > best_success_score
+            ):
+                best_success_score = result.overall_score
+                best_container = result_container
+
+        successful = [r for r in repeat_results if r.error is None]
+        if not successful:
+            merged_error = "; ".join(sorted({r.error or "Unknown error" for r in repeat_results}))
+            failed_result = EvaluationResult(
+                method_name=method_name,
+                scores=dict.fromkeys(self.get_metric_weights(), 0.0),
+                overall_score=0.0,
+                execution_time=float(np.mean([r.execution_time for r in repeat_results])),
+                layer_name=layer_name,
+                error=merged_error,
+                n_repeats=n_repeats,
+                repeat_overall_scores=[],
+                overall_score_std=0.0,
+                overall_score_ci_lower=0.0,
+                overall_score_ci_upper=0.0,
+            )
+            return None, failed_result
+
+        metric_keys = set().union(*(r.scores.keys() for r in successful))
+        mean_scores = {
+            key: float(np.mean([r.scores.get(key, 0.0) for r in successful]))
+            for key in sorted(metric_keys)
+        }
+        repeat_overall_scores = [float(r.overall_score) for r in successful]
+        mean_overall = float(np.mean(repeat_overall_scores))
+        overall_std = float(np.std(repeat_overall_scores, ddof=0))
+        ci_low, ci_high = self._compute_confidence_interval(repeat_overall_scores, confidence_level)
+        mean_exec = float(np.mean([r.execution_time for r in successful]))
+
+        merged = EvaluationResult(
+            method_name=method_name,
+            scores=mean_scores,
+            overall_score=mean_overall,
+            execution_time=mean_exec,
+            layer_name=layer_name,
+            error=None,
+            n_repeats=n_repeats,
+            overall_score_std=overall_std,
+            overall_score_ci_lower=ci_low,
+            overall_score_ci_upper=ci_high,
+            repeat_overall_scores=repeat_overall_scores,
+        )
+        return best_container, merged
+
+    def _apply_selection_scores(
+        self,
+        results: list[EvaluationResult],
+        strategy: str,
+    ) -> None:
+        """Apply strategy-aware selection score (quality + speed)."""
+        successful = [r for r in results if r.error is None]
+        if not successful:
+            return
+
+        preset = get_strategy_preset(strategy)
+        quality_weight = preset.quality_weight
+        runtime_weight = preset.runtime_weight
+
+        times = np.array([r.execution_time for r in successful], dtype=float)
+        min_time = float(np.min(times))
+        max_time = float(np.max(times))
+        if max_time - min_time < 1e-12:
+            runtime_scores = np.ones_like(times)
+        else:
+            runtime_scores = 1.0 - (times - min_time) / (max_time - min_time)
+
+        for result, runtime_score in zip(successful, runtime_scores, strict=False):
+            selection_score = (
+                quality_weight * result.overall_score + runtime_weight * float(runtime_score)
+            )
+            result.selection_score = float(np.clip(selection_score, 0.0, 1.0))
+
+        for result in results:
+            if result.error is not None:
+                result.selection_score = 0.0
+
+    def _select_best_result(self, successful_results: list[EvaluationResult]) -> EvaluationResult:
+        """Select best result with deterministic tie-breakers."""
+        return max(
+            successful_results,
+            key=lambda r: (
+                r.selection_score if r.selection_score is not None else r.overall_score,
+                r.overall_score,
+                -(r.execution_time),
+                r.method_name,
+            ),
+        )
+
     def evaluate_method(
         self,
         container: ScpContainer,
@@ -411,14 +597,29 @@ class BaseEvaluator(ABC):
         >>> print(f"Best method: {report.best_method}")
         >>> print(f"Best score: {report.best_result.overall_score}")
         """
-        report = StageReport(stage_name=self.stage_name, metric_weights=self.get_metric_weights())
+        n_repeats, confidence_level, strategy, method_kwargs = self._extract_eval_controls(kwargs)
+        report = StageReport(
+            stage_name=self.stage_name,
+            stage_key=self.stage_name,
+            metric_weights=self.get_metric_weights(),
+            selection_strategy=strategy,
+            n_repeats=n_repeats,
+            confidence_level=confidence_level,
+        )
         successful_layers: dict[str, tuple[str, ScpMatrix]] = {}
 
         # Evaluate all methods and store successful results
         results = []
         for method_name, method_func in self.methods.items():
-            result_container, eval_result = self.evaluate_method(
-                container, method_name, method_func, assay_name, source_layer, **kwargs
+            result_container, eval_result = self.evaluate_method_repeated(
+                container=container,
+                method_name=method_name,
+                method_func=method_func,
+                assay_name=assay_name,
+                source_layer=source_layer,
+                n_repeats=n_repeats,
+                confidence_level=confidence_level,
+                **method_kwargs,
             )
             results.append(eval_result)
 
@@ -430,6 +631,7 @@ class BaseEvaluator(ABC):
                 )
 
         report.results = results
+        self._apply_selection_scores(report.results, strategy)
 
         # Find best method
         successful_results = [r for r in results if not r.error]
@@ -441,10 +643,14 @@ class BaseEvaluator(ABC):
             return container.copy(), report
 
         # Select best and build result container
-        best_result = max(successful_results, key=lambda r: r.overall_score)
+        best_result = self._select_best_result(successful_results)
         report.best_method = best_result.method_name
         report.best_result = best_result
-        report.recommendation_reason = f"Highest overall score ({best_result.overall_score:.4f}) among {len(successful_results)} successful methods"
+        report.recommendation_reason = (
+            f"Best '{strategy}' selection score "
+            f"({best_result.selection_score if best_result.selection_score is not None else best_result.overall_score:.4f}) "
+            f"from {len(successful_results)} successful methods (n_repeats={n_repeats})."
+        )
 
         result_container = container.copy()
         assay = result_container.assays[assay_name]

@@ -169,9 +169,9 @@ class ImputationEvaluator(BaseEvaluator):
         Returns
         -------
         str
-            Stage name ("imputation")
+            Stage name ("impute")
         """
-        return "imputation"
+        return "impute"
 
     @property
     def methods(self) -> dict[str, Callable]:

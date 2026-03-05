@@ -55,9 +55,9 @@ class NormalizationEvaluator(BaseEvaluator):
         Returns
         -------
         str
-            Stage name ("normalization")
+            Stage name ("normalize")
         """
-        return "normalization"
+        return "normalize"
 
     @property
     def methods(self) -> dict[str, Callable]:
@@ -134,16 +134,16 @@ class NormalizationEvaluator(BaseEvaluator):
         if hasattr(X_normalized, "toarray"):
             X_normalized = X_normalized.toarray()  # noqa: N806
 
-        # Get original data for comparison
-        if (
-            "proteins" in original_container.assays
-            and layer_name in original_container.assays["proteins"].layers
-        ):
-            X_original = original_container.assays["proteins"].layers[layer_name].X  # noqa: N806
+        # Get source data for comparison.
+        original_assay = original_container.assays.get("proteins")
+        source_layer = self._infer_source_layer(original_assay, layer_name) if original_assay else None
+
+        if source_layer is not None and original_assay is not None:
+            X_original = original_assay.layers[source_layer].X  # noqa: N806
             if hasattr(X_original, "toarray"):
                 X_original = X_original.toarray()  # noqa: N806
         else:
-            # Use normalized data as fallback if original not available
+            # Fall back to current layer if source cannot be inferred.
             X_original = X_normalized  # noqa: N806
 
         # Compute metrics
@@ -160,6 +160,15 @@ class NormalizationEvaluator(BaseEvaluator):
             "technical_variance": technical_score,
             "clustering_quality": clustering_score,
         }
+
+    def _infer_source_layer(self, assay, layer_name: str) -> str | None:
+        """Infer source layer name from output layer naming convention."""
+        if assay is None:
+            return None
+        candidates = [name for name in assay.layers if layer_name.startswith(f"{name}_")]
+        if not candidates:
+            return None
+        return max(candidates, key=len)
 
     def _compute_intragroup_variation(
         self,

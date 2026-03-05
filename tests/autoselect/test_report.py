@@ -6,6 +6,7 @@ Markdown, JSON, and CSV formats.
 
 import json
 import tempfile
+from csv import DictReader
 from pathlib import Path
 
 import pytest
@@ -23,6 +24,12 @@ def sample_report() -> AutoSelectReport:
         overall_score=0.90,
         execution_time=1.2,
         layer_name="log",
+        selection_score=0.89,
+        n_repeats=3,
+        overall_score_std=0.02,
+        overall_score_ci_lower=0.86,
+        overall_score_ci_upper=0.92,
+        repeat_overall_scores=[0.88, 0.90, 0.92],
     )
     norm_result2 = EvaluationResult(
         method_name="median_normalize",
@@ -30,14 +37,29 @@ def sample_report() -> AutoSelectReport:
         overall_score=0.88,
         execution_time=0.8,
         layer_name="median",
+        selection_score=0.90,
+        n_repeats=3,
+        overall_score_std=0.01,
+        overall_score_ci_lower=0.87,
+        overall_score_ci_upper=0.89,
+        repeat_overall_scores=[0.87, 0.88, 0.89],
     )
 
     norm_stage = StageReport(
         stage_name="normalization",
+        stage_key="normalize",
         results=[norm_result1, norm_result2],
         best_method="log_normalize",
         best_result=norm_result1,
         recommendation_reason="Highest overall score (0.9000) among 2 successful methods",
+        metric_weights={"variance": 0.4, "batch_effect": 0.3, "completeness": 0.3},
+        input_assay="proteins",
+        input_layer="raw",
+        output_assay="proteins",
+        output_layer="log",
+        selection_strategy="balanced",
+        n_repeats=3,
+        confidence_level=0.95,
     )
 
     # Create imputation stage results
@@ -47,6 +69,7 @@ def sample_report() -> AutoSelectReport:
         overall_score=0.85,
         execution_time=2.5,
         layer_name="imputed_knn",
+        selection_score=0.84,
     )
     imp_result2 = EvaluationResult(
         method_name="svd_impute",
@@ -66,10 +89,13 @@ def sample_report() -> AutoSelectReport:
 
     imp_stage = StageReport(
         stage_name="imputation",
+        stage_key="impute",
         results=[imp_result1, imp_result2, imp_result3],
         best_method="knn_impute",
         best_result=imp_result1,
         recommendation_reason="Highest overall score (0.8500) among 2 successful methods",
+        metric_weights={"rmse": 0.5, "correlation": 0.5},
+        selection_strategy="quality",
     )
 
     # Create complete report
@@ -114,6 +140,9 @@ class TestSaveMarkdown:
             assert "knn_impute" in content
             assert "15.70" in content or "15.7" in content  # Total time
             assert "Warning" in content  # Warnings section
+            assert "Selection Score" in content
+            assert "Strategy Weights" in content
+            assert "[0.8600, 0.9200]" in content
 
     def test_save_markdown_empty_report(self):
         """Test saving empty report."""
@@ -238,6 +267,10 @@ class TestSaveCsv:
             assert "execution_time" in header
             assert "error" in header
             assert "is_best" in header
+            assert "selection_strategy" in header
+            assert "selection_score" in header
+            assert "overall_score_ci_lower" in header
+            assert "scores" in header
 
     def test_save_csv_row_count(self, sample_report):
         """Test that save_csv has correct number of rows."""
@@ -252,6 +285,27 @@ class TestSaveCsv:
 
             # 1 header + 2 normalization methods + 3 imputation methods = 6 lines
             assert len(lines) == 6
+
+    def test_save_csv_contains_extended_metadata(self, sample_report):
+        """Test CSV row includes repeat/strategy metadata."""
+        from scptensor.autoselect.report import save_csv
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = Path(tmpdir) / "report.csv"
+            save_csv(sample_report, filepath)
+
+            with open(filepath, newline="") as handle:
+                rows = list(DictReader(handle))
+
+            assert len(rows) == 5
+            strategies = {row["selection_strategy"] for row in rows}
+            assert strategies == {"balanced", "quality"}
+
+            first_row = rows[0]
+            repeat_scores = json.loads(first_row["repeat_overall_scores"])
+            assert repeat_scores == [0.88, 0.9, 0.92]
+            metric_weights = json.loads(first_row["metric_weights"])
+            assert metric_weights["variance"] == pytest.approx(0.4)
 
     def test_save_csv_marks_best_methods(self, sample_report):
         """Test that save_csv correctly marks best methods."""

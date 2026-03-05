@@ -5,13 +5,14 @@ This module contains tests for the BaseEvaluator abstract class and its
 concrete implementations.
 """
 
+import time
 from collections.abc import Callable
 
 import numpy as np
 import polars as pl
 import pytest
 
-from scptensor.autoselect import StageReport
+from scptensor.autoselect import EvaluationResult, StageReport
 from scptensor.autoselect.evaluators.base import BaseEvaluator
 from scptensor.core import Assay, ScpContainer, ScpMatrix
 
@@ -438,6 +439,130 @@ class TestRunAll:
         )
 
         assert len(report.recommendation_reason) > 0
+
+    def test_run_all_with_repeats_adds_confidence_metadata(self, simple_container):
+        """Test repeat evaluation metadata is attached to results."""
+        evaluator = MockEvaluator()
+
+        result_container, report = evaluator.run_all(
+            container=simple_container.copy(),
+            assay_name="proteins",
+            source_layer="raw",
+            n_repeats=3,
+            confidence_level=0.9,
+        )
+
+        assert isinstance(result_container, ScpContainer)
+        assert report.n_repeats == 3
+        assert report.confidence_level == pytest.approx(0.9)
+        assert report.selection_strategy == "balanced"
+        assert report.best_result is not None
+        assert report.best_result.n_repeats == 3
+        assert len(report.best_result.repeat_overall_scores) == 3
+        assert report.best_result.overall_score_std is not None
+        assert report.best_result.overall_score_ci_lower is not None
+        assert report.best_result.overall_score_ci_upper is not None
+
+    def test_run_all_speed_strategy_prefers_faster_method(self, simple_container):
+        """Test speed strategy can prioritize runtime when quality ties."""
+
+        class SpeedAwareEvaluator(BaseEvaluator):
+            @property
+            def stage_name(self) -> str:
+                return "speed_test"
+
+            @property
+            def methods(self) -> dict[str, Callable]:
+                return {"slow": self._slow, "fast": self._fast}
+
+            @property
+            def metric_weights(self) -> dict[str, float]:
+                return {"metric": 1.0}
+
+            def compute_metrics(self, container, original_container, layer_name):
+                # Tie quality on purpose to isolate strategy behavior.
+                return {"metric": 0.8}
+
+            def _slow(self, container, assay_name, source_layer, **kwargs):
+                time.sleep(0.01)
+                assay = container.assays[assay_name]
+                assay.add_layer(f"{source_layer}_slow", assay.layers[source_layer])
+                return container
+
+            def _fast(self, container, assay_name, source_layer, **kwargs):
+                assay = container.assays[assay_name]
+                assay.add_layer(f"{source_layer}_fast", assay.layers[source_layer])
+                return container
+
+        evaluator = SpeedAwareEvaluator()
+        result_container, report = evaluator.run_all(
+            container=simple_container.copy(),
+            assay_name="proteins",
+            source_layer="raw",
+            selection_strategy="speed",
+        )
+
+        assert isinstance(result_container, ScpContainer)
+        assert report.selection_strategy == "speed"
+        assert report.best_method == "fast"
+
+    def test_run_all_invalid_controls_raise(self, simple_container):
+        """Test invalid M2 control parameters raise actionable errors."""
+        evaluator = MockEvaluator()
+
+        with pytest.raises(ValueError, match="n_repeats must be >= 1"):
+            evaluator.run_all(
+                container=simple_container.copy(),
+                assay_name="proteins",
+                source_layer="raw",
+                n_repeats=0,
+            )
+
+        with pytest.raises(ValueError, match="confidence_level must be in"):
+            evaluator.run_all(
+                container=simple_container.copy(),
+                assay_name="proteins",
+                source_layer="raw",
+                confidence_level=1.0,
+            )
+
+        with pytest.raises(ValueError, match="selection_strategy must be one of"):
+            evaluator.run_all(
+                container=simple_container.copy(),
+                assay_name="proteins",
+                source_layer="raw",
+                selection_strategy="unknown",
+            )
+
+    def test_apply_selection_scores_uses_strategy_presets(self):
+        """Test strategy presets are applied for selection-score weighting."""
+        evaluator = MockEvaluator()
+        quality_heavy = EvaluationResult(
+            method_name="quality_heavy",
+            scores={"metric1": 0.9},
+            overall_score=0.9,
+            execution_time=2.0,
+            layer_name="raw_quality_heavy",
+        )
+        speed_heavy = EvaluationResult(
+            method_name="speed_heavy",
+            scores={"metric1": 0.8},
+            overall_score=0.8,
+            execution_time=1.0,
+            layer_name="raw_speed_heavy",
+        )
+
+        quality_results = [quality_heavy, speed_heavy]
+        evaluator._apply_selection_scores(quality_results, "quality")
+        assert quality_heavy.selection_score == pytest.approx(0.9)
+        assert speed_heavy.selection_score == pytest.approx(0.8)
+
+        quality_heavy.selection_score = None
+        speed_heavy.selection_score = None
+        speed_results = [quality_heavy, speed_heavy]
+        evaluator._apply_selection_scores(speed_results, "speed")
+        assert quality_heavy.selection_score == pytest.approx(0.585)
+        assert speed_heavy.selection_score == pytest.approx(0.87)
 
 
 class TestEvaluatorProperties:

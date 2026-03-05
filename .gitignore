@@ -27,6 +27,8 @@
 # 数据与模型文件 (Large data & model files)
 outputs/
 data/
+tmp/
+docs/_tutorial_outputs/
 **/outputs/
 **/data_cache/
 
@@ -73,3 +75,4 @@ scptensor/datasets/massive/*/report.tsv
 # Benchmark artifacts (downloaded/generated)
 benchmark/**/data/
 benchmark/**/outputs/
+benchmark/autoselect/strategy_compare/
