@@ -1,19 +1,18 @@
 # Docs Index
 
-`docs/` 目录只放“用户文档内容”，不放评测脚本和评测产物。
+`docs/` stores user-facing documentation only.
+Benchmark scripts and benchmark outputs should stay under `benchmark/`.
 
-## 当前结构
+## Current Files
 
-- `tutorial.ipynb`：主教程
-- `autoselect_tutorial.ipynb`：AutoSelect 教程
-- `io_input_spec_diann_spectronaut.md`：DIA-NN / Spectronaut 输入规范
-- `aggregation_methods_from_literature.md`：肽段->蛋白聚合方法文献整理
-- `_tutorial_outputs/`：教程运行输出（临时产物）
+- `tutorial.ipynb`: main tutorial
+- `autoselect_tutorial.ipynb`: AutoSelect tutorial
+- `io_input_spec_diann_spectronaut.md`: DIA-NN / Spectronaut I/O contract
+- `aggregation_methods_from_literature.md`: peptide -> protein aggregation literature notes
+- `dia_sc_imputation_literature_review_20260304.md`: DIA single-cell imputation review notes
 
-## AutoSelect 位置说明
+## Notes
 
-- **正确位置（文档）**：`docs/autoselect_tutorial.ipynb`
-- **不应放在 docs 的内容（评测）**：`autoselect` 评测脚本与图表
-  - 已迁移到 `benchmark/autoselect/norm_test/`
-
-这保证了 `docs/` 聚焦“可阅读文档”，`benchmark/` 聚焦“可执行评测”。
+- Keep `docs/` focused on readable documentation.
+- Keep executable benchmarks, benchmark reports, and generated benchmark assets in `benchmark/`.
+- Do not track notebook runtime artifacts under `docs/`.

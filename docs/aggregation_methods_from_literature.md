@@ -6,11 +6,11 @@
 
 | 方法 | 核心思想 | 典型来源 | ScpTensor 实现状态 |
 |---|---|---|---|
-| Sum | 同一蛋白下肽段强度求和 | OpenMS ProteinQuantFromPeptideAbundances | 已实现 (`method="sum"`) |
-| Mean | 同一蛋白下肽段强度求平均 | OpenMS ProteinQuantFromPeptideAbundances | 已实现 (`method="mean"`) |
-| Median | 同一蛋白下肽段强度取中位数 | OpenMS ProteinQuantFromPeptideAbundances | 已实现 (`method="median"`) |
+| Sum | 同一蛋白下肽段强度求和 | OpenMS ProteinQuantifier (`top:aggregate=sum`) | 已实现 (`method="sum"`) |
+| Mean | 同一蛋白下肽段强度求平均 | OpenMS ProteinQuantifier (`top:aggregate=mean`) | 已实现 (`method="mean"`) |
+| Median | 同一蛋白下肽段强度取中位数 | OpenMS ProteinQuantifier (`top:aggregate=median`) | 已实现 (`method="median"`) |
 | Max | 同一蛋白下取最大肽段强度 | 常见汇总策略 | 已实现 (`method="max"`) |
-| Weighted mean | 按肽段丰度权重做加权均值 | OpenMS ProteinQuantFromPeptideAbundances | 已实现 (`method="weighted_mean"`) |
+| Weighted mean | 按肽段丰度权重做加权均值 | OpenMS ProteinQuantifier (`top:aggregate=weighted_mean`) | 已实现 (`method="weighted_mean"`) |
 | Top-N | 选蛋白最丰富的 N 条肽段再汇总 | OpenMS Top N + 文献中的 TOPn/Top3 讨论 | 已实现 (`method="top_n"`) |
 | MaxLFQ | 基于样本间肽段比值网络求蛋白强度 | MaxLFQ 原始论文 + DIA-NN 输出列 `PG.MaxLFQ` | 已实现（近似版，`method="maxlfq"`） |
 | TMP (Tukey Median Polish) | 对 log 强度做鲁棒分解汇总 | MSstats `dataProcess` 文档中的 TMP 汇总 | 已实现 (`method="tmp"`) |
@@ -18,8 +18,8 @@
 
 ## 2. 主要参考链接
 
-- OpenMS: `ProteinQuantFromPeptideAbundances`
-  - https://openms.de/documentation/html/TOPP_ProteinQuantFromPeptideAbundances.html
+- OpenMS: `ProteinQuantifier`（当前文档页；包含 `top:aggregate` 的 `sum/mean/median/weighted_mean` 以及 `method=iBAQ`）
+  - https://openms.de/documentation/html/TOPP_ProteinQuantifier.html
 - MaxLFQ 原始论文（Cox et al., 2014, MCP）
   - https://pmc.ncbi.nlm.nih.gov/articles/PMC4159666/
 - MSstats `dataProcess`（TMP summarization）

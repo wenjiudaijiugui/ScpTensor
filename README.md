@@ -3,21 +3,29 @@
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-ScpTensor is a Python package for DIA-based single-cell proteomics analysis with a strong focus on
-reliable vendor-table ingestion and end-to-end quantitative workflows.
+ScpTensor is a Python package for DIA-based single-cell proteomics preprocessing.
+It focuses on robust DIA quant-table ingestion and protein-level preprocessing workflows.
 
-Project rules and scope contract: [AGENTS.md](AGENTS.md)
+Project scope contract: [AGENTS.md](AGENTS.md)
 
-Current product scope is centered on:
+## Scope
+
+Current supported scope:
 - DIA-NN quant output import
 - Spectronaut quant output import
-- peptide-to-protein aggregation
-- transformation, normalization, imputation, dimensionality reduction, clustering, and visualization
+- peptide/precursor to protein aggregation
+- protein-level preprocessing: transform, normalize, impute, integration
+- dimensionality reduction, clustering, and visualization
+
+Explicit non-goals in current package scope:
+- differential expression analysis
+- feature selection module
+- non-DIA software input support by default
 
 ## Installation
 
 ```bash
-git clone https://github.com/yourusername/ScpTensor.git
+git clone https://github.com/wenjiudaijiugui/ScpTensor.git
 cd ScpTensor
 
 # Use uv-managed environment
@@ -78,9 +86,9 @@ container = cluster_kmeans(container, assay_name="pca", base_layer="X", n_cluste
 _ = plot_data_overview(container, assay_name="proteins", layer="norm", groupby="kmeans_k6")
 ```
 
-## Supported Input Types (IO)
+## Supported Input Types (I/O)
 
-ScpTensor IO currently targets DIA-NN and Spectronaut only.
+ScpTensor I/O currently targets DIA-NN and Spectronaut only.
 
 | Software | Quant Level | File Shape |
 | --- | --- | --- |
@@ -99,7 +107,7 @@ Main APIs:
 ## Documentation
 
 - [Docs index](docs/README.md)
-- [DIA-NN / Spectronaut IO spec](docs/io_input_spec_diann_spectronaut.md)
+- [DIA-NN / Spectronaut I/O spec](docs/io_input_spec_diann_spectronaut.md)
 - [Main tutorial notebook](docs/tutorial.ipynb)
 - [AutoSelect tutorial](docs/autoselect_tutorial.ipynb)
 

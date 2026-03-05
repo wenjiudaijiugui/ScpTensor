@@ -2,13 +2,21 @@
 
 ## 1. 文档目标
 
-本文档用于统一 `scptensor/io` 对 DIA-NN 与 Spectronaut 定量输出的理解，服务于后续 I/O 模块重构与测试收敛。重点覆盖：
+本文档用于统一 `scptensor/io` 对 DIA-NN 与 Spectronaut 定量输出的理解，对齐当前 I/O 实现与测试。重点覆盖：
 
 - 软件输出形态：长表（long）与透视矩阵（pivot/matrix）
 - 定量层级：蛋白级与肽段/前体级
 - 字段映射：样本、特征、定量值、q/FDR
 - 导入最小必需列与推荐列
 - 过滤与清洗建议
+
+当前公开入口（与 `AGENTS.md` 一致）：
+
+- `scptensor.io.load_quant_table`
+- `scptensor.io.load_diann`
+- `scptensor.io.load_spectronaut`
+- `scptensor.io.load_peptide_pivot`
+- `scptensor.io.aggregate_to_protein`
 
 
 ## 2. 适用范围与版本说明
@@ -22,7 +30,7 @@
 - 本文聚焦定量矩阵导入，不覆盖鉴定谱图层面细节。
 
 
-## 3. 四类输入原型（建议作为 I/O 统一接口目标）
+## 3. 四类输入原型（对应当前 I/O 统一接口）
 
 1. `protein-long`：蛋白级长表（每行 = 某蛋白在某 run 的定量）
 2. `protein-matrix`：蛋白级矩阵（行 = 蛋白，列 = 样本）
@@ -176,7 +184,7 @@
 - 不应作为核心必需字段，以避免对导出模板产生过强耦合。
 
 
-## 10. 对 `scptensor/io` 重构的直接落地建议
+## 10. 与当前 `scptensor/io` 实现对齐建议
 
 1. 接口只暴露四类输入原型（protein/peptide × long/matrix）。
 2. 先识别软件，再识别格式，再选 level，最后解析列。

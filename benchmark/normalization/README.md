@@ -66,13 +66,13 @@
 在仓库根目录执行：
 
 ```bash
-UV_CACHE_DIR=.uv-cache uv run --no-project python benchmark/normalization/run_benchmark.py
+UV_CACHE_DIR=.uv-cache uv run python benchmark/normalization/run_benchmark.py
 ```
 
 常用参数：
 
 ```bash
-UV_CACHE_DIR=.uv-cache uv run --no-project python benchmark/normalization/run_benchmark.py \
+UV_CACHE_DIR=.uv-cache uv run python benchmark/normalization/run_benchmark.py \
   --datasets lfqbench_hye124_spectronaut pxd054343_diann_2x \
   --methods none mean median quantile trqn \
   --output-dir benchmark/normalization/outputs
@@ -81,7 +81,7 @@ UV_CACHE_DIR=.uv-cache uv run --no-project python benchmark/normalization/run_be
 如需跳过文献 source data 下载：
 
 ```bash
-UV_CACHE_DIR=.uv-cache uv run --no-project python benchmark/normalization/run_benchmark.py \
+UV_CACHE_DIR=.uv-cache uv run python benchmark/normalization/run_benchmark.py \
   --no-reference-download
 ```
 
