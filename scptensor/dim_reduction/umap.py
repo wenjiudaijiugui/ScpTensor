@@ -95,22 +95,26 @@ def reduce_umap(
     # Validate parameters
     if n_components <= 0:
         raise ValueError(f"n_components must be positive, got {n_components}")
-    if n_neighbors <= 0:
-        raise ValueError(f"n_neighbors must be positive, got {n_neighbors}")
-    if not (0.0 <= min_dist < 1.0):
-        raise ValueError(f"min_dist must be in [0, 1), got {min_dist}")
+    if n_neighbors <= 1:
+        raise ValueError(f"n_neighbors must be > 1, got {n_neighbors}")
+    if not (0.0 <= min_dist <= 1.0):
+        raise ValueError(f"min_dist must be in [0, 1], got {min_dist}")
 
     # Validate assay and layer
-    _validate_assay_layer(container, assay_name, base_layer)
-
-    assay = container.assays[assay_name]
-    X = assay.layers[base_layer].X
+    assay, X = _validate_assay_layer(container, assay_name, base_layer)
 
     # Check data completeness
     _check_no_nan_inf(X)
 
     # Prepare data
     X_dense = _prepare_matrix(X, dtype=np.dtype(dtype))
+    n_samples = X_dense.shape[0]
+    if n_samples < 2:
+        raise ValueError(f"UMAP requires at least 2 samples, got {n_samples}")
+    if n_neighbors >= n_samples:
+        raise ValueError(
+            f"n_neighbors ({n_neighbors}) must be < n_samples ({n_samples}) to avoid truncation."
+        )
 
     # Fit UMAP
     import umap as umap_learn
@@ -135,9 +139,14 @@ def reduce_umap(
 
     new_assay = Assay(var=var_df, layers={"X": matrix}, feature_id_col="feature_id")
 
-    # Create new container
-    new_container = container.copy()
-    new_container.add_assay(new_assay_name, new_assay)
+    # Create new container (shallow structure copy, no assay deep-copy)
+    new_assays = {**container.assays, new_assay_name: new_assay}
+    new_container = ScpContainer(
+        obs=container.obs,
+        assays=new_assays,
+        history=list(container.history),
+        sample_id_col=container.sample_id_col,
+    )
 
     # Log operation
     new_container.log_operation(
