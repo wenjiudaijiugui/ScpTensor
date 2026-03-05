@@ -187,7 +187,7 @@
 
 - P1: https://doi.org/10.1038/s41467-025-65174-4 （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/41271703/）
 - P2: https://pubmed.ncbi.nlm.nih.gov/34735399/
-- P3: https://doi.org/10.1093/nar/gkaa498 （PubMed/PMC 备选：https://pubmed.ncbi.nlm.nih.gov/32526036/）
+- P3: https://pubmed.ncbi.nlm.nih.gov/32526036/ （DOI: 10.1093/nar/gkaa498）
 - P4: https://www.nature.com/articles/s41598-021-81279-4
 - P5: https://www.nature.com/articles/s41598-022-21128-0
 - P6: https://doi.org/10.1038/s41467-024-48711-5 （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/38926340/）

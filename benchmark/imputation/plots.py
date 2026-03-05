@@ -122,7 +122,7 @@ def plot_nrmse_curves(raw_df: pd.DataFrame, output_path: Path, top_n: int = 8) -
 def plot_runtime_vs_accuracy(summary_df: pd.DataFrame, output_path: Path) -> None:
     """Scatter plot of runtime vs NRMSE."""
     _ensure_parent(output_path)
-    if summary_df.empty:
+    if summary_df.empty or "runtime_sec" not in summary_df.columns or "nrmse" not in summary_df.columns:
         return
 
     plot_df = summary_df.copy()

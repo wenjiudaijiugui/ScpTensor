@@ -8,6 +8,9 @@ from collections.abc import Sequence
 import numpy as np
 import pandas as pd
 from scipy.stats import ConstantInputWarning, spearmanr
+from sklearn.cluster import KMeans
+from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, silhouette_score
+from sklearn.neighbors import NearestNeighbors
 
 METRIC_DIRECTIONS: dict[str, bool] = {
     "holdout_coverage": True,
@@ -17,6 +20,17 @@ METRIC_DIRECTIONS: dict[str, bool] = {
     "rmse": False,
     "nrmse": False,
     "within_group_cv_median": False,
+    "cluster_ari": True,
+    "cluster_nmi": True,
+    "cluster_asw": True,
+    "cluster_knn_purity": True,
+    "de_log2fc_pearson": True,
+    "de_topk_jaccard": True,
+    "de_topk_sign_agreement": True,
+    "ratio_pairwise_auc_mean": True,
+    "ratio_changed_vs_bg_auc": True,
+    "ratio_mae": False,
+    "ratio_rmse": False,
     "runtime_sec": False,
     "post_missing_rate": False,
 }
@@ -143,6 +157,157 @@ def compute_within_group_cv_median(
     return float(np.median(np.asarray(per_group_medians, dtype=np.float64)))
 
 
+def _valid_group_array(
+    groups: Sequence[str] | None,
+    n_samples: int,
+) -> np.ndarray | None:
+    if groups is None:
+        return None
+    g = np.asarray(list(groups), dtype=object)
+    if g.shape[0] != n_samples:
+        return None
+    uniq, counts = np.unique(g, return_counts=True)
+    if uniq.size < 2 or np.min(counts) < 2:
+        return None
+    return g
+
+
+def compute_cluster_metrics(
+    matrix: np.ndarray,
+    groups: Sequence[str] | None,
+    *,
+    n_neighbors: int = 10,
+) -> dict[str, float]:
+    """Compute cluster-structure preservation metrics against known group labels."""
+    x = np.asarray(matrix, dtype=np.float64)
+    labels = _valid_group_array(groups, x.shape[0])
+    if labels is None:
+        return {
+            "cluster_ari": float("nan"),
+            "cluster_nmi": float("nan"),
+            "cluster_asw": float("nan"),
+            "cluster_knn_purity": float("nan"),
+        }
+
+    n_clusters = int(np.unique(labels).size)
+    if x.shape[0] <= n_clusters:
+        return {
+            "cluster_ari": float("nan"),
+            "cluster_nmi": float("nan"),
+            "cluster_asw": float("nan"),
+            "cluster_knn_purity": float("nan"),
+        }
+
+    try:
+        pred = KMeans(n_clusters=n_clusters, random_state=42, n_init=20).fit_predict(x)
+        ari = float(adjusted_rand_score(labels, pred))
+        nmi = float(normalized_mutual_info_score(labels, pred))
+    except Exception:  # noqa: BLE001
+        ari, nmi = float("nan"), float("nan")
+
+    try:
+        asw = float(silhouette_score(x, labels))
+    except Exception:  # noqa: BLE001
+        asw = float("nan")
+
+    k = max(2, min(int(n_neighbors), x.shape[0] - 1))
+    try:
+        nbrs = NearestNeighbors(n_neighbors=k + 1).fit(x)
+        _, idx = nbrs.kneighbors(x)
+        scores: list[float] = []
+        for neigh in idx:
+            neigh_labels = labels[neigh[1:]]
+            if neigh_labels.size == 0:
+                continue
+            purity = np.mean(neigh_labels == labels[neigh[0]])
+            scores.append(float(purity))
+        knn_purity = float(np.mean(scores)) if scores else float("nan")
+    except Exception:  # noqa: BLE001
+        knn_purity = float("nan")
+
+    return {
+        "cluster_ari": ari,
+        "cluster_nmi": nmi,
+        "cluster_asw": asw,
+        "cluster_knn_purity": knn_purity,
+    }
+
+
+def compute_de_consistency_metrics(
+    matrix_true: np.ndarray,
+    matrix_imputed: np.ndarray,
+    groups: Sequence[str] | None,
+    *,
+    top_k: int = 50,
+) -> dict[str, float]:
+    """Compare DE-like group-contrast signals before/after imputation.
+
+    Uses pairwise group log2 fold-change vectors as a task-oriented proxy for DE consistency.
+    """
+    x_true = np.asarray(matrix_true, dtype=np.float64)
+    x_imp = np.asarray(matrix_imputed, dtype=np.float64)
+    labels = _valid_group_array(groups, x_true.shape[0])
+
+    if labels is None or x_true.shape != x_imp.shape:
+        return {
+            "de_log2fc_pearson": float("nan"),
+            "de_topk_jaccard": float("nan"),
+            "de_topk_sign_agreement": float("nan"),
+        }
+
+    uniq = np.unique(labels)
+    if uniq.size < 2:
+        return {
+            "de_log2fc_pearson": float("nan"),
+            "de_topk_jaccard": float("nan"),
+            "de_topk_sign_agreement": float("nan"),
+        }
+
+    corr_vals: list[float] = []
+    jacc_vals: list[float] = []
+    sign_vals: list[float] = []
+
+    for i in range(len(uniq)):
+        for j in range(i + 1, len(uniq)):
+            g1, g2 = uniq[i], uniq[j]
+            idx1 = np.where(labels == g1)[0]
+            idx2 = np.where(labels == g2)[0]
+            if idx1.size < 2 or idx2.size < 2:
+                continue
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)
+                fc_true = np.nanmean(x_true[idx1, :], axis=0) - np.nanmean(x_true[idx2, :], axis=0)
+                fc_imp = np.nanmean(x_imp[idx1, :], axis=0) - np.nanmean(x_imp[idx2, :], axis=0)
+
+            valid = np.isfinite(fc_true) & np.isfinite(fc_imp)
+            if np.sum(valid) < 10:
+                continue
+
+            t = fc_true[valid]
+            p = fc_imp[valid]
+
+            corr_vals.append(_safe_pearson(t, p))
+
+            k = int(min(max(5, top_k), t.size))
+            idx_top_true = np.argsort(-np.abs(t))[:k]
+            idx_top_imp = np.argsort(-np.abs(p))[:k]
+            set_true = set(idx_top_true.tolist())
+            set_imp = set(idx_top_imp.tolist())
+            inter = len(set_true & set_imp)
+            union = len(set_true | set_imp)
+            jacc_vals.append(float(inter / union) if union > 0 else float("nan"))
+
+            sign_match = np.mean(np.sign(p[idx_top_true]) == np.sign(t[idx_top_true]))
+            sign_vals.append(float(sign_match))
+
+    return {
+        "de_log2fc_pearson": float(np.nanmean(corr_vals)) if corr_vals else float("nan"),
+        "de_topk_jaccard": float(np.nanmean(jacc_vals)) if jacc_vals else float("nan"),
+        "de_topk_sign_agreement": float(np.nanmean(sign_vals)) if sign_vals else float("nan"),
+    }
+
+
 def score_methods(summary_df: pd.DataFrame) -> pd.DataFrame:
     """Generate per-dataset normalized scores and overall ranking."""
     rows: list[dict[str, object]] = []
@@ -176,9 +341,22 @@ def score_methods(summary_df: pd.DataFrame) -> pd.DataFrame:
                 work[score_col] = (vmax - values) / (vmax - vmin)
 
         if score_cols:
-            work["overall_score"] = np.nanmean(work[score_cols].to_numpy(dtype=np.float64), axis=1)
+            score_mat = work[score_cols].to_numpy(dtype=np.float64)
+            valid_counts = np.sum(np.isfinite(score_mat), axis=1)
+            numer = np.nansum(score_mat, axis=1)
+            overall = np.full(work.shape[0], np.nan, dtype=np.float64)
+            mask = valid_counts > 0
+            overall[mask] = numer[mask] / valid_counts[mask]
+            work["overall_score"] = overall
         else:
             work["overall_score"] = np.nan
+
+        # Penalize unstable methods: failed runs should directly lower final ranking.
+        if "success_rate" in work.columns:
+            success = pd.to_numeric(work["success_rate"], errors="coerce").clip(0.0, 1.0)
+            success = success.fillna(0.0)
+            work["score_success_rate"] = success
+            work["overall_score"] = work["overall_score"] * success.to_numpy(dtype=np.float64)
 
         rows.extend(work.to_dict("records"))
 

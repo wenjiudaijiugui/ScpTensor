@@ -8,10 +8,12 @@ This module provides:
 from __future__ import annotations
 
 import inspect
+import sys
 from typing import Any, cast
 
 import numpy as np
 import scipy.sparse as sp
+import sklearn.utils
 from sklearn.decomposition import TruncatedSVD
 
 from scptensor.core.exceptions import (
@@ -114,8 +116,31 @@ def softimpute_impute(
     if np.all(missing_mask):
         return np.zeros_like(x)
 
+    # Compatibility patch: fancyimpute still calls sklearn.check_array(force_all_finite=...),
+    # while newer sklearn versions renamed it to ensure_all_finite.
+    check_array_sig = inspect.signature(sklearn.utils.check_array)
+    if "force_all_finite" not in check_array_sig.parameters and "ensure_all_finite" in check_array_sig.parameters:
+        _orig_check_array = sklearn.utils.check_array
+
+        def _check_array_compat(*args: Any, force_all_finite: Any = None, **kwargs: Any) -> Any:
+            if force_all_finite is not None and "ensure_all_finite" not in kwargs:
+                kwargs["ensure_all_finite"] = force_all_finite
+            return _orig_check_array(*args, **kwargs)
+
+        sklearn.utils.check_array = _check_array_compat  # type: ignore[assignment]
+        # If fancyimpute modules are already imported, patch their local aliases too.
+        for mod_name in ("fancyimpute.solver", "fancyimpute.soft_impute"):
+            mod = sys.modules.get(mod_name)
+            if mod is not None and hasattr(mod, "check_array"):
+                setattr(mod, "check_array", _check_array_compat)
+
     try:
         from fancyimpute import SoftImpute
+        # Patch alias after import as well, covering first-import path.
+        for mod_name in ("fancyimpute.solver", "fancyimpute.soft_impute"):
+            mod = sys.modules.get(mod_name)
+            if mod is not None and hasattr(mod, "check_array"):
+                setattr(mod, "check_array", sklearn.utils.check_array)
     except ImportError as exc:
         raise MissingDependencyError("fancyimpute") from exc
 
