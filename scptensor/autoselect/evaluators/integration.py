@@ -248,6 +248,8 @@ class IntegrationEvaluator(BaseEvaluator):
         # Compute metrics
         scores: dict[str, float] = {}
 
+        source_layer = self._infer_source_layer(original_container.assays.get("proteins"), layer_name)
+
         # Batch ASW (1 - ASW so higher is better)
         scores["batch_asw"] = self._compute_batch_asw(x_matrix, batches)
 
@@ -256,7 +258,7 @@ class IntegrationEvaluator(BaseEvaluator):
 
         # Variance preservation
         scores["variance_preserved"] = self._compute_variance_preserved(
-            container, original_container, layer_name
+            container, original_container, layer_name, source_layer=source_layer
         )
 
         # Biological ASW (if bio_key is provided)
@@ -376,6 +378,7 @@ class IntegrationEvaluator(BaseEvaluator):
         container: ScpContainer,
         original_container: ScpContainer,
         layer_name: str,
+        source_layer: str | None = None,
     ) -> float:
         """Compute variance preservation score."""
         import numpy as np
@@ -386,12 +389,13 @@ class IntegrationEvaluator(BaseEvaluator):
                 return 0.0
 
             original_assay = original_container.assays["proteins"]
-            # Find the source layer (assume it's the first layer or "imputed")
-            source_layer = None
-            for ln in ["imputed", "normalized", "raw"]:
-                if ln in original_assay.layers:
-                    source_layer = ln
-                    break
+            # Prefer inferred source layer from naming convention.
+            if source_layer not in original_assay.layers:
+                source_layer = None
+                for ln in ["imputed", "normalized", "raw"]:
+                    if ln in original_assay.layers:
+                        source_layer = ln
+                        break
 
             if source_layer is None:
                 return 0.5  # Default score if no source layer
@@ -430,6 +434,15 @@ class IntegrationEvaluator(BaseEvaluator):
             return float(np.clip((corr + 1) / 2, 0.0, 1.0))
         except Exception:
             return 0.5
+
+    def _infer_source_layer(self, assay, layer_name: str) -> str | None:
+        """Infer source layer from output layer naming convention."""
+        if assay is None:
+            return None
+        candidates = [name for name in assay.layers if layer_name.startswith(f"{name}_")]
+        if not candidates:
+            return None
+        return max(candidates, key=len)
 
 
 __all__ = ["IntegrationEvaluator"]

@@ -119,6 +119,7 @@ class TestDimReductionEvaluatorProperties:
         assert isinstance(methods, dict)
         # PCA should always be available
         assert "pca" in methods
+        assert "tsne" in methods
 
     def test_metric_weights(self):
         """Test metric_weights property."""

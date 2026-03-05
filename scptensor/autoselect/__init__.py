@@ -64,6 +64,12 @@ from scptensor.autoselect.core import (
     EvaluationResult,
     StageReport,
 )
+from scptensor.autoselect.strategy import (
+    STRATEGY_PRESETS,
+    StrategyPreset,
+    get_strategy_preset,
+    list_strategy_presets,
+)
 
 if TYPE_CHECKING:
     from scptensor.core.structures import ScpContainer
@@ -299,6 +305,10 @@ __all__ = [
     "StageReport",
     "AutoSelectReport",
     "AutoSelector",
+    "StrategyPreset",
+    "STRATEGY_PRESETS",
+    "get_strategy_preset",
+    "list_strategy_presets",
     "auto_normalize",
     "auto_impute",
     "auto_integrate",

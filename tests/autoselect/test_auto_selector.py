@@ -43,6 +43,32 @@ def simple_container() -> ScpContainer:
     return container
 
 
+@pytest.fixture
+def larger_container() -> ScpContainer:
+    """Create a larger container suitable for reduce->cluster routing tests."""
+    rng = np.random.default_rng(123)
+    n_samples = 80
+    n_features = 120
+
+    X = rng.normal(size=(n_samples, n_features))
+
+    obs = pl.DataFrame(
+        {
+            "_index": [f"S{i}" for i in range(n_samples)],
+            "batch": np.array(["B1"] * 40 + ["B2"] * 40),
+        }
+    )
+    var = pl.DataFrame({"_index": [f"P{i}" for i in range(n_features)]})
+
+    matrix = ScpMatrix(X=X)
+    assay = Assay(var=var)
+    assay.add_layer("raw", matrix)
+
+    container = ScpContainer(obs=obs)
+    container.add_assay("proteins", assay)
+    return container
+
+
 class TestAutoSelectorInit:
     """Test AutoSelector initialization."""
 
@@ -70,12 +96,33 @@ class TestAutoSelectorInit:
             weights={"normalize": {"variance": 0.7, "batch_effect": 0.3}},
             parallel=False,
             n_jobs=4,
+            selection_strategy="quality",
+            n_repeats=2,
+            confidence_level=0.9,
         )
 
         assert selector.keep_all is True
         assert selector.parallel is False
         assert selector.n_jobs == 4
         assert selector.weights["normalize"]["variance"] == 0.7
+        assert selector.selection_strategy == "quality"
+        assert selector.n_repeats == 2
+        assert selector.confidence_level == pytest.approx(0.9)
+
+    def test_init_invalid_strategy_raises(self):
+        """Test invalid selection strategy raises ValueError."""
+        with pytest.raises(ValueError, match="selection_strategy must be one of"):
+            AutoSelector(selection_strategy="invalid")
+
+    def test_init_invalid_repeats_raises(self):
+        """Test invalid n_repeats raises ValueError."""
+        with pytest.raises(ValueError, match="n_repeats must be >= 1"):
+            AutoSelector(n_repeats=0)
+
+    def test_init_invalid_confidence_raises(self):
+        """Test invalid confidence level raises ValueError."""
+        with pytest.raises(ValueError, match="confidence_level must be in"):
+            AutoSelector(confidence_level=1.0)
 
     def test_init_invalid_stage_raises(self):
         """Test that invalid stage raises ValueError."""
@@ -155,8 +202,12 @@ class TestAutoSelectorRunStage:
 
         assert isinstance(result_container, ScpContainer)
         assert isinstance(report, StageReport)
-        # The evaluator returns its own stage_name which is "normalization"
-        assert report.stage_name == "normalization"
+        assert report.stage_name == "normalize"
+        assert report.stage_key == "normalize"
+        assert report.input_assay == "proteins"
+        assert report.input_layer == "raw"
+        assert report.output_assay == "proteins"
+        assert report.output_layer is not None
 
     def test_run_stage_invalid_stage_raises(self, simple_container):
         """Test that invalid stage raises ValueError."""
@@ -183,6 +234,40 @@ class TestAutoSelectorRunStage:
         assert isinstance(result_container, ScpContainer)
         assert isinstance(report, StageReport)
         assert report.stage_name == "integrate"
+
+    def test_run_stage_missing_assay_raises(self, simple_container):
+        """Test actionable error when assay is missing."""
+        selector = AutoSelector(stages=["normalize"])
+        with pytest.raises(ValueError, match="requires assay 'missing_assay'"):
+            selector.run_stage(
+                container=simple_container,
+                stage="normalize",
+                assay_name="missing_assay",
+                source_layer="raw",
+            )
+
+    def test_run_stage_missing_layer_raises(self, simple_container):
+        """Test actionable error when source layer is missing."""
+        selector = AutoSelector(stages=["normalize"])
+        with pytest.raises(ValueError, match="requires layer 'missing_layer'"):
+            selector.run_stage(
+                container=simple_container,
+                stage="normalize",
+                assay_name="proteins",
+                source_layer="missing_layer",
+            )
+
+    def test_run_stage_integrate_missing_batch_key_raises(self, simple_container):
+        """Test actionable error when integrate stage has no batch key."""
+        selector = AutoSelector(stages=["integrate"])
+        with pytest.raises(ValueError, match="requires batch_key 'missing_batch'"):
+            selector.run_stage(
+                container=simple_container,
+                stage="integrate",
+                assay_name="proteins",
+                source_layer="raw",
+                batch_key="missing_batch",
+            )
 
 
 class TestAutoSelectorRun:
@@ -228,9 +313,8 @@ class TestAutoSelectorRun:
         )
 
         assert len(report.stages) == 1
-        # The stage is stored with the evaluator's stage_name as key
-        assert "normalization" in report.stages
-        assert report.stages["normalization"].stage_name == "normalization"
+        assert "normalize" in report.stages
+        assert report.stages["normalize"].stage_name == "normalize"
 
     def test_run_multiple_stages(self, simple_container):
         """Test run with multiple stages."""
@@ -243,9 +327,8 @@ class TestAutoSelectorRun:
         )
 
         assert len(report.stages) == 2
-        # Stages are stored with evaluator's stage_name as key
-        assert "normalization" in report.stages
-        assert "imputation" in report.stages
+        assert "normalize" in report.stages
+        assert "impute" in report.stages
 
     def test_run_integrate_stage_works(self, simple_container):
         """Test that integration stage works in full pipeline."""
@@ -277,6 +360,27 @@ class TestAutoSelectorRun:
         assert isinstance(result_container, ScpContainer)
         assert isinstance(report, AutoSelectReport)
 
+    def test_run_reduce_then_cluster_routes_assay_context(self, larger_container):
+        """Test that reduce->cluster uses reduced assay ('pca/X') automatically."""
+        selector = AutoSelector(stages=["reduce", "cluster"])
+        result_container, report = selector.run(
+            container=larger_container,
+            assay_name="proteins",
+            initial_layer="raw",
+        )
+
+        assert isinstance(result_container, ScpContainer)
+        assert "reduce" in report.stages
+        assert "cluster" in report.stages
+
+        reduce_stage = report.stages["reduce"]
+        cluster_stage = report.stages["cluster"]
+
+        assert reduce_stage.output_assay is not None
+        assert reduce_stage.output_layer == "X"
+        assert cluster_stage.input_assay == reduce_stage.output_assay
+        assert cluster_stage.input_layer == reduce_stage.output_layer
+
 
 class TestAutoSelectorProperties:
     """Test AutoSelector properties and attributes."""
@@ -300,3 +404,6 @@ class TestAutoSelectorProperties:
         assert hasattr(selector, "weights")
         assert hasattr(selector, "parallel")
         assert hasattr(selector, "n_jobs")
+        assert hasattr(selector, "selection_strategy")
+        assert hasattr(selector, "n_repeats")
+        assert hasattr(selector, "confidence_level")

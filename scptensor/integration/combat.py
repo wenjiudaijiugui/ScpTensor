@@ -259,6 +259,7 @@ def _fit_combat(
         )
     else:
         gamma_star, delta_star = _solve_nonparametric_for_batches(
+            Z,
             gamma_hat,
             delta_hat,
             batches,
@@ -302,6 +303,14 @@ def _build_covariate_design(
     """Build design matrix for covariates with dummy encoding for categoricals."""
     if not covariates:
         return pl.DataFrame({"intercept": np.ones(n_sample)})
+
+    missing = [col for col in covariates if col not in obs_df.columns]
+    if missing:
+        raise ScpValueError(
+            f"covariates contain missing columns: {missing}. Available: {obs_df.columns}",
+            parameter="covariates",
+            value=list(covariates),
+        )
 
     covar_df = obs_df.select(covariates)
     cat_cols = [
@@ -390,11 +399,12 @@ def _solve_eb(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Solve empirical Bayes using iterative posterior estimation."""
     g_old, d_old = g_hat.copy(), d_hat.copy()
+    denom = max(a + n / 2 - 1, 1e-8)
 
     for _ in range(100):
         g_new = (n * t2 * g_hat + d_old * g_bar) / (n * t2 + d_old)
         sum2 = (n - 1) * d_hat + n * (g_hat - g_new) ** 2
-        d_new = (b + 0.5 * sum2) / (a + n / 2)
+        d_new = (b + 0.5 * sum2) / denom
 
         change = np.max(np.abs(g_new - g_old) / (np.abs(g_old) + 1e-8)) + np.max(
             np.abs(d_new - d_old) / (np.abs(d_old) + 1e-8)
@@ -407,50 +417,85 @@ def _solve_eb(
     return g_old, d_old
 
 
-def _robust_scale(values: np.ndarray) -> float:
-    """Robust scale estimator via MAD with std fallback."""
-    mad = np.median(np.abs(values - np.median(values)))
-    if mad > 0:
-        return float(1.4826 * mad)
-    std = float(np.std(values, ddof=1))
-    return std if std > 0 else 1.0
-
-
 def _solve_nonparametric_for_batches(
+    Z: np.ndarray,
     gamma_hat: np.ndarray,
     delta_hat: np.ndarray,
     batches: np.ndarray,
     batch_items: np.ndarray,
     *,
-    prior_strength: float = 5.0,
+    block_size: int = 256,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Robust nonparametric shrinkage for ComBat batch parameters.
-
-    This approximation avoids parametric prior assumptions by shrinking
-    batch-wise estimates toward robust centers (median/MAD scale).
-    """
+    """Solve nonparametric ComBat posterior via empirical priors (int.eprior-style)."""
     n_batch, _ = gamma_hat.shape
     gamma_star = np.zeros_like(gamma_hat)
     delta_star = np.zeros_like(delta_hat)
 
     for i, b in enumerate(batch_items):
-        n_samples = float(np.sum(batches == b))
-        weight = n_samples / (n_samples + prior_strength)
-
-        g = gamma_hat[i]
-        g_loc = float(np.median(g))
-        g_scale = _robust_scale(g)
-        g_clip = np.clip(g, g_loc - 6 * g_scale, g_loc + 6 * g_scale)
-        gamma_star[i] = weight * g_clip + (1.0 - weight) * g_loc
-
-        d = np.clip(delta_hat[i], 1e-8, None)
-        log_d = np.log(d)
-        d_loc = float(np.median(log_d))
-        d_scale = _robust_scale(log_d)
-        log_d_clip = np.clip(log_d, d_loc - 6 * d_scale, d_loc + 6 * d_scale)
-        delta_star[i] = np.exp(weight * log_d_clip + (1.0 - weight) * d_loc)
+        idx = np.where(batches == b)[0]
+        g_s, d_s = _solve_nonparametric_batch(
+            Z[:, idx],
+            gamma_hat[i],
+            delta_hat[i],
+            block_size=block_size,
+        )
+        gamma_star[i] = g_s
+        delta_star[i] = d_s
 
     return gamma_star, delta_star
+
+
+def _solve_nonparametric_batch(
+    Z_batch: np.ndarray,
+    gamma_batch: np.ndarray,
+    delta_batch: np.ndarray,
+    *,
+    block_size: int = 256,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute nonparametric posterior means for one batch with block vectorization."""
+    n_features, n_samples = Z_batch.shape
+    g = np.asarray(gamma_batch, dtype=float)
+    d = np.clip(np.asarray(delta_batch, dtype=float), 1e-8, None)
+
+    if n_features <= 1:
+        return g.copy(), d.copy()
+
+    g_star = np.empty_like(g)
+    d_star = np.empty_like(d)
+    g2 = g * g
+    row_sum = np.sum(Z_batch, axis=1)
+    row_sq_sum = np.sum(Z_batch * Z_batch, axis=1)
+    log_pref = -(n_samples / 2.0) * np.log(2.0 * np.pi * d)
+    inv_two_d = 0.5 / d
+
+    for start in range(0, n_features, block_size):
+        end = min(start + block_size, n_features)
+        rows = np.arange(start, end)
+
+        sum2 = (
+            row_sq_sum[start:end, None]
+            - 2.0 * row_sum[start:end, None] * g[None, :]
+            + float(n_samples) * g2[None, :]
+        )
+        log_lh = log_pref[None, :] - sum2 * inv_two_d[None, :]
+        log_lh[np.arange(end - start), rows] = -np.inf
+
+        row_max = np.max(log_lh, axis=1, keepdims=True)
+        finite_rows = np.isfinite(row_max).ravel()
+        weights = np.zeros_like(log_lh)
+        if np.any(finite_rows):
+            weights[finite_rows] = np.exp(log_lh[finite_rows] - row_max[finite_rows])
+
+        weight_sum = np.sum(weights, axis=1)
+        g_num = weights @ g
+        d_num = weights @ d
+        g_block = np.divide(g_num, weight_sum, out=g[rows].copy(), where=weight_sum > 0)
+        d_block = np.divide(d_num, weight_sum, out=d[rows].copy(), where=weight_sum > 0)
+
+        g_star[start:end] = g_block
+        d_star[start:end] = np.clip(d_block, 1e-8, None)
+
+    return g_star, d_star
 
 
 def _apply_combat_correction(

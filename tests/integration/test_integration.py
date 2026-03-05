@@ -34,6 +34,7 @@ from scptensor.integration import integrate_harmony as harmony
 from scptensor.integration import integrate_limma as limma_correct
 from scptensor.integration import integrate_mnn as mnn_correct
 from scptensor.integration import integrate_scanorama as scanorama_integrate
+from scptensor.integration.combat import _solve_eb
 
 # =============================================================================
 # Helper Functions
@@ -1221,6 +1222,49 @@ class TestComBatAdditional:
                 eb_mode="invalid_mode",  # type: ignore[arg-type]
             )
 
+    def test_combat_missing_covariate_column_raises_error(self):
+        """ComBat should report missing covariate columns with actionable message."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=30, n_batches=2, random_state=42
+        )
+
+        with pytest.raises(ScpValueError, match="covariates contain missing columns"):
+            combat(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                covariates=["missing_group"],
+            )
+
+    def test_combat_solve_eb_matches_reference_postvar_denominator(self):
+        """ComBat d* update should use denominator a + n/2 - 1 (reference implementation)."""
+        g_hat = np.array([[0.5], [-0.2]])
+        d_hat = np.array([[1.2], [0.8]])
+        g_bar = 0.1
+        t2 = 0.6
+        a = 3.0
+        b = 2.0
+        n = 6
+
+        g_new, d_new = _solve_eb(
+            g_hat=g_hat,
+            d_hat=d_hat,
+            g_bar=g_bar,
+            t2=t2,
+            a=a,
+            b=b,
+            n=n,
+            conv=np.inf,  # force one-step update for formula-level validation
+        )
+
+        expected_g = (n * t2 * g_hat + d_hat * g_bar) / (n * t2 + d_hat)
+        expected_sum2 = (n - 1) * d_hat + n * (g_hat - expected_g) ** 2
+        expected_d = (b + 0.5 * expected_sum2) / (a + n / 2 - 1)
+
+        assert np.allclose(g_new, expected_g)
+        assert np.allclose(d_new, expected_d)
+
 
 class TestLimmaIntegration:
     """Tests for limma-style matrix-level batch correction."""
@@ -1354,10 +1398,7 @@ class TestBatchEffectReduction:
         X_orig = container.assays["protein"].layers["raw"].X
         batches = container.obs["batch"].to_numpy()
 
-        # Compute batch separation before correction
-        batch1_mean = np.mean(X_orig[batches == "batch1"], axis=0)
-        batch2_mean = np.mean(X_orig[batches == "batch2"], axis=0)
-        np.linalg.norm(batch1_mean - batch2_mean)
+        batch_effect_before = compute_batch_effect_metric(X_orig, batches)
 
         result = mnn_correct(
             container,
@@ -1368,12 +1409,9 @@ class TestBatchEffectReduction:
         )
 
         X_corrected = result.assays["protein"].layers["mnn_corrected"].X
-        batch1_mean_after = np.mean(X_corrected[batches == "batch1"], axis=0)
-        batch2_mean_after = np.mean(X_corrected[batches == "batch2"], axis=0)
-        np.linalg.norm(batch1_mean_after - batch2_mean_after)
+        batch_effect_after = compute_batch_effect_metric(X_corrected, batches)
 
-        # Data should be modified (not identical)
-        assert not np.allclose(X_orig, X_corrected), "MNN should modify the data"
+        assert batch_effect_after < batch_effect_before
 
     def test_combat_reduces_batch_effect(self):
         """Test ComBat correction reduces batch effect metric."""

@@ -112,6 +112,21 @@ class DimReductionEvaluator(BaseEvaluator):
         except ImportError:
             pass
 
+        # t-SNE is available via scikit-learn
+        try:
+            from scptensor.dim_reduction import reduce_tsne
+
+            methods["tsne"] = create_wrapper(
+                reduce_tsne,
+                source_layer_param="base_layer",
+                layer_namer=lambda _, __: "tsne",
+                new_assay_name="tsne",
+                n_components=min(self._n_components, 2),
+                random_state=self._random_state,
+            )
+        except ImportError:
+            pass
+
         self._available_methods = methods
         return methods
 
@@ -195,12 +210,14 @@ class DimReductionEvaluator(BaseEvaluator):
             return dict.fromkeys(self.metric_weights, 0.0)
 
         original_assay = original_container.assays["proteins"]
-        # Find source layer
-        source_layer = None
-        for ln in ["imputed", "normalized", "raw"]:
-            if ln in original_assay.layers:
-                source_layer = ln
-                break
+        # Prefer the actual input layer used by this evaluation.
+        source_layer = getattr(self, "_metric_source_layer", None)
+        if source_layer not in original_assay.layers:
+            source_layer = None
+            for ln in ["imputed", "normalized", "raw"]:
+                if ln in original_assay.layers:
+                    source_layer = ln
+                    break
 
         if source_layer is None:
             return dict.fromkeys(self.metric_weights, 0.5)
@@ -459,6 +476,7 @@ class DimReductionEvaluator(BaseEvaluator):
         start_time = time.perf_counter()
         result_container: ScpContainer | None = None
         error_msg: str | None = None
+        self._metric_source_layer = source_layer
 
         try:
             # Execute method on a copy of container
@@ -491,6 +509,9 @@ class DimReductionEvaluator(BaseEvaluator):
 
         # Compute overall score
         overall_score = 0.0 if error_msg is not None else self.compute_overall_score(scores)
+
+        # Clear evaluation context to avoid leaking across methods.
+        self._metric_source_layer = None
 
         # Create evaluation result
         eval_result = EvaluationResult(
@@ -536,8 +557,17 @@ class DimReductionEvaluator(BaseEvaluator):
         """
         from scptensor.autoselect.core import StageReport
 
+        n_repeats, confidence_level, strategy, method_kwargs = self._extract_eval_controls(kwargs)
+
         # Initialize report
-        report = StageReport(stage_name=self.stage_name)
+        report = StageReport(
+            stage_name=self.stage_name,
+            stage_key=self.stage_name,
+            metric_weights=self.get_metric_weights(),
+            selection_strategy=strategy,
+            n_repeats=n_repeats,
+            confidence_level=confidence_level,
+        )
         results: list = []
 
         # Store successful results: method_name -> (assay_name, assay_object)
@@ -547,13 +577,15 @@ class DimReductionEvaluator(BaseEvaluator):
 
         # Evaluate each method
         for method_name, method_func in self.methods.items():
-            result_container, eval_result = self.evaluate_method(
+            result_container, eval_result = self.evaluate_method_repeated(
                 container=container,
                 method_name=method_name,
                 method_func=method_func,
                 assay_name=assay_name,
                 source_layer=source_layer,
-                **kwargs,
+                n_repeats=n_repeats,
+                confidence_level=confidence_level,
+                **method_kwargs,
             )
 
             results.append(eval_result)
@@ -566,17 +598,19 @@ class DimReductionEvaluator(BaseEvaluator):
 
         # Update report with all results
         report.results = results
+        self._apply_selection_scores(report.results, strategy)
 
         # Find best method
         successful_results = [r for r in results if r.error is None]
 
         if successful_results:
-            best_result = max(successful_results, key=lambda r: r.overall_score)
+            best_result = self._select_best_result(successful_results)
             report.best_method = best_result.method_name
             report.best_result = best_result
             report.recommendation_reason = (
-                f"Highest overall score ({best_result.overall_score:.4f}) "
-                f"among {len(successful_results)} successful methods"
+                f"Best '{strategy}' selection score "
+                f"({best_result.selection_score if best_result.selection_score is not None else best_result.overall_score:.4f}) "
+                f"from {len(successful_results)} successful methods (n_repeats={n_repeats})."
             )
 
             # Create result container with appropriate assays

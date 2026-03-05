@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from scptensor.autoselect.strategy import get_strategy_preset
+
 if TYPE_CHECKING:
     from scptensor.autoselect.evaluators.base import BaseEvaluator
     from scptensor.core.structures import ScpContainer
@@ -45,6 +47,12 @@ class EvaluationResult:
     execution_time: float
     layer_name: str
     error: str | None = None
+    selection_score: float | None = None
+    n_repeats: int = 1
+    overall_score_std: float | None = None
+    overall_score_ci_lower: float | None = None
+    overall_score_ci_upper: float | None = None
+    repeat_overall_scores: list[float] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation.
@@ -61,6 +69,12 @@ class EvaluationResult:
             "execution_time": self.execution_time,
             "layer_name": self.layer_name,
             "error": self.error,
+            "selection_score": self.selection_score,
+            "n_repeats": self.n_repeats,
+            "overall_score_std": self.overall_score_std,
+            "overall_score_ci_lower": self.overall_score_ci_lower,
+            "overall_score_ci_upper": self.overall_score_ci_upper,
+            "repeat_overall_scores": self.repeat_overall_scores,
         }
 
 
@@ -83,11 +97,20 @@ class StageReport:
     """
 
     stage_name: str
+    stage_key: str | None = None
     results: list[EvaluationResult] = field(default_factory=list)
     best_method: str = ""
     best_result: EvaluationResult | None = None
     recommendation_reason: str = ""
     metric_weights: dict[str, float] = field(default_factory=dict)
+    input_assay: str | None = None
+    input_layer: str | None = None
+    output_assay: str | None = None
+    output_layer: str | None = None
+    output_obs_key: str | None = None
+    selection_strategy: str = "balanced"
+    n_repeats: int = 1
+    confidence_level: float = 0.95
 
     @property
     def success_rate(self) -> float:
@@ -103,6 +126,34 @@ class StageReport:
 
         successful = sum(1 for r in self.results if r.error is None)
         return successful / len(self.results)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert stage report to dictionary representation."""
+        return {
+            "stage_name": self.stage_name,
+            "stage_key": self.stage_key or self.stage_name,
+            "best_method": self.best_method,
+            "recommendation_reason": self.recommendation_reason,
+            "success_rate": self.success_rate,
+            "metric_weights": self.metric_weights,
+            "input_assay": self.input_assay,
+            "input_layer": self.input_layer,
+            "output_assay": self.output_assay,
+            "output_layer": self.output_layer,
+            "output_obs_key": self.output_obs_key,
+            "selection_strategy": self.selection_strategy,
+            "n_repeats": self.n_repeats,
+            "confidence_level": self.confidence_level,
+            "results": [result.to_dict() for result in self.results],
+        }
+
+
+@dataclass(frozen=True)
+class _StageContext:
+    """Execution context shared between stages."""
+
+    assay_name: str
+    source_layer: str
 
 
 @dataclass
@@ -253,6 +304,13 @@ class AutoSelector:
         "reduce": ("scptensor.autoselect.evaluators.dim_reduction", "DimReductionEvaluator"),
         "cluster": ("scptensor.autoselect.evaluators.clustering", "ClusteringEvaluator"),
     }
+    _STAGE_OUTPUT_KIND = {
+        "normalize": "layer",
+        "impute": "layer",
+        "integrate": "layer",
+        "reduce": "assay",
+        "cluster": "obs",
+    }
 
     def __init__(
         self,
@@ -261,6 +319,9 @@ class AutoSelector:
         weights: dict[str, dict[str, float]] | None = None,
         parallel: bool = True,
         n_jobs: int = -1,
+        selection_strategy: str = "balanced",
+        n_repeats: int = 1,
+        confidence_level: float = 0.95,
     ):
         """Initialize automatic method selector.
 
@@ -278,6 +339,13 @@ class AutoSelector:
             Enable parallel execution (future feature), by default True
         n_jobs : int, optional
             Number of parallel jobs, -1 for all cores, by default -1
+        selection_strategy : {"speed", "balanced", "quality"}, optional
+            Strategy for final method ranking. Default is "balanced".
+        n_repeats : int, optional
+            Number of repeated evaluations per method for stochastic robustness.
+            Default is 1.
+        confidence_level : float, optional
+            Confidence level for repeat-score interval estimation. Default is 0.95.
 
         Raises
         ------
@@ -300,6 +368,16 @@ class AutoSelector:
         self.weights = weights if weights is not None else {}
         self.parallel = parallel
         self.n_jobs = n_jobs
+        strategy_name = get_strategy_preset(selection_strategy).name
+        if n_repeats < 1:
+            raise ValueError(f"n_repeats must be >= 1, got {n_repeats}")
+        if not (0.0 < confidence_level < 1.0):
+            raise ValueError(
+                f"confidence_level must be in (0, 1), got {confidence_level}"
+            )
+        self.selection_strategy = strategy_name
+        self.n_repeats = n_repeats
+        self.confidence_level = confidence_level
 
     def _get_evaluator(self, stage: str) -> BaseEvaluator:
         """Get evaluator for a specific stage (lazy import).
@@ -329,6 +407,77 @@ class AutoSelector:
         module = importlib.import_module(module_path)
         evaluator_class = getattr(module, class_name)
         return evaluator_class()
+
+    def _validate_stage_inputs(
+        self,
+        container: ScpContainer,
+        stage: str,
+        assay_name: str,
+        source_layer: str,
+        **kwargs,
+    ) -> None:
+        """Validate stage-level inputs with actionable errors."""
+        if assay_name not in container.assays:
+            available = sorted(container.assays.keys())
+            raise ValueError(
+                f"Stage '{stage}' requires assay '{assay_name}', but it was not found. "
+                f"Available assays: {available}"
+            )
+
+        assay = container.assays[assay_name]
+        if source_layer not in assay.layers:
+            available_layers = sorted(assay.layers.keys())
+            raise ValueError(
+                f"Stage '{stage}' requires layer '{source_layer}' in assay '{assay_name}', "
+                f"but it was not found. Available layers: {available_layers}"
+            )
+
+        if stage == "integrate":
+            batch_key = kwargs.get("batch_key", "batch")
+            if batch_key not in container.obs.columns:
+                raise ValueError(
+                    f"Stage 'integrate' requires batch_key '{batch_key}' in obs, "
+                    f"but it was not found. Available obs columns: {container.obs.columns}"
+                )
+
+    def _infer_next_context(
+        self,
+        stage: str,
+        context: _StageContext,
+        stage_report: StageReport,
+    ) -> _StageContext:
+        """Infer next stage context from current stage result."""
+        best_result = stage_report.best_result
+        if best_result is None:
+            return context
+
+        output_kind = self._STAGE_OUTPUT_KIND[stage]
+        if output_kind == "layer":
+            return _StageContext(assay_name=context.assay_name, source_layer=best_result.layer_name)
+        if output_kind == "assay":
+            # Dim-reduction outputs are represented as new assays with layer "X".
+            return _StageContext(assay_name=best_result.layer_name, source_layer="X")
+        return context
+
+    def _attach_stage_io(
+        self,
+        stage: str,
+        context: _StageContext,
+        stage_report: StageReport,
+    ) -> StageReport:
+        """Attach unified stage metadata and input/output descriptors."""
+        stage_report.stage_name = stage
+        stage_report.stage_key = stage
+        stage_report.input_assay = context.assay_name
+        stage_report.input_layer = context.source_layer
+
+        next_context = self._infer_next_context(stage, context, stage_report)
+        stage_report.output_assay = next_context.assay_name
+        stage_report.output_layer = next_context.source_layer
+        if stage == "cluster" and stage_report.best_result is not None:
+            stage_report.output_obs_key = stage_report.best_result.layer_name
+
+        return stage_report
 
     def run_stage(
         self,
@@ -367,26 +516,41 @@ class AutoSelector:
         if stage not in self.SUPPORTED_STAGES:
             raise ValueError(f"Invalid stage: {stage}. Supported stages: {self.SUPPORTED_STAGES}")
 
-        # Get evaluator
-        evaluator = self._get_evaluator(stage)
-
         # Determine source layer
         if source_layer is None:
             source_layer = "raw"
+
+        context = _StageContext(assay_name=assay_name, source_layer=source_layer)
+        self._validate_stage_inputs(
+            container=container,
+            stage=stage,
+            assay_name=context.assay_name,
+            source_layer=context.source_layer,
+            **kwargs,
+        )
+
+        # Get evaluator
+        evaluator = self._get_evaluator(stage)
 
         if stage in self.weights:
             evaluator.set_metric_weights(self.weights[stage])
 
         # Run evaluator
+        eval_kwargs = {
+            "selection_strategy": self.selection_strategy,
+            "n_repeats": self.n_repeats,
+            "confidence_level": self.confidence_level,
+            **kwargs,
+        }
         result_container, report = evaluator.run_all(
             container=container,
-            assay_name=assay_name,
-            source_layer=source_layer,
+            assay_name=context.assay_name,
+            source_layer=context.source_layer,
             keep_all=self.keep_all,
-            **kwargs,
+            **eval_kwargs,
         )
 
-        return result_container, report
+        return result_container, self._attach_stage_io(stage, context, report)
 
     def run(
         self,
@@ -426,9 +590,9 @@ class AutoSelector:
         # Track total time
         start_time = time.perf_counter()
 
-        # Current container and layer
+        # Current container and stage context
         current_container = container
-        current_layer = initial_layer
+        current_context = _StageContext(assay_name=assay_name, source_layer=initial_layer)
 
         # Run each stage
         for stage in self.stages:
@@ -437,19 +601,16 @@ class AutoSelector:
                 result_container, stage_report = self.run_stage(
                     container=current_container,
                     stage=stage,
-                    assay_name=assay_name,
-                    source_layer=current_layer,
+                    assay_name=current_context.assay_name,
+                    source_layer=current_context.source_layer,
                 )
 
                 # Update container and layer for next stage
                 current_container = result_container
+                current_context = self._infer_next_context(stage, current_context, stage_report)
 
-                # Update layer to best result layer for next stage
-                if stage_report.best_result is not None:
-                    current_layer = stage_report.best_result.layer_name
-
-                # Add stage report to overall report using evaluator's stage_name
-                report.stages[stage_report.stage_name] = stage_report
+                # Add stage report using canonical stage key
+                report.stages[stage] = stage_report
 
             except Exception as e:
                 # Stage failed - add warning and continue

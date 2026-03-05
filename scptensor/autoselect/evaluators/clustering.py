@@ -188,15 +188,9 @@ class ClusteringEvaluator(BaseEvaluator):
 
         labels = container.obs[layer_name].to_numpy()
 
-        # Get the data matrix (from the assay used for clustering)
-        # Default to "pca" assay with "X" layer
-        assay_name = "pca"
-        layer = "X"
-
-        if assay_name not in container.assays:
-            # Try proteins assay
-            assay_name = "proteins"
-            layer = "imputed"
+        # Get the data matrix from the assay/layer actually used for clustering.
+        assay_name = getattr(self, "_metric_assay_name", "pca")
+        layer = getattr(self, "_metric_source_layer", "X")
 
         if assay_name not in container.assays:
             return dict.fromkeys(self.metric_weights, 0.0)
@@ -431,6 +425,8 @@ class ClusteringEvaluator(BaseEvaluator):
         start_time = time.perf_counter()
         result_container: ScpContainer | None = None
         error_msg: str | None = None
+        self._metric_assay_name = assay_name
+        self._metric_source_layer = source_layer
 
         try:
             # Execute method on a copy of container
@@ -463,6 +459,10 @@ class ClusteringEvaluator(BaseEvaluator):
 
         # Compute overall score
         overall_score = 0.0 if error_msg is not None else self.compute_overall_score(scores)
+
+        # Clear evaluation context to avoid leaking across methods.
+        self._metric_assay_name = None
+        self._metric_source_layer = None
 
         # Create evaluation result
         eval_result = EvaluationResult(
@@ -510,8 +510,17 @@ class ClusteringEvaluator(BaseEvaluator):
 
         from scptensor.autoselect.core import StageReport
 
+        n_repeats, confidence_level, strategy, method_kwargs = self._extract_eval_controls(kwargs)
+
         # Initialize report
-        report = StageReport(stage_name=self.stage_name)
+        report = StageReport(
+            stage_name=self.stage_name,
+            stage_key=self.stage_name,
+            metric_weights=self.get_metric_weights(),
+            selection_strategy=strategy,
+            n_repeats=n_repeats,
+            confidence_level=confidence_level,
+        )
         results: list = []
 
         # Store successful results: method_name -> (obs_column_name, labels_series)
@@ -519,13 +528,15 @@ class ClusteringEvaluator(BaseEvaluator):
 
         # Evaluate each method
         for method_name, method_func in self.methods.items():
-            result_container, eval_result = self.evaluate_method(
+            result_container, eval_result = self.evaluate_method_repeated(
                 container=container,
                 method_name=method_name,
                 method_func=method_func,
                 assay_name=assay_name,
                 source_layer=source_layer,
-                **kwargs,
+                n_repeats=n_repeats,
+                confidence_level=confidence_level,
+                **method_kwargs,
             )
 
             results.append(eval_result)
@@ -538,17 +549,19 @@ class ClusteringEvaluator(BaseEvaluator):
 
         # Update report with all results
         report.results = results
+        self._apply_selection_scores(report.results, strategy)
 
         # Find best method
         successful = [r for r in results if r.error is None]
 
         if successful:
-            best_result = max(successful, key=lambda r: r.overall_score)
+            best_result = self._select_best_result(successful)
             report.best_method = best_result.method_name
             report.best_result = best_result
             report.recommendation_reason = (
-                f"Highest overall score ({best_result.overall_score:.4f}) "
-                f"among {len(successful)} successful methods"
+                f"Best '{strategy}' selection score "
+                f"({best_result.selection_score if best_result.selection_score is not None else best_result.overall_score:.4f}) "
+                f"from {len(successful)} successful methods (n_repeats={n_repeats})."
             )
 
             # Create result container with appropriate obs columns
