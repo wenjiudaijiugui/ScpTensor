@@ -2,97 +2,81 @@
 
 本目录用于评测 `scptensor.impute` 在 **DIA 单细胞蛋白组预处理场景** 下的表现。
 
-## 1. 文献与公开实现调研结论
+该 benchmark 已根据 `docs/dia_sc_imputation_literature_review_20260304.md` 的建议调整为推荐路径：
+- 推荐方法池（基线 + 传统 + 矩阵补全）
+- 多缺失机制（MCAR + mixed MNAR）
+- 多缺失比例（10% / 30% / 50%）
+- 任务导向指标（恢复误差 + 聚类保真 + DE 信号一致性）
 
-### 1.1 与 DIA 单细胞直接相关的 workflow benchmark
+## 1. 文献依据（摘要）
 
-1. **Nature Communications 2025（DIA 单细胞工作流）**
-   链接：<https://www.nature.com/articles/s41467-025-65174-4>
-   关键信息：
-   - 在 workflow 中系统比较了缺失填充方法（`none`, `randomforest`, `QRILC`, `MinDet`, `KNN`）
-   - 评价维度包含缺失率、CV，以及差异分析相关指标（如 pAUC / F1）
-   - Data availability 提供了 PXD056832、PXD054343、PXD061065 等公开数据来源
+1. **Nature Communications 2025（DIA 单细胞工作流）**  
+   <https://www.nature.com/articles/s41467-025-65174-4>  
+   提供了 DIA 单细胞 workflow 中缺失处理比较与下游任务评估语境。
 
-### 1.2 与 DIA 缺失值 benchmark 直接相关的方法学
+2. **MultiPro（Nature Communications 2025）**  
+   <https://pubmed.ncbi.nlm.nih.gov/40947414/>  
+   强调缺失率分层（10%~50%）及 MNAR:MCAR 混合机制评估。
 
-2. **MultiPro（Nature Communications 2025）**
-   链接：<https://pubmed.ncbi.nlm.nih.gov/40947414/>
-   关键信息：
-   - 在 DIA 数据中提供了专门的缺失值填充 benchmark 设计
-   - 使用缺失率 **10%~50%**、并设置 **MNAR:MCAR=3:1** 场景
-   - 使用 **NRMSE** 作为核心填充误差指标
+3. **NAguideR（Bioinformatics 2020）**  
+   <https://pmc.ncbi.nlm.nih.gov/articles/PMC7641313/>  
+   支持多方法并行比较与 NRMSE 等重建指标。
 
-3. **NAguideR（Bioinformatics 2020）**
-   链接：<https://pmc.ncbi.nlm.nih.gov/articles/PMC7641313/>
-   关键信息：
-   - 给出蛋白组缺失填充系统 benchmark 框架
-   - 汇总经典评估指标：NRMSE、SOR、ACC/OI、PSS
-   - 公开数据中包含 DIA/SWATH（PXD014777）与 DIA(PASEF)（PXD017476）
+4. **PIMMS（Nature Methods 2024）**  
+   <https://pmc.ncbi.nlm.nih.gov/articles/PMC10949645/>  
+   支持使用相关性等恢复指标并关注单细胞场景。
 
-4. **PIMMS（Nature Methods 2024）**
-   链接：<https://pmc.ncbi.nlm.nih.gov/articles/PMC10949645/>
-   关键信息：
-   - 单细胞蛋白组场景下进行缺失恢复评估
-   - 采用 **MAE** 与 **Pearson r** 作为核心恢复指标
+## 2. 推荐路径配置
 
-## 2. 本 benchmark 的数据与指标设计
+## 2.1 数据
 
-### 2.1 实际执行数据
-
-默认数据集：
-
-- `pxd054343_diann_2x`（本地）
+- `pxd054343_diann_2x`（本地 DIA-NN）：  
   `data/dia/diann/PXD054343/2_3_SC_SILAC_2x_report.tsv`
-
-可选数据集：
-
-- `lfqbench_hye124_spectronaut`（在线下载）
+- `lfqbench_hye124_spectronaut`（在线 LFQbench 示例）：  
   <https://raw.githubusercontent.com/IFIproteomics/LFQbench/master/ext/data/vignette_examples/hye124/Spectronaut_TTOF6600_64w_example.tsv>
 
-### 2.2 评估策略
+## 2.2 方法池
 
-- 先在蛋白层执行：`log_transform -> normalize(mean)`（固定前处理，避免混入归一化变量）
-- 在“原始已观测值”上额外造缺失并回填，只在 holdout 位置评估误差
-- 缺失场景：
-  - `mcar`
-  - `mixed_mnar`（低丰度优先缺失，默认 MNAR:MCAR=3:1）
-- 缺失比例默认：`0.1, 0.3, 0.5`
+- 基线：`none`, `half_row_min`(min/2), `row_mean`
+- 传统：`knn`, `lls`, `missforest`, `iterative_svd`
+- 矩阵补全：`softimpute`（依赖 `fancyimpute`）
 
-### 2.3 指标
+## 2.3 评估设定
 
-核心恢复指标：
+- 预处理固定：`log_transform -> normalize(mean)`
+- 缺失机制：`mcar`, `mixed_mnar`
+- 缺失比例：`0.1`, `0.3`, `0.5`
+- 只在 holdout 位置计算恢复误差（masked-value recovery）
 
-- `NRMSE`（MultiPro/NAguideR 常用）
-- `MAE`、`RMSE`
-- `Pearson r`（PIMMS 常用）
-- `Spearman r`
-- `holdout_coverage`（方法是否把 holdout 全部填上）
+## 2.4 指标
 
-工程与稳定性指标：
-
-- `runtime_sec`
-- `post_missing_rate`
-- `within_group_cv_median`（对齐 workflow benchmark 中常见 CV 视角）
-
-此外在 LFQbench 数据上额外输出已实现的 ratio 指标（若分组和真值可用）。
+- 重建层：
+  - `nrmse`, `mae`, `rmse`, `pearson_r`, `spearman_r`, `holdout_coverage`
+- 稳定性：
+  - `within_group_cv_median`
+- 聚类保真：
+  - `cluster_ari`, `cluster_nmi`, `cluster_asw`, `cluster_knn_purity`
+- DE 信号一致性（任务导向）：
+  - `de_log2fc_pearson`, `de_topk_jaccard`, `de_topk_sign_agreement`
+- LFQbench 额外真值指标：
+  - `ratio_pairwise_auc_mean`, `ratio_changed_vs_bg_auc`, `ratio_mae`, `ratio_rmse`
+- 工程维度：
+  - `runtime_sec`, `post_missing_rate`, `success_rate`
 
 ## 3. 运行方式（uv）
 
-在仓库根目录执行：
-
-```bash
-UV_CACHE_DIR=/tmp/.uv-cache uv run --no-project python benchmark/imputation/run_benchmark.py
-```
-
-常用参数示例：
+在仓库根目录执行（推荐路径）：
 
 ```bash
 UV_CACHE_DIR=/tmp/.uv-cache uv run --no-project python benchmark/imputation/run_benchmark.py \
   --datasets pxd054343_diann_2x lfqbench_hye124_spectronaut \
-  --methods none zero row_mean row_median half_row_min knn lls bpca iterative_svd missforest qrilc minprob \
+  --methods none half_row_min row_mean knn lls iterative_svd softimpute missforest \
   --holdout-rates 0.1 0.3 0.5 \
   --mechanisms mcar mixed_mnar \
-  --repeats 1
+  --repeats 1 \
+  --normalization mean \
+  --max-features 500 \
+  --output-dir benchmark/imputation/outputs
 ```
 
 ## 4. 输出文件
@@ -106,6 +90,13 @@ UV_CACHE_DIR=/tmp/.uv-cache uv run --no-project python benchmark/imputation/run_
 - `benchmark/imputation/outputs/nrmse_curves.png`
 - `benchmark/imputation/outputs/runtime_vs_accuracy.png`
 
-## 5. Git 大文件控制
+## 5. 本轮执行结论（2026-03-05）
+
+- 推荐路径已执行完成（96 runs）。
+- 所有方法运行成功（`n_failed_runs = 0`）。
+- 评分包含 `success_rate` 惩罚项（`score_success_rate`），可防止失败方法误导排序。
+- 在当前数据与配置下，`knn` / `lls` 在两套数据中表现最稳定；`softimpute` 在 LFQbench 上进入前列，但在 PXD054343 上不占优；`missforest` 精度接近但耗时显著更高。
+
+## 6. Git 大文件控制
 
 `benchmark/**/data/` 与 `benchmark/**/outputs/` 已在 `.gitignore` 忽略。

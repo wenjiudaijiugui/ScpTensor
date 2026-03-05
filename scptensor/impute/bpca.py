@@ -22,6 +22,7 @@ from scptensor.core.exceptions import (
 )
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.impute._utils import _update_imputed_mask
+from scptensor.impute.base import ImputeMethod, register_impute_method
 
 # =============================================================================
 # Internal utility functions
@@ -57,12 +58,17 @@ def _bpca_init(y: npt.NDArray, q: int, missing_value: float | None = np.nan) -> 
     covy = np.cov(yest, rowvar=False)
     covy = np.nan_to_num(covy, nan=0.0)
 
-    U, S, Vt = svds(covy, k=q)
-    idx = np.argsort(S)[::-1]
-    U = U[:, idx]
-    S = S[idx]
-
-    W = U * np.sqrt(S)
+    # Robust fallback for near-singular small matrices where ARPACK can fail.
+    try:
+        U, S, _ = svds(covy, k=q)
+        idx = np.argsort(S)[::-1]
+        U = U[:, idx]
+        S = S[idx]
+        W = U * np.sqrt(S)
+    except Exception:
+        U, S, _ = np.linalg.svd(covy, full_matrices=False)
+        keep = min(q, U.shape[1])
+        W = U[:, :keep] * np.sqrt(np.clip(S[:keep], 0.0, None))
 
     mu = np.zeros(d)
     for j in range(d):
@@ -314,7 +320,7 @@ def impute_bpca(
         )
 
     if sp.issparse(X_original):
-        X_dense = X_original.toarray()
+        X_dense = sp.csr_matrix(X_original).toarray()
     else:
         X_dense = np.asarray(X_original)
 
@@ -349,8 +355,11 @@ def impute_bpca(
     assay.add_layer(layer_name, new_matrix)
 
     # Log operation
-    W = model.get("W", np.eye(n_components))
-    effective_components = int(np.sum(np.sum(W**2, axis=0) > 1e-3))
+    singular_values = np.linalg.svd(X_imputed, full_matrices=False, compute_uv=False)
+    scale = singular_values[0] if singular_values.size > 0 else 0.0
+    threshold = max(scale * 1e-6, 1e-12)
+    effective_components = int(np.sum(singular_values > threshold))
+    effective_components = min(effective_components, int(n_components))
 
     container.log_operation(
         action="impute_bpca",
@@ -368,13 +377,11 @@ def impute_bpca(
 
 
 # Register with base interface
-from scptensor.impute.base import ImputeMethod, register_impute_method
-
 register_impute_method(
     ImputeMethod(
         name="bpca",
         supports_sparse=False,
         validate=validate_bpca,
-        apply=bpca_impute,
+        apply=impute_bpca,
     )
 )

@@ -14,7 +14,13 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import requests
-from metrics import compute_reconstruction_metrics, compute_within_group_cv_median, score_methods
+from metrics import (
+    compute_cluster_metrics,
+    compute_de_consistency_metrics,
+    compute_reconstruction_metrics,
+    compute_within_group_cv_median,
+    score_methods,
+)
 from plots import (
     plot_metric_heatmap,
     plot_nrmse_curves,
@@ -32,20 +38,16 @@ from scptensor.transformation import log_transform
 
 DEFAULT_METHODS = [
     "none",
-    "zero",
-    "row_mean",
-    "row_median",
     "half_row_min",
+    "row_mean",
     "knn",
     "lls",
-    "bpca",
     "iterative_svd",
+    "softimpute",
     "missforest",
-    "qrilc",
-    "minprob",
 ]
 
-DEFAULT_DATASETS = ["pxd054343_diann_2x"]
+DEFAULT_DATASETS = ["pxd054343_diann_2x", "lfqbench_hye124_spectronaut"]
 DEFAULT_HOLDOUT_RATES = [0.1, 0.3, 0.5]
 DEFAULT_MECHANISMS = ["mcar", "mixed_mnar"]
 
@@ -96,8 +98,8 @@ METHOD_KWARGS: dict[str, dict[str, Any]] = {
     "half_row_min": {"fraction": 0.5},
     "knn": {"k": 5, "weights": "distance"},
     "lls": {"k": 10, "max_iter": 50, "tol": 1e-5},
-    "bpca": {"n_components": 5, "max_iter": 80},
     "iterative_svd": {"n_components": 5, "max_iter": 80, "tol": 1e-5},
+    "softimpute": {"rank": 5, "max_iter": 80, "convergence_threshold": 1e-5},
     "missforest": {"max_iter": 8, "n_estimators": 60, "n_jobs": -1},
     "qrilc": {"q": 0.01},
     "minprob": {"sigma": 2.0, "q": 0.01},
@@ -608,6 +610,15 @@ def run_benchmark(
                             row["within_group_cv_median"] = compute_within_group_cv_median(
                                 x_imputed,
                                 groups,
+                            )
+                            row.update(compute_cluster_metrics(x_imputed, groups))
+                            row.update(
+                                compute_de_consistency_metrics(
+                                    matrix_true=x_base,
+                                    matrix_imputed=x_imputed,
+                                    groups=groups,
+                                    top_k=50,
+                                )
                             )
 
                             expected = DATASET_REGISTRY[dataset_key].get("expected_log2_fc")
