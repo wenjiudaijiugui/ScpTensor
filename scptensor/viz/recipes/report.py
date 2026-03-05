@@ -571,107 +571,16 @@ def _render_batch_panel(
     ax.set_title("Batch Effect", fontsize=12, fontweight="bold")
 
 
-def _render_diff_expr_panel(
-    ax: plt.Axes,
-    container: ScpContainer,
-    assay_name: str = "proteins",
-    group1: str = "group_0",
-    group2: str = "group_1",
-    group_col: str = "group",
-) -> None:
-    """Render differential expression volcano panel.
-
-    Parameters
-    ----------
-    ax : plt.Axes
-        Matplotlib axes to render on
-    container : ScpContainer
-        Input data container
-    assay_name : str, default "proteins"
-        Assay to visualize
-    group1 : str, default "group_0"
-        First group name
-    group2 : str, default "group_1"
-        Second group name
-    """
-    import numpy as np
-    from scipy import stats
-
-    assay = container.assays.get(assay_name)
-    if assay is None:
-        ax.text(0.5, 0.5, f"Assay '{assay_name}' not found", ha="center", va="center")
-        return
-
-    layer_names = list(assay.layers.keys())
-    if not layer_names:
-        ax.text(0.5, 0.5, "No data available", ha="center", va="center")
-        return
-
-    X = assay.layers[layer_names[0]].X
-    if hasattr(X, "toarray"):
-        X_arr = X.toarray()
-    else:
-        X_arr = X
-
-    # Simple t-test per feature
-    p_values = []
-    log2_fc = []
-
-    if group_col not in container.obs.columns:
-        for fallback_col in ("group", "batch", "condition"):
-            if fallback_col in container.obs.columns:
-                group_col = fallback_col
-                break
-        else:
-            ax.text(
-                0.5,
-                0.5,
-                f"Grouping column '{group_col}' not found",
-                ha="center",
-                va="center",
-            )
-            return
-
-    groups = container.obs[group_col].to_numpy()
-    idx1 = np.where(groups == group1)[0] if group1 in groups else np.array([])
-    idx2 = np.where(groups == group2)[0] if group2 in groups else np.array([])
-
-    if len(idx1) == 0 or len(idx2) == 0:
-        ax.text(0.5, 0.5, f"Groups '{group1}' or '{group2}' not found", ha="center", va="center")
-        return
-
-    for j in range(X_arr.shape[1]):
-        g1 = X_arr[idx1, j]
-        g2 = X_arr[idx2, j]
-
-        # Remove NaN
-        g1 = g1[~np.isnan(g1)]
-        g2 = g2[~np.isnan(g2)]
-
-        if len(g1) < 2 or len(g2) < 2:
-            p_values.append(1.0)
-            log2_fc.append(0.0)
-            continue
-
-        result = stats.ttest_ind(g1, g2)
-        p_values.append(result.pvalue)
-
-        fc = np.median(g1) / (np.median(g2) + 1e-10)
-        log2_fc.append(np.log2(fc + 1e-10))
-
-    p_values_arr = np.array(p_values)
-    log2_fc_arr = np.array(log2_fc)
-
-    # Plot
-    significant = (p_values_arr < 0.05).astype(int)
-
-    ax.scatter(
-        log2_fc_arr, -np.log10(p_values_arr + 1e-300), c=significant, cmap="RdYlBu", alpha=0.5, s=20
+def _render_scope_panel(ax: plt.Axes) -> None:
+    """Render package scope panel for unsupported analysis domains."""
+    ax.text(
+        0.5,
+        0.5,
+        "Differential expression analysis is out of scope\nfor this package.",
+        ha="center",
+        va="center",
     )
-    ax.axhline(-np.log10(0.05), color="red", linestyle="--", alpha=0.5)
-    ax.set_xlabel("Log2 Fold Change")
-    ax.set_ylabel("-Log10 P-value")
-    ax.set_title(f"DE Analysis ({group1} vs {group2})", fontsize=12, fontweight="bold")
+    ax.set_title("Scope Notice", fontsize=12, fontweight="bold")
 
 
 def generate_analysis_report(
@@ -679,7 +588,6 @@ def generate_analysis_report(
     assay_name: str = "proteins",
     group_col: str = "group",
     batch_col: str | None = "batch",
-    diff_expr_groups: tuple[str, str] | None = None,
     output_path: str | None = None,
     figsize: tuple[float, float] = (16, 12),
     dpi: int = 300,
@@ -699,8 +607,6 @@ def generate_analysis_report(
         Column in obs for grouping
     batch_col : str | None, default "batch"
         Column in obs for batch information
-    diff_expr_groups : tuple[str, str] | None
-        (group1, group2) for differential expression
     output_path : str | None
         Path to save the figure
     figsize : tuple[float, float], default (16, 12)
@@ -779,19 +685,9 @@ def generate_analysis_report(
     ax7 = fig.add_subplot(gs[2, 1])
     _render_batch_panel(ax7, container, assay_name, batch_col or "batch")
 
-    # Panel 8: Differential Expression
+    # Panel 8: Scope Notice
     ax8 = fig.add_subplot(gs[2, 2])
-    if diff_expr_groups:
-        _render_diff_expr_panel(
-            ax8,
-            container,
-            assay_name,
-            diff_expr_groups[0],
-            diff_expr_groups[1],
-            group_col,
-        )
-    else:
-        ax8.text(0.5, 0.5, "Specify diff_expr_groups\nfor DE analysis", ha="center", va="center")
+    _render_scope_panel(ax8)
 
     # Save if path provided
     if output_path:

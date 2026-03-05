@@ -1,5 +1,3 @@
-from .differential import rank_genes_groups_dotplot, rank_genes_groups_stacked_violin
-from .differential import volcano as volcano_enhanced
 from .embedding import embedding, pca, scatter, tsne, umap
 from .feature import dotplot
 from .impute import (
@@ -22,6 +20,7 @@ from .qc_advanced import (
 )
 from .report import ReportTheme, generate_analysis_report
 from .statistics import correlation_matrix, dendrogram
+from .stats import volcano
 from .workflow import (
     plot_data_overview,
     plot_embedding_panels,
@@ -32,8 +31,6 @@ from .workflow import (
     plot_reduction_summary,
     plot_saved_artifact_sizes,
 )
-
-volcano = volcano_enhanced
 
 __all__ = [
     "scatter",
@@ -52,9 +49,6 @@ __all__ = [
     "correlation_matrix",
     "dendrogram",
     "volcano",
-    "volcano_enhanced",
-    "rank_genes_groups_dotplot",
-    "rank_genes_groups_stacked_violin",
     # Advanced QC visualizations
     "plot_sensitivity_summary",
     "plot_cumulative_sensitivity",
