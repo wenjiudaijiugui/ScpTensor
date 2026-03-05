@@ -75,20 +75,11 @@ from scptensor.core import (
     to_sparse_if_beneficial,
 )
 
-# Differential Expression
-from scptensor.diff_expr import (
-    DiffExprResult,
-    adjust_fdr,
-    diff_expr_anova,
-    diff_expr_kruskal,
-    diff_expr_mannwhitney,
-    diff_expr_ttest,
-)
-
 # Dimensionality Reduction
 from scptensor.dim_reduction import (
     SolverType,
     reduce_pca,
+    reduce_tsne,
     reduce_umap,
 )
 
@@ -284,6 +275,7 @@ __all__ = [
     "calculate_feature_qc_metrics",
     # Dimensionality Reduction
     "reduce_pca",
+    "reduce_tsne",
     "reduce_umap",
     "SolverType",
     # Clustering
@@ -305,13 +297,6 @@ __all__ = [
     "plot_embedding_panels",
     "plot_saved_artifact_sizes",
     "plot_recent_operations",
-    # Differential Expression
-    "DiffExprResult",
-    "diff_expr_ttest",
-    "diff_expr_mannwhitney",
-    "diff_expr_anova",
-    "diff_expr_kruskal",
-    "adjust_fdr",
     # Utilities
     "ScpDataGenerator",
     # Standardization (deprecated)

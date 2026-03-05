@@ -111,10 +111,25 @@ def reduce_pca(
 
     n_samples, n_features = X.shape
     min_dim = min(n_samples, n_features)
+    valid_solvers = {"auto", "full", "arpack", "randomized", "covariance_eigh"}
+
+    if n_samples < 2:
+        raise ValueError(f"PCA requires at least 2 samples, got {n_samples}")
+    if n_components <= 0:
+        raise ValueError(f"n_components must be positive, got {n_components}")
+    if svd_solver not in valid_solvers:
+        raise ValueError(
+            f"Invalid svd_solver '{svd_solver}'. Must be one of {sorted(valid_solvers)}."
+        )
 
     if n_components > min_dim:
         raise ValueError(
             f"n_components ({n_components}) cannot exceed min(n_samples, n_features) ({min_dim})."
+        )
+    if svd_solver == "arpack" and n_components >= min_dim:
+        raise ValueError(
+            "svd_solver='arpack' requires n_components < min(n_samples, n_features). "
+            f"Got n_components={n_components}, min_dim={min_dim}."
         )
 
     # Solver selection
@@ -145,7 +160,11 @@ def reduce_pca(
     # Compute explained variance
     total_variance = _compute_total_variance(X_dense, center)
     explained_variance = eigenvalues
-    explained_variance_ratio = explained_variance / total_variance
+    eps = np.finfo(np.float64).eps
+    if total_variance <= eps:
+        explained_variance_ratio = np.zeros_like(explained_variance)
+    else:
+        explained_variance_ratio = explained_variance / total_variance
 
     # Create output assay
     pc_names = [f"PC{i + 1}" for i in range(n_components)]
@@ -250,6 +269,9 @@ def _select_solver(
     if n_features <= 1000 and n_samples >= 10 * n_features:
         return "covariance_eigh"
 
+    if n_components >= min(n_samples, n_features):
+        return "full"
+
     # Large with few components
     min_dim = min(n_samples, n_features)
     if n_components < 0.8 * min_dim:
@@ -300,8 +322,12 @@ def _compute_svd(
 
         eigenvalues = np.maximum(eigenvalues, 0.0)
         S = np.sqrt(eigenvalues[:n_components] * (n_samples - 1))
-        Vt = eigenvectors[:, :n_components].T
-        U = X @ eigenvectors[:, :n_components] / S
+        basis = eigenvectors[:, :n_components]
+        Vt = basis.T
+        projected = X @ basis
+        U = np.zeros_like(projected)
+        nonzero = np.finfo(np.float64).eps < S
+        np.divide(projected, S, out=U, where=nonzero)
 
     elif solver == "randomized":
         from sklearn.utils.extmath import randomized_svd
@@ -315,7 +341,7 @@ def _compute_svd(
     else:  # arpack
         from scipy.sparse.linalg import svds
 
-        k = min(n_components, min_dim - 1)
+        k = n_components
         rng = np.random.default_rng(random_state)
         v0 = rng.standard_normal(min_dim)
         U, S, Vt = svds(X, k=k, which="LM", v0=v0)
