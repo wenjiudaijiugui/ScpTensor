@@ -1,5 +1,8 @@
-from .base import heatmap, violin
-from .base import scatter as base_scatter
+"""Public visualization API."""
+
+from .base.heatmap import heatmap as _base_heatmap
+from .base.scatter import scatter as _base_scatter
+from .base.violin import violin as _base_violin
 from .recipes import (
     ReportTheme,
     embedding,
@@ -20,6 +23,10 @@ from .recipes import (
     umap,
     volcano,
 )
+
+base_scatter = _base_scatter
+heatmap = _base_heatmap
+violin = _base_violin
 
 __all__ = [
     # Base primitives

@@ -127,15 +127,16 @@ def test_render_batch_panel(sample_container):
     plt.close(fig)
 
 
-def test_render_diff_expr_panel(sample_container):
-    """Test diff expr panel rendering."""
-    from scptensor.viz.recipes.report import _render_diff_expr_panel
+def test_render_scope_panel():
+    """Test scope notice panel rendering."""
+    from scptensor.viz.recipes.report import _render_scope_panel
 
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
-    _render_diff_expr_panel(ax, sample_container, group1="A", group2="B")
+    _render_scope_panel(ax)
 
-    assert len(ax.collections) > 0
+    texts = [t.get_text() for t in ax.texts]
+    assert any("out of scope" in t for t in texts)
     plt.close(fig)
 
 
