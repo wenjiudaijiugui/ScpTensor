@@ -180,13 +180,21 @@ class TestFunctionTypes:
 
     def test_row_function_lambda(self):
         """Test RowFunction with lambda."""
-        func: RowFunction = lambda arr: float(np.mean(arr))
+
+        def _row_mean(arr: np.ndarray) -> float:
+            return float(np.mean(arr))
+
+        func: RowFunction = _row_mean
         result = func(np.array([1.0, 2.0, 3.0, 4.0]))
         assert result == 2.5
 
     def test_row_function_builtin(self):
         """Test RowFunction with numpy function."""
-        func: RowFunction = lambda arr: float(np.max(arr))
+
+        def _row_max(arr: np.ndarray) -> float:
+            return float(np.max(arr))
+
+        func: RowFunction = _row_max
         result = func(np.array([1.0, 5.0, 3.0]))
         assert result == 5.0
 

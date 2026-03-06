@@ -35,9 +35,6 @@ from .jit_ops import (
 # Matrix operations
 from .matrix_ops import MatrixOps
 
-# Reader
-from .reader import reader
-
 # Sparse utilities
 from .sparse_utils import (
     auto_convert_for_operation,
@@ -102,7 +99,6 @@ __all__ = [
     "resolve_filter_criteria",
     # Operations
     "MatrixOps",
-    "reader",
     # Sparse utilities
     "is_sparse_matrix",
     "get_sparsity_ratio",

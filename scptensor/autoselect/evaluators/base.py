@@ -103,8 +103,7 @@ def create_wrapper(
         signature = inspect.signature(func)
         accepted = set(signature.parameters.keys())
         supports_var_kwargs = any(
-            param.kind == inspect.Parameter.VAR_KEYWORD
-            for param in signature.parameters.values()
+            param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
         )
 
         raw_params = {
@@ -304,9 +303,7 @@ class BaseEvaluator(ABC):
         if n_repeats < 1:
             raise ValueError(f"n_repeats must be >= 1, got {n_repeats}")
         if not (0.0 < confidence_level < 1.0):
-            raise ValueError(
-                f"confidence_level must be in (0, 1), got {confidence_level}"
-            )
+            raise ValueError(f"confidence_level must be in (0, 1), got {confidence_level}")
         return n_repeats, confidence_level, strategy, method_kwargs
 
     def _with_repeat_random_state(
@@ -441,8 +438,8 @@ class BaseEvaluator(ABC):
             runtime_scores = 1.0 - (times - min_time) / (max_time - min_time)
 
         for result, runtime_score in zip(successful, runtime_scores, strict=False):
-            selection_score = (
-                quality_weight * result.overall_score + runtime_weight * float(runtime_score)
+            selection_score = quality_weight * result.overall_score + runtime_weight * float(
+                runtime_score
             )
             result.selection_score = float(np.clip(selection_score, 0.0, 1.0))
 

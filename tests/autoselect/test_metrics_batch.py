@@ -313,6 +313,4 @@ class TestMetricProperties:
 
         assert batch_asw(X1, batch_labels1) == batch_asw(X2, batch_labels2)
         assert bio_asw(X1, bio_labels1) == bio_asw(X2, bio_labels2)
-        assert batch_mixing_score(X1, batch_labels1) == batch_mixing_score(
-            X2, batch_labels2
-        )
+        assert batch_mixing_score(X1, batch_labels1) == batch_mixing_score(X2, batch_labels2)

@@ -372,9 +372,7 @@ class AutoSelector:
         if n_repeats < 1:
             raise ValueError(f"n_repeats must be >= 1, got {n_repeats}")
         if not (0.0 < confidence_level < 1.0):
-            raise ValueError(
-                f"confidence_level must be in (0, 1), got {confidence_level}"
-            )
+            raise ValueError(f"confidence_level must be in (0, 1), got {confidence_level}")
         self.selection_strategy = strategy_name
         self.n_repeats = n_repeats
         self.confidence_level = confidence_level
