@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -43,7 +43,7 @@ __all__ = [
 def _to_dense_array(x: np.ndarray | sp.spmatrix) -> np.ndarray:
     """Convert matrix-like input to dense NumPy array."""
     if sp.issparse(x):
-        return x.toarray()  # type: ignore[no-any-return]
+        return cast(sp.spmatrix, x).toarray()
     return np.asarray(x)
 
 

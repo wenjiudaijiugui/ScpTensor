@@ -119,7 +119,10 @@ def softimpute_impute(
     # Compatibility patch: fancyimpute still calls sklearn.check_array(force_all_finite=...),
     # while newer sklearn versions renamed it to ensure_all_finite.
     check_array_sig = inspect.signature(sklearn.utils.check_array)
-    if "force_all_finite" not in check_array_sig.parameters and "ensure_all_finite" in check_array_sig.parameters:
+    if (
+        "force_all_finite" not in check_array_sig.parameters
+        and "ensure_all_finite" in check_array_sig.parameters
+    ):
         _orig_check_array = sklearn.utils.check_array
 
         def _check_array_compat(*args: Any, force_all_finite: Any = None, **kwargs: Any) -> Any:
@@ -132,15 +135,16 @@ def softimpute_impute(
         for mod_name in ("fancyimpute.solver", "fancyimpute.soft_impute"):
             mod = sys.modules.get(mod_name)
             if mod is not None and hasattr(mod, "check_array"):
-                setattr(mod, "check_array", _check_array_compat)
+                mod.check_array = _check_array_compat  # type: ignore[attr-defined]
 
     try:
         from fancyimpute import SoftImpute
+
         # Patch alias after import as well, covering first-import path.
         for mod_name in ("fancyimpute.solver", "fancyimpute.soft_impute"):
             mod = sys.modules.get(mod_name)
             if mod is not None and hasattr(mod, "check_array"):
-                setattr(mod, "check_array", sklearn.utils.check_array)
+                mod.check_array = sklearn.utils.check_array  # type: ignore[attr-defined]
     except ImportError as exc:
         raise MissingDependencyError("fancyimpute") from exc
 

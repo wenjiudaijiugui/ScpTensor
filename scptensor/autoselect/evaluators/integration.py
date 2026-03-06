@@ -248,7 +248,9 @@ class IntegrationEvaluator(BaseEvaluator):
         # Compute metrics
         scores: dict[str, float] = {}
 
-        source_layer = self._infer_source_layer(original_container.assays.get("proteins"), layer_name)
+        source_layer = self._infer_source_layer(
+            original_container.assays.get("proteins"), layer_name
+        )
 
         # Batch ASW (1 - ASW so higher is better)
         scores["batch_asw"] = self._compute_batch_asw(x_matrix, batches)

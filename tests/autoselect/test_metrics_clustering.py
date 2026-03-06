@@ -379,7 +379,5 @@ class TestMetricProperties:
         labels2 = np.repeat([0, 1, 2, 3], 25)
 
         assert silhouette_score(X1, labels1) == silhouette_score(X2, labels2)
-        assert (
-            calinski_harabasz_score(X1, labels1) == calinski_harabasz_score(X2, labels2)
-        )
+        assert calinski_harabasz_score(X1, labels1) == calinski_harabasz_score(X2, labels2)
         assert davies_bouldin_score(X1, labels1) == davies_bouldin_score(X2, labels2)

@@ -136,7 +136,9 @@ class NormalizationEvaluator(BaseEvaluator):
 
         # Get source data for comparison.
         original_assay = original_container.assays.get("proteins")
-        source_layer = self._infer_source_layer(original_assay, layer_name) if original_assay else None
+        source_layer = (
+            self._infer_source_layer(original_assay, layer_name) if original_assay else None
+        )
 
         if source_layer is not None and original_assay is not None:
             X_original = original_assay.layers[source_layer].X  # noqa: N806

@@ -54,9 +54,7 @@ def get_strategy_preset(name: str) -> StrategyPreset:
     preset = STRATEGY_PRESETS.get(strategy_name)
     if preset is None:
         supported = ", ".join(f"'{strategy}'" for strategy in _STRATEGY_ORDER)
-        raise ValueError(
-            f"selection_strategy must be one of {{{supported}}}, got '{name}'"
-        )
+        raise ValueError(f"selection_strategy must be one of {{{supported}}}, got '{name}'")
     return preset
 
 

@@ -62,7 +62,9 @@ def container_with_pca() -> ScpContainer:
     var = pl.DataFrame(
         {
             "_index": [f"PC{i}" for i in range(n_features)],
-            "explained_variance_ratio": np.array([0.3, 0.2, 0.15, 0.1, 0.08, 0.06, 0.04, 0.03, 0.03, 0.01]),
+            "explained_variance_ratio": np.array(
+                [0.3, 0.2, 0.15, 0.1, 0.08, 0.06, 0.04, 0.03, 0.03, 0.01]
+            ),
         }
     )
 
@@ -96,9 +98,7 @@ class TestDimReductionEvaluatorInit:
 
     def test_init_custom_params(self):
         """Test initialization with custom parameters."""
-        evaluator = DimReductionEvaluator(
-            n_components=30, n_neighbors=10, random_state=123
-        )
+        evaluator = DimReductionEvaluator(n_components=30, n_neighbors=10, random_state=123)
         assert evaluator._n_components == 30
         assert evaluator._n_neighbors == 10
         assert evaluator._random_state == 123

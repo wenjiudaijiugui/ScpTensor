@@ -127,9 +127,7 @@ def save_markdown(report: AutoSelectReport, filepath: str | Path) -> None:
                     status = "✓ Success" if result.error is None else f"✗ Failed: {result.error}"
                     best_marker = " **(Best)**" if result == stage_report.best_result else ""
                     selection_score = (
-                        "NA"
-                        if result.selection_score is None
-                        else f"{result.selection_score:.4f}"
+                        "NA" if result.selection_score is None else f"{result.selection_score:.4f}"
                     )
                     score_std = (
                         "NA"

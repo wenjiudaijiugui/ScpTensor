@@ -7,6 +7,8 @@ Reference:
     Local least squares imputation.
 """
 
+from typing import cast
+
 import numpy as np
 import scipy.sparse as sp
 from sklearn.neighbors import NearestNeighbors
@@ -264,7 +266,7 @@ def impute_lls(
     input_matrix = assay.layers[source_layer]
     X_raw = input_matrix.X.copy()
     if sp.issparse(X_raw):
-        X_original = X_raw.toarray().astype(np.float64, copy=False)
+        X_original = cast(sp.spmatrix, X_raw).toarray().astype(np.float64, copy=False)
     else:
         X_original = np.asarray(X_raw, dtype=np.float64)
 

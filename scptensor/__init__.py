@@ -64,7 +64,6 @@ from scptensor.core import (
     get_sparsity_ratio,
     is_sparse_matrix,
     optimal_format_for_operation,
-    reader,
     sparse_center_rows,
     sparse_col_operation,
     sparse_copy,
@@ -186,7 +185,6 @@ __all__ = [
     "MaskCode",
     "AggregationLink",
     "MatrixOps",
-    "reader",
     # Core exceptions
     "ScpTensorError",
     "StructureError",

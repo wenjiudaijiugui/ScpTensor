@@ -135,12 +135,12 @@ def test_performance_comparison():
 
     # Benchmark sum (uses JIT)
     start = time.perf_counter()
-    result_sum = sparse_row_operation(X, np.sum)
+    sparse_row_operation(X, np.sum)
     time_sum = time.perf_counter() - start
 
     # Benchmark max (uses fallback)
     start = time.perf_counter()
-    result_max = sparse_row_operation(X, np.max)
+    sparse_row_operation(X, np.max)
     time_max = time.perf_counter() - start
 
     speedup = time_max / time_sum

@@ -69,6 +69,8 @@ class ClusteringEvaluator(BaseEvaluator):
         self._n_neighbors = n_neighbors
         self._random_state = random_state
         self._available_methods: dict[str, Callable] | None = None
+        self._metric_assay_name: str | None = None
+        self._metric_source_layer: str | None = None
 
     def _get_available_methods(self) -> dict[str, Callable]:
         """Get available clustering methods, checking for optional dependencies.

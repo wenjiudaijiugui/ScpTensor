@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 import polars as pl
@@ -44,7 +44,7 @@ _DEFAULT_PROTEIN_COLUMNS: tuple[str, ...] = (
 def _to_dense_float64(matrix: np.ndarray | sp.spmatrix) -> np.ndarray:
     """Convert dense/sparse matrices to dense float64 arrays."""
     if sp.issparse(matrix):
-        return matrix.toarray().astype(np.float64, copy=False)
+        return cast(sp.spmatrix, matrix).toarray().astype(np.float64, copy=False)
     return np.asarray(matrix, dtype=np.float64)
 
 
@@ -53,7 +53,7 @@ def _to_dense_int8(mask: np.ndarray | sp.spmatrix | None, shape: tuple[int, int]
     if mask is None:
         return np.zeros(shape, dtype=np.int8)
     if sp.issparse(mask):
-        return mask.toarray().astype(np.int8, copy=False)
+        return cast(sp.spmatrix, mask).toarray().astype(np.int8, copy=False)
     return np.asarray(mask, dtype=np.int8)
 
 
