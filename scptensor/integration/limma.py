@@ -67,9 +67,6 @@ def integrate_limma(
     else:
         x_dense = np.asarray(x_raw)
 
-    if np.isnan(x_dense).any():
-        x_dense = _impute_nans_batchwise(x_dense, batches)
-
     design_matrix, design_cols, batch_term_cols, ref_batch = _build_limma_design_matrix(
         obs_df,
         batches,
@@ -86,10 +83,8 @@ def integrate_limma(
             f"Design columns: [{cols}]"
         )
 
-    coef = np.linalg.lstsq(design_matrix, x_dense, rcond=None)[0]
     batch_idx = [i for i, col in enumerate(design_cols) if col in set(batch_term_cols)]
-    batch_effect = design_matrix[:, batch_idx] @ coef[batch_idx, :]
-    x_corrected = x_dense - batch_effect
+    x_corrected = _remove_batch_effect_with_missing(x_dense, design_matrix, batch_idx)
 
     x_out = preserve_sparsity(x_corrected, input_was_sparse)
     m_out = layer.M.copy() if layer.M is not None else None
@@ -172,23 +167,33 @@ def _build_covariate_design(
     return pl.concat([pl.DataFrame({"intercept": np.ones(n_samples)}), enc], how="horizontal")
 
 
-def _impute_nans_batchwise(X: np.ndarray, batches: np.ndarray) -> np.ndarray:
-    """Impute NaN values with batch-specific feature means."""
-    out = X.copy()
-    for b in np.unique(batches):
-        mask = batches == b
-        batch_data = out[mask]
-        batch_mean = np.nanmean(batch_data, axis=0)
-        miss = np.isnan(batch_data)
-        if miss.any():
-            rows = np.where(mask)[0]
-            miss_rows, miss_cols = np.where(miss)
-            out[rows[miss_rows], miss_cols] = batch_mean[miss_cols]
+def _remove_batch_effect_with_missing(
+    X: np.ndarray,
+    design_matrix: np.ndarray,
+    batch_idx: list[int],
+) -> np.ndarray:
+    """Fit per-feature linear models on observed samples and preserve NaN."""
+    if not batch_idx:
+        return X.copy()
 
-    if np.isnan(out).any():
-        col_mean = np.nan_to_num(np.nanmean(out, axis=0), nan=0.0)
-        miss = np.isnan(out)
-        out[miss] = np.take(col_mean, np.where(miss)[1])
+    out = X.copy()
+    n_terms = design_matrix.shape[1]
+    for feature_idx in range(X.shape[1]):
+        y = X[:, feature_idx]
+        valid = np.isfinite(y)
+        if int(np.sum(valid)) <= len(batch_idx):
+            continue
+
+        design_valid = design_matrix[valid]
+        if design_valid.shape[0] < n_terms:
+            continue
+        if np.linalg.matrix_rank(design_valid) < n_terms:
+            continue
+
+        coef = np.linalg.lstsq(design_valid, y[valid], rcond=None)[0]
+        batch_effect = design_valid[:, batch_idx] @ coef[batch_idx]
+        out[np.where(valid)[0], feature_idx] = y[valid] - batch_effect
+
     return out
 
 

@@ -9,12 +9,11 @@ peptide/precursor levels (long and matrix table shapes).
 
 Quick Start:
     >>> from scptensor import aggregate_to_protein, load_diann, log_transform
-    >>> from scptensor import norm_median, reduce_pca
+    >>> from scptensor import norm_median
     >>> container = load_diann("report.tsv", level="peptide", table_format="long")
     >>> container = aggregate_to_protein(container, source_assay="peptides", target_assay="proteins")
     >>> container = log_transform(container, assay_name="proteins", source_layer="raw", new_layer_name="log2")
     >>> container = norm_median(container, assay_name="proteins", source_layer="log2", new_layer_name="norm")
-    >>> container = reduce_pca(container, assay_name="proteins", base_layer="norm")
 """
 
 from __future__ import annotations
@@ -24,12 +23,6 @@ __author__ = "ScpTensor Team"
 
 # Aggregation
 from scptensor.aggregation import aggregate_to_protein
-
-# Clustering
-from scptensor.cluster import (
-    cluster_kmeans,
-    cluster_leiden,
-)
 
 # Core data structures and exceptions
 from scptensor.core import (
@@ -72,14 +65,6 @@ from scptensor.core import (
     sparse_row_operation,
     sparse_safe_log1p,
     to_sparse_if_beneficial,
-)
-
-# Dimensionality Reduction
-from scptensor.dim_reduction import (
-    SolverType,
-    reduce_pca,
-    reduce_tsne,
-    reduce_umap,
 )
 
 # Imputation
@@ -134,18 +119,15 @@ from scptensor.qc import (
     assess_batch_effects,
     calculate_feature_qc_metrics,
     calculate_sample_qc_metrics,
-    filter_contaminants,
     filter_doublets_mad,
     filter_features_by_cv,
     filter_features_by_missingness,
     filter_low_quality_samples,
-    filter_psms_by_pif,
     qc_feature,
-    qc_psm,
     qc_sample,
 )
 
-# Standardization (deprecated, re-exported for backward compatibility)
+# Standardization
 from scptensor.standardization import zscore
 
 # Transformation
@@ -170,7 +152,6 @@ from scptensor.viz import (
     qc_matrix_spy,
     scatter,
     violin,
-    volcano,
 )
 
 # Public API
@@ -230,6 +211,8 @@ __all__ = [
     "fill_missing_with_value",
     # Transformation
     "log_transform",
+    # Standardization
+    "zscore",
     # Normalization
     "norm_none",
     "norm_mean",
@@ -260,10 +243,7 @@ __all__ = [
     "integrate_scanorama",
     # Quality Control
     "qc_feature",
-    "qc_psm",
     "qc_sample",
-    "filter_contaminants",
-    "filter_psms_by_pif",
     "filter_features_by_cv",
     "filter_features_by_missingness",
     "filter_low_quality_samples",
@@ -271,14 +251,6 @@ __all__ = [
     "assess_batch_effects",
     "calculate_sample_qc_metrics",
     "calculate_feature_qc_metrics",
-    # Dimensionality Reduction
-    "reduce_pca",
-    "reduce_tsne",
-    "reduce_umap",
-    "SolverType",
-    # Clustering
-    "cluster_kmeans",
-    "cluster_leiden",
     # Visualization
     "scatter",
     "heatmap",
@@ -286,7 +258,6 @@ __all__ = [
     "embedding",
     "qc_completeness",
     "qc_matrix_spy",
-    "volcano",
     "plot_data_overview",
     "plot_qc_filtering_summary",
     "plot_preprocessing_summary",
@@ -297,6 +268,4 @@ __all__ = [
     "plot_recent_operations",
     # Utilities
     "ScpDataGenerator",
-    # Standardization (deprecated)
-    "zscore",
 ]

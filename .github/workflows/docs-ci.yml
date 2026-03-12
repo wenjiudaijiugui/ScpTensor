@@ -1,0 +1,69 @@
+name: Docs CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'README.md'
+      - 'docs/**'
+      - 'benchmark/**'
+      - 'scripts/docs/**'
+      - 'tests/docs/**'
+      - '.github/workflows/docs-ci.yml'
+      - '.github/workflows/README.md'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'README.md'
+      - 'docs/**'
+      - 'benchmark/**'
+      - 'scripts/docs/**'
+      - 'tests/docs/**'
+      - '.github/workflows/docs-ci.yml'
+      - '.github/workflows/README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs-contracts:
+    name: docs-contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate review manifest contracts
+        run: |
+          python scripts/docs/validate_review_manifest.py
+
+  docs-links:
+    name: docs-links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Lychee link checker
+        uses: lycheeverse/lychee-action@v2
+        with:
+          fail: true
+          args: >-
+            --no-progress
+            --verbose
+            --max-retries 3
+            --retry-wait-time 2
+            --timeout 20
+            --include-fragments
+            README.md
+            docs/README.md
+            benchmark/README.md
+            benchmark/*/README.md
+            docs/dia_sc_*review_*.md
+            .github/workflows/README.md

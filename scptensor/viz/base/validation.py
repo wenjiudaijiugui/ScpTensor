@@ -1,7 +1,9 @@
 """Input validation for visualization functions.
 
 This module provides validation utilities for ScpTensor visualization functions.
-All validation functions raise VisualizationError with descriptive messages.
+Validation helpers raise descriptive ScpTensor exceptions:
+- VisualizationError for generic visualization validation failures
+- LayerNotFoundError when a requested layer is missing
 """
 
 import numpy as np

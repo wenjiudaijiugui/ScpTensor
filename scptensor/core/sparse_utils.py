@@ -286,7 +286,7 @@ def cleanup_layers(
     >>> assay = Assay(var=pl.DataFrame({'_index': ['f1', 'f2']}))
     >>> # Add multiple layers...
     >>> # After processing, keep only final result
-    >>> cleanup_layers(container, 'proteins', keep_layers=['imputed', 'zscore'])
+    >>> cleanup_layers(container, 'proteins', keep_layers=['imputed', 'norm'])
     """
     if assay_name not in container.assays:
         raise ValueError(f"Assay '{assay_name}' not found in container.")

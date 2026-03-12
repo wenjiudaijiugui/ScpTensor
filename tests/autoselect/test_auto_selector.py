@@ -8,9 +8,10 @@ import numpy as np
 import polars as pl
 import pytest
 
-from scptensor.autoselect import AutoSelectReport, StageReport
+from scptensor.autoselect import AutoSelectReport, StageReport, auto_integrate, auto_normalize
 from scptensor.autoselect.core import AutoSelector
 from scptensor.core import Assay, ScpContainer, ScpMatrix
+from scptensor.transformation import log_transform
 
 
 @pytest.fixture
@@ -208,6 +209,34 @@ class TestAutoSelectorRunStage:
         assert report.input_layer == "raw"
         assert report.output_assay == "proteins"
         assert report.output_layer is not None
+        assert set(report.method_contracts) == {"norm_none", "norm_mean", "norm_median"}
+        assert (
+            "excluded scale-sensitive methods norm_quantile and norm_trqn"
+            in report.recommendation_reason
+        )
+
+    def test_run_stage_normalize_logged_layer_includes_quantile_family(self, simple_container):
+        """Normalization stage should re-open quantile-family methods on logged layers."""
+        selector = AutoSelector(stages=["normalize"])
+        container = log_transform(
+            simple_container,
+            assay_name="proteins",
+            source_layer="raw",
+            new_layer_name="log",
+        )
+
+        _, report = selector.run_stage(
+            container=container,
+            stage="normalize",
+            assay_name="proteins",
+            source_layer="log",
+        )
+
+        assert "norm_quantile" in report.method_contracts
+        assert "norm_trqn" in report.method_contracts
+        assert report.method_contracts["norm_quantile"]["comparison_scale"] == "logged"
+        assert report.method_contracts["norm_trqn"]["source_layer_logged"] is True
+        assert "compared on logged source layer 'log'" in report.recommendation_reason
 
     def test_run_stage_invalid_stage_raises(self, simple_container):
         """Test that invalid stage raises ValueError."""
@@ -234,6 +263,42 @@ class TestAutoSelectorRunStage:
         assert isinstance(result_container, ScpContainer)
         assert isinstance(report, StageReport)
         assert report.stage_name == "integrate"
+        assert set(report.method_contracts) == {"none", "limma"}
+
+    def test_run_stage_integrate_include_embedding_methods(self, simple_container):
+        """Integration stage should expose exploratory methods only when requested."""
+        selector = AutoSelector(stages=["integrate"])
+
+        _, report = selector.run_stage(
+            container=simple_container,
+            stage="integrate",
+            assay_name="proteins",
+            source_layer="raw",
+            include_embedding_methods=True,
+        )
+
+        assert "mnn" in report.method_contracts
+        assert report.method_contracts["mnn"]["candidate_scope"] == "exploratory"
+
+    def test_auto_integrate_defaults_to_stable_methods(self, simple_container):
+        """Convenience API should keep stable matrix-level candidates by default."""
+        _, report = auto_integrate(
+            simple_container,
+            assay_name="proteins",
+            source_layer="raw",
+        )
+
+        assert set(report.method_contracts) == {"none", "limma"}
+
+    def test_auto_normalize_defaults_to_scale_safe_methods(self, simple_container):
+        """Convenience API should gate quantile-family methods on raw layers."""
+        _, report = auto_normalize(
+            simple_container,
+            assay_name="proteins",
+            source_layer="raw",
+        )
+
+        assert set(report.method_contracts) == {"norm_none", "norm_mean", "norm_median"}
 
     def test_run_stage_missing_assay_raises(self, simple_container):
         """Test actionable error when assay is missing."""

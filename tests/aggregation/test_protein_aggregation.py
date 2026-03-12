@@ -46,7 +46,7 @@ def test_aggregate_to_protein_sum_basic() -> None:
     assert protein.var["_index"].to_list() == ["P1", "P2"]
     np.testing.assert_allclose(
         protein.layers["raw"].X,
-        np.array([[4.0, 5.0], [6.0, 0.0]], dtype=np.float64),
+        np.array([[4.0, 5.0], [6.0, np.nan]], dtype=np.float64),
         equal_nan=True,
     )
 
@@ -147,6 +147,18 @@ def test_aggregate_to_protein_maxlfq() -> None:
     assert x[1, 1] == pytest.approx(2.0 * x[0, 1], rel=1e-6)
 
 
+def test_aggregate_to_protein_maxlfq_fallback_preserves_intensity_scale() -> None:
+    container = _build_container(
+        np.array([[5.0, np.nan, np.nan], [np.nan, np.nan, np.nan]], dtype=np.float64)
+    )
+
+    out = aggregate_to_protein(container, method="maxlfq")
+    x = out.assays["proteins"].layers["raw"].X
+
+    assert x[0, 0] == pytest.approx(5.0)
+    assert np.isnan(x[1, 0])
+
+
 def test_aggregate_to_protein_tmp() -> None:
     container = _build_container(
         np.array([[10.0, 100.0, 6.0], [20.0, 200.0, 12.0]], dtype=np.float64)
@@ -171,6 +183,21 @@ def test_aggregate_to_protein_ibaq_with_denominator() -> None:
     x = out.assays["proteins"].layers["raw"].X
     np.testing.assert_allclose(x[:, 0], np.array([5.0, 10.0 / 6.0], dtype=np.float64))
     np.testing.assert_allclose(x[:, 1], np.array([15.0, 2.5], dtype=np.float64))
+
+
+def test_aggregate_to_protein_ibaq_preserves_all_missing_as_nan() -> None:
+    container = _build_container(
+        np.array([[10.0, 20.0, 5.0], [5.0, 5.0, np.nan]], dtype=np.float64)
+    )
+
+    out = aggregate_to_protein(
+        container,
+        method="ibaq",
+        ibaq_denominator={"P1": 6, "P2": 2},
+    )
+    x = out.assays["proteins"].layers["raw"].X
+
+    assert np.isnan(x[1, 1])
 
 
 def test_aggregate_to_protein_ibaq_missing_denominator_error() -> None:

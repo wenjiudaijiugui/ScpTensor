@@ -148,8 +148,9 @@ class TestScpMatrixSparseEdgeCases:
 
     def test_sparse_matrix_single_nonzero(self):
         """Test sparse matrix with single non-zero value."""
-        X = sparse.csr_matrix((5, 5))
+        X = sparse.lil_matrix((5, 5))
         X[0, 0] = 42.0
+        X = X.tocsr()
         matrix = ScpMatrix(X=X)
         assert matrix.X.nnz == 1
         assert matrix.X[0, 0] == 42.0

@@ -69,8 +69,8 @@ class ClusteringEvaluator(BaseEvaluator):
         self._n_neighbors = n_neighbors
         self._random_state = random_state
         self._available_methods: dict[str, Callable] | None = None
-        self._metric_assay_name: str | None = None
-        self._metric_source_layer: str | None = None
+        self._metric_assay_name = "pca"
+        self._metric_source_layer = "X"
 
     def _get_available_methods(self) -> dict[str, Callable]:
         """Get available clustering methods, checking for optional dependencies.
@@ -463,8 +463,8 @@ class ClusteringEvaluator(BaseEvaluator):
         overall_score = 0.0 if error_msg is not None else self.compute_overall_score(scores)
 
         # Clear evaluation context to avoid leaking across methods.
-        self._metric_assay_name = None
-        self._metric_source_layer = None
+        self._metric_assay_name = "pca"
+        self._metric_source_layer = "X"
 
         # Create evaluation result
         eval_result = EvaluationResult(

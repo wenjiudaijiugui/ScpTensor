@@ -1,6 +1,7 @@
 """Multi-panel layout manager for combined plots."""
 
 import math
+import warnings
 from collections.abc import Callable
 from typing import Any
 
@@ -43,11 +44,11 @@ class PanelLayout:
         """
         self.figsize = figsize
         self.grid = grid
-        self._auto_grid = grid is None  # Track if using auto-grid mode
-        self._n_panels = 0
+        self._auto_grid = grid is None
         self._figure: Figure | None = None
         self._axes: list[Axes] = []
-        self._colorbar_sources: list[tuple[Axes, Any]] = []
+        self._panel_specs: dict[int, tuple[Callable[[Axes], Any], dict[str, Any]]] = {}
+        self._panel_mappables: dict[int, Any] = {}
         self._legend_elements: list[dict[str, Any]] = []
 
     def _compute_grid(self, n_panels: int) -> tuple[int, int]:
@@ -70,58 +71,78 @@ class PanelLayout:
         n_rows = math.ceil(n_panels / n_cols)
         return (n_rows, n_cols)
 
-    def _create_figure(self) -> None:
-        """Create figure and subplots if not exists."""
-        if self._figure is None:
-            if self.grid is not None:
-                n_rows, n_cols = self.grid
-            else:
-                n_rows, n_cols = self._compute_grid(self._n_panels)
-                self.grid = (n_rows, n_cols)
-
-            self._figure, self._axes_array = plt.subplots(
-                self.grid[0], self.grid[1], figsize=self.figsize, squeeze=False
-            )
-            # Flatten axes array for easier indexing
-            self._axes = self._axes_array.flatten().tolist()
-
-    def _recreate_figure_for_panel(self, position: int | tuple[int, int]) -> None:
-        """Recreate figure with expanded grid if needed for auto-grid mode.
-
-        Parameters
-        ----------
-        position : int or tuple of (int, int)
-            Panel position being added.
-        """
-        if not self._auto_grid:
-            return  # Fixed grid, no expansion
-
-        # Compute required grid for current panel count
-        required_grid = self._compute_grid(self._n_panels)
-
-        if self.grid is None or required_grid != self.grid:
-            # Store existing plots
-            existing_plots = []
-            for ax in self._axes:
-                # Get data from existing axes
-                lines_data = [(line.get_xdata(), line.get_ydata()) for line in ax.lines]
-                existing_plots.append(lines_data)
-
-            # Close old figure and create new one
+    def _create_figure(self, target_grid: tuple[int, int]) -> None:
+        """Create (or recreate) figure with the specified grid."""
+        if self._figure is not None:
             plt.close(self._figure)
-            self.grid = required_grid
 
-            self._figure, self._axes_array = plt.subplots(
-                self.grid[0], self.grid[1], figsize=self.figsize, squeeze=False
-            )
-            self._axes = self._axes_array.flatten().tolist()
+        self.grid = target_grid
+        figure, axes_array = plt.subplots(
+            target_grid[0], target_grid[1], figsize=self.figsize, squeeze=False
+        )
+        self._figure = figure
+        self._axes = axes_array.flatten().tolist()
 
-            # Redraw existing plots (note: simplified - in real use case
-            # we'd need to store the plot functions, not just data)
-            for i, ax in enumerate(self._axes):
-                if i < len(existing_plots):
-                    for x, y in existing_plots[i]:
-                        ax.plot(x, y)
+    def _ensure_figure(self, required_panels: int = 1) -> None:
+        """Ensure a figure exists and has enough axes for required panels."""
+        target_grid = self.grid
+        if self._auto_grid:
+            target_grid = self._compute_grid(required_panels)
+
+        if target_grid is None:
+            target_grid = (1, 1)
+
+        needs_recreate = self._figure is None or (
+            self._auto_grid and self.grid is not None and self.grid != target_grid
+        )
+        if not needs_recreate:
+            return
+
+        self._create_figure(target_grid)
+        self._rerender_panels()
+
+    def _rerender_panels(self) -> None:
+        """Render all registered panel functions to current axes."""
+        self._panel_mappables.clear()
+        for idx, (plot_func, kwargs) in sorted(self._panel_specs.items()):
+            self._render_panel(idx, plot_func, kwargs)
+
+    def _required_capacity(self) -> int:
+        """Return minimum axis capacity required by current panel registrations."""
+        if not self._panel_specs:
+            return 1
+        return max(self._panel_specs) + 1
+
+    def _position_to_index(self, position: int | tuple[int, int]) -> int:
+        """Convert user-specified panel position into a flattened axis index."""
+        if isinstance(position, tuple):
+            if self._auto_grid:
+                raise ValueError("Tuple positions require explicit grid in PanelLayout")
+            if self.grid is None:
+                raise ValueError("Grid must be specified when using tuple position")
+            row, col = position
+            if row < 0 or col < 0:
+                raise IndexError("Panel row/col indices must be non-negative")
+            return row * self.grid[1] + col
+        if position < 0:
+            raise IndexError("Panel index must be non-negative")
+        return position
+
+    def _render_panel(
+        self, idx: int, plot_func: Callable[[Axes], Any], kwargs: dict[str, Any]
+    ) -> Axes:
+        """Execute panel plotting function and track mappable outputs."""
+        if idx >= len(self._axes):
+            raise IndexError(f"Panel position {idx} out of range for grid {self.grid}")
+
+        ax = self._axes[idx]
+        ax.clear()
+        result = plot_func(ax, **kwargs)
+        if result is not None and hasattr(result, "get_cmap"):
+            self._panel_mappables[idx] = result
+        else:
+            self._panel_mappables.pop(idx, None)
+        return ax
 
     def add_panel(
         self,
@@ -152,32 +173,15 @@ class PanelLayout:
         >>> ax = layout.add_panel(0, lambda ax: ax.plot([1, 2, 3]))
         >>> ax = layout.add_panel((0, 1), lambda ax: ax.scatter([1, 2], [3, 4]))
         """
-        self._n_panels += 1
+        idx = self._position_to_index(position)
 
-        # For auto-grid mode, potentially expand grid before creating
-        if self._figure is not None and self._auto_grid:
-            self._recreate_figure_for_panel(position)
+        required_panels = max(
+            len(self._panel_specs) + (0 if idx in self._panel_specs else 1), idx + 1
+        )
+        self._ensure_figure(required_panels)
 
-        self._create_figure()
-
-        if isinstance(position, tuple):
-            if self.grid is None:
-                raise ValueError("Grid must be specified when using tuple position")
-            idx = position[0] * self.grid[1] + position[1]
-        else:
-            idx = position
-
-        if idx >= len(self._axes):
-            raise IndexError(f"Panel position {idx} out of range for grid {self.grid}")
-
-        ax = self._axes[idx]
-        result = plot_func(ax, **kwargs)
-
-        # Store image/mappable for potential colorbar
-        if result is not None and hasattr(result, "get_cmap"):
-            self._colorbar_sources.append((ax, result))
-
-        return ax
+        self._panel_specs[idx] = (plot_func, dict(kwargs))
+        return self._render_panel(idx, plot_func, dict(kwargs))
 
     def add_legend(
         self,
@@ -224,17 +228,23 @@ class PanelLayout:
         >>> layout.add_panel(0, lambda ax: ax.imshow(data, cmap="viridis"))
         >>> layout.add_colorbar(label="Intensity")
         """
-        if not self._colorbar_sources:
+        if not self._panel_mappables:
             return
 
-        # Ensure figure exists
-        if self._figure is None:
-            self._create_figure()
+        if position not in {"right", "left", "top", "bottom"}:
+            raise ValueError("position must be one of: right, left, top, bottom")
 
-        # Use first colorbar source
-        ax, mappable = self._colorbar_sources[0]
+        self._ensure_figure(self._required_capacity())
+
+        first_idx = min(self._panel_mappables)
+        mappable = self._panel_mappables[first_idx]
+        axes = [self._axes[idx] for idx in sorted(self._panel_specs)]
         if self._figure is not None:
-            self._figure.colorbar(mappable, ax=ax, label=label)
+            try:
+                self._figure.colorbar(mappable, ax=axes, label=label, location=position)
+            except TypeError:
+                # Fallback for older Matplotlib versions without `location`.
+                self._figure.colorbar(mappable, ax=axes, label=label)
 
     def finalize(self, tight: bool = True) -> Figure | None:
         """
@@ -256,21 +266,37 @@ class PanelLayout:
         >>> fig = layout.finalize()
         >>> fig.savefig("output.png", dpi=300)
         """
-        if self._figure is None:
-            self._create_figure()
+        self._ensure_figure(self._required_capacity())
 
         if tight and self._figure is not None:
-            self._figure.tight_layout()
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="This figure includes Axes that are not compatible with tight_layout.*",
+                    category=UserWarning,
+                )
+                self._figure.tight_layout()
 
         # Handle legends
         for legend_spec in self._legend_elements:
+            position = legend_spec["position"]
+            legend_kwargs = dict(legend_spec["kwargs"])
+            if position in {"right", "outside"}:
+                legend_kwargs.setdefault("loc", "center left")
+                legend_kwargs.setdefault("bbox_to_anchor", (1.02, 0.5))
+                legend_kwargs.setdefault("borderaxespad", 0.0)
+            elif position == "bottom":
+                legend_kwargs.setdefault("loc", "upper center")
+                legend_kwargs.setdefault("bbox_to_anchor", (0.5, -0.1))
+            elif position != "best":
+                raise ValueError("legend position must be one of: right, bottom, outside, best")
+
             # Add legend to first axes with artists
             for ax in self._axes:
                 if ax.legend_ is not None or ax.lines or ax.collections:
                     ax.legend(
                         labels=legend_spec["labels"],
-                        loc="best",
-                        **legend_spec["kwargs"],
+                        **legend_kwargs,
                     )
                     break
 
@@ -285,8 +311,7 @@ class PanelLayout:
         matplotlib.figure.Figure
             The figure object.
         """
-        if self._figure is None:
-            self._create_figure()
+        self._ensure_figure(self._required_capacity())
         return self._figure
 
     @property
@@ -299,5 +324,5 @@ class PanelLayout:
             List of all axes objects in the grid.
         """
         if not self._axes:
-            self._create_figure()
+            self._ensure_figure(self._required_capacity())
         return self._axes

@@ -4,7 +4,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .style import setup_style
+from .style import PlotStyle, setup_style
 
 
 def heatmap(
@@ -13,7 +13,11 @@ def heatmap(
     xticklabels: Sequence[str] | None = None,
     yticklabels: Sequence[str] | None = None,
     ax: plt.Axes | None = None,
-    cmap: str = "viridis",
+    cmap: str | None = None,
+    colorbar: bool = True,
+    cbar_label: str | None = None,
+    xtick_rotation: int = 60,
+    ytick_rotation: int = 0,
     **kwargs: Any,
 ) -> plt.Axes:
     """Create a heatmap with optional mask hatching.
@@ -30,8 +34,16 @@ def heatmap(
         Labels for y-axis ticks.
     ax : plt.Axes | None
         Matplotlib axes. If None, creates new figure.
-    cmap : str
-        Colormap name.
+    cmap : str | None
+        Colormap name. If None, uses proteomics expression default.
+    colorbar : bool
+        Whether to draw colorbar.
+    cbar_label : str | None
+        Optional colorbar label.
+    xtick_rotation : int
+        Rotation angle (degrees) for x tick labels.
+    ytick_rotation : int
+        Rotation angle (degrees) for y tick labels.
     **kwargs : Any
         Passed to ``imshow``.
 
@@ -45,9 +57,13 @@ def heatmap(
 
     if ax is None:
         _, ax = plt.subplots(figsize=(8, 6))
+    if cmap is None:
+        cmap = PlotStyle.get_colormap("expression")
+    if m is not None and m.shape != X.shape:
+        raise ValueError(f"Mask shape {m.shape} does not match matrix shape {X.shape}.")
 
     title = kwargs.pop("title", None)
-    im = ax.imshow(X, aspect="auto", cmap=cmap, **kwargs)
+    im = ax.imshow(X, aspect="auto", cmap=cmap, interpolation="nearest", **kwargs)
 
     if title:
         ax.set_title(title)
@@ -62,12 +78,16 @@ def heatmap(
 
     if xticklabels is not None:
         ax.set_xticks(np.arange(len(xticklabels)))
-        ax.set_xticklabels(xticklabels, rotation=90)
+        x_align = "right" if xtick_rotation else "center"
+        ax.set_xticklabels(xticklabels, rotation=xtick_rotation, ha=x_align)
 
     if yticklabels is not None:
         ax.set_yticks(np.arange(len(yticklabels)))
-        ax.set_yticklabels(yticklabels)
+        ax.set_yticklabels(yticklabels, rotation=ytick_rotation)
 
-    plt.colorbar(im, ax=ax)
+    if colorbar:
+        cbar = ax.figure.colorbar(im, ax=ax, fraction=0.045, pad=0.03)
+        if cbar_label:
+            cbar.set_label(cbar_label)
 
     return ax

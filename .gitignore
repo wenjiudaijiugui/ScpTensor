@@ -1,43 +1,25 @@
-# ==========================================
-# 1. 忽略隐藏文件 (Hidden files & directories)
-# ==========================================
-.*
-!.gitkeep
-!.gitignore
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
 
-# ==========================================
-# 2. 忽略配置文件 (Configuration files)
-# ==========================================
-# 常用配置文件后缀（但允许项目配置文件）
-*.toml
-*.yaml
-*.yml
-*.json
-*.ini
-*.cfg
-*.lock
-*.log
-
-# 项目配置文件例外（需要跟踪）
-!.gitignore
-!pyproject.toml
-!uv.lock
-!.pre-commit-config.yaml
-
-# 数据与模型文件 (Large data & model files)
-outputs/
-data/
-tmp/
-docs/_tutorial_outputs/
-**/outputs/
-**/data_cache/
-
-# 其他不需要跟踪的配置文件
+# Local environments / tool caches
+.venv/
+venv/
+.uv-cache/
+.uv-tmp/
 .python-version
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.serena/
+.claude/
 
-# ==========================================
-# 3. 常见的 Python 忽略项 (Common Python ignores)
-# ==========================================
+# Python build artifacts
 __pycache__/
 *.py[cod]
 *$py.class
@@ -45,34 +27,34 @@ __pycache__/
 build/
 dist/
 *.egg-info/
-.venv/
-.mypy_cache/
-.pytest_cache/
-.ruff_cache/
-.coverage
-htmlcov/
 
-# ==========================================
-# 缓存和输出文件 (Cache & Output files)
-# ==========================================
-**/outputs/
+# Logs
+*.log
+
+# Large data / temporary workspaces
+outputs/
+data/
+tmp/
 **/data_cache/
-*.pkl
+**/outputs/
 
-# ==========================================
-# 测试输出文件 (Test outputs)
-# ==========================================
-tests/res/
+# Legacy or generated tutorial outputs
+docs/_tutorial_outputs/
+tutorial/_tutorial_outputs/*
+!tutorial/_tutorial_outputs/toy_spectronaut_peptide_matrix.tsv
+!tutorial/_tutorial_outputs/toy_spectronaut_protein_long.tsv
 
-# ==========================================
-# Serena缓存 (Serena cache)
-# ==========================================
-.serena/
-# Dataset files (large) - download separately
-scptensor/datasets/pride/*/report.tsv
-scptensor/datasets/massive/*/report.tsv
-
-# Benchmark artifacts (downloaded/generated)
+# Downloaded or generated benchmark assets
 benchmark/**/data/
 benchmark/**/outputs/
+benchmark/autoselect/norm_test/
 benchmark/autoselect/strategy_compare/
+benchmark/autoselect/normalization_literature/
+benchmark/autoselect/synthetic_normalization_stress/
+
+# Test output directories
+tests/res/
+
+# Large downloaded datasets
+scptensor/datasets/pride/*/report.tsv
+scptensor/datasets/massive/*/report.tsv

@@ -14,8 +14,9 @@ from scptensor.core.filtering import FilterCriteria
 from scptensor.core.structures import ScpContainer
 from scptensor.qc._utils import (
     compute_detection_stats,
+    count_detected,
     log_filtering_operation,
-    validate_assay,
+    resolve_assay,
     validate_layer,
     validate_threshold,
 )
@@ -54,21 +55,18 @@ def calculate_feature_qc_metrics(
     >>> result = calculate_feature_qc_metrics(container)
     >>> result.assays['protein'].var[['missing_rate', 'detection_rate', 'cv']]
     """
-    assay = validate_assay(container, assay_name)
+    resolved_assay_name, assay = resolve_assay(container, assay_name)
 
-    if layer_name is None:
-        layer = next(iter(assay.layers.values()))
-    else:
-        validate_layer(assay, layer_name, assay_name=assay_name)
-        layer = assay.layers[layer_name]
-
+    layer_name = layer_name or next(iter(assay.layers.keys()))
+    validate_layer(assay, layer_name, assay_name=resolved_assay_name)
+    layer = assay.layers[layer_name]
     X = layer.X
     if sp.issparse(X):
         X = X.toarray()  # type: ignore[union-attr]
     X = np.asarray(X, dtype=np.float64)
 
     # Compute detection statistics
-    n_detected, detection_rate, means = compute_detection_stats(X)
+    n_detected, detection_rate, means = compute_detection_stats(layer.X, M=layer.M)
     missing_rate = 1.0 - detection_rate
 
     # Compute CV
@@ -88,34 +86,20 @@ def calculate_feature_qc_metrics(
     current_var = assay.var
     new_var = current_var.hstack(new_metrics)
 
-    # Create new assay with updated var
-    new_assay = assay.subset(np.arange(assay.n_features), copy_data=False)
-    new_assay.var = new_var
-
-    # Create new container
-    new_assays = {
-        name: new_assay if name == assay_name else a for name, a in container.assays.items()
-    }
-
-    new_container = ScpContainer(
-        obs=container.obs,
-        assays=new_assays,
-        links=container.links,
-        history=container.history,
-        sample_id_col=container.sample_id_col,
-    )
+    new_container = container.copy()
+    new_container.assays[resolved_assay_name].var = new_var
 
     new_container.log_operation(
         action="calculate_feature_qc_metrics",
         params={
-            "assay": assay_name,
-            "layer": layer_name or next(iter(assay.layers.keys())),
+            "assay": resolved_assay_name,
+            "layer": layer_name,
             "n_features": assay.n_features,
             "n_samples": container.n_samples,
         },
         description=(
             f"Calculated QC metrics for {assay.n_features} features "
-            f"across {container.n_samples} samples in assay '{assay_name}'. "
+            f"across {container.n_samples} samples in assay '{resolved_assay_name}'. "
             f"Metrics: missing_rate (mean={np.mean(missing_rate):.3f}), "
             f"detection_rate (mean={np.mean(detection_rate):.3f}), "
             f"cv (mean={np.nanmean(cv):.3f})."
@@ -160,23 +144,16 @@ def filter_features_by_missingness(
     4
     """
     validate_threshold(max_missing_rate, "max_missing_rate", min_val=0.0, max_val=1.0)
-    assay = validate_assay(container, assay_name)
+    resolved_assay_name, assay = resolve_assay(container, assay_name)
 
-    if layer_name is None:
-        layer = next(iter(assay.layers.values()))
-    else:
-        validate_layer(assay, layer_name, assay_name=assay_name)
-        layer = assay.layers[layer_name]
+    layer_name = layer_name or next(iter(assay.layers.keys()))
+    validate_layer(assay, layer_name, assay_name=resolved_assay_name)
+    layer = assay.layers[layer_name]
 
-    X = layer.X
-    n_samples = X.shape[0]
+    n_samples = layer.X.shape[0]
 
     # Compute missing rate
-    if sp.issparse(X):
-        n_detected = X.getnnz(axis=0)  # type: ignore[union-attr]
-    else:
-        n_detected = np.sum((X > 0) & (~np.isnan(X)), axis=0)
-
+    n_detected = count_detected(layer.X, layer.M, axis=0)
     missing_rate = 1.0 - (n_detected / n_samples)
 
     # Create filter mask
@@ -185,7 +162,7 @@ def filter_features_by_missingness(
 
     # Apply filtering
     criteria = FilterCriteria.by_indices(keep_indices)
-    new_container = container.filter_features(assay_name, criteria)
+    new_container = container.filter_features(resolved_assay_name, criteria)
 
     # Log provenance
     n_removed = assay.n_features - len(keep_indices)
@@ -193,12 +170,16 @@ def filter_features_by_missingness(
         new_container,
         action="filter_features_by_missingness",
         params={
-            "assay": assay_name,
+            "assay": resolved_assay_name,
             "n_removed": n_removed,
             "n_total": assay.n_features,
             "max_missing_rate": max_missing_rate,
         },
-        description=f"Filtered {n_removed}/{assay.n_features} features from {assay_name} by missingness (max_missing_rate={max_missing_rate}).",
+        description=(
+            f"Filtered {n_removed}/{assay.n_features} features from "
+            f"{resolved_assay_name} by missingness "
+            f"(max_missing_rate={max_missing_rate})."
+        ),
     )
 
     return new_container
@@ -250,13 +231,11 @@ def filter_features_by_cv(
             value=max_cv,
         )
 
-    assay = validate_assay(container, assay_name)
+    resolved_assay_name, assay = resolve_assay(container, assay_name)
 
-    if layer_name is None:
-        layer = next(iter(assay.layers.values()))
-    else:
-        validate_layer(assay, layer_name, assay_name=assay_name)
-        layer = assay.layers[layer_name]
+    layer_name = layer_name or next(iter(assay.layers.keys()))
+    validate_layer(assay, layer_name, assay_name=resolved_assay_name)
+    layer = assay.layers[layer_name]
 
     X = layer.X
     cv = compute_cv(X, axis=0, min_mean=min_mean)
@@ -267,7 +246,7 @@ def filter_features_by_cv(
 
     # Apply filtering
     criteria = FilterCriteria.by_indices(keep_indices)
-    new_container = container.filter_features(assay_name, criteria)
+    new_container = container.filter_features(resolved_assay_name, criteria)
 
     # Log provenance
     n_removed = assay.n_features - len(keep_indices)
@@ -275,13 +254,16 @@ def filter_features_by_cv(
         new_container,
         action="filter_features_by_cv",
         params={
-            "assay": assay_name,
+            "assay": resolved_assay_name,
             "n_removed": n_removed,
             "n_total": assay.n_features,
             "max_cv": max_cv,
             "min_mean": min_mean,
         },
-        description=f"Filtered {n_removed}/{assay.n_features} features from {assay_name} by CV (max_cv={max_cv}).",
+        description=(
+            f"Filtered {n_removed}/{assay.n_features} features from "
+            f"{resolved_assay_name} by CV (max_cv={max_cv})."
+        ),
     )
 
     return new_container

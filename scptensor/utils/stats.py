@@ -80,7 +80,14 @@ def correlation_matrix(
     if method == "pearson":
         # Pearson: cov(X,Y) / (std(X) * std(Y))
         norm = np.sqrt((X_centered**2).sum(axis=0))
-        corr = (X_centered.T @ X_centered) / np.outer(norm, norm)
+        denom = np.outer(norm, norm)
+        numer = X_centered.T @ X_centered
+        corr = np.divide(
+            numer,
+            denom,
+            out=np.zeros_like(denom, dtype=np.float64),
+            where=denom > 0,
+        )
     else:
         # Spearman: rank-based correlation
         from scipy.stats import rankdata
@@ -88,7 +95,14 @@ def correlation_matrix(
         X_ranks = np.apply_along_axis(rankdata, 0, X_dense)
         X_ranks_centered = X_ranks - X_ranks.mean(axis=0, keepdims=True)
         norm = np.sqrt((X_ranks_centered**2).sum(axis=0))
-        corr = (X_ranks_centered.T @ X_ranks_centered) / np.outer(norm, norm)
+        denom = np.outer(norm, norm)
+        numer = X_ranks_centered.T @ X_ranks_centered
+        corr = np.divide(
+            numer,
+            denom,
+            out=np.zeros_like(denom, dtype=np.float64),
+            where=denom > 0,
+        )
 
     # Handle numerical precision
     np.clip(corr, -1.0, 1.0, out=corr)

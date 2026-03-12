@@ -56,9 +56,16 @@ def cv_stability(X: NDArray[np.float64]) -> float:
     if X.size == 0 or X.shape[0] < 2:
         return 0.0
 
-    # Use nanmean/nanstd to handle NaN automatically
-    means = np.nanmean(X, axis=0)
-    stds = np.nanstd(X, axis=0, ddof=1)
+    finite_counts = np.sum(np.isfinite(X), axis=0)
+    evaluable_features = finite_counts >= 2
+    if not np.any(evaluable_features):
+        return 0.0
+
+    X_eval = X[:, evaluable_features]
+
+    # Use ddof=0 to avoid runtime warnings when some features have <=1 valid values.
+    means = np.nanmean(X_eval, axis=0)
+    stds = np.nanstd(X_eval, axis=0, ddof=0)
 
     # Calculate CVs for valid features (non-zero means and non-NaN stds)
     valid = ~(np.isnan(means) | np.isnan(stds) | (means < _EPS))
@@ -72,7 +79,10 @@ def cv_stability(X: NDArray[np.float64]) -> float:
     if cv_mean < _EPS:
         return 0.0
 
-    stability = 1.0 - min(np.std(cvs, ddof=1) / cv_mean, 1.0)
+    if cvs.size < 2:
+        return 1.0
+
+    stability = 1.0 - min(np.std(cvs, ddof=0) / cv_mean, 1.0)
     return float(np.clip(stability, 0.0, 1.0))
 
 

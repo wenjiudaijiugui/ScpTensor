@@ -21,7 +21,20 @@ if TYPE_CHECKING:
     import matplotlib.pyplot as plt
 
 
-__all__ = ["scatter", "umap", "pca", "tsne", "embedding"]
+__all__ = [
+    # Canonical plot_* names
+    "plot_embedding_scatter",
+    "plot_embedding_umap",
+    "plot_embedding_pca",
+    "plot_embedding_tsne",
+    "plot_embedding",
+    # Backward-compatible aliases
+    "scatter",
+    "umap",
+    "pca",
+    "tsne",
+    "embedding",
+]
 
 
 def scatter(
@@ -343,10 +356,8 @@ def _plot_with_missing_values(
             **kwargs,
         )
 
-    # Plot missing values by type
-    for m_type, m_color in MissingValueHandler.MISSING_COLORS.items():
-        if isinstance(m_type, str):
-            continue
+    # Plot all non-zero mask values by code (known and unknown)
+    for m_type in MissingValueHandler.get_present_mask_codes(mask):
         type_mask = mask == m_type
         if type_mask.sum() > 0:
             ax.scatter(
@@ -354,7 +365,7 @@ def _plot_with_missing_values(
                 y[type_mask],
                 s=size,
                 alpha=alpha * 0.7,
-                color=m_color,
+                color=MissingValueHandler.get_color_for_mask_code(m_type),
                 label=f"Missing ({m_type})",
                 edgecolors="none",
             )
@@ -574,3 +585,28 @@ def embedding(
     >>> ax = embedding(container, basis="pca", color="cluster")
     """
     return scatter(container, layer=layer, basis=basis, **kwargs)
+
+
+def plot_embedding_scatter(*args, **kwargs):
+    """Canonical alias of :func:`scatter`."""
+    return scatter(*args, **kwargs)
+
+
+def plot_embedding_umap(*args, **kwargs):
+    """Canonical alias of :func:`umap`."""
+    return umap(*args, **kwargs)
+
+
+def plot_embedding_pca(*args, **kwargs):
+    """Canonical alias of :func:`pca`."""
+    return pca(*args, **kwargs)
+
+
+def plot_embedding_tsne(*args, **kwargs):
+    """Canonical alias of :func:`tsne`."""
+    return tsne(*args, **kwargs)
+
+
+def plot_embedding(*args, **kwargs):
+    """Canonical alias of :func:`embedding`."""
+    return embedding(*args, **kwargs)

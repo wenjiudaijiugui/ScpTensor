@@ -76,7 +76,10 @@ def _bpca_init(y: npt.NDArray, q: int, missing_value: float | None = np.nan) -> 
         if valid.any():
             mu[j] = y[valid, j].mean()
 
-    tau = max(min(1.0 / (np.sum(np.diag(covy)) - np.sum(S)), 1e10), 1e-10)
+    denom = float(np.sum(np.diag(covy)) - np.sum(S))
+    if not np.isfinite(denom) or abs(denom) < 1e-12:
+        denom = 1e-12
+    tau = max(min(1.0 / denom, 1e10), 1e-10)
     alpha = (2e-10 + d) / (tau * np.diag(W.T @ W) + 2e-10)
 
     return {
@@ -138,6 +141,8 @@ def _bpca_em_step(M: dict, y: npt.NDArray) -> dict:
 
     Dw = Rxinv + M["tau"] * (T.T @ M["W"] @ Rxinv) + np.diag(M["alpha"]) / N
     M["W"] = T @ np.linalg.inv(Dw)
+    if not np.isfinite(trS) or abs(trS) < 1e-12:
+        trS = 1e-12
     M["tau"] = max(min(d / trS, 1e10), 1e-10)
     M["SigW"] = np.linalg.inv(Dw) * (d / N)
     M["alpha"] = (2 * 1e-10 + d) / (
@@ -173,7 +178,6 @@ def bpca_impute(
     """
     X = data.copy()
     N, d = X.shape
-    k = min(n_components, d - 1, N - 1)
 
     if random_state is not None:
         np.random.seed(random_state)
@@ -184,6 +188,22 @@ def bpca_impute(
 
     if not np.any(valid):
         return np.nan_to_num(X, nan=0.0)
+
+    n_valid = int(np.sum(valid))
+    if n_valid < 2:
+        # Degenerate case: BPCA covariance initialization is not well-defined.
+        # Fall back to simple column-mean fill from available rows.
+        col_means = np.nanmean(X[valid], axis=0)
+        col_means = np.nan_to_num(col_means, nan=0.0)
+        y = X.copy().astype(np.float64)
+        miss = np.isnan(y)
+        if np.any(miss):
+            y[miss] = np.take(col_means, np.where(miss)[1])
+        return np.nan_to_num(y, nan=0.0)
+
+    k = min(n_components, d - 1, n_valid - 1)
+    if k < 1:
+        k = 1
 
     M = _bpca_init(X[valid], k)
 

@@ -8,7 +8,6 @@ Tests cover:
 - scptensor.viz.base.style: setup_style() function
 - scptensor.viz.recipes.embedding: embedding() visualization
 - scptensor.viz.recipes.qc: qc_completeness() and qc_matrix_spy()
-- scptensor.viz.recipes.stats: volcano() function
 """
 
 import matplotlib.pyplot as plt
@@ -22,7 +21,6 @@ from scptensor.viz.base import heatmap, scatter, violin
 from scptensor.viz.base.style import setup_style
 from scptensor.viz.recipes.embedding import embedding
 from scptensor.viz.recipes.qc import qc_completeness, qc_matrix_spy
-from scptensor.viz.recipes.stats import volcano
 
 # ============================================================================
 # Fixtures for visualization tests
@@ -105,31 +103,6 @@ def viz_container():
             "proteins": assay,  # Note: embedding functions expect "proteins"
         },
     )
-
-
-@pytest.fixture
-def volcano_container():
-    """Create a container with volcano plot data."""
-    obs = pl.DataFrame(
-        {
-            "_index": ["S1", "S2", "S3", "S4", "S5"],
-        }
-    )
-
-    # Create var with DE results
-    var = pl.DataFrame(
-        {
-            "_index": ["P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10"],
-            "protein_id": ["P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10"],
-            "Treat_vs_Ctrl_logFC": [2.5, -2.0, 0.5, -0.3, 1.5, -1.8, 0.1, -0.2, 3.0, -2.5],
-            "Treat_vs_Ctrl_pval": [0.001, 0.01, 0.3, 0.5, 0.02, 0.03, 0.6, 0.7, 0.0001, 0.005],
-        }
-    )
-
-    X = np.random.rand(5, 10)
-    assay = Assay(var=var, layers={"X": ScpMatrix(X=X)})
-
-    return ScpContainer(obs=obs, assays={"protein": assay})  # volcano function expects "protein"
 
 
 @pytest.fixture
@@ -754,98 +727,6 @@ class TestQCMatrixSpy:
 
 
 # ============================================================================
-# Tests for volcano (scptensor.viz.recipes.stats)
-# ============================================================================
-
-
-class TestVolcano:
-    """Tests for volcano function."""
-
-    def test_volcano_basic(self, volcano_container):
-        """Test basic volcano plot."""
-        plt.close("all")
-        ax = volcano(volcano_container, comparison="Treat_vs_Ctrl")
-
-        assert isinstance(ax, Axes)
-        plt.close("all")
-
-    def test_volcano_with_custom_thresholds(self, volcano_container):
-        """Test volcano plot with custom thresholds."""
-        plt.close("all")
-        ax = volcano(
-            volcano_container, comparison="Treat_vs_Ctrl", fc_threshold=2.0, pval_threshold=0.01
-        )
-
-        assert isinstance(ax, Axes)
-        plt.close("all")
-
-    def test_volcano_with_custom_columns(self, volcano_container):
-        """Test volcano plot with explicitly named columns."""
-        plt.close("all")
-        ax = volcano(
-            volcano_container,
-            comparison="AnyName",  # Not used when columns are explicit
-            logfc_col="Treat_vs_Ctrl_logFC",
-            pval_col="Treat_vs_Ctrl_pval",
-        )
-
-        assert isinstance(ax, Axes)
-        plt.close("all")
-
-    def test_volcano_assay_not_found(self, volcano_container):
-        """Test volcano plot with non-existent assay."""
-        plt.close("all")
-        with pytest.raises(ValueError, match="Assay 'peptides' not found"):
-            volcano(volcano_container, comparison="Treat_vs_Ctrl", assay_name="peptides")
-
-    def test_volcano_logfc_column_not_found(self, volcano_container):
-        """Test volcano plot with missing logFC column."""
-        plt.close("all")
-        with pytest.raises(ValueError, match="Column.*not found in.*var"):
-            volcano(volcano_container, comparison="NonExistent_Comparison")
-
-    def test_volcano_pval_column_not_found(self, volcano_container):
-        """Test volcano plot with explicitly set missing pval column."""
-        plt.close("all")
-        with pytest.raises(ValueError, match="Column.*not found in.*var"):
-            volcano(
-                volcano_container,
-                comparison="Any",
-                logfc_col="Treat_vs_Ctrl_logFC",
-                pval_col="NonExistent_pval",
-            )
-
-    def test_volcano_axis_labels(self, volcano_container):
-        """Test volcano plot has correct axis labels."""
-        plt.close("all")
-        ax = volcano(volcano_container, comparison="Treat_vs_Ctrl")
-
-        assert ax.get_xlabel() == "log2 Fold Change"
-        assert ax.get_ylabel() == "-log10 P-value"
-        plt.close("all")
-
-    def test_volcano_title(self, volcano_container):
-        """Test volcano plot has correct title."""
-        plt.close("all")
-        ax = volcano(volcano_container, comparison="Treat_vs_Ctrl")
-
-        assert "Volcano Plot" in ax.get_title()
-        assert "Treat_vs_Ctrl" in ax.get_title()
-        plt.close("all")
-
-    def test_volcano_threshold_lines(self, volcano_container):
-        """Test volcano plot has threshold lines."""
-        plt.close("all")
-        ax = volcano(volcano_container, comparison="Treat_vs_Ctrl")
-
-        # Check that threshold lines exist
-        # The function adds 3 lines: 1 horizontal, 2 vertical
-        # We can't easily count them but we can verify the axes is valid
-        assert isinstance(ax, Axes)
-        plt.close("all")
-
-
-# ============================================================================
 # Tests for edge cases and error handling
 # ============================================================================
 
@@ -899,27 +780,6 @@ class TestVisualizationEdgeCases:
         assert isinstance(ax, Axes)
         plt.close("all")
 
-    def test_volcano_with_nan_values(self, volcano_container):
-        """Test volcano plot handles NaN values properly."""
-        plt.close("all")
-        # Modify var to have NaN
-        volcano_container.assays["protein"].var = volcano_container.assays[
-            "protein"
-        ].var.with_columns(
-            pl.lit(np.nan).alias("Treat_vs_Ctrl_logFC_nan"),
-            pl.lit(0.01).alias("Treat_vs_Ctrl_pval_nan"),
-        )
-
-        ax = volcano(
-            volcano_container,
-            comparison="AnyName",  # Not used when columns are explicit
-            logfc_col="Treat_vs_Ctrl_logFC_nan",
-            pval_col="Treat_vs_Ctrl_pval_nan",
-        )
-
-        assert isinstance(ax, Axes)
-        plt.close("all")
-
 
 # ============================================================================
 # Integration tests
@@ -960,20 +820,5 @@ class TestVisualizationIntegration:
         # PCA embedding
         ax2 = embedding(viz_container, basis="reduce_pca")
         assert isinstance(ax2, Axes)
-
-        plt.close("all")
-
-    def test_volcano_with_de_results(self, volcano_container):
-        """Test volcano plot with realistic DE results."""
-        plt.close("all")
-
-        ax = volcano(
-            volcano_container, comparison="Treat_vs_Ctrl", fc_threshold=1.0, pval_threshold=0.05
-        )
-
-        assert isinstance(ax, Axes)
-        # Verify axes labels
-        assert ax.get_xlabel() == "log2 Fold Change"
-        assert ax.get_ylabel() == "-log10 P-value"
 
         plt.close("all")

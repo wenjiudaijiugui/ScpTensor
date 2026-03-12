@@ -24,9 +24,9 @@ auto_impute
 auto_integrate
     Auto-select optimal batch correction method
 auto_reduce
-    Auto-select optimal dimensionality reduction method
+    Auto-select optimal dimensionality reduction method (experimental stage)
 auto_cluster
-    Auto-select optimal clustering method
+    Auto-select optimal clustering method (experimental stage)
 
 Example
 -------
@@ -113,6 +113,10 @@ def auto_normalize(
     -----
     This is a convenience function that creates a single-stage AutoSelector.
     For multi-stage pipelines, use AutoSelector directly.
+    Scale-sensitive methods (`norm_quantile`, `norm_trqn`) are only compared
+    automatically when ``source_layer`` has explicit log provenance from layer
+    naming or transformation history. On raw/unknown-scale layers, AutoSelect
+    restricts the candidate set to `norm_none`, `norm_mean`, and `norm_median`.
     """
     selector = AutoSelector(stages=["normalize"], keep_all=keep_all)
     return selector.run_stage(
@@ -170,11 +174,16 @@ def auto_integrate(
     assay_name: str = "proteins",
     source_layer: str | None = None,
     keep_all: bool = False,
+    include_embedding_methods: bool = False,
     **kwargs,
 ) -> tuple[ScpContainer, StageReport]:
     """Auto-select optimal batch correction method.
 
     Evaluates multiple batch correction methods and returns the best performing one.
+    By default, only stable matrix-level methods recommended for downstream
+    differential analysis are compared. Pass
+    ``include_embedding_methods=True`` to include exploratory embedding-level
+    methods such as MNN/Harmony/Scanorama in the candidate set.
 
     Parameters
     ----------
@@ -186,6 +195,11 @@ def auto_integrate(
         Source layer name. If None, uses "raw".
     keep_all : bool, optional
         If True, keep all method results; if False, keep only best, by default False
+    include_embedding_methods : bool, optional
+        Whether to include exploratory embedding-level integration methods
+        (`mnn`, `harmony`, `scanorama`) in the candidate set. Disabled by
+        default so stable auto-integration only compares matrix-level methods
+        recommended for downstream differential analysis.
     **kwargs
         Additional parameters passed to the evaluator
 
@@ -206,7 +220,12 @@ def auto_integrate(
     """
     selector = AutoSelector(stages=["integrate"], keep_all=keep_all)
     return selector.run_stage(
-        container, stage="integrate", assay_name=assay_name, source_layer=source_layer, **kwargs
+        container,
+        stage="integrate",
+        assay_name=assay_name,
+        source_layer=source_layer,
+        include_embedding_methods=include_embedding_methods,
+        **kwargs,
     )
 
 
@@ -248,6 +267,7 @@ def auto_reduce(
     -----
     This is a convenience function that creates a single-stage AutoSelector.
     For multi-stage pipelines, use AutoSelector directly.
+    The ``reduce`` stage is classified as experimental in current release scope.
     """
     selector = AutoSelector(stages=["reduce"], keep_all=keep_all)
     return selector.run_stage(
@@ -293,6 +313,7 @@ def auto_cluster(
     -----
     This is a convenience function that creates a single-stage AutoSelector.
     For multi-stage pipelines, use AutoSelector directly.
+    The ``cluster`` stage is classified as experimental in current release scope.
     """
     selector = AutoSelector(stages=["cluster"], keep_all=keep_all)
     return selector.run_stage(

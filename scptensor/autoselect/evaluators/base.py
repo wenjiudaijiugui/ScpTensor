@@ -25,6 +25,7 @@ import numpy as np
 
 from scptensor.autoselect.core import EvaluationResult, StageReport
 from scptensor.autoselect.strategy import get_strategy_preset
+from scptensor.core.assay_alias import resolve_assay_name
 
 if TYPE_CHECKING:
     from scptensor.core.structures import ScpContainer, ScpMatrix
@@ -318,6 +319,44 @@ class BaseEvaluator(ABC):
             repeat_kwargs["random_state"] = base_rs + repeat_idx
         return repeat_kwargs
 
+    def _resolve_metric_assay_name(self, container: ScpContainer, assay_name: str | None) -> str:
+        """Resolve assay aliases for evaluator bookkeeping."""
+        preferred = assay_name
+        if preferred is None:
+            cached = getattr(self, "_metric_assay_name", "proteins")
+            preferred = cached if isinstance(cached, str) else "proteins"
+        return resolve_assay_name(container, preferred)
+
+    def _get_metric_assay(self, container: ScpContainer, assay_name: str | None = None):
+        """Return resolved assay or None when unavailable."""
+        resolved = self._resolve_metric_assay_name(container, assay_name)
+        return container.assays.get(resolved)
+
+    def _get_result_name(self, method_name: str, source_layer: str) -> str:
+        """Return the result identifier stored in EvaluationResult.layer_name."""
+        return f"{source_layer}_{method_name}"
+
+    def _collect_success_artifact(
+        self,
+        result_container: ScpContainer,
+        assay_name: str,
+        result_name: str,
+    ):
+        """Extract the successful artifact from a result container."""
+        resolved_assay_name = self._resolve_metric_assay_name(result_container, assay_name)
+        return result_container.assays[resolved_assay_name].layers[result_name]
+
+    def _attach_success_artifact(
+        self,
+        result_container: ScpContainer,
+        assay_name: str,
+        result_name: str,
+        artifact,
+    ) -> None:
+        """Attach a stored artifact to the final result container."""
+        resolved_assay_name = self._resolve_metric_assay_name(result_container, assay_name)
+        result_container.assays[resolved_assay_name].add_layer(result_name, artifact)
+
     def _compute_confidence_interval(
         self,
         values: list[float],
@@ -349,7 +388,7 @@ class BaseEvaluator(ABC):
         repeat_results: list[EvaluationResult] = []
         best_container: ScpContainer | None = None
         best_success_score = -math.inf
-        layer_name = f"{source_layer}_{method_name}"
+        layer_name = self._get_result_name(method_name, source_layer)
 
         for idx in range(n_repeats):
             repeat_kwargs = self._with_repeat_random_state(kwargs, idx)
@@ -510,16 +549,18 @@ class BaseEvaluator(ABC):
         >>> if container is not None:
         ...     print(f"Score: {result.overall_score}")
         """
-        new_layer_name = f"{source_layer}_{method_name}"
+        new_layer_name = self._get_result_name(method_name, source_layer)
         start_time = time.perf_counter()
         result_container: ScpContainer | None = None
         error_msg: str | None = None
         scores: dict[str, float] = {}
 
         try:
+            resolved_assay_name = self._resolve_metric_assay_name(container, assay_name)
+            self._metric_assay_name = resolved_assay_name
             result_container = method_func(
                 container=container.copy(),
-                assay_name=assay_name,
+                assay_name=resolved_assay_name,
                 source_layer=source_layer,
                 **kwargs,
             )
@@ -624,7 +665,7 @@ class BaseEvaluator(ABC):
                 layer_name = eval_result.layer_name
                 successful_layers[method_name] = (
                     layer_name,
-                    result_container.assays[assay_name].layers[layer_name],
+                    self._collect_success_artifact(result_container, assay_name, layer_name),
                 )
 
         report.results = results
@@ -650,16 +691,21 @@ class BaseEvaluator(ABC):
         )
 
         result_container = container.copy()
-        assay = result_container.assays[assay_name]
-
         # Add layers: all if keep_all, otherwise only best
         if keep_all:
             for method_name, (layer_name, layer_matrix) in successful_layers.items():
                 if method_name != best_result.method_name:
-                    assay.add_layer(layer_name, layer_matrix)
+                    self._attach_success_artifact(
+                        result_container, assay_name, layer_name, layer_matrix
+                    )
 
         # Always add best layer
-        assay.add_layer(best_result.layer_name, successful_layers[best_result.method_name][1])
+        self._attach_success_artifact(
+            result_container,
+            assay_name,
+            best_result.layer_name,
+            successful_layers[best_result.method_name][1],
+        )
 
         return result_container, report
 

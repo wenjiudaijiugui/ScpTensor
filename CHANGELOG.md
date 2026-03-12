@@ -7,6 +7,18 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Changed
+- `.gitignore` now explicitly re-includes `.github/workflows/*.yml` to keep CI/CD workflow files version-controlled.
+- `scptensor.standardization.zscore` was restored and re-exported in top-level package API (`from scptensor import zscore`).
+- Dimensionality reduction and clustering were downgraded to experimental release scope and are now documented under `scptensor.experimental`.
+- Visualization APIs were standardized around clear `plot_*` naming with backward-compatible aliases, and targeted workflow plots were added for aggregation/normalization/integration diagnostics.
+
+### Removed
+- Unimplemented placeholder module `scptensor/core/reader.py` (it was not exported and only raised `NotImplementedError`).
+- Differential-expression visualization entry `volcano` was removed from public APIs and legacy recipe module `scptensor/viz/recipes/stats.py` was deleted.
+- Deprecated wrapper module `scptensor/normalization/log_transform.py` was removed (use `scptensor.transformation.log_transform`).
+- Deprecated integration aliases `harmony()` and `integrate_nonlinear` were removed (use `integrate_harmony`).
+
 ## [0.1.0] - 2026-03-06
 
 ### Added

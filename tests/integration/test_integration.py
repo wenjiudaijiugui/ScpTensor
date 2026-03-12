@@ -16,6 +16,8 @@ Tests cover:
 - Sparse matrix handling
 """
 
+import importlib.util
+
 import numpy as np
 import polars as pl
 import pytest
@@ -26,6 +28,7 @@ from scptensor.core.exceptions import (
     LayerNotFoundError,
     MissingDependencyError,
     ScpValueError,
+    ValidationError,
 )
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.integration import get_integrate_method_info, integrate_none
@@ -35,6 +38,9 @@ from scptensor.integration import integrate_limma as limma_correct
 from scptensor.integration import integrate_mnn as mnn_correct
 from scptensor.integration import integrate_scanorama as scanorama_integrate
 from scptensor.integration.combat import _solve_eb
+
+HARMONYPY_AVAILABLE = importlib.util.find_spec("harmonypy") is not None
+SCANORAMA_AVAILABLE = importlib.util.find_spec("scanorama") is not None
 
 # =============================================================================
 # Helper Functions
@@ -110,6 +116,53 @@ def create_batch_container(
     assay = Assay(var=var, layers={"raw": matrix})
 
     return ScpContainer(obs=obs, assays={"protein": assay})
+
+
+def add_pca_assay(
+    container: ScpContainer,
+    n_components: int = 10,
+) -> np.ndarray:
+    """Add a PCA embedding assay that Harmony can consume via assay='pca', layer='X'."""
+    from sklearn.decomposition import PCA
+
+    X = container.assays["protein"].layers["raw"].X
+    if sparse.issparse(X):
+        X = X.toarray()
+
+    n_components = min(n_components, X.shape[0], X.shape[1])
+    X_pca = PCA(n_components=n_components, random_state=42).fit_transform(X)
+    M_pca = np.zeros(X_pca.shape, dtype=np.int8)
+
+    container.assays["pca"] = Assay(
+        var=pl.DataFrame({"pc_name": [f"PC{i + 1}" for i in range(X_pca.shape[1])]}),
+        layers={"X": ScpMatrix(X=X_pca.copy(), M=M_pca.copy())},
+        feature_id_col="pc_name",
+    )
+    return X_pca
+
+
+def add_pca_layer_to_protein_assay(container: ScpContainer) -> np.ndarray:
+    """Add a same-width PCA-like layer so protein/pca stays assay-compatible."""
+    from sklearn.decomposition import PCA
+
+    X = container.assays["protein"].layers["raw"].X
+    if sparse.issparse(X):
+        X = X.toarray()
+
+    n_components = X.shape[1]
+    X_pca = PCA(n_components=n_components, random_state=42).fit_transform(X)
+    M_pca = np.zeros(X_pca.shape, dtype=np.int8)
+    container.assays["protein"].add_layer("pca", ScpMatrix(X=X_pca, M=M_pca))
+    return X_pca
+
+
+def add_pca_inputs(
+    container: ScpContainer,
+    n_components: int = 10,
+) -> np.ndarray:
+    """Add both `pca/X` and `protein/pca` Harmony-compatible inputs."""
+    add_pca_assay(container, n_components=n_components)
+    return add_pca_layer_to_protein_assay(container)
 
 
 def compute_batch_effect_metric(X: np.ndarray, batches: np.ndarray) -> float:
@@ -287,7 +340,7 @@ class TestMNNCorrection:
         assert X_corrected.shape == (60, 50)
 
     def test_mnn_with_nan_values(self):
-        """Test MNN correction handles NaN values."""
+        """Test MNN correction rejects NaN values without explicit imputation."""
         container = create_batch_container(
             n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
         )
@@ -297,20 +350,15 @@ class TestMNNCorrection:
         X[0:5, 0:5] = np.nan
         container.assays["protein"].layers["raw"] = ScpMatrix(X=X, M=None)
 
-        # Should not raise error
-        result = mnn_correct(
-            container,
-            batch_key="batch",
-            assay_name="protein",
-            base_layer="raw",
-            new_layer_name="mnn_corrected",
-            k=10,
-        )
-
-        # Verify layer created and no NaN in output
-        assert "mnn_corrected" in result.assays["protein"].layers
-        X_corrected = result.assays["protein"].layers["mnn_corrected"].X
-        assert not np.any(np.isnan(X_corrected))
+        with pytest.raises(ScpValueError, match="requires a complete matrix"):
+            mnn_correct(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                new_layer_name="mnn_corrected",
+                k=10,
+            )
 
     def test_mnn_preserves_mask(self):
         """Test MNN correction preserves mask matrix."""
@@ -565,42 +613,35 @@ class TestMNNCorrection:
 class TestHarmonyIntegration:
     """Test Harmony batch correction (requires harmonypy)."""
 
-    @pytest.mark.skip(reason="harmonypy is optional dependency")
+    @pytest.mark.skipif(not HARMONYPY_AVAILABLE, reason="harmonypy is optional dependency")
     def test_harmony_basic_two_batches(self):
         """Test Harmony integration with two batches."""
-        # Create PCA-like data for Harmony
         container = create_batch_container(
             n_samples_per_batch=50, n_features=30, n_batches=2, random_state=42
         )
-
-        # Harmony works best on PCA data, create a PCA-like layer
-        from sklearn.decomposition import PCA
-
-        pca = PCA(n_components=30, random_state=42)
-        X_pca = pca.fit_transform(container.assays["protein"].layers["raw"].X)
-        container.assays["protein"].add_layer("pca", ScpMatrix(X=X_pca, M=None))
+        add_pca_assay(container, n_components=20)
 
         # Apply Harmony
         result = harmony(
             container,
             batch_key="batch",
-            assay_name="protein",
-            base_layer="pca",
+            assay_name="pca",
+            base_layer="X",
             new_layer_name="harmony",
             theta=2.0,
             max_iter_harmony=5,
         )
 
-        # Verify layer was created
-        assert "harmony" in result.assays["protein"].layers
+        # Verify layer was created on the embedding assay
+        assert "harmony" in result.assays["pca"].layers
 
         # Check dimensions
-        X_corrected = result.assays["protein"].layers["harmony"].X
-        assert X_corrected.shape == (100, 30)
+        X_corrected = result.assays["pca"].layers["harmony"].X
+        assert X_corrected.shape == (100, 20)
 
-    @pytest.mark.skip(reason="harmonypy is optional dependency")
+    @pytest.mark.skipif(not HARMONYPY_AVAILABLE, reason="harmonypy is optional dependency")
     def test_harmony_with_sparse_input(self):
-        """Test Harmony with sparse input."""
+        """Test Harmony accepts a PCA-like layer on the protein assay."""
         container = create_batch_container(
             n_samples_per_batch=30, n_features=30, n_batches=2, random_state=42
         )
@@ -608,30 +649,32 @@ class TestHarmonyIntegration:
         # Convert to sparse
         X_sparse = sparse.csr_matrix(container.assays["protein"].layers["raw"].X)
         container.assays["protein"].layers["raw"] = ScpMatrix(X=X_sparse, M=None)
+        add_pca_layer_to_protein_assay(container)
 
         result = harmony(
             container,
             batch_key="batch",
             assay_name="protein",
-            base_layer="raw",
+            base_layer="pca",
             new_layer_name="harmony",
             max_iter_harmony=5,
         )
 
         assert "harmony" in result.assays["protein"].layers
 
-    @pytest.mark.skip(reason="harmonypy is optional dependency")
+    @pytest.mark.skipif(not HARMONYPY_AVAILABLE, reason="harmonypy is optional dependency")
     def test_harmony_custom_parameters(self):
         """Test Harmony with custom parameters."""
         container = create_batch_container(
             n_samples_per_batch=30, n_features=30, n_batches=2, random_state=42
         )
+        add_pca_assay(container, n_components=15)
 
         result = harmony(
             container,
             batch_key="batch",
-            assay_name="protein",
-            base_layer="raw",
+            assay_name="pca",
+            base_layer="X",
             new_layer_name="harmony_custom",
             theta=3.0,
             lamb=0.5,
@@ -640,34 +683,50 @@ class TestHarmonyIntegration:
             max_iter_harmony=5,
         )
 
-        assert "harmony_custom" in result.assays["protein"].layers
+        assert "harmony_custom" in result.assays["pca"].layers
 
-    @pytest.mark.skip(reason="harmonypy is optional dependency")
+    @pytest.mark.skipif(not HARMONYPY_AVAILABLE, reason="harmonypy is optional dependency")
     def test_harmony_preserves_mask(self):
         """Test Harmony preserves mask matrix."""
         container = create_batch_container(
             n_samples_per_batch=30, n_features=30, n_batches=2, random_state=42
         )
 
-        M = np.zeros((60, 30), dtype=np.int8)
+        X_pca = add_pca_assay(container, n_components=10)
+        M = np.zeros(X_pca.shape, dtype=np.int8)
         M[0:5, 0:5] = 1
 
-        container.assays["protein"].layers["raw"] = ScpMatrix(
-            X=container.assays["protein"].layers["raw"].X, M=M
-        )
+        container.assays["pca"].layers["X"] = ScpMatrix(X=X_pca, M=M)
 
         result = harmony(
             container,
             batch_key="batch",
-            assay_name="protein",
-            base_layer="raw",
+            assay_name="pca",
+            base_layer="X",
             new_layer_name="harmony",
             max_iter_harmony=5,
         )
 
-        M_harmony = result.assays["protein"].layers["harmony"].M
+        M_harmony = result.assays["pca"].layers["harmony"].M
         assert M_harmony is not None
         assert np.array_equal(M_harmony, M)
+
+    @pytest.mark.skipif(not HARMONYPY_AVAILABLE, reason="harmonypy is optional dependency")
+    def test_harmony_rejects_raw_protein_layer(self):
+        """Harmony should reject raw protein matrices and require embeddings."""
+        container = create_batch_container(
+            n_samples_per_batch=30, n_features=30, n_batches=2, random_state=42
+        )
+
+        with pytest.raises(ScpValueError, match="requires a low-dimensional embedding input"):
+            harmony(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                new_layer_name="harmony",
+                max_iter_harmony=5,
+            )
 
     # -------------------------------------------------------------------------
     # Error handling tests (these should work even without harmonypy)
@@ -679,64 +738,56 @@ class TestHarmonyIntegration:
             n_samples_per_batch=30, n_features=30, n_batches=2, random_state=42
         )
 
-        try:
+        if not HARMONYPY_AVAILABLE:
+            pytest.skip("harmonypy is optional dependency")
+
+        with pytest.raises(AssayNotFoundError, match="nonexistent"):
             harmony(
                 container,
                 batch_key="batch",
                 assay_name="nonexistent",
                 base_layer="raw",
             )
-            raise AssertionError("Should have raised MissingDependencyError or AssayNotFoundError")
-        except (MissingDependencyError, AssayNotFoundError):
-            pass  # Expected if harmonypy not installed
-        except ImportError:
-            pass  # harmonypy not installed
 
     def test_harmony_error_missing_batch_column(self):
         """Test Harmony raises error for missing batch column."""
         container = create_batch_container(
             n_samples_per_batch=30, n_features=30, n_batches=2, random_state=42
         )
+        add_pca_assay(container, n_components=10)
 
-        try:
+        if not HARMONYPY_AVAILABLE:
+            pytest.skip("harmonypy is optional dependency")
+
+        with pytest.raises(ScpValueError):
             harmony(
                 container,
                 batch_key="nonexistent_batch",
-                assay_name="protein",
-                base_layer="raw",
+                assay_name="pca",
+                base_layer="X",
             )
-            raise AssertionError("Should have raised error")
-        except MissingDependencyError:
-            pass  # harmonypy not installed
-        except ScpValueError:
-            pass  # Expected error
-        except ImportError:
-            pass  # harmonypy not installed
 
-    @pytest.mark.skip(reason="harmonypy is optional dependency")
     def test_harmony_error_single_batch(self):
         """Test Harmony raises error with only one batch."""
         container = create_batch_container(
             n_samples_per_batch=30, n_features=30, n_batches=2, random_state=42
         )
+        add_pca_assay(container, n_components=10)
 
         # Modify to single batch
         container.obs = container.obs.with_columns(pl.lit("batch1").alias("batch"))
 
-        try:
+        if not HARMONYPY_AVAILABLE:
+            pytest.skip("harmonypy is optional dependency")
+
+        with pytest.raises(ScpValueError, match="at least 2 batches"):
             harmony(
                 container,
                 batch_key="batch",
-                assay_name="protein",
-                base_layer="raw",
+                assay_name="pca",
+                base_layer="X",
             )
-            raise AssertionError("Should have raised error")
-        except ScpValueError as e:
-            assert "at least 2 batches" in str(e)
-        except ImportError:
-            pass  # harmonypy not installed
 
-    @pytest.mark.skip(reason="harmonypy is optional dependency")
     def test_harmony_error_singleton_batch(self):
         """Test Harmony raises error with singleton batch."""
         np.random.seed(42)
@@ -755,19 +806,18 @@ class TestHarmonyIntegration:
 
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X, M=None)})
         container = ScpContainer(obs=obs, assays={"protein": assay})
+        add_pca_assay(container, n_components=6)
 
-        try:
+        if not HARMONYPY_AVAILABLE:
+            pytest.skip("harmonypy is optional dependency")
+
+        with pytest.raises(ScpValueError, match="at least 2 samples per batch"):
             harmony(
                 container,
                 batch_key="batch",
-                assay_name="protein",
-                base_layer="raw",
+                assay_name="pca",
+                base_layer="X",
             )
-            raise AssertionError("Should have raised error")
-        except ScpValueError as e:
-            assert "at least 2 samples per batch" in str(e)
-        except ImportError:
-            pass  # harmonypy not installed
 
 
 # =============================================================================
@@ -778,7 +828,7 @@ class TestHarmonyIntegration:
 class TestScanoramaIntegration:
     """Test Scanorama batch correction (requires scanorama)."""
 
-    @pytest.mark.skip(reason="scanorama is optional dependency")
+    @pytest.mark.skipif(not SCANORAMA_AVAILABLE, reason="scanorama is optional dependency")
     def test_scanorama_basic_two_batches(self):
         """Test Scanorama integration with two batches."""
         container = create_batch_container(
@@ -803,7 +853,7 @@ class TestScanoramaIntegration:
         X_corrected = result.assays["protein"].layers["scanorama"].X
         assert X_corrected.shape == (60, 50)
 
-    @pytest.mark.skip(reason="scanorama is optional dependency")
+    @pytest.mark.skipif(not SCANORAMA_AVAILABLE, reason="scanorama is optional dependency")
     def test_scanorama_three_batches(self):
         """Test Scanorama with three batches."""
         container = create_batch_container(
@@ -820,7 +870,7 @@ class TestScanoramaIntegration:
 
         assert "scanorama" in result.assays["protein"].layers
 
-    @pytest.mark.skip(reason="scanorama is optional dependency")
+    @pytest.mark.skipif(not SCANORAMA_AVAILABLE, reason="scanorama is optional dependency")
     def test_scanorama_with_sparse_input(self):
         """Test Scanorama with sparse input."""
         container = create_batch_container(
@@ -840,7 +890,7 @@ class TestScanoramaIntegration:
 
         assert "scanorama" in result.assays["protein"].layers
 
-    @pytest.mark.skip(reason="scanorama is optional dependency")
+    @pytest.mark.skipif(not SCANORAMA_AVAILABLE, reason="scanorama is optional dependency")
     def test_scanorama_with_dimensionality_reduction(self):
         """Test Scanorama with dimensionality reduction."""
         container = create_batch_container(
@@ -861,7 +911,7 @@ class TestScanoramaIntegration:
         X_dr = result.assays["protein"].layers["scanorama_dr"].X
         assert X_dr.shape[1] == 15  # Reduced dimension
 
-    @pytest.mark.skip(reason="scanorama is optional dependency")
+    @pytest.mark.skipif(not SCANORAMA_AVAILABLE, reason="scanorama is optional dependency")
     def test_scanorama_custom_parameters(self):
         """Test Scanorama with custom parameters."""
         container = create_batch_container(
@@ -882,7 +932,7 @@ class TestScanoramaIntegration:
 
         assert "scanorama_custom" in result.assays["protein"].layers
 
-    @pytest.mark.skip(reason="scanorama is optional dependency")
+    @pytest.mark.skipif(not SCANORAMA_AVAILABLE, reason="scanorama is optional dependency")
     def test_scanorama_preserves_mask(self):
         """Test Scanorama preserves mask matrix."""
         container = create_batch_container(
@@ -908,7 +958,7 @@ class TestScanoramaIntegration:
         assert M_scanorama is not None
         assert np.array_equal(M_scanorama, M)
 
-    @pytest.mark.skip(reason="scanorama is optional dependency")
+    @pytest.mark.skipif(not SCANORAMA_AVAILABLE, reason="scanorama is optional dependency")
     def test_scanorama_with_nan_values(self):
         """Test Scanorama handles NaN values."""
         container = create_batch_container(
@@ -941,7 +991,18 @@ class TestScanoramaIntegration:
             n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
         )
 
-        try:
+        if not SCANORAMA_AVAILABLE:
+            with pytest.raises(MissingDependencyError):
+                scanorama_integrate(
+                    container,
+                    batch_key="batch",
+                    assay_name="protein",
+                    base_layer="raw",
+                    sigma=0,
+                )
+            return
+
+        with pytest.raises(ScpValueError, match="sigma must be positive"):
             scanorama_integrate(
                 container,
                 batch_key="batch",
@@ -949,13 +1010,6 @@ class TestScanoramaIntegration:
                 base_layer="raw",
                 sigma=0,
             )
-            raise AssertionError("Should have raised error")
-        except MissingDependencyError:
-            pass  # scanorama not installed
-        except ScpValueError as e:
-            assert "sigma must be positive" in str(e)
-        except ImportError:
-            pass  # scanorama not installed
 
     def test_scanorama_error_invalid_alpha(self):
         """Test Scanorama raises error for invalid alpha."""
@@ -963,7 +1017,18 @@ class TestScanoramaIntegration:
             n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
         )
 
-        try:
+        if not SCANORAMA_AVAILABLE:
+            with pytest.raises(MissingDependencyError):
+                scanorama_integrate(
+                    container,
+                    batch_key="batch",
+                    assay_name="protein",
+                    base_layer="raw",
+                    alpha=0,
+                )
+            return
+
+        with pytest.raises(ScpValueError, match=r"alpha must be in \(0, 1\)"):
             scanorama_integrate(
                 container,
                 batch_key="batch",
@@ -971,13 +1036,6 @@ class TestScanoramaIntegration:
                 base_layer="raw",
                 alpha=0,
             )
-            raise AssertionError("Should have raised error")
-        except MissingDependencyError:
-            pass  # scanorama not installed
-        except ScpValueError as e:
-            assert "alpha must be in \\(0, 1\\)" in str(e)
-        except ImportError:
-            pass  # scanorama not installed
 
     def test_scanorama_error_invalid_knn(self):
         """Test Scanorama raises error for invalid knn."""
@@ -985,7 +1043,18 @@ class TestScanoramaIntegration:
             n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
         )
 
-        try:
+        if not SCANORAMA_AVAILABLE:
+            with pytest.raises(MissingDependencyError):
+                scanorama_integrate(
+                    container,
+                    batch_key="batch",
+                    assay_name="protein",
+                    base_layer="raw",
+                    knn=-5,
+                )
+            return
+
+        with pytest.raises(ScpValueError):
             scanorama_integrate(
                 container,
                 batch_key="batch",
@@ -993,13 +1062,6 @@ class TestScanoramaIntegration:
                 base_layer="raw",
                 knn=-5,
             )
-            raise AssertionError("Should have raised error")
-        except MissingDependencyError:
-            pass  # scanorama not installed
-        except ScpValueError:
-            pass  # Expected
-        except ImportError:
-            pass  # scanorama not installed
 
     def test_scanorama_error_missing_assay(self):
         """Test Scanorama raises error for missing assay."""
@@ -1007,18 +1069,23 @@ class TestScanoramaIntegration:
             n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
         )
 
-        try:
+        if not SCANORAMA_AVAILABLE:
+            with pytest.raises(MissingDependencyError):
+                scanorama_integrate(
+                    container,
+                    batch_key="batch",
+                    assay_name="nonexistent",
+                    base_layer="raw",
+                )
+            return
+
+        with pytest.raises(AssayNotFoundError, match="nonexistent"):
             scanorama_integrate(
                 container,
                 batch_key="batch",
                 assay_name="nonexistent",
                 base_layer="raw",
             )
-            raise AssertionError("Should have raised error")
-        except (MissingDependencyError, AssayNotFoundError):
-            pass  # Expected
-        except ImportError:
-            pass  # scanorama not installed
 
     def test_scanorama_error_single_batch(self):
         """Test Scanorama raises error with only one batch."""
@@ -1029,20 +1096,23 @@ class TestScanoramaIntegration:
         # Modify to single batch
         container.obs = container.obs.with_columns(pl.lit("batch1").alias("batch"))
 
-        try:
+        if not SCANORAMA_AVAILABLE:
+            with pytest.raises(MissingDependencyError):
+                scanorama_integrate(
+                    container,
+                    batch_key="batch",
+                    assay_name="protein",
+                    base_layer="raw",
+                )
+            return
+
+        with pytest.raises(ScpValueError, match="at least 2 batches"):
             scanorama_integrate(
                 container,
                 batch_key="batch",
                 assay_name="protein",
                 base_layer="raw",
             )
-            raise AssertionError("Should have raised error")
-        except MissingDependencyError:
-            pass  # scanorama not installed
-        except ScpValueError as e:
-            assert "at least 2 batches" in str(e)
-        except ImportError:
-            pass  # scanorama not installed
 
 
 # =============================================================================
@@ -1074,7 +1144,7 @@ class TestComBatAdditional:
         assert "combat" in result.assays["protein"].layers
 
     def test_combat_with_nan_values(self):
-        """Test ComBat handles NaN values."""
+        """Test ComBat rejects NaN values instead of silently imputing."""
         container = create_batch_container(
             n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
         )
@@ -1083,17 +1153,17 @@ class TestComBatAdditional:
         X[0:5, 0:5] = np.nan
         container.assays["protein"].layers["raw"] = ScpMatrix(X=X, M=None)
 
-        result = combat(
-            container,
-            batch_key="batch",
-            assay_name="protein",
-            base_layer="raw",
-            new_layer_name="combat",
-        )
-
-        # No NaN in output
-        X_corrected = result.assays["protein"].layers["combat"].X
-        assert not np.any(np.isnan(X_corrected))
+        with pytest.raises(
+            ValidationError,
+            match="requires a complete matrix.*prefer integrate_limma\\(\\)",
+        ):
+            combat(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                new_layer_name="combat",
+            )
 
     def test_combat_with_covariates(self):
         """Test ComBat with biological covariates."""
@@ -1379,6 +1449,34 @@ class TestLimmaIntegration:
         assert log_entry.action == "integration_limma"
         assert log_entry.params["integration_level"] == "matrix"
         assert log_entry.params["recommended_for_de"] is True
+
+    def test_limma_preserves_missing_values_without_imputation(self):
+        """Test limma fits on observed samples and keeps missing positions as NaN."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+        )
+        x = container.assays["protein"].layers["raw"].X.copy()
+        x[0:5, 0] = np.nan
+        x[20:24, 1] = np.nan
+        container.assays["protein"].layers["raw"] = ScpMatrix(X=x, M=None)
+
+        result = limma_correct(container, batch_key="batch", assay_name="protein", base_layer="raw")
+        x_out = result.assays["protein"].layers["limma"].X
+
+        assert np.isnan(x_out[0:5, 0]).all()
+        assert np.isnan(x_out[20:24, 1]).all()
+
+    def test_mnn_rejects_nan_values_without_explicit_imputation(self):
+        """Embedding-level integration should require complete input."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=10, n_batches=2, random_state=42
+        )
+        x = container.assays["protein"].layers["raw"].X.copy()
+        x[0, 0] = np.nan
+        container.assays["protein"].layers["raw"] = ScpMatrix(X=x, M=None)
+
+        with pytest.raises(ScpValueError, match="requires a complete matrix"):
+            mnn_correct(container, batch_key="batch", assay_name="protein", base_layer="raw")
 
 
 # =============================================================================
@@ -1672,7 +1770,10 @@ class TestHistoryLogging:
         )
 
         assert len(result.history) == initial_len + 1
-        assert result.history[-1].action == "integration_combat"
+        log_entry = result.history[-1]
+        assert log_entry.action == "integration_combat"
+        assert log_entry.params["integration_level"] == "matrix"
+        assert log_entry.params["recommended_for_de"] is False
 
 
 class TestIntegrationBaselineAndMetadata:
@@ -1746,7 +1847,7 @@ class TestIntegrationBaselineAndMetadata:
         assert none_info.integration_level == "matrix"
         assert none_info.recommended_for_de is True
         assert combat_info.integration_level == "matrix"
-        assert combat_info.recommended_for_de is True
+        assert combat_info.recommended_for_de is False
         assert limma_info.integration_level == "matrix"
         assert limma_info.recommended_for_de is True
 

@@ -16,7 +16,8 @@ import scipy.sparse as sp
 from scptensor.core.filtering import FilterCriteria
 from scptensor.core.structures import ScpContainer
 from scptensor.qc._utils import (
-    validate_assay,
+    count_detected,
+    resolve_assay,
     validate_layer,
 )
 from scptensor.qc.metrics import is_outlier_mad
@@ -55,41 +56,33 @@ def calculate_sample_qc_metrics(
     >>> result = calculate_sample_qc_metrics(container)
     >>> result.obs[['n_features_protein', 'total_intensity_protein']]
     """
-    assay = validate_assay(container, assay_name)
-    validate_layer(assay, layer_name, assay_name=assay_name)
+    resolved_assay_name, assay = resolve_assay(container, assay_name)
+    validate_layer(assay, layer_name, assay_name=resolved_assay_name)
 
-    X = assay.layers[layer_name].X
+    layer = assay.layers[layer_name]
+    X = layer.X
 
     # Calculate metrics based on matrix type
     if sp.issparse(X):
-        X_sparse = cast(sp.spmatrix, X)
-        n_features = X_sparse.getnnz(axis=1)
-        total_intensity = np.array(X_sparse.sum(axis=1)).flatten()
+        total_intensity = np.array(cast(sp.spmatrix, X).sum(axis=1)).flatten()
     else:
-        is_detected = (X > 0) & (~np.isnan(X))
-        n_features = np.sum(is_detected, axis=1)
         total_intensity = np.nansum(X, axis=1)
+    n_features = count_detected(layer.X, layer.M, axis=1)
 
     log1p_total = np.log1p(total_intensity)
 
     # Create metrics DataFrame with assay-specific column names
     metrics_df = pl.DataFrame(
         {
-            f"n_features_{assay_name}": n_features,
-            f"total_intensity_{assay_name}": total_intensity,
-            f"log1p_total_intensity_{assay_name}": log1p_total,
+            f"n_features_{resolved_assay_name}": n_features,
+            f"total_intensity_{resolved_assay_name}": total_intensity,
+            f"log1p_total_intensity_{resolved_assay_name}": log1p_total,
         }
     )
 
-    new_obs = container.obs.hstack(metrics_df)
-
-    return ScpContainer(
-        obs=new_obs,
-        assays=container.assays,
-        links=container.links,
-        history=container.history,
-        sample_id_col=container.sample_id_col,
-    )
+    new_container = container.copy()
+    new_container.obs = container.obs.hstack(metrics_df)
+    return new_container
 
 
 def filter_low_quality_samples(
@@ -129,17 +122,13 @@ def filter_low_quality_samples(
     >>> result.n_samples
     4
     """
-    assay = validate_assay(container, assay_name)
+    resolved_assay_name, assay = resolve_assay(container, assay_name)
 
     layer = assay.layers.get("raw", next(iter(assay.layers.values())))
     X = layer.X
 
     # Calculate number of detected features per sample
-    if sp.issparse(X):
-        X_sparse = cast(sp.spmatrix, X)
-        n_features = X_sparse.getnnz(axis=1)
-    else:
-        n_features = np.sum((X > 0) & (~np.isnan(X)), axis=1)
+    n_features = count_detected(layer.X, layer.M, axis=1)
 
     # Apply hard threshold filter
     keep_mask = n_features >= min_features
@@ -161,7 +150,7 @@ def filter_low_quality_samples(
     # Log provenance
     n_removed = container.n_samples - len(keep_indices)
     filter_desc = (
-        f"Removed {n_removed}/{container.n_samples} samples from assay '{assay_name}'. "
+        f"Removed {n_removed}/{container.n_samples} samples from assay '{resolved_assay_name}'. "
         f"Filtering: n_features >= {min_features}"
     )
     if use_mad:
@@ -172,7 +161,7 @@ def filter_low_quality_samples(
     new_container.log_operation(
         action="filter_low_quality_samples",
         params={
-            "assay": assay_name,
+            "assay": resolved_assay_name,
             "min_features": min_features,
             "use_mad": use_mad,
             "nmads": nmads,
@@ -215,7 +204,7 @@ def filter_doublets_mad(
     >>> result.n_samples
     3
     """
-    assay = validate_assay(container, assay_name)
+    resolved_assay_name, assay = resolve_assay(container, assay_name)
 
     layer = assay.layers.get("raw", next(iter(assay.layers.values())))
     X = layer.X
@@ -246,13 +235,13 @@ def filter_doublets_mad(
     new_container.log_operation(
         action="filter_doublets_mad",
         params={
-            "assay": assay_name,
+            "assay": resolved_assay_name,
             "nmads": nmads,
             "method": "MAD_upper_tail",
         },
         description=(
             f"Removed {n_removed}/{container.n_samples} samples as potential doublets "
-            f"(high intensity outliers >{nmads} MADs) from assay '{assay_name}'."
+            f"(high intensity outliers >{nmads} MADs) from assay '{resolved_assay_name}'."
         ),
     )
 
@@ -303,7 +292,7 @@ def assess_batch_effects(
     """
     from scptensor.core.exceptions import ScpValueError
 
-    assay = validate_assay(container, assay_name)
+    resolved_assay_name, assay = resolve_assay(container, assay_name)
 
     # Validate batch column exists
     if batch_col not in container.obs.columns:
@@ -321,11 +310,10 @@ def assess_batch_effects(
     # Calculate QC metrics for each sample
     if sp.issparse(X):
         X_sparse = cast(sp.spmatrix, X)
-        n_features = X_sparse.getnnz(axis=1)
         total_intensity = np.array(X_sparse.sum(axis=1)).flatten()
     else:
-        n_features = np.sum((X > 0) & (~np.isnan(X)), axis=1)
         total_intensity = np.nansum(X, axis=1)
+    n_features = count_detected(layer.X, layer.M, axis=1)
 
     # Create temporary DataFrame with batch identifiers and metrics
     temp_df = container.obs.select(batch_col).with_columns(

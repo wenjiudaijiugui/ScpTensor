@@ -137,8 +137,8 @@ def _add_labels_to_obs(
     return _ScpContainer(
         obs=new_obs,
         assays=container.assays,
-        links=container.links,
-        history=container.history,
+        links=list(container.links),
+        history=list(container.history),
         sample_id_col=container.sample_id_col,
     )
 

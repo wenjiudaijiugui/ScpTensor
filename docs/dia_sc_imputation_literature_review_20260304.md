@@ -12,6 +12,12 @@
 
 说明：本报告中的“引用量”优先采用论文页面展示的可见指标（如 Nature 页面 `Citations`），不同平台统计口径可能不同。
 
+对齐说明（`2026-03-12` 二次核查）：
+
+- 本文是“方法池与证据面”综述，不等同于当前 ScpTensor 的最终 benchmark 合同。
+- 当前更严格的 benchmark 口径，应以 `docs/dia_sc_masked_value_benchmark_design_review_20260312.md` 与 `docs/dia_sc_missingness_semantics_review_20260312.md` 为准。
+- 表中的“可见引用指标”仅是 `2026-03-04` 检索快照，不应用来直接决定方法优先级或评分权重。
+
 ## 2. 重点文献清单（按与你需求的相关性排序）
 
 | 编号 | 论文 | 年份 | 与方向匹配度（填充/DIA/单细胞） | 可见引用指标* | 结论价值 |
@@ -33,12 +39,14 @@
 
 ## 3. 论文摘要（中文整理）
 
+说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。当前 P1-P12 条目均属于 `论文证据`。
+
 ### P1. Wang et al., Nat Commun, 2025（DIA 单细胞直接证据）
 
 - 核心内容：针对 DIA 单细胞蛋白组数据，系统比较了分析工作流中的关键步骤（包括缺失值填充、归一化、批次校正、数据完整性过滤）在不同缺失程度和样本异质性下的表现。
 - 主要结论：
   - 当缺失率低且细胞群体较同质时，严格筛选并避免过度填充可得到更稳健结果；
-  - 当异质性高且缺失严重时，填充可显著改善下游分析，`softImpute` 在其测试中表现最佳；
+  - 当异质性高且缺失严重时，矩阵补全类方法可显著改善部分下游分析；但这一观察属于特定 workflow benchmark 结果，不应被解读成跨数据集的普适默认；
   - 归一化与批次校正需要与缺失模式联动选择（文中给出 `Quantile` + `ComBat` 的推荐组合场景）。
 - 价值：当前最贴近“DIA + 单细胞 + 填充测评”三重交集的核心论文。
 
@@ -141,6 +149,13 @@
   - 提示单细胞高稀疏数据可借鉴“分层 + 场景化”流程。
 - 价值：为 DIA 单细胞数据中的混合缺失机制提供可迁移思路。
 
+### 3.13 二次核查补充（资源分型、稳定入口与边界）
+
+- 本综述当前纳入的 `P1-P12` 全部属于 `论文证据`；没有单独指定 `数据入口`、`模块规范` 或 `资源包`。因此本文件给出的是 imputation 方法池与证据面，而不是当前仓库的稳定 benchmark 输入清单。
+- `Wang 2025` 是最直接的 DIA-SCP workflow `论文证据`，但其关联 accession 当前并不适合作为仓库稳定公共输入，因此本综述不应把它扩大解释为数据入口。
+- `Krull 2024`、`HarmonizR 2022`、`scplainer 2025` 一类来源在这里应继续被视作“上游减少缺失或任务导向建模的论文证据”，而不是替代 `masked-value benchmark contract` 的模块规范。
+- 对当前 ScpTensor 来说，更严格的 benchmark/contract 入口仍应以后续的 `dia_sc_masked_value_benchmark_design_review_20260312.md`、`dia_sc_missingness_semantics_review_20260312.md` 和公共 benchmark 数据综述为准。
+
 ## 4. 文献综合测评报告（面向 DIA 单细胞蛋白组）
 
 ### 4.1 证据分级
@@ -153,7 +168,7 @@
 
 - 结论 A：不存在跨场景绝对最优填充方法。缺失机制（MCAR/MNAR）、缺失率、细胞异质性决定最优策略。
 - 结论 B：在 DIA 单细胞场景，优先减少上游缺失（特征匹配/批次 harmonization）通常比直接“重填充”更稳健。
-- 结论 C：当异质性高且缺失率高时，矩阵补全类方法（尤其 softImpute）在现有直接证据中表现更优。
+- 结论 C：当异质性高且缺失率高时，矩阵补全类方法（如 `softImpute`）在部分直接证据中具有竞争力，但最终排序仍受数据集、任务和 masking 协议影响。
 - 结论 D：树模型/邻域类方法（RF/KNN/LLS）在 DIA 或通用 proteomics 中具备稳健性，可作为强基线与资源受限备选。
 - 结论 E：必须做任务导向评估（聚类、差异蛋白、通路）与敏感性分析，避免“误差下降但生物学结论偏移”。
 
@@ -164,7 +179,7 @@
   - 基线：`no_impute`、`min/2`、`row_mean`
   - 传统：`KNN`、`LLS`、`RandomForest`、`SVD/IterativeSVD`
   - 矩阵补全：`softImpute`
-  - 深度学习（可选扩展）：`PIMMS` 类模型
+  - 深度学习（可选扩展）：`PIMMS` 类模型（前提是固定训练/验证 masking 协议并单独报告复现条件）
 - 推荐评估指标：
   - 重建误差：NRMSE / MAE（在可控掩码实验中）
   - 定量稳定性：蛋白 CV、相关性保持
@@ -179,21 +194,21 @@
 ### 4.4 实践型结论（用于方法优先级）
 
 - 若数据较完整、群体较同质：优先 `严格过滤 + 轻度/不填充`。
-- 若缺失严重且异质性高：优先测试 `softImpute`，并用 `RF/KNN` 做稳健性对照。
+- 若缺失严重且异质性高：可优先把 `softImpute` 纳入重点对照，但仍应与 `RF/KNN` 等强基线联合验证，而不是直接把它定为默认赢家。
 - 若计算资源受限或需要快速迭代：`LLS/KNN` 是性价比较高的工程起点。
 - 任何场景都不建议仅使用“单一简单填充 + 单一指标”下结论。
 
 ## 5. 参考链接
 
-- P1: https://doi.org/10.1038/s41467-025-65174-4 （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/41271703/）
+- P1: https://www.nature.com/articles/s41467-025-65174-4 （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/41271703/）
 - P2: https://pubmed.ncbi.nlm.nih.gov/34735399/
 - P3: https://pubmed.ncbi.nlm.nih.gov/32526036/ （DOI: 10.1093/nar/gkaa498）
 - P4: https://www.nature.com/articles/s41598-021-81279-4
-- P5: https://www.nature.com/articles/s41598-022-21128-0
-- P6: https://doi.org/10.1038/s41467-024-48711-5 （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/38926340/）
-- P7: https://doi.org/10.1038/s41592-023-01791-5 （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/36864196/）
-- P8: https://doi.org/10.1038/s41467-024-52605-x （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/39327420/）
-- P9: https://doi.org/10.1038/s41467-022-31007-x （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/35725563/）
-- P10: https://doi.org/10.1186/s13059-025-03713-4
+- P5: https://www.nature.com/articles/s41598-022-04938-0
+- P6: https://www.nature.com/articles/s41467-024-48711-5 （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/38926340/）
+- P7: https://www.nature.com/articles/s41592-023-01791-5 （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/36864196/）
+- P8: https://www.nature.com/articles/s41467-024-52605-x （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/39327420/）
+- P9: https://www.nature.com/articles/s41467-022-31007-x （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/35725563/）
+- P10: https://genomebiology.biomedcentral.com/articles/10.1186/s13059-025-03713-4
 - P11: https://arxiv.org/abs/2312.06354
 - P12: https://pubmed.ncbi.nlm.nih.gov/40155995/

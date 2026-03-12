@@ -728,9 +728,9 @@ def _compute_imputation_metrics(
         if metric == "nrmse":
             results[metric] = _compute_nrmse(true_vals, imp_vals)
         elif metric == "pcc":
-            if len(true_vals) > 1:
+            if len(true_vals) > 1 and np.std(true_vals) > 0 and np.std(imp_vals) > 0:
                 pcc = pearsonr(true_vals, imp_vals)[0]
-                results[metric] = abs(pcc)
+                results[metric] = abs(float(np.nan_to_num(pcc, nan=0.0)))
             else:
                 results[metric] = 0.0
         elif metric == "cosine":

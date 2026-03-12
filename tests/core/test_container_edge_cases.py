@@ -363,6 +363,38 @@ class TestScpContainerLinks:
         with pytest.raises(ValueError, match="target assay 'missing_proteins' not found"):
             ScpContainer(obs=obs, assays={"peptides": assay}, links=[link])
 
+    def test_validate_links_with_missing_source_feature(self):
+        """Test that validate_links detects missing source feature IDs."""
+        obs = pl.DataFrame({"_index": ["S1"]})
+        protein_var = pl.DataFrame({"_index": ["P1"]})
+        peptide_var = pl.DataFrame({"_index": ["PEP1"]})
+        protein_assay = Assay(var=protein_var, layers={"X": ScpMatrix(X=np.random.rand(1, 1))})
+        peptide_assay = Assay(var=peptide_var, layers={"X": ScpMatrix(X=np.random.rand(1, 1))})
+
+        linkage = pl.DataFrame({"source_id": ["PEP404"], "target_id": ["P1"]})
+        link = AggregationLink(source_assay="peptides", target_assay="proteins", linkage=linkage)
+
+        with pytest.raises(ValueError, match="source_id values not found"):
+            ScpContainer(
+                obs=obs, assays={"proteins": protein_assay, "peptides": peptide_assay}, links=[link]
+            )
+
+    def test_validate_links_with_missing_target_feature(self):
+        """Test that validate_links detects missing target feature IDs."""
+        obs = pl.DataFrame({"_index": ["S1"]})
+        protein_var = pl.DataFrame({"_index": ["P1"]})
+        peptide_var = pl.DataFrame({"_index": ["PEP1"]})
+        protein_assay = Assay(var=protein_var, layers={"X": ScpMatrix(X=np.random.rand(1, 1))})
+        peptide_assay = Assay(var=peptide_var, layers={"X": ScpMatrix(X=np.random.rand(1, 1))})
+
+        linkage = pl.DataFrame({"source_id": ["PEP1"], "target_id": ["P404"]})
+        link = AggregationLink(source_assay="peptides", target_assay="proteins", linkage=linkage)
+
+        with pytest.raises(ValueError, match="target_id values not found"):
+            ScpContainer(
+                obs=obs, assays={"proteins": protein_assay, "peptides": peptide_assay}, links=[link]
+            )
+
 
 class TestScpContainerWithMetadata:
     """Test ScpContainer with various obs metadata."""

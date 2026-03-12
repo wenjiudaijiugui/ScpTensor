@@ -12,6 +12,7 @@ def violin(
     ax: plt.Axes | None = None,
     title: str | None = None,
     ylabel: str | None = None,
+    alpha: float = 0.65,
 ) -> plt.Axes:
     """Create a violin plot.
 
@@ -27,6 +28,8 @@ def violin(
         Plot title.
     ylabel : str | None
         Y-axis label.
+    alpha : float
+        Violin body transparency.
 
     Returns
     -------
@@ -38,18 +41,42 @@ def violin(
 
     if ax is None:
         _, ax = plt.subplots(figsize=(8, 5))
+    if len(data) != len(labels):
+        raise ValueError(f"Data groups ({len(data)}) and labels ({len(labels)}) must match.")
 
-    parts = ax.violinplot(list(data), showmeans=False, showmedians=True)
+    prepared: list[np.ndarray] = []
+    for group in data:
+        arr = np.asarray(group, dtype=np.float64)
+        arr = arr[np.isfinite(arr)]
+        if arr.size == 0:
+            arr = np.array([-1e-9, 1e-9], dtype=np.float64)
+        elif arr.size == 1:
+            arr = np.array([arr[0] - 1e-9, arr[0] + 1e-9], dtype=np.float64)
+        elif np.std(arr) == 0:
+            arr = arr + np.linspace(-1e-9, 1e-9, arr.size)
+        prepared.append(arr)
 
-    # Style the violin bodies
-    face_color = "#D43F3A"
-    for pc in parts["bodies"]:  # type: ignore[attr-defined]
-        pc.set_facecolor(face_color)
-        pc.set_edgecolor("black")
-        pc.set_alpha(0.7)
+    parts = ax.violinplot(prepared, showmeans=False, showmedians=True)
+
+    # Style violins with publication-friendly categorical colors.
+    palette = plt.rcParams["axes.prop_cycle"].by_key().get("color", ["#4C72B0"])
+    for idx, pc in enumerate(parts["bodies"]):  # type: ignore[attr-defined]
+        pc.set_facecolor(palette[idx % len(palette)])
+        pc.set_edgecolor("#222222")
+        pc.set_linewidth(0.7)
+        pc.set_alpha(alpha)
+
+    if "cmedians" in parts:
+        parts["cmedians"].set_color("#111111")
+        parts["cmedians"].set_linewidth(1.2)
+    for key in ("cbars", "cmins", "cmaxes"):
+        if key in parts:
+            parts[key].set_color("#555555")
+            parts[key].set_linewidth(0.8)
 
     ax.set_xticks(np.arange(1, len(labels) + 1))
-    ax.set_xticklabels(labels, rotation=45, ha="right")
+    ax.set_xticklabels(labels, rotation=30, ha="right")
+    ax.grid(axis="y", alpha=0.25, linewidth=0.5)
 
     if title:
         ax.set_title(title)

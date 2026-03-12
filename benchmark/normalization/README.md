@@ -10,6 +10,32 @@
 - `quantile`
 - `trqn`
 
+当前实现边界：
+
+- benchmark 脚本会先对 `raw` 层执行 `log_transform(base=2, offset=1)`，再在显式 `log2` 层比较归一化方法。
+- 因此 `quantile` / `trqn` 并不是对线性 vendor 输出层直接比较，这与 `docs/dia_sc_log_transform_scale_contract_review_20260312.md` 的尺度门禁一致。
+- 当前 stable normalization API 的方法池是 `none / mean / median / quantile / trqn`。
+- 文献综述里提到的 `sum` 是可补候选，但当前实现与本 benchmark 尚未覆盖。
+- 当前 benchmark 还没有输出 state-aware completeness / uncertainty burden。
+
+## Resource Roles
+
+- `论文证据`
+  - Wang 2025 / Nature Communications 2022 / PRONE / TRQN / ProNorM / directLFQ
+- `数据入口`
+  - LFQbench HYE124 Spectronaut TSV
+  - PRIDE `PXD054343`
+- `模块规范 / 软件文档`
+  - MSstats workflow / QFeatures processing / PRONE preprocessing tutorial
+- `资源包`
+  - 当前 README 不把 package/tutorial 页面写成数据入口，而只把它们用作 logged-layer workflow contract evidence
+
+经二次核查的来源性细节：
+
+- `MSstats` 的 `dataProcess()` 明确把 `log transformation` 放在 `normalization` 之前，并把 quantile normalization 作为该流程中的一个归一化选项；这与“先显式 log，再比较 quantile-family 方法”的合同一致：<https://www.bioconductor.org/packages/release/bioc/vignettes/MSstats/inst/doc/MSstatsWorkflow.html>
+- `QFeatures` 教程先构造 `peptides_log`，再对该 assay 调用 `normalize()`，并在图中对比 log2 强度归一化前后分布；这再次支持把 normalization 解释为 logged assay 上的操作：<https://bioconductor.org/packages/release/bioc/vignettes/QFeatures/inst/doc/Processing.html>
+- `PRONE` 预处理教程在 marker 可视化中直接使用 `log2` protein intensities，并围绕 log2 assay 进行后续过滤与比较；因此把 `quantile / trqn` 限定到显式 logged layer 不是 ScpTensor 特例，而是与现代 proteomics workflow 表达方式一致：<https://daisybio.github.io/PRONE/articles/Preprocessing.html>
+
 ## 1. 文献与数据可得性核查
 
 ### 1.1 已确认存在“蛋白层面归一化 benchmark”的公开论文
@@ -22,9 +48,9 @@
    链接：<https://www.nature.com/articles/s41467-022-28993-0>
    文中将 normalization 作为 workflow 关键组件进行系统评估，并公开了 raw 数据与 source data。
 
-3. **Bioinformatics 2025（PRONE：proteomics normalization benchmark 框架）**
-   链接：<https://doi.org/10.1093/bioinformatics/btaf397>
-   Data availability 中列出多套公开 benchmark 数据来源（ProteomeXchange / PRIDE）。
+3. **Briefings in Bioinformatics 2025（PRONE：proteomics normalization benchmark 框架）**
+   链接：<https://pubmed.ncbi.nlm.nih.gov/40336172/>
+   `2026-03-12` 二次核查显示，PRONE 的正确 DOI 是 `10.1093/bib/bbaf201`；当前以 PubMed 入口作为稳定可核查链接。文中 Data availability 列出多套公开 benchmark 数据来源（ProteomeXchange / PRIDE）。
 
 ### 1.2 本 benchmark 实际使用/下载的数据
 
@@ -36,7 +62,7 @@
 
 2. **PXD054343 DIA-NN 2x 报告（仓库内已提供）**
    本地文件：`data/dia/diann/PXD054343/2_3_SC_SILAC_2x_report.tsv`
-   原始数据链接：<https://proteomecentral.proteomexchange.org/cgi/GetDataset?ID=PXD054343>
+   原始数据链接：<https://www.ebi.ac.uk/pride/archive/projects/PXD054343>
 
 3. **Nature Communications 2025 Source Data（下载留档）**
    直链：<https://static-content.springer.com/esm/art%3A10.1038%2Fs41467-025-65174-4/MediaObjects/41467_2025_65174_MOESM12_ESM.xlsx>
@@ -60,6 +86,12 @@
 - 真值比值准确性（仅对 LFQbench）：`ratio_mae`, `ratio_rmse`, `ratio_pairwise_auc_mean`, `ratio_changed_vs_bg_auc`
 
 并提供 0-1 归一化综合得分（按“高好/低好”方向自动处理）。
+
+说明：
+
+- 这是 stage-specific normalization benchmark，不等同于 AutoSelect 的 `selection_score`。
+- 当前脚本尚未把 `VALID / MBR / LOD / FILTERED / IMPUTED` 等状态向量纳入该阶段评分。
+- 如果后续加入 `sum` 一类候选，需要先明确它是“normalization”还是“rescaling baseline”；当前文献与软件生态对 `mean/median/quantile/TRQN` 的归一化语义更稳定。
 
 ## 3. 运行方式（uv）
 

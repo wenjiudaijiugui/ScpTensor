@@ -1,11 +1,14 @@
-"""Dimensionality reduction module for ScpTensor.
+"""Experimental dimensionality-reduction module for ScpTensor.
 
 This module provides dimensionality reduction methods aligned with scanpy's API:
 - reduce_pca: Principal Component Analysis
 - reduce_tsne: t-SNE embedding
 - reduce_umap: UMAP embedding
 
-Main functions follow scanpy naming convention (reduce_*).
+Status
+------
+This module is available for exploratory downstream analysis and is currently
+classified as *experimental* in ScpTensor release scope.
 """
 
 from .pca import SolverType, reduce_pca

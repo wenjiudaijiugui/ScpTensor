@@ -9,9 +9,6 @@ Tests cover the refactored QC module structure:
                filter_features_by_cv)
 - metrics: Utility functions (compute_mad, is_outlier_mad, compute_cv)
 
-NOTE: This test file has been updated to match the refactored QC module structure.
-Many functions from the old API (advanced, basic, outlier, batch, bivariate modules)
-no longer exist. Tests for removed functions are marked with pytest.mark.skip.
 """
 
 import numpy as np
@@ -19,11 +16,12 @@ import polars as pl
 import pytest
 from scipy import sparse
 
-from scptensor.core import Assay, ScpContainer, ScpMatrix
+from scptensor.core import Assay, MaskCode, ScpContainer, ScpMatrix
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
+from scptensor.experimental import qc_psm
 
 # New imports from refactored QC module
-from scptensor.qc import qc_feature, qc_psm, qc_sample
+from scptensor.qc import qc_feature, qc_sample
 from scptensor.qc.metrics import compute_cv, compute_mad, is_outlier_mad
 
 
@@ -110,34 +108,42 @@ def qc_sparse_X(qc_dense_X):
 
 
 @pytest.fixture
-def qc_container(qc_obs, qc_var, qc_dense_X):
+def qc_dense_M(qc_dense_X):
+    """Create a mask matrix where zeros are treated as LOD."""
+    mask = np.full(qc_dense_X.shape, MaskCode.VALID.value, dtype=np.int8)
+    mask[qc_dense_X == 0] = MaskCode.LOD.value
+    return mask
+
+
+@pytest.fixture
+def qc_container(qc_obs, qc_var, qc_dense_X, qc_dense_M):
     """Create a ScpContainer for QC testing."""
-    matrix = ScpMatrix(X=qc_dense_X, M=None)
+    matrix = ScpMatrix(X=qc_dense_X, M=qc_dense_M)
     assay = Assay(var=qc_var, layers={"raw": matrix})
     return ScpContainer(obs=qc_obs, assays={"protein": assay})
 
 
 @pytest.fixture
-def qc_container_sparse(qc_obs, qc_var, qc_sparse_X):
+def qc_container_sparse(qc_obs, qc_var, qc_sparse_X, qc_dense_M):
     """Create a ScpContainer with sparse data."""
-    matrix = ScpMatrix(X=qc_sparse_X, M=None)
+    matrix = ScpMatrix(X=qc_sparse_X, M=qc_dense_M)
     assay = Assay(var=qc_var, layers={"raw": matrix})
     return ScpContainer(obs=qc_obs, assays={"protein": assay})
 
 
 @pytest.fixture
-def qc_container_multi_layer(qc_obs, qc_var, qc_dense_X):
+def qc_container_multi_layer(qc_obs, qc_var, qc_dense_X, qc_dense_M):
     """Create a ScpContainer with multiple layers."""
-    matrix_raw = ScpMatrix(X=qc_dense_X, M=None)
-    matrix_norm = ScpMatrix(X=qc_dense_X * 2, M=None)
+    matrix_raw = ScpMatrix(X=qc_dense_X, M=qc_dense_M)
+    matrix_norm = ScpMatrix(X=qc_dense_X * 2, M=qc_dense_M)
     assay = Assay(var=qc_var, layers={"raw": matrix_raw, "normalized": matrix_norm})
     return ScpContainer(obs=qc_obs, assays={"protein": assay})
 
 
 @pytest.fixture
-def qc_container_with_contaminants(qc_obs, qc_var_with_contaminants, qc_dense_X):
+def qc_container_with_contaminants(qc_obs, qc_var_with_contaminants, qc_dense_X, qc_dense_M):
     """Create a ScpContainer with contaminant proteins."""
-    matrix = ScpMatrix(X=qc_dense_X, M=None)
+    matrix = ScpMatrix(X=qc_dense_X, M=qc_dense_M)
     assay = Assay(var=qc_var_with_contaminants, layers={"raw": matrix})
     return ScpContainer(obs=qc_obs, assays={"protein": assay})
 
@@ -182,6 +188,35 @@ class TestCalculateSampleQCMetrics:
         """Test that invalid layer raises error."""
         with pytest.raises(LayerNotFoundError):
             qc_sample.calculate_sample_qc_metrics(qc_container, layer_name="nonexistent")
+
+    def test_calculate_sample_qc_metrics_uses_mask_semantics(self):
+        """True zero should count as detected only when M marks it VALID."""
+        obs = pl.DataFrame({"_index": ["S1", "S2", "S3"]})
+        var = pl.DataFrame({"_index": ["F1", "F2"]})
+        X = np.array([[0.0, 1.0], [0.0, 0.0], [5.0, 0.0]])
+        M = np.array(
+            [
+                [MaskCode.VALID.value, MaskCode.VALID.value],
+                [MaskCode.LOD.value, MaskCode.LOD.value],
+                [MaskCode.VALID.value, MaskCode.LOD.value],
+            ],
+            dtype=np.int8,
+        )
+        container = ScpContainer(
+            obs=obs,
+            assays={"protein": Assay(var=var, layers={"raw": ScpMatrix(X=X, M=M)})},
+        )
+
+        result = qc_sample.calculate_sample_qc_metrics(container)
+        assert result.obs["n_features_protein"].to_list() == [2, 0, 1]
+
+    def test_calculate_sample_qc_metrics_accepts_alias_and_copies_container(self, qc_container):
+        """QC metrics should resolve assay aliases without mutating the source container."""
+        result = qc_sample.calculate_sample_qc_metrics(qc_container, assay_name="proteins")
+        assert "n_features_protein" in result.obs.columns
+        assert result.assays is not qc_container.assays
+        result.assays["protein"].add_layer("tmp", ScpMatrix(X=np.ones((20, 20))))
+        assert "tmp" not in qc_container.assays["protein"].layers
 
 
 class TestFilterLowQualitySamples:
@@ -300,6 +335,38 @@ class TestCalculateFeatureQCMetrics:
         with pytest.raises(AssayNotFoundError):
             qc_feature.calculate_feature_qc_metrics(qc_container, assay_name="nonexistent")
 
+    def test_calculate_feature_qc_metrics_uses_mask_semantics(self):
+        """Feature detection metrics should be derived from the mask matrix."""
+        obs = pl.DataFrame({"_index": ["S1", "S2", "S3"]})
+        var = pl.DataFrame({"_index": ["F1", "F2"]})
+        X = np.array([[0.0, 1.0], [0.0, 0.0], [5.0, 0.0]])
+        M = np.array(
+            [
+                [MaskCode.VALID.value, MaskCode.VALID.value],
+                [MaskCode.LOD.value, MaskCode.LOD.value],
+                [MaskCode.VALID.value, MaskCode.LOD.value],
+            ],
+            dtype=np.int8,
+        )
+        container = ScpContainer(
+            obs=obs,
+            assays={"protein": Assay(var=var, layers={"raw": ScpMatrix(X=X, M=M)})},
+        )
+
+        result = qc_feature.calculate_feature_qc_metrics(container)
+        out_var = result.assays["protein"].var
+        assert out_var["missing_rate"].to_list() == pytest.approx([1.0 / 3.0, 2.0 / 3.0])
+        assert out_var["detection_rate"].to_list() == pytest.approx([2.0 / 3.0, 1.0 / 3.0])
+        assert out_var["mean_expression"].to_list() == pytest.approx([2.5, 1.0])
+
+    def test_calculate_feature_qc_metrics_accepts_alias_and_isolates_history(self, qc_container):
+        """Feature QC should resolve aliases and not mutate the original history."""
+        assert len(qc_container.history) == 0
+        result = qc_feature.calculate_feature_qc_metrics(qc_container, assay_name="proteins")
+        assert "missing_rate" in result.assays["protein"].var.columns
+        assert len(qc_container.history) == 0
+        assert len(result.history) == 1
+
 
 class TestFilterFeaturesByMissingness:
     """Tests for filter_features_by_missingness function."""
@@ -338,6 +405,34 @@ class TestFilterFeaturesByMissingness:
         """Test that invalid assay raises error."""
         with pytest.raises(AssayNotFoundError):
             qc_feature.filter_features_by_missingness(qc_container, assay_name="nonexistent")
+
+    def test_filter_features_by_missingness_uses_mask_semantics(self):
+        """Filtering should agree with mask-derived feature missingness."""
+        obs = pl.DataFrame({"_index": ["S1", "S2", "S3"]})
+        var = pl.DataFrame({"_index": ["F1", "F2"]})
+        X = np.array([[0.0, 1.0], [0.0, 0.0], [5.0, 0.0]])
+        M = np.array(
+            [
+                [MaskCode.VALID.value, MaskCode.VALID.value],
+                [MaskCode.LOD.value, MaskCode.LOD.value],
+                [MaskCode.VALID.value, MaskCode.LOD.value],
+            ],
+            dtype=np.int8,
+        )
+        container = ScpContainer(
+            obs=obs,
+            assays={"protein": Assay(var=var, layers={"raw": ScpMatrix(X=X, M=M)})},
+        )
+
+        result = qc_feature.filter_features_by_missingness(container, max_missing_rate=0.5)
+        assert result.assays["protein"].var["_index"].to_list() == ["F1"]
+
+    def test_filter_features_by_missingness_accepts_alias(self, qc_container):
+        """Feature filtering should resolve proteins/protein aliases consistently."""
+        result = qc_feature.filter_features_by_missingness(
+            qc_container, assay_name="proteins", max_missing_rate=0.5
+        )
+        assert isinstance(result, ScpContainer)
 
 
 class TestFilterFeaturesByCV:
@@ -530,132 +625,3 @@ class TestQCIntegration:
         assert "batch" in batch_summary.columns
 
         assert isinstance(container, ScpContainer)
-
-
-# =============================================================================
-# Skipped tests for removed functions
-# =============================================================================
-
-
-class TestRemovedFunctions:
-    """Tests for functions that were removed during refactoring."""
-
-    @pytest.mark.skip(
-        reason="basic_qc function was removed during QC module refactoring. "
-        "Use calculate_sample_qc_metrics + filter_low_quality_samples instead."
-    )
-    def test_basic_qc_default_parameters(self, qc_container):
-        """Test basic_qc with default parameters."""
-        pass
-
-    @pytest.mark.skip(
-        reason="detect_outliers function was removed. "
-        "Use filter_low_quality_samples with MAD-based filtering instead."
-    )
-    def test_detect_outliers_default(self, qc_container):
-        """Test detect_outliers with default parameters."""
-        pass
-
-    @pytest.mark.skip(
-        reason="calculate_qc_metrics (old advanced version) was removed. "
-        "Use calculate_sample_qc_metrics and calculate_feature_qc_metrics instead."
-    )
-    def test_calculate_qc_metrics_dense(self, qc_container):
-        """Test calculate_qc_metrics with dense matrix."""
-        pass
-
-    @pytest.mark.skip(
-        reason="filter_features_by_missing_rate was renamed to filter_features_by_missingness"
-    )
-    def test_filter_features_by_missing_rate_non_inplace(self, qc_container):
-        """Test non-inplace filtering adds statistics."""
-        pass
-
-    @pytest.mark.skip(
-        reason="filter_features_by_variance was removed. "
-        "Use filter_features_by_cv instead, which filters by coefficient of variation."
-    )
-    def test_filter_features_by_variance_non_inplace(self, qc_container):
-        """Test non-inplace filtering adds statistics."""
-        pass
-
-    @pytest.mark.skip(
-        reason="filter_features_by_prevalence was removed. "
-        "Use filter_features_by_missingness (inverse of prevalence) instead."
-    )
-    def test_filter_features_by_prevalence_non_inplace(self, qc_container):
-        """Test non-inplace filtering adds statistics."""
-        pass
-
-    @pytest.mark.skip(
-        reason="filter_samples_by_total_count was removed. "
-        "Use filter_low_quality_samples which filters by n_features instead."
-    )
-    def test_filter_samples_by_total_count_non_inplace(self, qc_container):
-        """Test non-inplace filtering adds statistics."""
-        pass
-
-    @pytest.mark.skip(
-        reason="filter_samples_by_missing_rate was removed. "
-        "Sample-level missing rate filtering is not implemented in the new API."
-    )
-    def test_filter_samples_by_missing_rate_non_inplace(self, qc_container):
-        """Test non-inplace filtering adds statistics."""
-        pass
-
-    @pytest.mark.skip(
-        reason="detect_contaminant_proteins was removed. "
-        "Use filter_contaminants from qc_psm module instead."
-    )
-    def test_detect_contaminant_default_patterns(self, qc_container_with_contaminants):
-        """Test contaminant detection with default patterns."""
-        pass
-
-    @pytest.mark.skip(
-        reason="detect_doublets (IsolationForest version) was removed. "
-        "Use filter_doublets_mad which uses MAD-based detection instead."
-    )
-    def test_detect_doublets_knn_method(self, qc_container):
-        """Test doublet detection with KNN method."""
-        pass
-
-    @pytest.mark.skip(
-        reason="qc_score (compute_quality_score) from basic module was removed. "
-        "Quality scoring is not implemented in the new API."
-    )
-    def test_compute_quality_score_default(self, qc_container):
-        """Test quality score computation with default parameters."""
-        pass
-
-    @pytest.mark.skip(
-        reason="compute_feature_variance from basic module was removed. "
-        "Use calculate_feature_qc_metrics which computes CV instead."
-    )
-    def test_compute_feature_variance_default(self, qc_container):
-        """Test feature variance computation with default parameters."""
-        pass
-
-    @pytest.mark.skip(
-        reason="compute_feature_missing_rate from basic module was removed. "
-        "Use calculate_feature_qc_metrics which computes missing_rate instead."
-    )
-    def test_compute_feature_missing_rate_default(self, qc_container):
-        """Test feature missing rate computation with default parameters."""
-        pass
-
-    @pytest.mark.skip(
-        reason="Bivariate analysis functions (compute_pairwise_correlation, "
-        "detect_outlier_samples, compute_sample_similarity_network) were removed."
-    )
-    def test_compute_pairwise_correlation_default(self, qc_container):
-        """Test pairwise correlation with default parameters."""
-        pass
-
-    @pytest.mark.skip(
-        reason="Batch analysis functions (qc_batch_metrics, detect_batch_effects, "
-        "compute_batch_pca) from batch module were removed. "
-        "Use assess_batch_effects instead which provides batch summary statistics."
-    )
-    def test_compute_batch_metrics_default(self, qc_container):
-        """Test batch metrics with default parameters."""
-        pass

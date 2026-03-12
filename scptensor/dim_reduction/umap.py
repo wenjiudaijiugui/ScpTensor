@@ -11,6 +11,7 @@ Reference:
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -116,15 +117,25 @@ def reduce_umap(
             f"n_neighbors ({n_neighbors}) must be < n_samples ({n_samples}) to avoid truncation."
         )
 
-    # Fit UMAP
-    import umap as umap_learn
+    # Fit UMAP.
+    # Some umap-learn builds emit ImportWarning for optional ParametricUMAP/TensorFlow.
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=ImportWarning, module=r"umap(\.|$)")
+        import umap as umap_learn
+
+    umap_kwargs: dict[str, object] = {
+        "n_neighbors": n_neighbors,
+        "n_components": n_components,
+        "min_dist": min_dist,
+        "metric": metric,
+        "random_state": random_state,
+    }
+    if random_state is not None:
+        # Avoid UMAP warning about forced single-threading when a seed is set.
+        umap_kwargs["n_jobs"] = 1
 
     reducer = umap_learn.UMAP(
-        n_neighbors=n_neighbors,
-        n_components=n_components,
-        min_dist=min_dist,
-        metric=metric,
-        random_state=random_state,
+        **umap_kwargs,
     )
 
     embedding = reducer.fit_transform(X_dense)

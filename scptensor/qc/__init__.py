@@ -1,24 +1,20 @@
 """Quality Control (QC) module for DIA-based single-cell proteomics.
 
 Provides hierarchical QC workflow:
-1. PSM Level (qc_psm): Filter raw peptide matches (PIF, Contaminants, FDR)
-2. Sample Level (qc_sample): Filter cells (Empty wells, Doublets via MAD)
-3. Feature Level (qc_feature): Filter proteins (Missingness, CV)
+1. Sample Level (qc_sample): Filter cells (Empty wells, Doublets via MAD)
+2. Feature Level (qc_feature): Filter proteins (Missingness, CV)
+
+Note
+----
+Peptide/PSM-level QC helpers are kept in source form but are not part of the
+stable preprocessing contract. Access them from ``scptensor.experimental.qc_psm``.
 """
 
-from scptensor.qc import qc_feature, qc_psm, qc_sample
+from scptensor.qc import qc_feature, qc_sample
 from scptensor.qc.qc_feature import (
     calculate_feature_qc_metrics,
     filter_features_by_cv,
     filter_features_by_missingness,
-)
-from scptensor.qc.qc_psm import (
-    DEFAULT_CONTAMINANT_PATTERNS,
-    compute_median_cv,
-    filter_contaminants,
-    filter_psms_by_pif,
-    filter_psms_by_qvalue,
-    pep_to_qvalue,
 )
 from scptensor.qc.qc_sample import (
     assess_batch_effects,
@@ -29,16 +25,8 @@ from scptensor.qc.qc_sample import (
 
 __all__ = [
     # Submodules
-    "qc_psm",
     "qc_sample",
     "qc_feature",
-    # PSM functions
-    "filter_contaminants",
-    "filter_psms_by_pif",
-    "filter_psms_by_qvalue",
-    "pep_to_qvalue",
-    "compute_median_cv",
-    "DEFAULT_CONTAMINANT_PATTERNS",
     # Sample functions
     "calculate_sample_qc_metrics",
     "filter_low_quality_samples",

@@ -299,7 +299,7 @@ class TestSpearmanCorrelation:
         x = np.array([[1, 2], [2, 4], [3, 6], [4, 8], [5, 10]], dtype=float)
         corr = spearman_correlation(x)
         # For 2 columns, scipy returns a scalar correlation coefficient
-        assert isinstance(corr, (float, np.floating))
+        assert isinstance(corr, float | np.floating)
         assert np.abs(corr - 1.0) < 1e-6  # Perfect correlation
 
     def test_spearman_correlation_matches_scipy(self):
@@ -456,7 +456,3 @@ class TestEdgeCases:
         X = np.array([[1e10, 2e10], [3e10, 4e10]], dtype=float)
         corr = correlation_matrix(X)
         assert np.allclose(np.diag(corr), 1.0)
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

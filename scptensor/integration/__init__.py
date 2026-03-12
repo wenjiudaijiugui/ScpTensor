@@ -7,9 +7,9 @@ Available Methods
 -----------------
 - integrate: Unified interface for all integration methods
 - integrate_none: No-correction baseline (matrix-level)
-- integrate_combat: ComBat batch correction (empirical Bayes) - built-in
+- integrate_combat: ComBat batch correction (empirical Bayes, complete matrices only) - built-in
 - integrate_limma: limma-style linear-model batch correction - built-in
-- integrate_harmony: Harmony integration (iterative clustering) - requires harmonypy
+- integrate_harmony: Harmony integration on embeddings / PCA-like layers - requires harmonypy
 - integrate_mnn: Mutual Nearest Neighbors correction - built-in
 - integrate_scanorama: Scanorama integration - requires scanorama
 
@@ -27,13 +27,20 @@ Examples
 >>> # Unified interface - easiest way to use any method
 >>> container = integrate(container, method='none', batch_key='batch')
 >>> container = integrate(container, method='combat', batch_key='batch')
->>> container = integrate(container, method='harmony', batch_key='batch', theta=2.0)
+>>> container = integrate(
+...     container,
+...     method='harmony',
+...     batch_key='batch',
+...     assay_name='pca',
+...     base_layer='X',
+...     theta=2.0,
+... )
 >>>
 >>> # Direct function calls
 >>> container = integrate_none(container, batch_key='batch')
 >>> container = integrate_combat(container, batch_key='batch')
 >>> container = integrate_limma(container, batch_key='batch', covariates=['condition'])
->>> container = integrate_harmony(container, batch_key='batch', base_layer='pca')
+>>> container = integrate_harmony(container, batch_key='batch', assay_name='pca', base_layer='X')
 >>> container = integrate_mnn(container, batch_key='batch', k=20)
 >>> container = integrate_scanorama(container, batch_key='batch', sigma=15.0)
 
@@ -66,7 +73,6 @@ from scptensor.integration.harmony import integrate_harmony
 from scptensor.integration.limma import integrate_limma
 from scptensor.integration.mnn import integrate_mnn
 from scptensor.integration.none import integrate_none
-from scptensor.integration.nonlinear import integrate_harmony as integrate_nonlinear
 from scptensor.integration.scanorama import integrate_scanorama
 
 __all__ = [
@@ -86,7 +92,6 @@ __all__ = [
     "integrate_harmony",
     "integrate_mnn",
     "integrate_scanorama",
-    "integrate_nonlinear",
     # Diagnostics
     "compute_batch_mixing_metric",
     "compute_batch_asw",

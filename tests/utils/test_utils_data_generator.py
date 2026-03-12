@@ -598,7 +598,3 @@ class TestScpDataGeneratorProperties:
 
         # Group means should differ
         assert not np.allclose(mean_0, mean_1)
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

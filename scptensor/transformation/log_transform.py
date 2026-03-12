@@ -8,6 +8,7 @@ import warnings
 import numpy as np
 import scipy.sparse as sp
 
+from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import ScpValueError
 from scptensor.core.sparse_utils import (
     ensure_sparse_format,
@@ -32,11 +33,17 @@ def _history_suggests_logged(
     layer_name: str,
 ) -> bool:
     """Return True if provenance indicates layer came from log transformation."""
+    resolved_assay_name = resolve_assay_name(container, assay_name)
     for record in reversed(container.history):
-        if record.action != "log_transform":
+        if record.action not in {"log_transform", "log_transform_skipped"}:
             continue
         params = record.params
-        if params.get("assay") == assay_name and params.get("new_layer_name") == layer_name:
+        record_assay = params.get("assay")
+        if not isinstance(record_assay, str):
+            continue
+        if resolve_assay_name(container, record_assay) != resolved_assay_name:
+            continue
+        if params.get("new_layer_name") == layer_name:
             return True
     return False
 
@@ -99,6 +106,8 @@ def _detect_already_logged(
     assay_name: str,
     source_layer: str,
     x: np.ndarray | sp.spmatrix,
+    *,
+    detect_logged_by_distribution: bool = False,
 ) -> tuple[bool, str]:
     """Detect whether source data appears already log-transformed."""
     if _layer_name_suggests_logged(source_layer):
@@ -106,6 +115,9 @@ def _detect_already_logged(
 
     if _history_suggests_logged(container, assay_name, source_layer):
         return True, f"provenance shows '{source_layer}' was created by log_transform"
+
+    if not detect_logged_by_distribution:
+        return False, "no explicit log provenance found from layer naming or history"
 
     values = _finite_value_sample(x)
     return _data_suggests_logged(values)
@@ -128,6 +140,7 @@ def log_transform(
     use_jit: bool = True,
     detect_logged: bool = True,
     skip_if_logged: bool = True,
+    detect_logged_by_distribution: bool = False,
 ) -> ScpContainer:
     """Apply log transformation with configurable base and offset.
 
@@ -148,12 +161,16 @@ def log_transform(
     use_jit : bool, default=True
         Whether to use JIT accelerated sparse path when available.
     detect_logged : bool, default=True
-        If True, automatically detect whether source data appears already
-        log-transformed (via layer naming, provenance, and value heuristics).
+        If True, detect whether source data appears already log-transformed
+        using layer naming and provenance history.
     skip_if_logged : bool, default=True
         Behavior when data appears already log-transformed:
         - True: warn and skip re-transformation (pass through source values)
         - False: warn but still apply log transformation
+    detect_logged_by_distribution : bool, default=False
+        If True, also apply a value-distribution heuristic to infer whether
+        source data may already be log-transformed. Disabled by default
+        because low-range linear intensity matrices can be misclassified.
 
     Returns
     -------
@@ -176,6 +193,7 @@ def log_transform(
         )
 
     assay, input_layer = validate_assay_and_layer(container, assay_name, source_layer)
+    resolved_assay_name = resolve_assay_name(container, assay_name)
 
     x = input_layer.X
     log_scale = np.log(base)
@@ -185,9 +203,10 @@ def log_transform(
     if detect_logged:
         already_logged, detection_reason = _detect_already_logged(
             container=container,
-            assay_name=assay_name,
+            assay_name=resolved_assay_name,
             source_layer=source_layer,
             x=x,
+            detect_logged_by_distribution=detect_logged_by_distribution,
         )
 
     if already_logged:
@@ -210,17 +229,18 @@ def log_transform(
             container.log_operation(
                 action="log_transform_skipped",
                 params={
-                    "assay": assay_name,
+                    "assay": resolved_assay_name,
                     "source_layer": source_layer,
                     "new_layer_name": new_layer_name,
                     "base": base,
                     "offset": offset,
                     "detect_logged": detect_logged,
+                    "detect_logged_by_distribution": detect_logged_by_distribution,
                     "skip_if_logged": skip_if_logged,
                     "reason": detection_reason,
                 },
                 description=(
-                    f"Skipped log transform on {assay_name}/{source_layer} because "
+                    f"Skipped log transform on {resolved_assay_name}/{source_layer} because "
                     "data appears already log-transformed."
                 ),
             )
@@ -260,7 +280,7 @@ def log_transform(
     container.log_operation(
         action="log_transform",
         params={
-            "assay": assay_name,
+            "assay": resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": new_layer_name,
             "base": base,
@@ -268,10 +288,12 @@ def log_transform(
             "sparse_input": is_sparse_matrix(x),
             "use_jit": use_jit,
             "detect_logged": detect_logged,
+            "detect_logged_by_distribution": detect_logged_by_distribution,
             "skip_if_logged": skip_if_logged,
             "already_logged_detected": already_logged,
+            "logged_detection_reason": detection_reason,
         },
-        description=f"Log{base} transformation applied to {assay_name}/{source_layer}.",
+        description=(f"Log{base} transformation applied to {resolved_assay_name}/{source_layer}."),
     )
 
     return container

@@ -32,6 +32,19 @@ from scptensor.viz.base.violin import violin
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
+__all__ = [
+    # Canonical plot_* names
+    "plot_qc_completeness",
+    "plot_qc_matrix_spy",
+    "plot_qc_pca_overview",
+    "plot_qc_missing_value_patterns",
+    # Backward-compatible aliases
+    "qc_completeness",
+    "qc_matrix_spy",
+    "pca_overview",
+    "missing_value_patterns",
+]
+
 
 def qc_completeness(
     container: ScpContainer,
@@ -539,11 +552,16 @@ def missing_value_patterns(
                 group_rates = sample_missing_rate[mask]
                 data_by_group.append(group_rates)
 
-            parts = ax.boxplot(
-                data_by_group,
-                labels=[str(lbl) for lbl in group_labels],
-                patch_artist=True,
-            )
+            import inspect
+
+            boxplot_kwargs = {"patch_artist": True}
+            # Matplotlib >=3.9 renamed `labels` to `tick_labels`.
+            if "tick_labels" in inspect.signature(ax.boxplot).parameters:
+                boxplot_kwargs["tick_labels"] = [str(lbl) for lbl in group_labels]
+            else:
+                boxplot_kwargs["labels"] = [str(lbl) for lbl in group_labels]
+
+            parts = ax.boxplot(data_by_group, **boxplot_kwargs)
             for patch in parts["boxes"]:
                 patch.set_facecolor("lightblue")
                 patch.set_alpha(0.7)
@@ -690,3 +708,23 @@ def missing_value_patterns(
         plt.show()
 
     return fig
+
+
+def plot_qc_completeness(*args, **kwargs):
+    """Canonical alias of :func:`qc_completeness`."""
+    return qc_completeness(*args, **kwargs)
+
+
+def plot_qc_matrix_spy(*args, **kwargs):
+    """Canonical alias of :func:`qc_matrix_spy`."""
+    return qc_matrix_spy(*args, **kwargs)
+
+
+def plot_qc_pca_overview(*args, **kwargs):
+    """Canonical alias of :func:`pca_overview`."""
+    return pca_overview(*args, **kwargs)
+
+
+def plot_qc_missing_value_patterns(*args, **kwargs):
+    """Canonical alias of :func:`missing_value_patterns`."""
+    return missing_value_patterns(*args, **kwargs)

@@ -231,7 +231,7 @@ def test_load_peptide_pivot_with_protein_aggregation(tmp_path: Path) -> None:
     assert x[0, idx_p1] == pytest.approx(4.0)
     assert x[1, idx_p1] == pytest.approx(6.0)
     assert x[0, idx_p2] == pytest.approx(5.0)
-    assert x[1, idx_p2] == pytest.approx(0.0)
+    assert np.isnan(x[1, idx_p2])
 
     m = protein_assay.layers["raw"].get_m()
     assert int(m[1, idx_p2]) == MaskCode.LOD.value
@@ -275,6 +275,76 @@ def test_load_peptide_pivot_with_top_n_aggregation(tmp_path: Path) -> None:
     # P2 has one peptide, unaffected.
     assert x[0, idx_p2] == pytest.approx(5.0)
     assert x[1, idx_p2] == pytest.approx(6.0)
+
+
+def test_load_quant_table_diann_matrix_success_path(tmp_path: Path) -> None:
+    path = _write_tsv(
+        tmp_path,
+        "diann_quant_table_matrix.tsv",
+        pl.DataFrame(
+            {
+                "Protein.Group": ["P1", "P2"],
+                "S1.raw": [100.0, 300.0],
+                "S2.raw": [200.0, None],
+            }
+        ),
+    )
+
+    container = load_quant_table(
+        path,
+        software="diann",
+        level="protein",
+        table_format="matrix",
+        assay_name="proteins",
+        layer_name="raw",
+    )
+    assay = container.assays["proteins"]
+
+    assert container.obs["_index"].to_list() == ["S1", "S2"]
+    assert assay.var["_index"].to_list() == ["P1", "P2"]
+    np.testing.assert_allclose(
+        assay.layers["raw"].X,
+        np.array([[100.0, 300.0], [200.0, np.nan]]),
+        equal_nan=True,
+    )
+    assert container.history[-1].action == "load_quant_table"
+    assert container.history[-1].params["software"] == "diann"
+
+
+def test_load_quant_table_auto_detect_spectronaut_long_success(tmp_path: Path) -> None:
+    path = _write_tsv(
+        tmp_path,
+        "spectronaut_quant_table_long.tsv",
+        pl.DataFrame(
+            {
+                "PG.ProteinGroups": ["P1", "P1", "P2", "P2"],
+                "R.FileName": ["S1.raw", "S2.raw", "S1.raw", "S2.raw"],
+                "PG.Quantity": [100.0, 120.0, 50.0, 60.0],
+                "PG.Q.Value": [0.005, 0.009, 0.005, 0.02],
+            }
+        ),
+    )
+
+    container = load_quant_table(
+        path,
+        software="auto",
+        level="protein",
+        table_format="long",
+        quantity_column="PG.Quantity",
+        fdr_threshold=0.01,
+        assay_name="proteins",
+    )
+    assay = container.assays["proteins"]
+
+    assert container.obs["_index"].to_list() == ["S1", "S2"]
+    assert assay.var["_index"].to_list() == ["P1", "P2"]
+    np.testing.assert_allclose(
+        assay.layers["raw"].X,
+        np.array([[100.0, 50.0], [120.0, np.nan]]),
+        equal_nan=True,
+    )
+    assert container.history[-1].params["software"] == "spectronaut"
+    assert container.history[-1].params["format"] == "long"
 
 
 def test_load_quant_table_invalid_fdr_threshold(tmp_path: Path) -> None:
@@ -330,3 +400,127 @@ def test_load_quant_table_unsupported_extension_error(tmp_path: Path) -> None:
 
     with pytest.raises(ValidationError, match="Unsupported file extension"):
         load_quant_table(path, software="diann", level="protein")
+
+
+def test_load_quant_table_invalid_table_format_raises_error(tmp_path: Path) -> None:
+    path = _write_tsv(
+        tmp_path,
+        "diann_matrix.tsv",
+        pl.DataFrame(
+            {
+                "Protein.Group": ["P1"],
+                "S1.raw": [100.0],
+            }
+        ),
+    )
+
+    with pytest.raises(ValidationError, match="Unsupported table_format"):
+        load_quant_table(path, software="diann", level="protein", table_format="bad")
+
+
+def test_load_quant_table_parquet_matrix_auto_detect(tmp_path: Path) -> None:
+    path = tmp_path / "diann_protein_matrix.parquet"
+    pl.DataFrame(
+        {
+            "Protein.Group": ["P1", "P2"],
+            "S1.raw": [100.0, 300.0],
+            "S2.raw": [200.0, None],
+        }
+    ).write_parquet(path)
+
+    container = load_diann(path, level="protein", table_format="auto")
+    assay = container.assays["proteins"]
+
+    assert container.history[-1].params["format"] == "matrix"
+    np.testing.assert_allclose(
+        assay.layers["raw"].X,
+        np.array([[100.0, 300.0], [200.0, np.nan]]),
+        equal_nan=True,
+    )
+
+
+def test_load_quant_table_matrix_applies_fdr_filter(tmp_path: Path) -> None:
+    path = _write_tsv(
+        tmp_path,
+        "spectronaut_matrix_fdr.tsv",
+        pl.DataFrame(
+            {
+                "PG.ProteinGroups": ["P1", "P2"],
+                "PG.Qvalue": [0.005, 0.02],
+                "S1.raw_Quantity": [10.0, 20.0],
+                "S2.raw_Quantity": [11.0, 21.0],
+            }
+        ),
+    )
+
+    container = load_spectronaut(path, level="protein", table_format="matrix", fdr_threshold=0.01)
+    assay = container.assays["proteins"]
+
+    assert assay.var["_index"].to_list() == ["P1"]
+    np.testing.assert_allclose(assay.layers["raw"].X[:, 0], np.array([10.0, 11.0]))
+
+
+def test_load_diann_protein_default_assay_works_with_protein_alias_downstream(
+    tmp_path: Path,
+) -> None:
+    path = _write_tsv(
+        tmp_path,
+        "diann_protein_long.tsv",
+        pl.DataFrame(
+            {
+                "Run": ["S1.raw", "S2.raw"],
+                "Protein.Group": ["P1", "P1"],
+                "PG.MaxLFQ": [100.0, 120.0],
+                "PG.Q.Value": [0.001, 0.002],
+            }
+        ),
+    )
+
+    container = load_diann(path, level="protein")
+    from scptensor.normalization import norm_median
+
+    result = norm_median(container, assay_name="protein", source_layer="raw", new_layer_name="norm")
+    assert "norm" in result.assays["proteins"].layers
+
+
+def test_load_quant_table_logs_vendor_normalized_input(tmp_path: Path) -> None:
+    path = _write_tsv(
+        tmp_path,
+        "spectronaut_vendor_normalized.tsv",
+        pl.DataFrame(
+            {
+                "PG.ProteinGroups": ["P1", "P2"],
+                "PG.Normalized": [10.0, 20.0],
+                "R.FileName": ["S1.raw", "S1.raw"],
+                "PG.Qvalue": [0.001, 0.001],
+            }
+        ),
+    )
+
+    container = load_spectronaut(path, level="protein", table_format="long")
+    log = container.history[-1]
+
+    assert log.params["resolved_quantity_column"] == "PG.Normalized"
+    assert log.params["input_quantity_is_vendor_normalized"] is True
+
+
+def test_normalization_warns_on_vendor_normalized_raw_input(tmp_path: Path) -> None:
+    path = _write_tsv(
+        tmp_path,
+        "spectronaut_vendor_normalized_warning.tsv",
+        pl.DataFrame(
+            {
+                "PG.ProteinGroups": ["P1", "P2"],
+                "PG.Normalized": [10.0, 20.0],
+                "R.FileName": ["S1.raw", "S1.raw"],
+                "PG.Qvalue": [0.001, 0.001],
+            }
+        ),
+    )
+
+    container = load_spectronaut(path, level="protein", table_format="long")
+
+    from scptensor.normalization import norm_median
+
+    with pytest.warns(UserWarning, match="vendor-normalized intensities"):
+        norm_median(container, assay_name="protein", source_layer="raw", new_layer_name="norm")

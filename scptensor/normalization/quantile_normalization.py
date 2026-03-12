@@ -197,6 +197,9 @@ def norm_quantile(
       expressed, which is generally reasonable for large-scale proteomics
       data.
     - Log-transform before applying for best results.
+    - ScpTensor AutoSelect only compares this method automatically on layers
+      with explicit log provenance (for example, a `log` layer created by
+      :func:`scptensor.transformation.log_transform`).
     """
     # Validate and get objects
     assay, input_layer = validate_assay_and_layer(container, assay_name, source_layer)

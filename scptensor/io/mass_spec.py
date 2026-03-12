@@ -191,6 +191,22 @@ def _preview_columns(columns: list[str], limit: int = 12) -> str:
     return ", ".join(head) + suffix
 
 
+def _validate_table_format(table_format: str) -> None:
+    """Validate runtime table_format input."""
+    valid_formats = {"auto", "matrix", "long"}
+    if table_format not in valid_formats:
+        raise ValidationError(
+            f"Unsupported table_format='{table_format}'. "
+            "Supported values: 'auto', 'matrix', 'long'."
+        )
+
+
+def _is_vendor_normalized_column(column: str) -> bool:
+    """Return whether a resolved quantity column looks vendor-normalized."""
+    normalized_tokens = ("normalized", "normalised")
+    return any(token in column.lower() for token in normalized_tokens)
+
+
 def _clean_sample_name(name: str) -> str:
     """Normalize sample names from column values."""
     return re.sub(r"(?i)\.raw$", "", str(name).strip())
@@ -369,8 +385,6 @@ def _is_long_format(
         return True
     if table_format == "matrix":
         return False
-    if path.suffix.lower() == ".parquet":
-        return True
 
     has_sample = (
         sample_column in columns
@@ -623,6 +637,7 @@ def load_quant_table(
 
     if level not in ("protein", "peptide"):
         raise ValidationError(f"Unsupported level='{level}'. Use 'protein' or 'peptide'.")
+    _validate_table_format(table_format)
 
     if fdr_threshold is not None and not (0 <= fdr_threshold <= 1):
         raise ValidationError(f"fdr_threshold must be within [0, 1], got {fdr_threshold}")
@@ -634,6 +649,11 @@ def load_quant_table(
     resolved_software = _resolve_software(software, preview.columns)
     profile = _resolve_profile(resolved_software, level)
     resolved_assay = assay_name or ("proteins" if level == "protein" else "peptides")
+    resolved_feature_column: str | None = None
+    resolved_quantity_column: str | None = None
+    resolved_sample_column: str | None = None
+    used_fdr_column: str | None = None
+    vendor_normalized_input = False
 
     full_df = _read_table(path, delimiter=delimiter)
     is_long = _is_long_format(
@@ -646,6 +666,15 @@ def load_quant_table(
     )
 
     if is_long:
+        resolved_feature_column = _resolve_feature_column(full_df.columns, profile, feature_column)
+        resolved_quantity_column = _resolve_quantity_column(
+            full_df.columns, profile, quantity_column
+        )
+        resolved_sample_column = _resolve_sample_column_long(
+            full_df.columns, profile, sample_column
+        )
+        used_fdr_column = _resolve_fdr_column(full_df.columns, profile)
+        vendor_normalized_input = _is_vendor_normalized_column(resolved_quantity_column)
         container = _load_long_table(
             full_df,
             assay_name=resolved_assay,
@@ -657,6 +686,26 @@ def load_quant_table(
             layer_name=layer_name,
         )
     else:
+        full_df, used_fdr_column = _apply_fdr_filter(full_df, profile, fdr_threshold)
+        if full_df.is_empty():
+            if used_fdr_column is not None:
+                raise ValidationError(
+                    "No rows remain after FDR filtering. "
+                    f"Applied '{used_fdr_column} <= {fdr_threshold}' to matrix-format input."
+                )
+            raise ValidationError("No rows remain in matrix-format input after preprocessing.")
+
+        resolved_feature_column = _resolve_feature_column(full_df.columns, profile, feature_column)
+        sample_cols, _ = _resolve_matrix_sample_columns(
+            full_df,
+            resolved_software,
+            level,
+            resolved_feature_column,
+            profile,
+        )
+        vendor_normalized_input = any(
+            _is_vendor_normalized_column(column) for column in sample_cols
+        )
         container = _load_matrix_table(
             full_df,
             software=resolved_software,
@@ -678,10 +727,18 @@ def load_quant_table(
             "quantity_column": quantity_column,
             "sample_column": sample_column,
             "feature_column": feature_column,
+            "resolved_feature_column": resolved_feature_column,
+            "resolved_quantity_column": resolved_quantity_column,
+            "resolved_sample_column": resolved_sample_column,
+            "used_fdr_column": used_fdr_column,
+            "input_quantity_is_vendor_normalized": vendor_normalized_input,
             "fdr_threshold": fdr_threshold,
             "layer_name": layer_name,
         },
-        description=f"Loaded {resolved_software} {level}-level quant table from {path.name}.",
+        description=(
+            f"Loaded {resolved_software} {level}-level quant table from {path.name}."
+            + (" Source quantity appears vendor-normalized." if vendor_normalized_input else "")
+        ),
     )
     return container
 

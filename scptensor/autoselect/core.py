@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from scptensor.autoselect.strategy import get_strategy_preset
+from scptensor.core.assay_alias import resolve_assay_name
 
 if TYPE_CHECKING:
     from scptensor.autoselect.evaluators.base import BaseEvaluator
@@ -47,6 +48,7 @@ class EvaluationResult:
     execution_time: float
     layer_name: str
     error: str | None = None
+    method_contract: dict[str, Any] | None = None
     selection_score: float | None = None
     n_repeats: int = 1
     overall_score_std: float | None = None
@@ -69,6 +71,7 @@ class EvaluationResult:
             "execution_time": self.execution_time,
             "layer_name": self.layer_name,
             "error": self.error,
+            "method_contract": self.method_contract,
             "selection_score": self.selection_score,
             "n_repeats": self.n_repeats,
             "overall_score_std": self.overall_score_std,
@@ -102,6 +105,7 @@ class StageReport:
     best_method: str = ""
     best_result: EvaluationResult | None = None
     recommendation_reason: str = ""
+    method_contracts: dict[str, dict[str, Any]] = field(default_factory=dict)
     metric_weights: dict[str, float] = field(default_factory=dict)
     input_assay: str | None = None
     input_layer: str | None = None
@@ -134,6 +138,7 @@ class StageReport:
             "stage_key": self.stage_key or self.stage_name,
             "best_method": self.best_method,
             "recommendation_reason": self.recommendation_reason,
+            "method_contracts": self.method_contracts,
             "success_rate": self.success_rate,
             "metric_weights": self.metric_weights,
             "input_assay": self.input_assay,
@@ -272,6 +277,11 @@ class AutoSelector:
     clustering). It uses stage-specific evaluators to test methods and select
     the best performing ones.
 
+    Note
+    ----
+    ``reduce`` and ``cluster`` are downstream stages currently classified as
+    experimental in ScpTensor release scope.
+
     Attributes
     ----------
     SUPPORTED_STAGES : list[str]
@@ -330,6 +340,7 @@ class AutoSelector:
         stages : list[str] | None, optional
             List of stages to execute. If None, executes all stages.
             Supported: "normalize", "impute", "integrate", "reduce", "cluster"
+            (``reduce``/``cluster`` are experimental stages).
         keep_all : bool, bool, optional
             If True, keep all method results; if False, keep only best, by default False
         weights : dict[str, dict[str, float]] | None, optional
@@ -415,18 +426,19 @@ class AutoSelector:
         **kwargs,
     ) -> None:
         """Validate stage-level inputs with actionable errors."""
-        if assay_name not in container.assays:
+        resolved_assay_name = resolve_assay_name(container, assay_name)
+        if resolved_assay_name not in container.assays:
             available = sorted(container.assays.keys())
             raise ValueError(
                 f"Stage '{stage}' requires assay '{assay_name}', but it was not found. "
                 f"Available assays: {available}"
             )
 
-        assay = container.assays[assay_name]
+        assay = container.assays[resolved_assay_name]
         if source_layer not in assay.layers:
             available_layers = sorted(assay.layers.keys())
             raise ValueError(
-                f"Stage '{stage}' requires layer '{source_layer}' in assay '{assay_name}', "
+                f"Stage '{stage}' requires layer '{source_layer}' in assay '{resolved_assay_name}', "
                 f"but it was not found. Available layers: {available_layers}"
             )
 
