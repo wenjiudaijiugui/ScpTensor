@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from scptensor.autoselect.evaluators.base import BaseEvaluator
+from scptensor.core.assay_alias import resolve_assay_name
 
 if TYPE_CHECKING:
     from scptensor.autoselect.core import EvaluationResult, StageReport
@@ -86,14 +87,19 @@ class DimReductionEvaluator(BaseEvaluator):
         try:
             from scptensor.dim_reduction import reduce_pca
 
-            methods["pca"] = create_wrapper(
-                reduce_pca,
-                source_layer_param="base_layer",
-                layer_namer=lambda _, __: "pca",
-                new_assay_name="pca",
-                n_components=self._n_components,
-                random_state=self._random_state,
-            )
+            def pca_wrapper(container, assay_name, source_layer, **kwargs):
+                n_components = self._get_pca_n_components(container, assay_name, source_layer)
+                return reduce_pca(
+                    container=container,
+                    assay_name=assay_name,
+                    base_layer=source_layer,
+                    new_assay_name="pca",
+                    n_components=n_components,
+                    random_state=self._random_state,
+                    **kwargs,
+                )
+
+            methods["pca"] = pca_wrapper
         except ImportError:
             pass
 
@@ -207,10 +213,9 @@ class DimReductionEvaluator(BaseEvaluator):
             x_reduced = x_reduced.toarray()
 
         # Get original data
-        if "proteins" not in original_container.assays:
+        original_assay = self._get_metric_assay(original_container)
+        if original_assay is None:
             return dict.fromkeys(self.metric_weights, 0.0)
-
-        original_assay = original_container.assays["proteins"]
         # Prefer the actual input layer used by this evaluation.
         source_layer = getattr(self, "_metric_source_layer", None)
         if source_layer not in original_assay.layers:
@@ -245,6 +250,50 @@ class DimReductionEvaluator(BaseEvaluator):
         scores["clustering_potential"] = self._compute_clustering_potential(x_reduced)
 
         return scores
+
+    def _get_pca_n_components(
+        self,
+        container: ScpContainer,
+        assay_name: str,
+        source_layer: str,
+    ) -> int:
+        """Clip PCA components to the current matrix shape."""
+        resolved_assay_name = resolve_assay_name(container, assay_name)
+        assay = container.assays.get(resolved_assay_name)
+        if assay is None or source_layer not in assay.layers:
+            return self._n_components
+
+        n_samples, n_features = assay.layers[source_layer].X.shape
+        min_dim = min(n_samples, n_features)
+        if min_dim <= 1:
+            return 1
+        return max(1, min(self._n_components, min_dim - 1))
+
+    def _get_result_name(self, method_name: str, source_layer: str) -> str:
+        """Dimensionality reduction stores outputs as new assays."""
+        del source_layer
+        return method_name
+
+    def _collect_success_artifact(
+        self,
+        result_container: ScpContainer,
+        assay_name: str,
+        result_name: str,
+    ):
+        """Return the reduced assay created by a successful method."""
+        del assay_name
+        return result_container.assays[result_name]
+
+    def _attach_success_artifact(
+        self,
+        result_container: ScpContainer,
+        assay_name: str,
+        result_name: str,
+        artifact,
+    ) -> None:
+        """Attach a reduced assay to the final container."""
+        del assay_name
+        result_container.assays[result_name] = artifact
 
     def _compute_variance_explained(
         self,

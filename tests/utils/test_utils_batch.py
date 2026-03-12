@@ -671,7 +671,3 @@ class TestEdgeCases:
 
         result = apply_by_batch(data, identity, batch_size=20, axis=1)
         assert result.shape == data.shape
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

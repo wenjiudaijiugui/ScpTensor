@@ -63,7 +63,10 @@ def scatter(
     valid = m == 0
     invalid = ~valid
 
-    base_kwargs = {"s": 20, "edgecolor": "none", **kwargs}
+    base_kwargs: dict[str, Any] = {"s": 28, **kwargs}
+    base_kwargs.setdefault("edgecolors", "none")
+    if c is None:
+        base_kwargs.pop("cmap", None)
 
     if mask_style == "subtle":
         _scatter_subtle(ax, X, c, valid, invalid, base_kwargs)
@@ -71,6 +74,9 @@ def scatter(
         _scatter_explicit(ax, X, c, valid, invalid, base_kwargs)
     else:
         ax.scatter(X[:, 0], X[:, 1], c=c, **base_kwargs)
+
+    if mask_style in {"subtle", "explicit"} and np.any(valid) and np.any(invalid):
+        ax.legend(loc="best")
 
     if title:
         ax.set_title(title)
@@ -88,7 +94,7 @@ def _scatter_subtle(
     c: np.ndarray | None,
     valid: np.ndarray,
     invalid: np.ndarray,
-    kwargs: dict,
+    kwargs: dict[str, Any],
 ) -> None:
     """Render scatter with alpha-based mask distinction."""
     if np.any(valid):
@@ -116,15 +122,31 @@ def _scatter_explicit(
     c: np.ndarray | None,
     valid: np.ndarray,
     invalid: np.ndarray,
-    kwargs: dict,
+    kwargs: dict[str, Any],
 ) -> None:
     """Render scatter with marker-based mask distinction."""
+    valid_kwargs = dict(kwargs)
+    valid_kwargs.setdefault("edgecolors", "white")
+    valid_kwargs.setdefault("linewidths", 0.35)
+
+    # Avoid matplotlib warnings: "x" is an unfilled marker.
+    invalid_kwargs = {k: v for k, v in kwargs.items() if k not in {"edgecolor", "edgecolors"}}
+    invalid_kwargs.setdefault("linewidths", 0.9)
+    invalid_kwargs.setdefault("alpha", 0.8)
+
     if np.any(valid):
         c_valid = None if c is None else c[valid]
-        ax.scatter(X[valid, 0], X[valid, 1], c=c_valid, marker="o", label="Measured", **kwargs)
+        ax.scatter(
+            X[valid, 0], X[valid, 1], c=c_valid, marker="o", label="Measured", **valid_kwargs
+        )
 
     if np.any(invalid):
         c_invalid = "gray" if c is None else c[invalid]
         ax.scatter(
-            X[invalid, 0], X[invalid, 1], c=c_invalid, marker="x", label="Imputed/Missing", **kwargs
+            X[invalid, 0],
+            X[invalid, 1],
+            c=c_invalid,
+            marker="x",
+            label="Imputed/Missing",
+            **invalid_kwargs,
         )

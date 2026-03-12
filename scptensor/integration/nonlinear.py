@@ -27,22 +27,21 @@ single-cell data with Harmony. Nature Methods (2019).
 
 from __future__ import annotations
 
+from scptensor.core.exceptions import MissingDependencyError
 from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import ScpContainer, ScpMatrix
-from scptensor.core.utils import requires_dependency
 from scptensor.integration.base import (
     get_integrate_method_info,
     prepare_integration_data,
     preserve_sparsity,
     register_integrate_method,
     validate_batch_integration_params,
-    validate_layer_params,
+    validate_embedding_input,
 )
 
 
 @register_integrate_method("harmony", integration_level="embedding", recommended_for_de=False)
 @register_integrate_method("nonlinear", integration_level="embedding", recommended_for_de=False)
-@requires_dependency("harmonypy", "pip install harmonypy")
 def integrate_harmony(
     container: ScpContainer,
     batch_key: str,
@@ -96,26 +95,41 @@ def integrate_harmony(
 
     Examples
     --------
-    >>> container = integrate_harmony(container, batch_key='batch')
-    >>> container = integrate_harmony(container, batch_key='batch', theta=3, nclust=15)
+    >>> container = integrate_harmony(
+    ...     container,
+    ...     batch_key='batch',
+    ...     assay_name='pca',
+    ...     base_layer='X',
+    ... )
+    >>> container = integrate_harmony(
+    ...     container,
+    ...     batch_key='batch',
+    ...     assay_name='protein',
+    ...     base_layer='pca',
+    ...     theta=3,
+    ...     nclust=15,
+    ... )
     """
-    import harmonypy as hm
-
-    # Validate assay and layer
-    assay, layer = validate_layer_params(container, assay_name, base_layer)
-    obs_df, batches, unique_batches, batch_counts = validate_batch_integration_params(
+    assay, layer = validate_embedding_input(
+        container,
+        assay_name,
+        base_layer,
+        method_name="Harmony integration",
+    )
+    _, _, unique_batches, _ = validate_batch_integration_params(
         container, batch_key, assay_name, min_batches=2, min_samples_per_batch=2
     )
 
-    # Get and prepare data
+    try:
+        import harmonypy as hm
+    except ImportError as exc:
+        raise MissingDependencyError("harmonypy") from exc
+
     X = layer.X
     input_was_sparse = is_sparse_matrix(X)
-    X_dense = prepare_integration_data(X)
-
-    # Prepare metadata for Harmony
+    X_dense = prepare_integration_data(X, context="Harmony integration")
     meta_data = container.obs.to_pandas()
 
-    # Set default values for Harmony parameters
     harmony_params = {
         "theta": theta if theta is not None else 2.0,
         "lamb": lamb if lamb is not None else 1.0,
@@ -127,24 +141,17 @@ def integrate_harmony(
         "epsilon_harmony": epsilon_harmony,
     }
 
-    # Run Harmony
     ho = hm.run_harmony(X_dense, meta_data, batch_key, **harmony_params)
 
-    # Harmony returns (n_pcs, n_samples), transpose to (n_samples, n_pcs)
     res = ho.Z_corr.T
-
-    # Preserve sparsity if appropriate
     res = preserve_sparsity(res, input_was_sparse)
 
-    # Create new layer
-    M_input = layer.M
     new_matrix = ScpMatrix(
         X=res,
-        M=M_input.copy() if M_input is not None else None,
+        M=layer.M.copy() if layer.M is not None else None,
     )
     assay.add_layer(new_layer_name or "harmony", new_matrix)
 
-    # Log operation
     method_info = get_integrate_method_info("harmony")
     container.log_operation(
         action="integration_harmony",
@@ -158,55 +165,13 @@ def integrate_harmony(
             "integration_level": method_info.integration_level,
             "recommended_for_de": method_info.recommended_for_de,
         },
-        description=f"Harmony integration (theta={harmony_params['theta']}, "
-        f"lamb={harmony_params['lamb']}) on layer '{base_layer}'.",
+        description=(
+            f"Harmony integration (theta={harmony_params['theta']}, "
+            f"lamb={harmony_params['lamb']}) on layer '{base_layer}'."
+        ),
     )
 
     return container
 
 
-def harmony(
-    container: ScpContainer,
-    batch_key: str,
-    assay_name: str = "protein",
-    base_layer: str = "pca",
-    new_layer_name: str | None = "harmony",
-    theta: float | None = None,
-    lamb: float | None = None,
-    sigma: float = 0.1,
-    nclust: int | None = None,
-    max_iter_harmony: int = 10,
-    max_iter_cluster: int = 20,
-    epsilon_cluster: float = 1e-5,
-    epsilon_harmony: float = 1e-4,
-) -> ScpContainer:
-    """Harmony integration for batch effect correction.
-
-    .. deprecated:: 0.1.0
-        Use :func:`integrate_harmony` instead.
-    """
-    import warnings
-
-    warnings.warn(
-        "'harmony' is deprecated, use 'integrate_harmony' instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return integrate_harmony(
-        container=container,
-        batch_key=batch_key,
-        assay_name=assay_name,
-        base_layer=base_layer,
-        new_layer_name=new_layer_name,
-        theta=theta,
-        lamb=lamb,
-        sigma=sigma,
-        nclust=nclust,
-        max_iter_harmony=max_iter_harmony,
-        max_iter_cluster=max_iter_cluster,
-        epsilon_cluster=epsilon_cluster,
-        epsilon_harmony=epsilon_harmony,
-    )
-
-
-__all__ = ["integrate_harmony", "harmony"]
+__all__ = ["integrate_harmony"]

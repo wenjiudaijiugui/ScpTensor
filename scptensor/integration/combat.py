@@ -3,6 +3,13 @@
 ComBat uses empirical Bayes methods to correct for batch effects while
 preserving biological signals of interest.
 
+ScpTensor keeps this implementation on a complete-matrix contract. Official
+``sva::ComBat`` contains NA-aware per-feature fitting branches, but high-missing
+proteomics workflows typically need additional missing-aware wrappers to avoid
+silently changing missingness semantics. In ScpTensor, ``integrate_combat``
+remains an explicit manual method and is excluded from the stable
+DE-oriented AutoSelect candidate set.
+
 Algorithm
 ---------
 
@@ -43,7 +50,7 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
-from scptensor.core.exceptions import ScpValueError
+from scptensor.core.exceptions import ScpValueError, ValidationError
 from scptensor.core.sparse_utils import is_sparse_matrix
 from scptensor.core.structures import ScpContainer, ScpMatrix
 from scptensor.integration.base import (
@@ -56,7 +63,7 @@ from scptensor.integration.base import (
 EbMode = Literal["parametric", "nonparametric"]
 
 
-@register_integrate_method("combat", integration_level="matrix", recommended_for_de=True)
+@register_integrate_method("combat", integration_level="matrix", recommended_for_de=False)
 def integrate_combat(
     container: ScpContainer,
     batch_key: str,
@@ -103,6 +110,13 @@ def integrate_combat(
     ValueError
         If design matrix is rank deficient
 
+    Notes
+    -----
+    This implementation currently requires a complete input matrix. For
+    high-missing single-cell DIA protein matrices, prefer
+    :func:`scptensor.integration.integrate_limma` when preserving missing values
+    is required, or perform explicit filtering/imputation before ComBat.
+
     Examples
     --------
     >>> container = integrate_combat(container, batch_key='batch')
@@ -130,9 +144,13 @@ def integrate_combat(
     else:
         X_dense = np.asarray(X)
 
-    # Impute NaN values with batch-specific means
     if np.isnan(X_dense).any():
-        X_dense = _impute_nans_batchwise(X_dense, batches)
+        raise ValidationError(
+            "ScpTensor's ComBat implementation currently requires a complete matrix "
+            "(no NaN values). For high-missing single-cell DIA protein matrices, "
+            "prefer integrate_limma() to preserve missing values, or perform explicit "
+            "filtering/imputation before ComBat."
+        )
 
     # Transpose: (n_features, n_samples) for feature-wise operations
     dat = X_dense.T
@@ -269,30 +287,6 @@ def _fit_combat(
     # Apply correction
     out_data = _apply_combat_correction(Z, batches, unique_batches, gamma_star, delta_star)
     return out_data * sigma[:, None] + grand_mean[:, None] + covar_effect
-
-
-def _impute_nans_batchwise(X: np.ndarray, batches: np.ndarray) -> np.ndarray:
-    """Impute NaN values using batch-specific column means."""
-    X_imputed = X.copy()
-
-    for b in np.unique(batches):
-        batch_mask = batches == b
-        batch_data = X_imputed[batch_mask]
-        batch_mean = np.nanmean(batch_data, axis=0)
-
-        nan_mask = np.isnan(batch_data)
-        if nan_mask.any():
-            batch_rows = np.where(batch_mask)[0]
-            nan_rows, nan_cols = np.where(nan_mask)
-            global_rows = batch_rows[nan_rows]
-            X_imputed[global_rows, nan_cols] = batch_mean[nan_cols]
-
-    if np.isnan(X_imputed).any():
-        col_mean = np.nan_to_num(np.nanmean(X_imputed, axis=0), nan=0.0)
-        nan_mask = np.isnan(X_imputed)
-        X_imputed[nan_mask] = np.take(col_mean, np.where(nan_mask)[1])
-
-    return X_imputed
 
 
 def _build_covariate_design(

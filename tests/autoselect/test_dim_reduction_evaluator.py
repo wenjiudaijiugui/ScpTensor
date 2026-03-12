@@ -224,3 +224,38 @@ class TestDimReductionEvaluatorRunAll:
         # PCA should be available and should succeed
         if "pca" in result_container.assays:
             assert "X" in result_container.assays["pca"].layers
+
+    def test_run_all_adapts_pca_components_for_small_matrix(self):
+        """Default n_components should be clipped for small matrices."""
+        obs = pl.DataFrame({"_index": ["S1", "S2", "S3", "S4"]})
+        var = pl.DataFrame({"_index": ["P1", "P2", "P3"]})
+        assay = Assay(var=var)
+        assay.add_layer("raw", ScpMatrix(X=np.random.rand(4, 3)))
+        container = ScpContainer(obs=obs, assays={"proteins": assay})
+
+        evaluator = DimReductionEvaluator(n_components=50)
+        result_container, report = evaluator.run_all(
+            container=container,
+            assay_name="proteins",
+            source_layer="raw",
+        )
+
+        assert report.best_result is not None
+        assert report.best_result.error is None
+        assert result_container.assays["pca"].layers["X"].X.shape[1] == 2
+
+    def test_run_all_accepts_protein_alias(self, container_for_reduction):
+        """Evaluator should resolve proteins/protein assay aliases."""
+        assay = container_for_reduction.assays.pop("proteins")
+        container_for_reduction.assays["protein"] = assay
+
+        evaluator = DimReductionEvaluator(n_components=5)
+        result_container, report = evaluator.run_all(
+            container=container_for_reduction,
+            assay_name="proteins",
+            source_layer="raw",
+        )
+
+        assert report.best_result is not None
+        assert report.best_result.error is None
+        assert "protein" in result_container.assays

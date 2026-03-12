@@ -1,14 +1,4 @@
-#!/usr/bin/env python3
-"""
-Test matrix_ops sparse optimizations.
-"""
-
-import sys
-from pathlib import Path
-
-# Add project root to path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
+"""Tests for sparse behaviors in ``matrix_ops``."""
 
 import numpy as np
 import scipy.sparse as sp
@@ -20,20 +10,21 @@ from scptensor.core.structures import MaskCode, ScpMatrix
 def create_test_matrix(sparse=True, missing_rate=0.5):
     """Create a test matrix with some missing values."""
     n_rows, n_cols = 100, 50
+    rng = np.random.default_rng(42)
 
     if sparse:
         # Create sparse matrix with specified missing rate
         n_elements = n_rows * n_cols
         n_nonzero = int((1 - missing_rate) * n_elements)
 
-        rows = np.random.randint(0, n_rows, n_nonzero)
-        cols = np.random.randint(0, n_cols, n_nonzero)
-        data = np.random.randn(n_nonzero) * 10 + 20
+        rows = rng.integers(0, n_rows, n_nonzero)
+        cols = rng.integers(0, n_cols, n_nonzero)
+        data = rng.standard_normal(n_nonzero) * 10 + 20
 
         X = sp.csr_matrix((data, (rows, cols)), shape=(n_rows, n_cols))
         M = sp.csr_matrix(X != 0, dtype=np.int8)  # Mark non-zeros as VALID
     else:
-        X = np.random.randn(n_rows, n_cols) * 10 + 20
+        X = rng.standard_normal((n_rows, n_cols)) * 10 + 20
         M = np.ones((n_rows, n_cols), dtype=np.int8) * MaskCode.VALID.value
 
     return ScpMatrix(X=X, M=M)
@@ -58,8 +49,6 @@ def test_mark_values_sparse():
     assert M_dense[5, 5] == MaskCode.IMPUTED.value
     assert M_dense[10, 10] == MaskCode.IMPUTED.value
 
-    print("✓ mark_values sparse tests passed")
-
 
 def test_filter_by_mask_sparse():
     """Test filter_by_mask with sparse matrix."""
@@ -75,8 +64,6 @@ def test_filter_by_mask_sparse():
     valid_values = {MaskCode.VALID.value, MaskCode.FILTERED.value}
     assert all(v in valid_values for v in M_unique), "All values should be VALID or FILTERED"
 
-    print("✓ filter_by_mask sparse tests passed")
-
 
 def test_apply_mask_to_values_sparse():
     """Test apply_mask_to_values with sparse matrix."""
@@ -91,8 +78,6 @@ def test_apply_mask_to_values_sparse():
     M_dense = result_zero.M.toarray()
     invalid_mask = M_dense != MaskCode.VALID.value
     assert np.all(X_dense[invalid_mask] == 0), "Invalid values should be zero"
-
-    print("✓ apply_mask_to_values sparse tests passed")
 
 
 def test_no_densification():
@@ -112,12 +97,12 @@ def test_no_densification():
     ratio = mem_after["nbytes"] / mem_before["nbytes"]
     assert ratio < 1.2, f"Memory usage increased too much: {ratio:.2f}x (indicates densification)"
 
-    print(f"✓ No densification test passed (memory ratio: {ratio:.2f}x)")
-
 
 def test_performance_comparison():
     """Compare performance of sparse vs dense operations."""
     import time
+
+    rng = np.random.default_rng(42)
 
     # Create matrices
     n_rows, n_cols = 1000, 500
@@ -125,9 +110,9 @@ def test_performance_comparison():
 
     # Sparse matrix
     n_nonzero = int((1 - missing_rate) * n_rows * n_cols)
-    rows = np.random.randint(0, n_rows, n_nonzero)
-    cols = np.random.randint(0, n_cols, n_nonzero)
-    data = np.random.randn(n_nonzero) * 10 + 20
+    rows = rng.integers(0, n_rows, n_nonzero)
+    cols = rng.integers(0, n_cols, n_nonzero)
+    data = rng.standard_normal(n_nonzero) * 10 + 20
 
     X_sparse = sp.csr_matrix((data, (rows, cols)), shape=(n_rows, n_cols))
     M_sparse = sp.csr_matrix(X_sparse != 0, dtype=np.int8)
@@ -142,33 +127,15 @@ def test_performance_comparison():
     rows_idx = np.array([0, 10, 20])
     cols_idx = np.array([0, 10, 20])
 
-    start = time.time()
+    start = time.perf_counter()
     for _ in range(100):
         _ = MatrixOps.mark_values(matrix_sparse, (rows_idx, cols_idx), MaskCode.IMPUTED)
-    time_sparse = time.time() - start
+    time_sparse = time.perf_counter() - start
 
-    start = time.time()
+    start = time.perf_counter()
     for _ in range(100):
         _ = MatrixOps.mark_values(matrix_dense, (rows_idx, cols_idx), MaskCode.IMPUTED)
-    time_dense = time.time() - start
+    time_dense = time.perf_counter() - start
 
-    print("\nPerformance comparison (1000x500 matrix, 80% sparse):")
-    print(f"  Sparse operations: {time_sparse * 1000:.2f} ms")
-    print(f"  Dense operations:  {time_dense * 1000:.2f} ms")
-    print(f"  Speedup: {time_dense / time_sparse:.2f}x")
-
-    print("✓ Performance comparison completed")
-
-
-if __name__ == "__main__":
-    print("Testing matrix_ops sparse optimizations...\n")
-
-    test_mark_values_sparse()
-    test_filter_by_mask_sparse()
-    test_apply_mask_to_values_sparse()
-    test_no_densification()
-    test_performance_comparison()
-
-    print("\n" + "=" * 60)
-    print("✅ All matrix_ops sparse optimization tests passed!")
-    print("=" * 60)
+    assert time_sparse > 0
+    assert time_dense > 0

@@ -1,0 +1,5 @@
+PG.ProteinGroups	R.FileName	PG.Quantity	PG.Qvalue
+P1	S1.raw	100.0	0.005
+P1	S2.raw	120.0	0.009
+P2	S1.raw	50.0	0.007
+P2	S2.raw	60.0	0.02

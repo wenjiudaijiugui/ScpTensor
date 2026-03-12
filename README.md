@@ -15,12 +15,18 @@ Current supported scope:
 - Spectronaut quant output import
 - peptide/precursor to protein aggregation
 - protein-level preprocessing: transform, normalize, impute, integration
-- dimensionality reduction, clustering, and visualization
+- preprocessing-oriented visualization
 
 Explicit non-goals in current package scope:
 - differential expression analysis
 - feature selection module
 - non-DIA software input support by default
+
+Release-boundary clarification:
+- Dimensionality reduction (`reduce_*`) and clustering (`cluster_*`) are
+  currently treated as **experimental downstream analysis helpers**, not core
+  preprocessing deliverables for release acceptance.
+- They are provided via `scptensor.experimental`.
 
 ## Installation
 
@@ -43,8 +49,6 @@ uv pip install -e ".[dev]"
 ```python
 from pathlib import Path
 
-from scptensor.cluster import cluster_kmeans
-from scptensor.dim_reduction import reduce_pca
 from scptensor.io import aggregate_to_protein, load_diann
 from scptensor.normalization import norm_median
 from scptensor.transformation import log_transform
@@ -78,13 +82,19 @@ container = norm_median(
     new_layer_name="norm",
 )
 
-# 4) Reduce + cluster
-container = reduce_pca(container, assay_name="proteins", base_layer="norm", n_components=20)
-container = cluster_kmeans(container, assay_name="pca", base_layer="X", n_clusters=6)
-
-# 5) Workflow-level visualization
-_ = plot_data_overview(container, assay_name="proteins", layer="norm", groupby="kmeans_k6")
+# 4) Preprocessing-level visualization
+_ = plot_data_overview(container, assay_name="proteins", layer="norm")
 ```
+
+## Experimental Modules
+
+Downstream dim-reduction and clustering APIs are available under:
+
+```python
+from scptensor.experimental import cluster_kmeans, reduce_pca
+```
+
+These APIs are intentionally excluded from core preprocessing release criteria.
 
 ## Supported Input Types (I/O)
 
@@ -108,8 +118,9 @@ Main APIs:
 
 - [Docs index](docs/README.md)
 - [DIA-NN / Spectronaut I/O spec](docs/io_input_spec_diann_spectronaut.md)
-- [Main tutorial notebook](docs/tutorial.ipynb)
-- [AutoSelect tutorial](docs/autoselect_tutorial.ipynb)
+- [Tutorial index](tutorial/README.md)
+- [Main tutorial notebook](tutorial/tutorial.ipynb)
+- [AutoSelect tutorial](tutorial/autoselect_tutorial.ipynb)
 
 ## Benchmark Assets
 

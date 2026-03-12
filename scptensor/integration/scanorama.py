@@ -114,7 +114,7 @@ def integrate_scanorama(
     X = layer.X.copy()
     M = layer.M
     input_was_sparse = is_sparse_matrix(X)
-    X = prepare_integration_data(X)
+    X = prepare_integration_data(X, context="Scanorama integration")
 
     # Prepare data list for scanorama
     datasets_list = [X[batches == b] for b in unique_batches]

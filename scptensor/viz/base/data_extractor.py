@@ -15,6 +15,22 @@ class DataExtractor:
     """Extract plotting data from ScpContainer with unified handling."""
 
     @staticmethod
+    def _resolve_indices_or_raise(
+        available_ids: list[str],
+        requested_ids: list[str],
+        id_type: str,
+    ) -> list[int]:
+        """Resolve requested IDs to indices with explicit missing-ID errors."""
+        index_map = {item_id: idx for idx, item_id in enumerate(available_ids)}
+        missing = [item_id for item_id in requested_ids if item_id not in index_map]
+        if missing:
+            raise ValueError(
+                f"{id_type} not found: {missing}. Available {id_type.lower()} count: "
+                f"{len(available_ids)}"
+            )
+        return [index_map[item_id] for item_id in requested_ids]
+
+    @staticmethod
     def get_expression_matrix(
         container: ScpContainer,
         assay_name: str,
@@ -47,7 +63,12 @@ class DataExtractor:
         var : ndarray
             Feature metadata
         """
+        if assay_name not in container.assays:
+            raise ValueError(f"Assay '{assay_name}' not found in container")
+
         assay = container.assays[assay_name]
+        if layer not in assay.layers:
+            raise ValueError(f"Layer '{layer}' not found in assay '{assay_name}'")
         scpmatrix = assay.layers[layer]
 
         X = scpmatrix.X  # noqa: N806
@@ -62,9 +83,12 @@ class DataExtractor:
 
         # Filter samples
         if samples is not None:
-            sample_idx = [
-                i for i, s in enumerate(container.obs[container.sample_id_col]) if s in samples
-            ]
+            sample_ids = container.obs[container.sample_id_col].to_list()
+            sample_idx = DataExtractor._resolve_indices_or_raise(
+                sample_ids,
+                samples,
+                "Samples",
+            )
             X = X[sample_idx]  # noqa: N806
             M = M[sample_idx]  # noqa: N806
             obs = container.obs[sample_idx]
@@ -74,7 +98,12 @@ class DataExtractor:
         # Filter features
         if var_names is not None:
             feature_id_col = assay.feature_id_col
-            feature_idx = [i for i, v in enumerate(assay.var[feature_id_col]) if v in var_names]
+            feature_ids = assay.var[feature_id_col].to_list()
+            feature_idx = DataExtractor._resolve_indices_or_raise(
+                feature_ids,
+                var_names,
+                "Features",
+            )
             X = X[:, feature_idx]  # noqa: N806
             M = M[:, feature_idx]  # noqa: N806
             var = assay.var[feature_idx]
@@ -110,7 +139,7 @@ class DataExtractor:
     @staticmethod
     def handle_missing_values(
         X: np.ndarray,  # noqa: N803
-        M: np.ndarray,  # noqa: N803
+        M: np.ndarray | None,  # noqa: N803
         method: Literal["separate", "transparent", "imputed"] = "separate",
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
@@ -121,7 +150,7 @@ class DataExtractor:
         X : ndarray
             Expression matrix
         M : ndarray
-            Mask matrix (0=valid, 1=MBR, 2=LOD, 3=filtered)
+            Mask matrix (0=valid, >0=non-valid/masked status)
         method : str
             - 'separate': Return separate arrays for valid/missing
             - 'transparent': Return X with nan for missing
@@ -136,20 +165,33 @@ class DataExtractor:
         M_types : ndarray
             Missing value types
         """
-        if method == "imputed":
-            return X, np.array([]), np.array([])
+        allowed_methods = {"separate", "transparent", "imputed"}
+        if method not in allowed_methods:
+            raise ValueError(
+                f"Unsupported method '{method}'. Expected one of: {sorted(allowed_methods)}"
+            )
 
-        valid_mask = M == 0
-        missing_mask = M > 0
+        x_array = np.asarray(X)
+        m_array = np.zeros_like(x_array, dtype=np.int8) if M is None else np.asarray(M)
+        if x_array.shape != m_array.shape:
+            raise ValueError(
+                f"X and M must have the same shape, got X={x_array.shape}, M={m_array.shape}"
+            )
+
+        if method == "imputed":
+            return x_array, np.array([]), np.array([])
+
+        valid_mask = m_array == 0
+        missing_mask = m_array > 0
 
         if method == "transparent":
-            X_result = X.copy().astype(float)  # noqa: N806
+            X_result = x_array.copy().astype(float)  # noqa: N806
             X_result[missing_mask] = np.nan
-            return X_result, np.array([]), M[missing_mask]
+            return X_result, np.array([]), m_array[missing_mask]
 
         # method == 'separate'
-        X_valid = X[valid_mask]  # noqa: N806
-        X_missing = X[missing_mask]  # noqa: N806
-        M_types = M[missing_mask]  # noqa: N806
+        X_valid = x_array[valid_mask]  # noqa: N806
+        X_missing = x_array[missing_mask]  # noqa: N806
+        M_types = m_array[missing_mask]  # noqa: N806
 
         return X_valid, X_missing, M_types

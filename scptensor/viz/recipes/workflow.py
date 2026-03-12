@@ -29,10 +29,13 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
 __all__ = [
+    "plot_aggregation_summary",
     "plot_data_overview",
+    "plot_normalization_summary",
     "plot_qc_filtering_summary",
     "plot_preprocessing_summary",
     "plot_missingness_reduction",
+    "plot_integration_batch_summary",
     "plot_reduction_summary",
     "plot_embedding_panels",
     "plot_saved_artifact_sizes",
@@ -69,6 +72,148 @@ def _missing_rate(x: np.ndarray | sp.spmatrix) -> float:
     """Compute missing rate as non-finite proportion."""
     dense = _to_dense_array(x)
     return float(np.mean(~np.isfinite(dense)))
+
+
+def _safe_row_cv(x: np.ndarray | sp.spmatrix) -> np.ndarray:
+    """Compute per-sample CV with robust finite-value handling."""
+    dense = _to_dense_array(x)
+    cvs = np.full(dense.shape[0], np.nan, dtype=np.float64)
+    for i in range(dense.shape[0]):
+        row = dense[i]
+        finite = np.isfinite(row)
+        if np.sum(finite) < 2:
+            continue
+        mu = float(np.mean(row[finite]))
+        if np.isclose(mu, 0.0):
+            continue
+        sigma = float(np.std(row[finite], ddof=1))
+        cvs[i] = sigma / abs(mu)
+    return cvs
+
+
+def _impute_finite_column_mean(x: np.ndarray) -> np.ndarray:
+    """Fill NaN/inf values with column means for stable projection/metrics."""
+    out = np.asarray(x, dtype=np.float64).copy()
+    finite = np.isfinite(out)
+    if np.all(finite):
+        return out
+
+    col_means = np.zeros(out.shape[1], dtype=np.float64)
+    for j in range(out.shape[1]):
+        col = out[:, j]
+        mask = np.isfinite(col)
+        col_means[j] = float(np.mean(col[mask])) if np.any(mask) else 0.0
+
+    bad_rows, bad_cols = np.where(~finite)
+    out[bad_rows, bad_cols] = col_means[bad_cols]
+    return out
+
+
+def _batch_dispersion_score(x_embed: np.ndarray, batch_codes: np.ndarray) -> float:
+    """Return 1 - between/(between+within) dispersion ratio in [0, 1]."""
+    global_mean = np.mean(x_embed, axis=0)
+    between = 0.0
+    within = 0.0
+    for b in np.unique(batch_codes):
+        mask = batch_codes == b
+        xb = x_embed[mask]
+        if xb.size == 0:
+            continue
+        mean_b = np.mean(xb, axis=0)
+        between += float(xb.shape[0] * np.sum((mean_b - global_mean) ** 2))
+        within += float(np.sum((xb - mean_b) ** 2))
+
+    total = between + within + 1e-12
+    return float(np.clip(1.0 - (between / total), 0.0, 1.0))
+
+
+def _compute_batch_quality_metrics(
+    x_embed: np.ndarray, batch_labels: np.ndarray
+) -> dict[str, float]:
+    """Compute batch-mixing quality metrics in a higher-is-better direction."""
+    from scptensor.autoselect.metrics.batch import batch_asw, batch_mixing_score
+
+    _, encoded = np.unique(batch_labels.astype(str), return_inverse=True)
+    batch_codes = encoded.astype(np.int64)
+    return {
+        "batch_asw_mix": float(batch_asw(x_embed, batch_codes)),
+        "batch_mixing_knn": float(batch_mixing_score(x_embed, batch_codes)),
+        "batch_dispersion": float(_batch_dispersion_score(x_embed, batch_codes)),
+    }
+
+
+def plot_aggregation_summary(
+    container: ScpContainer,
+    source_assay: str = "peptides",
+    target_assay: str = "proteins",
+    top_n_targets: int = 15,
+    figsize: tuple[float, float] = (15, 4),
+) -> np.ndarray:
+    """Visualize peptide/precursor -> protein aggregation coverage and density."""
+    validate_container(container)
+    setup_style()
+
+    if source_assay not in container.assays:
+        raise ValueError(f"Source assay '{source_assay}' not found.")
+    if target_assay not in container.assays:
+        raise ValueError(f"Target assay '{target_assay}' not found.")
+
+    link = next(
+        (
+            lk
+            for lk in reversed(container.links)
+            if lk.source_assay == source_assay and lk.target_assay == target_assay
+        ),
+        None,
+    )
+    if link is None:
+        raise ValueError(
+            "No aggregation link found for requested assays. "
+            "Run aggregate_to_protein first or provide matching source/target assay names."
+        )
+
+    linkage = link.linkage
+    if linkage.height == 0:
+        raise ValueError("Aggregation link is empty; cannot visualize aggregation summary.")
+
+    peptides_per_target = linkage.group_by("target_id").len().rename({"len": "n_source"})
+    source_total = container.assays[source_assay].n_features
+    target_total = container.assays[target_assay].n_features
+    mapped_source = int(linkage.select("source_id").n_unique())
+    mapped_target = int(linkage.select("target_id").n_unique())
+
+    _, axes = plt.subplots(1, 3, figsize=figsize)
+
+    axes[0].bar(
+        ["Source features", "Mapped source", "Mapped target", "Target features"],
+        [source_total, mapped_source, mapped_target, target_total],
+        color=["#4C72B0", "#55A868", "#C44E52", "#8172B2"],
+    )
+    axes[0].set_title("Aggregation Coverage")
+    axes[0].set_ylabel("Count")
+    axes[0].tick_params(axis="x", rotation=15)
+
+    counts = peptides_per_target["n_source"].to_numpy()
+    axes[1].hist(
+        counts, bins=min(40, max(8, int(np.sqrt(counts.size)))), color="#64B5CD", alpha=0.9
+    )
+    axes[1].set_title("Sources per Target Distribution")
+    axes[1].set_xlabel("# source features per target")
+    axes[1].set_ylabel("# targets")
+
+    top_tbl = peptides_per_target.sort("n_source", descending=True).head(max(1, top_n_targets))
+    axes[2].bar(
+        top_tbl["target_id"].cast(str).to_list(),
+        top_tbl["n_source"].to_numpy(),
+        color="#CCB974",
+    )
+    axes[2].set_title(f"Top {top_tbl.height} Targets by Source Count")
+    axes[2].set_xlabel("Target ID")
+    axes[2].set_ylabel("# source features")
+    axes[2].tick_params(axis="x", rotation=45)
+
+    plt.tight_layout()
+    return axes
 
 
 def plot_data_overview(
@@ -260,6 +405,77 @@ def plot_preprocessing_summary(
     return axes
 
 
+def plot_normalization_summary(
+    container: ScpContainer,
+    assay_name: str = "proteins",
+    before_layer: str = "raw",
+    after_layer: str = "norm",
+    max_points: int = 150_000,
+    figsize: tuple[float, float] = (15, 4),
+) -> np.ndarray:
+    """Plot normalization-focused diagnostics (shift, stability, distribution)."""
+    validate_container(container)
+    validate_layer(container, assay_name, before_layer)
+    validate_layer(container, assay_name, after_layer)
+    setup_style()
+
+    x_before = container.assays[assay_name].layers[before_layer].X
+    x_after = container.assays[assay_name].layers[after_layer].X
+
+    before_dense = _to_dense_array(x_before)
+    after_dense = _to_dense_array(x_after)
+
+    before_median = np.nanmedian(before_dense, axis=1)
+    after_median = np.nanmedian(after_dense, axis=1)
+
+    cv_before = _safe_row_cv(x_before)
+    cv_after = _safe_row_cv(x_after)
+
+    _, axes = plt.subplots(1, 3, figsize=figsize)
+
+    min_lim = float(np.nanmin(np.concatenate([before_median, after_median])))
+    max_lim = float(np.nanmax(np.concatenate([before_median, after_median])))
+    axes[0].scatter(before_median, after_median, s=12, alpha=0.8, color="#4C72B0")
+    axes[0].plot([min_lim, max_lim], [min_lim, max_lim], linestyle="--", color="red", linewidth=1)
+    axes[0].set_title("Per-sample Median Shift")
+    axes[0].set_xlabel(f"Before ({before_layer})")
+    axes[0].set_ylabel(f"After ({after_layer})")
+
+    finite_before = cv_before[np.isfinite(cv_before)]
+    finite_after = cv_after[np.isfinite(cv_after)]
+    axes[1].boxplot(
+        [finite_before, finite_after],
+        tick_labels=[before_layer, after_layer],
+        patch_artist=True,
+        boxprops={"facecolor": "#A1C9F4"},
+        medianprops={"color": "black"},
+    )
+    axes[1].set_title("Per-sample CV")
+    axes[1].set_ylabel("Coefficient of variation")
+
+    axes[2].hist(
+        _sample_finite_values(x_before, max_points=max_points),
+        bins=60,
+        alpha=0.5,
+        label=before_layer,
+        color="#C44E52",
+    )
+    axes[2].hist(
+        _sample_finite_values(x_after, max_points=max_points),
+        bins=60,
+        alpha=0.5,
+        label=after_layer,
+        color="#55A868",
+    )
+    axes[2].set_title("Global Distribution Overlap")
+    axes[2].set_xlabel("Value")
+    axes[2].set_ylabel("Frequency")
+    axes[2].legend()
+
+    plt.tight_layout()
+    return axes
+
+
 def plot_missingness_reduction(
     container: ScpContainer,
     assay_name: str = "proteins",
@@ -289,6 +505,89 @@ def plot_missingness_reduction(
         ax.text(i, val + 0.005, f"{val:.2%}", ha="center", va="bottom")
 
     return ax
+
+
+def plot_integration_batch_summary(
+    container_before: ScpContainer,
+    container_after: ScpContainer,
+    assay_name: str = "proteins",
+    before_layer: str = "norm",
+    after_layer: str = "integrated",
+    batch_key: str = "batch",
+    figsize: tuple[float, float] = (15, 4.5),
+) -> np.ndarray:
+    """Plot batch-correction quality before/after with embedding and metrics."""
+    from sklearn.decomposition import PCA
+
+    validate_container(container_before)
+    validate_container(container_after)
+    validate_layer(container_before, assay_name, before_layer)
+    validate_layer(container_after, assay_name, after_layer)
+    setup_style()
+
+    if batch_key not in container_before.obs.columns:
+        raise ValueError(f"Batch key '{batch_key}' not found in container_before.obs.")
+    if batch_key not in container_after.obs.columns:
+        raise ValueError(f"Batch key '{batch_key}' not found in container_after.obs.")
+
+    batch_before = container_before.obs[batch_key].to_numpy()
+    batch_after = container_after.obs[batch_key].to_numpy()
+    if len(batch_before) != len(batch_after):
+        raise ValueError("container_before and container_after have different sample counts.")
+
+    x_before = _impute_finite_column_mean(
+        _to_dense_array(container_before.assays[assay_name].layers[before_layer].X)
+    )
+    x_after = _impute_finite_column_mean(
+        _to_dense_array(container_after.assays[assay_name].layers[after_layer].X)
+    )
+
+    z_before = PCA(n_components=2, random_state=42).fit_transform(x_before)
+    z_after = PCA(n_components=2, random_state=42).fit_transform(x_after)
+
+    uniq_labels = np.unique(batch_before.astype(str))
+    label_to_code = {label: i for i, label in enumerate(uniq_labels)}
+    code_before = np.array([label_to_code[str(v)] for v in batch_before], dtype=np.int64)
+    code_after = np.array([label_to_code.get(str(v), -1) for v in batch_after], dtype=np.int64)
+
+    metrics_before = _compute_batch_quality_metrics(z_before, batch_before.astype(str))
+    metrics_after = _compute_batch_quality_metrics(z_after, batch_after.astype(str))
+
+    _, axes = plt.subplots(1, 3, figsize=figsize)
+    cmap = plt.get_cmap("tab10")
+
+    axes[0].scatter(z_before[:, 0], z_before[:, 1], c=code_before, cmap=cmap, s=12, alpha=0.85)
+    axes[0].set_title(f"Before Integration ({before_layer})")
+    axes[0].set_xlabel("PC1")
+    axes[0].set_ylabel("PC2")
+
+    axes[1].scatter(z_after[:, 0], z_after[:, 1], c=code_after, cmap=cmap, s=12, alpha=0.85)
+    axes[1].set_title(f"After Integration ({after_layer})")
+    axes[1].set_xlabel("PC1")
+    axes[1].set_ylabel("PC2")
+
+    metric_names = list(metrics_before.keys())
+    before_vals = [metrics_before[m] for m in metric_names]
+    after_vals = [metrics_after[m] for m in metric_names]
+    x = np.arange(len(metric_names))
+    axes[2].bar(x - 0.18, before_vals, width=0.36, label="Before", color="#C44E52")
+    axes[2].bar(x + 0.18, after_vals, width=0.36, label="After", color="#55A868")
+    axes[2].set_xticks(x)
+    axes[2].set_xticklabels(metric_names, rotation=20, ha="right")
+    axes[2].set_ylim(0.0, 1.05)
+    axes[2].set_title("Batch Mixing Metrics (Higher Better)")
+    axes[2].set_ylabel("Score")
+    axes[2].legend()
+
+    from matplotlib.patches import Patch
+
+    legend_items = [
+        Patch(facecolor=cmap(code), label=label) for label, code in label_to_code.items()
+    ]
+    axes[1].legend(handles=legend_items, title=batch_key, loc="best")
+
+    plt.tight_layout()
+    return axes
 
 
 def plot_reduction_summary(

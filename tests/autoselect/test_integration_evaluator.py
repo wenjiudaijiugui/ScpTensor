@@ -7,6 +7,7 @@ import numpy as np
 import polars as pl
 import pytest
 
+from scptensor.autoselect import auto_integrate
 from scptensor.autoselect.evaluators.integration import IntegrationEvaluator
 from scptensor.core import Assay, ScpContainer, ScpMatrix
 
@@ -77,10 +78,16 @@ class TestIntegrationEvaluatorProperties:
         evaluator = IntegrationEvaluator()
         methods = evaluator.methods
         assert isinstance(methods, dict)
-        # Built-in baselines/matrix methods should be available.
+        assert set(methods) == {"none", "limma"}
+
+    def test_methods_can_include_embedding_candidates(self):
+        """Embedding-only methods should require an explicit opt-in."""
+        evaluator = IntegrationEvaluator(include_embedding_methods=True)
+        methods = evaluator.methods
         assert "none" in methods
-        assert "combat" in methods
         assert "limma" in methods
+        assert "mnn" in methods
+        assert "combat" not in methods
 
     def test_metric_weights(self):
         """Test metric_weights property."""
@@ -172,6 +179,18 @@ class TestIntegrationEvaluatorRunAll:
         assert isinstance(result_container, ScpContainer)
         assert report.stage_name == "integrate"
         assert len(report.results) > 0
+        assert set(report.method_contracts) == {"none", "limma"}
+        assert {result.method_name for result in report.results} == {"none", "limma"}
+        assert all(result.method_contract is not None for result in report.results)
+        assert all(
+            contract["integration_level"] == "matrix"
+            and contract["recommended_for_de"] is True
+            and contract["candidate_scope"] == "stable"
+            for contract in report.method_contracts.values()
+        )
+        assert report.recommendation_reason.startswith(
+            "Candidate set restricted to matrix-level methods "
+        )
 
     def test_run_all_identifies_best_method(self, container_with_batches):
         """Test that run_all identifies best method."""
@@ -186,6 +205,63 @@ class TestIntegrationEvaluatorRunAll:
         if report.best_method:
             assert report.best_result is not None
             assert report.best_result.error is None
+
+    def test_run_all_can_include_embedding_candidates(self, container_with_batches):
+        """Explicit opt-in should expose exploratory embedding methods in the report."""
+        evaluator = IntegrationEvaluator()
+        _, report = evaluator.run_all(
+            container=container_with_batches,
+            assay_name="proteins",
+            source_layer="raw",
+            include_embedding_methods=True,
+        )
+
+        assert "mnn" in report.method_contracts
+        assert report.method_contracts["mnn"]["integration_level"] == "embedding"
+        assert report.method_contracts["mnn"]["recommended_for_de"] is False
+        assert report.method_contracts["mnn"]["candidate_scope"] == "exploratory"
+        assert report.recommendation_reason.startswith(
+            "Exploratory embedding-level integration methods were included."
+        )
+
+    def test_auto_integrate_defaults_to_stable_contract(self, container_with_batches):
+        """Convenience API should default to stable matrix-level candidates only."""
+        _, report = auto_integrate(
+            container_with_batches,
+            assay_name="proteins",
+            source_layer="raw",
+        )
+
+        assert {result.method_name for result in report.results} == {"none", "limma"}
+        assert set(report.method_contracts) == {"none", "limma"}
+
+    def test_auto_integrate_can_include_embedding_candidates(self, container_with_batches):
+        """Convenience API should expose exploratory methods only on explicit opt-in."""
+        _, report = auto_integrate(
+            container_with_batches,
+            assay_name="proteins",
+            source_layer="raw",
+            include_embedding_methods=True,
+        )
+
+        assert "mnn" in report.method_contracts
+        assert report.method_contracts["mnn"]["candidate_scope"] == "exploratory"
+
+    def test_run_all_accepts_protein_alias(self, container_with_batches):
+        """Evaluator should resolve proteins/protein assay aliases."""
+        assay = container_with_batches.assays.pop("proteins")
+        container_with_batches.assays["protein"] = assay
+
+        evaluator = IntegrationEvaluator()
+        result_container, report = evaluator.run_all(
+            container=container_with_batches,
+            assay_name="proteins",
+            source_layer="raw",
+        )
+
+        assert report.best_result is not None
+        assert report.best_result.error is None
+        assert "protein" in result_container.assays
 
 
 class TestIntegrationEvaluatorHelpers:

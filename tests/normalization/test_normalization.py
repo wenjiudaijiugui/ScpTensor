@@ -17,6 +17,12 @@ import scipy.sparse as sp
 
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
+from scptensor.normalization.mean_normalization import (
+    norm_mean as sample_mean_normalization,
+)
+from scptensor.normalization.median_normalization import (
+    norm_median as median_centering,
+)
 
 # =============================================================================
 # Helper Functions
@@ -419,70 +425,3 @@ class TestSampleMeanNormalization:
         assert np.isclose(np.nanmean(X_mean), 0, atol=1e-10)
         # But values are spread widely due to outlier
         assert X_mean[0, -1] > X_mean[0, 0]  # Outlier effect visible
-
-
-# =============================================================================
-# Import normalization functions# =============================================================================
-# Import normalization functions
-# =============================================================================
-
-from scptensor.normalization.mean_normalization import (
-    norm_mean as sample_mean_normalization,
-)
-from scptensor.normalization.median_normalization import (
-    norm_median as median_centering,
-)
-
-# =============================================================================
-# Run All Tests (for direct execution)
-# =============================================================================
-
-
-def run_all_tests() -> None:
-    """Run all normalization tests."""
-    print("=" * 60)
-    print("Testing median_centering")
-    print("=" * 60)
-
-    test_cls = TestMedianCentering()
-    test_cls.test_median_centering_basic()
-    test_cls.test_median_centering_with_mask()
-    test_cls.test_median_centering_sparse_matrix()
-    test_cls.test_median_centering_custom_layer_names()
-    test_cls.test_median_centering_none_layer_name()
-    test_cls.test_median_centering_with_nan_values()
-    test_cls.test_median_centering_provenance_logging()
-    test_cls.test_median_centering_assay_not_found()
-    test_cls.test_median_centering_layer_not_found()
-    test_cls.test_median_centering_immutability()
-    test_cls.test_median_centering_single_sample()
-    test_cls.test_median_centering_all_zeros_row()
-    print("All median_centering tests passed!")
-
-    print()
-    print("=" * 60)
-    print("Testing sample_mean_normalization")
-    print("=" * 60)
-
-    test_cls = TestSampleMeanNormalization()
-    test_cls.test_sample_mean_basic()
-    test_cls.test_sample_mean_centers_to_zero()
-    test_cls.test_sample_mean_with_mask()
-    test_cls.test_sample_mean_sparse_matrix()
-    test_cls.test_sample_mean_custom_layer_names()
-    test_cls.test_sample_mean_with_nan_values()
-    test_cls.test_sample_mean_provenance_logging()
-    test_cls.test_sample_mean_assay_not_found()
-    test_cls.test_sample_mean_layer_not_found()
-    test_cls.test_sample_mean_immutability()
-    test_cls.test_sample_mean_vs_median_difference()
-    print("All sample_mean_normalization tests passed!")
-
-    print()
-    print("=" * 60)
-    print("All normalization tests passed successfully!")
-    print("=" * 60)
-
-
-if __name__ == "__main__":
-    run_all_tests()

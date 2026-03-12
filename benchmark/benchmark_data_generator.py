@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 import polars as pl
@@ -44,10 +44,10 @@ if TYPE_CHECKING:
 # Type Definitions
 # =============================================================================
 
-ScaleType = Literal["small", "medium", "large"]
+ScaleType = Literal["small", "medium", "large", "xlarge"]
 MissingRateType = Literal["low", "medium", "high"]
 MissingPatternType = Literal["mcar", "mar", "mnar"]
-DistributionType = Literal["normal", "log_normal", "multimodal"]
+DistributionType = Literal["normal", "log_normal", "multimodal", "heavy_tailed"]
 
 
 # =============================================================================
@@ -59,6 +59,7 @@ SCALE_CONFIG: dict[ScaleType, tuple[int, int]] = {
     "small": (50, 100),  # 50 samples x 100 features
     "medium": (200, 500),  # 200 samples x 500 features
     "large": (500, 1000),  # 500 samples x 1000 features
+    "xlarge": (500, 10000),  # 500 samples x 10,000 features
 }
 
 # Missing rate configurations
@@ -73,6 +74,7 @@ _DEFAULT_N_CLUSTERS = 4
 _DEFAULT_N_BATCHES = 3
 _DEFAULT_ASSAY_NAME = "proteins"
 _DEFAULT_LAYER_NAME = "raw"
+_EPS = 1e-12
 
 
 # =============================================================================
@@ -158,6 +160,21 @@ PREDEFINED_SCENARIOS: dict[str, dict[str, Any]] = {
         "missing_pattern": "mcar",
         "distribution": "multimodal",
     },
+    "medium_heavy_tailed": {
+        "scale": "medium",
+        "missing_rate": "medium",
+        "missing_pattern": "mar",
+        "distribution": "heavy_tailed",
+    },
+    "xlarge_mar_batch": {
+        "scale": "xlarge",
+        "missing_rate": "medium",
+        "missing_pattern": "mar",
+        "distribution": "log_normal",
+        "with_batch_effect": True,
+        "n_batches": 4,
+        "batch_effect_strength": 0.9,
+    },
 }
 
 
@@ -217,6 +234,14 @@ class BenchmarkDataGenerator:
         with_batch_effect: bool = False,
         n_batches: int = 3,
         n_clusters: int = 4,
+        batch_effect_strength: float = 0.6,
+        batch_feature_fraction: float = 0.35,
+        confounded_batches: bool = False,
+        batch_confounding_strength: float = 0.6,
+        cluster_separation: float = 1.5,
+        noise_scale: float = 1.0,
+        mar_strength: float = 1.0,
+        mnar_slope: float = 2.0,
         assay_name: str = _DEFAULT_ASSAY_NAME,
         layer_name: str = _DEFAULT_LAYER_NAME,
     ) -> ScpContainer:
@@ -246,6 +271,22 @@ class BenchmarkDataGenerator:
             Number of batches (used if with_batch_effect=True).
         n_clusters : int, default=4
             Number of ground truth clusters.
+        batch_effect_strength : float, default=0.6
+            Strength of additive/multiplicative batch effects.
+        batch_feature_fraction : float, default=0.35
+            Fraction of proteins receiving strong feature-specific batch effects.
+        confounded_batches : bool, default=False
+            If True, induce biological group/batch confounding in batch assignment.
+        batch_confounding_strength : float, default=0.6
+            Degree of group/batch confounding in [0, 1].
+        cluster_separation : float, default=1.5
+            Strength of biological cluster separation.
+        noise_scale : float, default=1.0
+            Multiplicative noise scale for signal generation.
+        mar_strength : float, default=1.0
+            Strength of MAR sampling weights.
+        mnar_slope : float, default=2.0
+            Logistic slope for MNAR intensity dependence.
         assay_name : str, default="proteins"
             Name for the assay.
         layer_name : str, default="raw"
@@ -263,19 +304,55 @@ class BenchmarkDataGenerator:
         Raises
         ------
         ValueError
-            If missing_rate is not in [0, 0.7] or invalid parameters.
+            If parameters are outside allowed ranges.
         """
         # Validate parameters
-        if not 0.0 <= missing_rate <= 0.7:
-            raise ValueError(f"missing_rate must be in [0, 0.7], got {missing_rate}")
+        if n_samples < 2:
+            raise ValueError(f"n_samples must be >= 2, got {n_samples}")
+        if n_features < 2:
+            raise ValueError(f"n_features must be >= 2, got {n_features}")
+        if n_clusters < 1:
+            raise ValueError(f"n_clusters must be >= 1, got {n_clusters}")
+        if n_batches < 1:
+            raise ValueError(f"n_batches must be >= 1, got {n_batches}")
+        if n_clusters > n_samples:
+            raise ValueError(
+                f"n_clusters must be <= n_samples, got n_clusters={n_clusters}, n_samples={n_samples}"
+            )
+        if not 0.0 <= missing_rate <= 0.9:
+            raise ValueError(f"missing_rate must be in [0, 0.9], got {missing_rate}")
         if missing_pattern not in ("mcar", "mar", "mnar"):
             raise ValueError(f"Invalid missing_pattern: {missing_pattern}")
-        if distribution not in ("normal", "log_normal", "multimodal"):
+        if distribution not in ("normal", "log_normal", "multimodal", "heavy_tailed"):
             raise ValueError(f"Invalid distribution: {distribution}")
+        if not 0.0 <= batch_feature_fraction <= 1.0:
+            raise ValueError(
+                f"batch_feature_fraction must be in [0, 1], got {batch_feature_fraction}"
+            )
+        if not 0.0 <= batch_confounding_strength <= 1.0:
+            raise ValueError(
+                f"batch_confounding_strength must be in [0, 1], got {batch_confounding_strength}"
+            )
+        if batch_effect_strength < 0.0:
+            raise ValueError(f"batch_effect_strength must be >= 0, got {batch_effect_strength}")
+        if cluster_separation < 0.0:
+            raise ValueError(f"cluster_separation must be >= 0, got {cluster_separation}")
+        if noise_scale <= 0.0:
+            raise ValueError(f"noise_scale must be > 0, got {noise_scale}")
+        if mar_strength < 0.0:
+            raise ValueError(f"mar_strength must be >= 0, got {mar_strength}")
+        if mnar_slope <= 0.0:
+            raise ValueError(f"mnar_slope must be > 0, got {mnar_slope}")
 
         # Generate cluster and batch assignments
         cluster_labels = self._assign_clusters(n_samples, n_clusters)
-        batch_labels = self._assign_batches(n_samples, n_batches)
+        batch_labels = self._assign_batches(
+            n_samples=n_samples,
+            n_batches=n_batches,
+            cluster_labels=cluster_labels,
+            confounded=confounded_batches,
+            confounding_strength=batch_confounding_strength,
+        )
 
         # Generate base expression matrix
         X = self._generate_expression(
@@ -284,11 +361,19 @@ class BenchmarkDataGenerator:
             distribution=distribution,
             cluster_labels=cluster_labels,
             n_clusters=n_clusters,
+            cluster_separation=cluster_separation,
+            noise_scale=noise_scale,
         )
 
         # Add batch effects if requested
-        if with_batch_effect:
-            X = self._add_batch_effects(X, batch_labels, n_batches)
+        if with_batch_effect and n_batches > 1 and batch_effect_strength > 0:
+            X = self._add_batch_effects(
+                X=X,
+                batch_labels=batch_labels,
+                n_batches=n_batches,
+                batch_effect_strength=batch_effect_strength,
+                batch_feature_fraction=batch_feature_fraction,
+            )
 
         # Generate missing mask based on pattern
         M = self._generate_missing_mask(
@@ -296,6 +381,8 @@ class BenchmarkDataGenerator:
             missing_rate=missing_rate,
             missing_pattern=missing_pattern,
             batch_labels=batch_labels,
+            mar_strength=mar_strength,
+            mnar_slope=mnar_slope,
         )
 
         # Apply missing values to X
@@ -325,6 +412,13 @@ class BenchmarkDataGenerator:
             with_batch_effect=with_batch_effect,
             n_batches=n_batches,
             n_clusters=n_clusters,
+            batch_effect_strength=batch_effect_strength,
+            confounded_batches=confounded_batches,
+            batch_confounding_strength=batch_confounding_strength,
+            cluster_separation=cluster_separation,
+            noise_scale=noise_scale,
+            mar_strength=mar_strength,
+            mnar_slope=mnar_slope,
         )
 
         return container
@@ -339,7 +433,8 @@ class BenchmarkDataGenerator:
             - "small_mcar", "small_mar", "small_mnar"
             - "medium_mcar", "medium_mar", "medium_mnar", "medium_batch"
             - "large_mcar", "large_mar", "large_mnar_high"
-            - "medium_normal", "medium_multimodal"
+            - "medium_normal", "medium_multimodal", "medium_heavy_tailed"
+            - "xlarge_mar_batch"
 
         Returns
         -------
@@ -372,28 +467,52 @@ class BenchmarkDataGenerator:
         ----------
         config : dict
             Configuration dictionary with keys:
-            - scale: {"small", "medium", "large"}
-            - missing_rate: {"low", "medium", "high"} or float
+            - scale: {"small", "medium", "large", "xlarge"} (optional)
+            - n_samples: int (optional, overrides scale)
+            - n_features: int (optional, overrides scale)
+            - missing_rate: {"low", "medium", "high"} or float or [min, max]
             - missing_pattern: {"mcar", "mar", "mnar"}
-            - distribution: {"normal", "log_normal", "multimodal"}
+            - distribution: {"normal", "log_normal", "multimodal", "heavy_tailed"}
             - with_batch_effect: bool (optional)
             - n_batches: int (optional)
             - n_clusters: int (optional)
+            - batch_effect_strength: float (optional)
+            - batch_feature_fraction: float (optional)
+            - confounded_batches: bool (optional)
+            - batch_confounding_strength: float (optional)
+            - cluster_separation: float (optional)
+            - noise_scale: float (optional)
+            - mar_strength: float (optional)
+            - mnar_slope: float (optional)
 
         Returns
         -------
         ScpContainer
             Generated container.
         """
-        # Resolve scale
+        # Resolve shape from scale, then allow explicit overrides.
         scale = config.get("scale", "medium")
+        if scale not in SCALE_CONFIG:
+            raise KeyError(f"Unknown scale '{scale}', expected one of {list(SCALE_CONFIG)}")
         n_samples, n_features = SCALE_CONFIG[scale]
+        n_samples = int(config.get("n_samples", n_samples))
+        n_features = int(config.get("n_features", n_features))
 
         # Resolve missing rate
         mr_config = config.get("missing_rate", "medium")
         if isinstance(mr_config, str):
-            mr_min, mr_max = MISSING_RATE_CONFIG[mr_config]
+            if mr_config not in MISSING_RATE_CONFIG:
+                raise KeyError(
+                    f"Unknown missing_rate label '{mr_config}', "
+                    f"expected one of {list(MISSING_RATE_CONFIG)}"
+                )
+            mr_label = cast(MissingRateType, mr_config)
+            mr_min, mr_max = MISSING_RATE_CONFIG[mr_label]
             missing_rate = self.rng.uniform(mr_min, mr_max)
+        elif isinstance(mr_config, list | tuple) and len(mr_config) == 2:
+            mr_min = float(mr_config[0])
+            mr_max = float(mr_config[1])
+            missing_rate = self.rng.uniform(min(mr_min, mr_max), max(mr_min, mr_max))
         else:
             missing_rate = float(mr_config)
 
@@ -403,6 +522,14 @@ class BenchmarkDataGenerator:
         with_batch_effect: bool = config.get("with_batch_effect", False)
         n_batches: int = config.get("n_batches", _DEFAULT_N_BATCHES)
         n_clusters: int = config.get("n_clusters", _DEFAULT_N_CLUSTERS)
+        batch_effect_strength: float = float(config.get("batch_effect_strength", 0.6))
+        batch_feature_fraction: float = float(config.get("batch_feature_fraction", 0.35))
+        confounded_batches: bool = bool(config.get("confounded_batches", False))
+        batch_confounding_strength: float = float(config.get("batch_confounding_strength", 0.6))
+        cluster_separation: float = float(config.get("cluster_separation", 1.5))
+        noise_scale: float = float(config.get("noise_scale", 1.0))
+        mar_strength: float = float(config.get("mar_strength", 1.0))
+        mnar_slope: float = float(config.get("mnar_slope", 2.0))
 
         return self.generate(
             n_samples=n_samples,
@@ -413,6 +540,14 @@ class BenchmarkDataGenerator:
             with_batch_effect=with_batch_effect,
             n_batches=n_batches,
             n_clusters=n_clusters,
+            batch_effect_strength=batch_effect_strength,
+            batch_feature_fraction=batch_feature_fraction,
+            confounded_batches=confounded_batches,
+            batch_confounding_strength=batch_confounding_strength,
+            cluster_separation=cluster_separation,
+            noise_scale=noise_scale,
+            mar_strength=mar_strength,
+            mnar_slope=mnar_slope,
         )
 
     def generate_scenarios(
@@ -547,9 +682,126 @@ class BenchmarkDataGenerator:
         self.rng.shuffle(labels)
         return labels
 
-    def _assign_batches(self, n_samples: int, n_batches: int) -> NDArray[np.int64]:
-        """Assign samples to batches."""
-        return np.arange(n_samples) % n_batches
+    def _assign_batches(
+        self,
+        n_samples: int,
+        n_batches: int,
+        cluster_labels: NDArray[np.int64],
+        confounded: bool = False,
+        confounding_strength: float = 0.6,
+    ) -> NDArray[np.int64]:
+        """Assign samples to batches with optional biological confounding."""
+        if n_batches <= 1:
+            return np.zeros(n_samples, dtype=np.int64)
+
+        if not confounded:
+            labels = np.arange(n_samples) % n_batches
+            self.rng.shuffle(labels)
+            return labels.astype(np.int64, copy=False)
+
+        batch_labels = np.empty(n_samples, dtype=np.int64)
+        strength = float(np.clip(confounding_strength, 0.0, 1.0))
+        base_prob = np.full(n_batches, (1.0 - strength) / n_batches, dtype=float)
+        cluster_ids = np.unique(cluster_labels)
+        preferred_offset = int(self.rng.integers(0, max(1, n_batches)))
+
+        for cluster_id in cluster_ids:
+            mask = cluster_labels == cluster_id
+            n_group = int(np.sum(mask))
+            if n_group == 0:
+                continue
+
+            preferred_batch = int((int(cluster_id) + preferred_offset) % n_batches)
+            probs = base_prob.copy()
+            probs[preferred_batch] += strength
+            probs /= np.sum(probs)
+            batch_labels[mask] = self.rng.choice(n_batches, size=n_group, replace=True, p=probs)
+
+        return batch_labels
+
+    def _zscore(self, values: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Z-score with safe fallback for degenerate vectors."""
+        arr = np.asarray(values, dtype=float)
+        finite = np.isfinite(arr)
+        out = np.zeros_like(arr, dtype=float)
+        if not np.any(finite):
+            return out
+
+        mean = float(np.mean(arr[finite]))
+        std = float(np.std(arr[finite], ddof=0))
+        if std < _EPS:
+            return out
+
+        out[finite] = (arr[finite] - mean) / std
+        return out
+
+    def _mean_ignore_nan(
+        self,
+        X: NDArray[np.float64],  # noqa: N803
+        axis: int,
+        keepdims: bool = False,
+    ) -> NDArray[np.float64]:
+        """Compute mean without NumPy empty-slice warnings."""
+        finite = np.isfinite(X)
+        counts = np.sum(finite, axis=axis, keepdims=keepdims)
+        sums = np.sum(np.where(finite, X, 0.0), axis=axis, keepdims=keepdims)
+        return np.divide(
+            sums,
+            counts,
+            out=np.zeros_like(sums, dtype=float),
+            where=counts > 0,
+        )
+
+    def _std_ignore_nan(
+        self,
+        X: NDArray[np.float64],  # noqa: N803
+        axis: int,
+        keepdims: bool = False,
+    ) -> NDArray[np.float64]:
+        """Compute std without NumPy empty-slice warnings."""
+        mean = self._mean_ignore_nan(X, axis=axis, keepdims=True)
+        finite = np.isfinite(X)
+        centered_sq = np.where(finite, (X - mean) ** 2, 0.0)
+        counts = np.sum(finite, axis=axis, keepdims=keepdims)
+        var = np.divide(
+            np.sum(centered_sq, axis=axis, keepdims=keepdims),
+            counts,
+            out=np.zeros_like(np.sum(centered_sq, axis=axis, keepdims=keepdims), dtype=float),
+            where=counts > 0,
+        )
+        return np.sqrt(var)
+
+    def _draw_weighted_indices(
+        self,
+        weights: NDArray[np.float64],
+        n_select: int,
+    ) -> NDArray[np.int64]:
+        """Draw unique indices using non-negative weights."""
+        flat = np.asarray(weights, dtype=float).ravel()
+        total = flat.size
+        target = int(min(max(n_select, 0), total))
+        if target == 0:
+            return np.array([], dtype=np.int64)
+
+        flat = flat.copy()
+        flat[~np.isfinite(flat)] = 0.0
+        flat = np.clip(flat, 0.0, None)
+
+        positive = np.flatnonzero(flat > 0.0)
+        if positive.size == 0:
+            return self.rng.choice(total, size=target, replace=False).astype(np.int64)
+
+        if positive.size <= target:
+            if positive.size == target:
+                return positive.astype(np.int64, copy=False)
+            remain = target - positive.size
+            zero_idx = np.flatnonzero(flat <= 0.0)
+            extra = self.rng.choice(zero_idx, size=remain, replace=False)
+            return np.concatenate([positive, extra]).astype(np.int64, copy=False)
+
+        probs = flat[positive]
+        probs /= np.sum(probs)
+        return self.rng.choice(positive, size=target, replace=False, p=probs).astype(np.int64)
 
     def _generate_expression(
         self,
@@ -558,18 +810,82 @@ class BenchmarkDataGenerator:
         distribution: DistributionType,
         cluster_labels: NDArray[np.int64],
         n_clusters: int,
+        cluster_separation: float = 1.5,
+        noise_scale: float = 1.0,
     ) -> NDArray[np.float64]:
         """Generate base expression matrix with specified distribution."""
         if distribution == "normal":
-            X = self._generate_normal(n_samples, n_features, cluster_labels, n_clusters)
+            X = self._generate_normal(
+                n_samples,
+                n_features,
+                cluster_labels,
+                n_clusters,
+                cluster_separation=cluster_separation,
+                noise_scale=noise_scale,
+            )
         elif distribution == "log_normal":
-            X = self._generate_log_normal(n_samples, n_features, cluster_labels, n_clusters)
+            X = self._generate_log_normal(
+                n_samples,
+                n_features,
+                cluster_labels,
+                n_clusters,
+                cluster_separation=cluster_separation,
+                noise_scale=noise_scale,
+            )
         elif distribution == "multimodal":
-            X = self._generate_multimodal(n_samples, n_features, cluster_labels, n_clusters)
+            X = self._generate_multimodal(
+                n_samples,
+                n_features,
+                cluster_labels,
+                n_clusters,
+                cluster_separation=cluster_separation,
+                noise_scale=noise_scale,
+            )
+        elif distribution == "heavy_tailed":
+            X = self._generate_heavy_tailed(
+                n_samples,
+                n_features,
+                cluster_labels,
+                n_clusters,
+                cluster_separation=cluster_separation,
+                noise_scale=noise_scale,
+            )
         else:
             raise ValueError(f"Unknown distribution: {distribution}")
 
         return X
+
+    def _apply_cluster_effects(
+        self,
+        X: NDArray[np.float64],  # noqa: N803
+        cluster_labels: NDArray[np.int64],
+        n_clusters: int,
+        cluster_separation: float,
+        marker_fraction: float = 0.2,
+    ) -> NDArray[np.float64]:
+        """Inject cluster-specific marker patterns."""
+        n_features = X.shape[1]
+        marker_count = min(n_features, max(8, int(n_features * marker_fraction)))
+        center = (n_clusters - 1) / 2.0
+        out = X.copy()
+
+        for cluster_id in range(n_clusters):
+            mask = cluster_labels == cluster_id
+            if not np.any(mask):
+                continue
+
+            centroid_shift = (cluster_id - center) * 0.15 * cluster_separation
+            out[mask, :] += centroid_shift
+
+            markers = self.rng.choice(n_features, size=marker_count, replace=False)
+            marker_shift = self.rng.normal(
+                loc=cluster_separation,
+                scale=max(0.2, 0.25 * cluster_separation),
+                size=marker_count,
+            )
+            out[np.ix_(mask, markers)] += marker_shift
+
+        return out
 
     def _generate_normal(
         self,
@@ -577,19 +893,18 @@ class BenchmarkDataGenerator:
         n_features: int,
         cluster_labels: NDArray[np.int64],
         n_clusters: int,
+        cluster_separation: float = 1.5,
+        noise_scale: float = 1.0,
     ) -> NDArray[np.float64]:
         """Generate normally distributed data."""
-        # Base expression
-        X = self.rng.normal(0, 1, (n_samples, n_features))
-
-        # Add cluster-specific shifts for some features
-        n_cluster_features = n_features // 4
-        for c in range(n_clusters):
-            mask = cluster_labels == c
-            shift = self.rng.normal(0, 2, n_cluster_features)
-            X[np.ix_(mask, np.arange(n_cluster_features))] += shift
-
-        return X
+        base = self.rng.normal(0.0, 1.0 * noise_scale, size=(n_samples, n_features))
+        return self._apply_cluster_effects(
+            base,
+            cluster_labels=cluster_labels,
+            n_clusters=n_clusters,
+            cluster_separation=cluster_separation,
+            marker_fraction=0.18,
+        )
 
     def _generate_log_normal(
         self,
@@ -597,25 +912,18 @@ class BenchmarkDataGenerator:
         n_features: int,
         cluster_labels: NDArray[np.int64],
         n_clusters: int,
+        cluster_separation: float = 1.5,
+        noise_scale: float = 1.0,
     ) -> NDArray[np.float64]:
         """Generate log-normal distributed data (typical for proteomics)."""
-        # Log-normal base (simulates protein intensities)
-        # Mean ~15, Std ~2 in log2 space (typical for proteomics)
-        base_mean = 15.0
-        base_std = 2.0
-
-        X = self.rng.normal(base_mean, base_std, (n_samples, n_features))
-
-        # Add cluster-specific patterns
-        n_cluster_features = n_features // 4
-        for c in range(n_clusters):
-            mask = cluster_labels == c
-            # Each cluster has up-regulated proteins
-            upregulated = self.rng.choice(n_features, n_cluster_features, replace=False)
-            shift = self.rng.uniform(1.0, 3.0, len(upregulated))
-            X[np.ix_(mask, upregulated)] += shift
-
-        return X
+        base = self.rng.normal(15.0, 1.4 * noise_scale, size=(n_samples, n_features))
+        return self._apply_cluster_effects(
+            base,
+            cluster_labels=cluster_labels,
+            n_clusters=n_clusters,
+            cluster_separation=cluster_separation,
+            marker_fraction=0.22,
+        )
 
     def _generate_multimodal(
         self,
@@ -623,53 +931,87 @@ class BenchmarkDataGenerator:
         n_features: int,
         cluster_labels: NDArray[np.int64],
         n_clusters: int,
+        cluster_separation: float = 1.5,
+        noise_scale: float = 1.0,
     ) -> NDArray[np.float64]:
         """Generate multimodal distribution (simulating cell subpopulations)."""
-        X = np.zeros((n_samples, n_features))
+        X = self.rng.normal(11.0, 1.2 * noise_scale, size=(n_samples, n_features))
+        features_per_cluster = max(1, n_features // max(1, n_clusters))
 
-        # Create distinct modes for different feature groups
-        n_features_per_cluster = n_features // n_clusters
+        for cluster_id in range(n_clusters):
+            mask = cluster_labels == cluster_id
+            if not np.any(mask):
+                continue
 
-        for c in range(n_clusters):
-            mask = cluster_labels == c
-            start_idx = c * n_features_per_cluster
-            end_idx = start_idx + n_features_per_cluster if c < n_clusters - 1 else n_features
-
-            # Primary mode: high expression for this cluster's features
-            X[np.ix_(mask, np.arange(start_idx, end_idx))] = self.rng.normal(
-                3.0, 1.0, (mask.sum(), end_idx - start_idx)
+            start = cluster_id * features_per_cluster
+            end = (
+                n_features
+                if cluster_id == n_clusters - 1
+                else min(n_features, (cluster_id + 1) * features_per_cluster)
+            )
+            mode_center = 12.5 + cluster_separation * (0.8 + 0.2 * cluster_id)
+            X[np.ix_(mask, np.arange(start, end))] = self.rng.normal(
+                mode_center,
+                0.9 * noise_scale,
+                size=(int(np.sum(mask)), end - start),
             )
 
-            # Secondary mode: medium expression for other features
-            other_features = (
-                np.concatenate([np.arange(0, start_idx), np.arange(end_idx, n_features)])
-                if start_idx > 0 or end_idx < n_features
-                else np.array([])
-            )
-            if len(other_features) > 0:
-                X[np.ix_(mask, other_features)] = self.rng.normal(
-                    0.0, 1.0, (mask.sum(), len(other_features))
-                )
+        return self._apply_cluster_effects(
+            X,
+            cluster_labels=cluster_labels,
+            n_clusters=n_clusters,
+            cluster_separation=0.6 * cluster_separation,
+            marker_fraction=0.12,
+        )
 
-        return X
+    def _generate_heavy_tailed(
+        self,
+        n_samples: int,
+        n_features: int,
+        cluster_labels: NDArray[np.int64],
+        n_clusters: int,
+        cluster_separation: float = 1.5,
+        noise_scale: float = 1.0,
+    ) -> NDArray[np.float64]:
+        """Generate heavy-tailed protein-level matrix."""
+        base = 14.0 + self.rng.standard_t(df=3, size=(n_samples, n_features)) * (1.1 * noise_scale)
+        return self._apply_cluster_effects(
+            base,
+            cluster_labels=cluster_labels,
+            n_clusters=n_clusters,
+            cluster_separation=cluster_separation,
+            marker_fraction=0.20,
+        )
 
     def _add_batch_effects(
         self,
         X: NDArray[np.float64],
         batch_labels: NDArray[np.int64],
         n_batches: int,
+        batch_effect_strength: float = 0.6,
+        batch_feature_fraction: float = 0.35,
     ) -> NDArray[np.float64]:
         """Add batch effects to the expression matrix."""
         n_features = X.shape[1]
+        n_batch_features = min(n_features, max(1, int(n_features * batch_feature_fraction)))
         X_batched = X.copy()
 
-        # Generate batch-specific shifts
-        batch_shifts = self.rng.normal(0, 0.5, (n_batches, n_features))
-
-        # Apply batch effects
         for b in range(n_batches):
             mask = batch_labels == b
-            X_batched[mask] += batch_shifts[b]
+            if not np.any(mask):
+                continue
+            global_shift = self.rng.normal(0.0, 0.35 * batch_effect_strength)
+            scale = float(np.exp(self.rng.normal(0.0, 0.08 * batch_effect_strength)))
+
+            feature_idx = self.rng.choice(n_features, size=n_batch_features, replace=False)
+            feature_shift = np.zeros(n_features, dtype=float)
+            feature_shift[feature_idx] = self.rng.normal(
+                0.0,
+                0.8 * batch_effect_strength,
+                size=n_batch_features,
+            )
+
+            X_batched[mask, :] = X_batched[mask, :] * scale + global_shift + feature_shift
 
         return X_batched
 
@@ -679,6 +1021,8 @@ class BenchmarkDataGenerator:
         missing_rate: float,
         missing_pattern: MissingPatternType,
         batch_labels: NDArray[np.int64],
+        mar_strength: float = 1.0,
+        mnar_slope: float = 2.0,
     ) -> NDArray[np.int8]:
         """Generate missing value mask based on specified pattern."""
         n_samples, n_features = X.shape
@@ -688,14 +1032,36 @@ class BenchmarkDataGenerator:
             return M
 
         total_elements = n_samples * n_features
-        target_missing = int(total_elements * missing_rate)
+        target_missing = int(np.round(total_elements * missing_rate))
+        target_missing = min(max(target_missing, 0), total_elements)
+        if target_missing == 0:
+            return M
+        if target_missing == total_elements:
+            M[:, :] = MaskCode.LOD
+            return M
 
         if missing_pattern == "mcar":
-            M = self._apply_mcar(M, target_missing)
+            missing_indices = self._apply_mcar(M, target_missing)
         elif missing_pattern == "mar":
-            M = self._apply_mar(X, M, target_missing, batch_labels)
+            missing_indices = self._apply_mar(
+                X,
+                M,
+                target_missing,
+                batch_labels,
+                mar_strength=mar_strength,
+            )
         elif missing_pattern == "mnar":
-            M = self._apply_mnar(X, M, target_missing)
+            missing_indices = self._apply_mnar(
+                X,
+                M,
+                target_missing,
+                mnar_slope=mnar_slope,
+            )
+        else:
+            missing_indices = np.array([], dtype=np.int64)
+
+        rows, cols = np.unravel_index(missing_indices, (n_samples, n_features))
+        M[rows, cols] = MaskCode.LOD
 
         return M
 
@@ -703,17 +1069,12 @@ class BenchmarkDataGenerator:
         self,
         M: NDArray[np.int8],
         target_missing: int,
-    ) -> NDArray[np.int8]:
+    ) -> NDArray[np.int64]:
         """Apply Missing Completely At Random pattern."""
         n_samples, n_features = M.shape
         total_elements = n_samples * n_features
 
-        # Randomly select elements to be missing
-        indices = self.rng.choice(total_elements, target_missing, replace=False)
-        rows, cols = np.unravel_index(indices, (n_samples, n_features))
-        M[rows, cols] = MaskCode.LOD
-
-        return M
+        return self.rng.choice(total_elements, size=target_missing, replace=False).astype(np.int64)
 
     def _apply_mar(
         self,
@@ -721,111 +1082,56 @@ class BenchmarkDataGenerator:
         M: NDArray[np.int8],
         target_missing: int,
         batch_labels: NDArray[np.int64],
-    ) -> NDArray[np.int8]:
+        mar_strength: float = 1.0,
+    ) -> NDArray[np.int64]:
         """Apply Missing At Random pattern.
 
         Missing probability depends on observed values (e.g., samples with
         lower overall intensity have more missing values).
         """
-        n_samples, n_features = X.shape
+        del M
+        sample_means = self._mean_ignore_nan(X, axis=1, keepdims=False)
+        feature_stds = self._std_ignore_nan(X, axis=0, keepdims=False)
 
-        # Calculate sample-wise mean intensity
-        sample_means = np.nanmean(X, axis=1, keepdims=True)
+        sample_component = -self._zscore(sample_means)[:, None]
+        feature_component = self._zscore(feature_stds)[None, :]
 
-        # Normalize to [0, 1]
-        min_mean, max_mean = sample_means.min(), sample_means.max()
-        if max_mean > min_mean:
-            normalized_means = (sample_means - min_mean) / (max_mean - min_mean)
-        else:
-            normalized_means = np.ones_like(sample_means) * 0.5
+        batch_component = np.zeros_like(sample_component)
+        unique_batches = np.unique(batch_labels)
+        if unique_batches.size > 1:
+            batch_signal = np.zeros(sample_means.shape[0], dtype=float)
+            for batch_id in unique_batches:
+                mask = batch_labels == batch_id
+                if np.any(mask):
+                    batch_signal[mask] = float(np.mean(sample_means[mask]))
+            batch_component = self._zscore(batch_signal)[:, None]
 
-        # Lower intensity samples have higher missing probability
-        missing_prob = (1.0 - normalized_means).flatten()
-
-        # Distribute missing values across samples
-        remaining = target_missing
-        for i in range(n_samples):
-            if remaining <= 0:
-                break
-
-            # Number of missing for this sample
-            n_missing_sample = int(target_missing * missing_prob[i] / n_samples)
-            n_missing_sample = min(n_missing_sample, n_features, remaining)
-
-            if n_missing_sample > 0:
-                # Randomly select features to be missing
-                missing_features = self.rng.choice(n_features, n_missing_sample, replace=False)
-                M[i, missing_features] = MaskCode.LOD
-                remaining -= n_missing_sample
-
-        # Fill remaining if any
-        if remaining > 0:
-            valid_mask = M == MaskCode.VALID
-            valid_indices = np.where(valid_mask.ravel())[0]
-            if len(valid_indices) > 0:
-                n_fill = min(remaining, len(valid_indices))
-                fill_indices = self.rng.choice(valid_indices, n_fill, replace=False)
-                rows, cols = np.unravel_index(fill_indices, (n_samples, n_features))
-                M[rows, cols] = MaskCode.LOD
-
-        return M
+        logits = mar_strength * (
+            0.85 * sample_component + 0.35 * feature_component + 0.25 * batch_component
+        )
+        probabilities = expit(logits)
+        return self._draw_weighted_indices(probabilities, target_missing)
 
     def _apply_mnar(
         self,
         X: NDArray[np.float64],
         M: NDArray[np.int8],
         target_missing: int,
-    ) -> NDArray[np.int8]:
+        mnar_slope: float = 2.0,
+    ) -> NDArray[np.int64]:
         """Apply Missing Not At Random pattern.
 
         Missing probability depends on the (unobserved) true value.
         Lower abundance proteins are more likely to be missing.
         """
-        n_samples, n_features = X.shape
+        del M
+        feature_means = self._mean_ignore_nan(X, axis=0, keepdims=False)
+        feature_component = -self._zscore(feature_means)[None, :]
+        intensity_component = -self._zscore(X)
 
-        # Calculate feature-wise mean abundance
-        feature_means = np.nanmean(X, axis=0)
-
-        # Calibrate threshold to achieve target missing rate
-        # The percentile represents where to set the threshold so that
-        # lower abundance proteins have higher missing probability
-        target_rate = target_missing / (n_samples * n_features)
-        percentile_val = min(100.0, max(0.0, 100 * (1.0 - target_rate)))
-        threshold = np.percentile(feature_means, percentile_val)
-
-        # Calculate missing probability using sigmoid
-        # Lower abundance -> higher missing probability
-        dropout_slope = 1.5
-        p_missing = expit(-dropout_slope * (feature_means - threshold))
-
-        # Apply probabilistic dropout
-        for j in range(n_features):
-            random_vals = self.rng.random(n_samples)
-            missing_mask = random_vals < p_missing[j]
-            M[missing_mask, j] = MaskCode.LOD
-
-        # Adjust to hit target missing rate more precisely
-        current_missing = np.sum(M != MaskCode.VALID)
-        if current_missing < target_missing:
-            # Add more missing
-            valid_mask = M == MaskCode.VALID
-            valid_indices = np.where(valid_mask.ravel())[0]
-            n_add = min(target_missing - current_missing, len(valid_indices))
-            if n_add > 0:
-                add_indices = self.rng.choice(valid_indices, n_add, replace=False)
-                rows, cols = np.unravel_index(add_indices, (n_samples, n_features))
-                M[rows, cols] = MaskCode.LOD
-        elif current_missing > target_missing:
-            # Remove some missing (convert back to valid)
-            missing_mask = M != MaskCode.VALID
-            missing_indices = np.where(missing_mask.ravel())[0]
-            n_remove = min(current_missing - target_missing, len(missing_indices))
-            if n_remove > 0:
-                remove_indices = self.rng.choice(missing_indices, n_remove, replace=False)
-                rows, cols = np.unravel_index(remove_indices, (n_samples, n_features))
-                M[rows, cols] = MaskCode.VALID
-
-        return M
+        logits = mnar_slope * (0.75 * intensity_component + 0.25 * feature_component)
+        probabilities = expit(logits)
+        return self._draw_weighted_indices(probabilities, target_missing)
 
     def _create_obs_metadata(
         self,
@@ -862,6 +1168,13 @@ class BenchmarkDataGenerator:
         with_batch_effect: bool,
         n_batches: int,
         n_clusters: int,
+        batch_effect_strength: float,
+        confounded_batches: bool,
+        batch_confounding_strength: float,
+        cluster_separation: float,
+        noise_scale: float,
+        mar_strength: float,
+        mnar_slope: float,
     ) -> None:
         """Log generation parameters to container history."""
         container.log_operation(
@@ -875,6 +1188,13 @@ class BenchmarkDataGenerator:
                 "with_batch_effect": with_batch_effect,
                 "n_batches": n_batches,
                 "n_clusters": n_clusters,
+                "batch_effect_strength": batch_effect_strength,
+                "confounded_batches": confounded_batches,
+                "batch_confounding_strength": batch_confounding_strength,
+                "cluster_separation": cluster_separation,
+                "noise_scale": noise_scale,
+                "mar_strength": mar_strength,
+                "mnar_slope": mnar_slope,
                 "seed": self.seed,
             },
             description=f"Generated benchmark data: {n_samples} samples x {n_features} features, "

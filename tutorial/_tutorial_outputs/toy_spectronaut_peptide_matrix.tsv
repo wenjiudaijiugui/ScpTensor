@@ -1,0 +1,4 @@
+EG.PrecursorId	PG.ProteinGroups	S1.raw_Quantity	S2.raw_Quantity
+pep1	P1	1.0	2.0
+pep2	P1	3.0	4.0
+pep3	P2	5.0

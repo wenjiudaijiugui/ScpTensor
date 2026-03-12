@@ -10,7 +10,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import numpy as np
-from scipy.stats import rankdata
 
 from scptensor.core.exceptions import ScpValueError
 from scptensor.core.structures import ScpContainer
@@ -19,7 +18,10 @@ from .base import create_result_layer, ensure_dense, log_operation, validate_ass
 from .quantile_normalization import _quantile_normalize_rows
 
 
-def _rank_invariance_frequency(feature_sample: np.ndarray) -> np.ndarray:
+def _rank_invariance_frequency(
+    feature_sample: np.ndarray,
+    qn_feature_sample: np.ndarray | None = None,
+) -> np.ndarray:
     """Compute per-feature rank-invariance frequency.
 
     Parameters
@@ -33,23 +35,40 @@ def _rank_invariance_frequency(feature_sample: np.ndarray) -> np.ndarray:
         Rank-invariance frequencies in [0, 1], one value per feature.
     """
     n_features, n_samples = feature_sample.shape
-    ranks = np.full((n_features, n_samples), np.nan, dtype=float)
+    if n_features == 0 or n_samples == 0:
+        return np.zeros(n_features, dtype=float)
 
+    # MBQN reference computes RI frequencies after classical quantile
+    # normalization and based on top-down rank positions.
+    if qn_feature_sample is None:
+        qn_feature_sample = _quantile_normalize_rows(feature_sample.T).T
+
+    rank_positions = np.zeros((n_features, n_samples), dtype=int)
     for j in range(n_samples):
-        col = feature_sample[:, j]
-        valid = np.isfinite(col)
-        if valid.sum() == 0:
+        col = qn_feature_sample[:, j]
+        valid_idx = np.where(np.isfinite(col))[0]
+        invalid_idx = np.where(~np.isfinite(col))[0]
+        if valid_idx.size == 0:
             continue
-        ranks[valid, j] = rankdata(col[valid], method="average")
+
+        # Descending order (top-down ranking), NAs assigned to zero rank.
+        order_valid = valid_idx[np.argsort(-col[valid_idx], kind="mergesort")]
+        ordered_idx = np.concatenate([order_valid, invalid_idx])
+        rank_positions[ordered_idx, j] = np.arange(1, n_features + 1, dtype=int)
 
     frequencies = np.zeros(n_features, dtype=float)
     for i in range(n_features):
-        row = ranks[i, :]
-        valid = np.isfinite(row)
-        n_valid = int(valid.sum())
+        valid_cols = np.isfinite(feature_sample[i, :])
+        n_valid = int(np.sum(valid_cols))
         if n_valid == 0:
             continue
-        _, counts = np.unique(row[valid], return_counts=True)
+
+        row_ranks = rank_positions[i, valid_cols]
+        row_ranks = row_ranks[row_ranks > 0]
+        if row_ranks.size == 0:
+            continue
+
+        _, counts = np.unique(row_ranks, return_counts=True)
         frequencies[i] = counts.max() / n_valid
 
     return frequencies
@@ -110,6 +129,12 @@ def norm_trqn(
     -------
     ScpContainer
         Container with TRQN-normalized layer added.
+
+    Notes
+    -----
+    ScpTensor AutoSelect only compares TRQN automatically on layers with
+    explicit log provenance. Raw/unknown-scale layers remain limited to
+    scale-weaker baselines until log transformation is recorded explicitly.
     """
     if not (0.0 < low_thr <= 1.0):
         raise ScpValueError(
@@ -135,7 +160,7 @@ def norm_trqn(
     qn_feature_sample = _quantile_normalize_rows(feature_sample.T).T
 
     if feature_indices is None:
-        ri_freq = _rank_invariance_frequency(feature_sample)
+        ri_freq = _rank_invariance_frequency(feature_sample, qn_feature_sample=qn_feature_sample)
         selected_idx = np.where(ri_freq >= low_thr)[0]
     else:
         ri_freq = np.full(n_features, np.nan, dtype=float)

@@ -29,7 +29,14 @@ if TYPE_CHECKING:
 
     from scptensor import ScpContainer
 
-__all__ = ["correlation_matrix", "dendrogram"]
+__all__ = [
+    # Canonical plot_* names
+    "plot_correlation_matrix",
+    "plot_dendrogram",
+    # Backward-compatible aliases
+    "correlation_matrix",
+    "dendrogram",
+]
 
 
 def correlation_matrix(
@@ -365,3 +372,13 @@ def dendrogram(
         plt.show()
 
     return fig
+
+
+def plot_correlation_matrix(*args, **kwargs):
+    """Canonical alias of :func:`correlation_matrix`."""
+    return correlation_matrix(*args, **kwargs)
+
+
+def plot_dendrogram(*args, **kwargs):
+    """Canonical alias of :func:`dendrogram`."""
+    return dendrogram(*args, **kwargs)

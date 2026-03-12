@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import scipy.sparse as sp
 
+from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
 from scptensor.core.structures import ScpMatrix
 
@@ -43,24 +45,57 @@ def validate_assay_and_layer(
     LayerNotFoundError
         If layer not found.
     """
-    if assay_name not in container.assays:
+    resolved_assay_name = resolve_assay_name(container, assay_name)
+
+    if resolved_assay_name not in container.assays:
         available = list(container.assays.keys())
         raise AssayNotFoundError(
             assay_name=assay_name,
             available_assays=available,
         )
 
-    assay = container.assays[assay_name]
+    assay = container.assays[resolved_assay_name]
 
     if layer_name not in assay.layers:
         available = list(assay.layers.keys())
         raise LayerNotFoundError(
             layer_name=layer_name,
-            assay_name=assay_name,
+            assay_name=resolved_assay_name,
             available_layers=available,
         )
 
+    _warn_if_vendor_normalized_input(container, resolved_assay_name, layer_name)
     return assay, assay.layers[layer_name]
+
+
+def _warn_if_vendor_normalized_input(
+    container: ScpContainer,
+    assay_name: str,
+    layer_name: str,
+) -> None:
+    """Warn before re-normalizing vendor-normalized raw inputs."""
+    if layer_name != "raw":
+        return
+
+    for log in reversed(container.history):
+        if log.action != "load_quant_table":
+            continue
+
+        params = log.params
+        if params.get("assay_name") != assay_name or params.get("layer_name") != layer_name:
+            continue
+        if not params.get("input_quantity_is_vendor_normalized", False):
+            return
+
+        quantity_desc = params.get("resolved_quantity_column") or "vendor-normalized quantity"
+        warnings.warn(
+            "Source layer 'raw' originates from vendor-normalized intensities "
+            f"({quantity_desc}). Compare against `norm_none` or load an "
+            "unnormalized vendor column when available.",
+            UserWarning,
+            stacklevel=3,
+        )
+        return
 
 
 def create_result_layer(

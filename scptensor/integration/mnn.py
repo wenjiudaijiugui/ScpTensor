@@ -114,7 +114,7 @@ def integrate_mnn(
     X = layer.X.copy()
     M = layer.M
     input_was_sparse = is_sparse_matrix(X)
-    X = prepare_integration_data(X)
+    X = prepare_integration_data(X, context="MNN integration")
 
     # Compute PCA for efficient neighbor search
     X_pca = _compute_pca_for_mnn(X, n_pcs) if use_pca else X

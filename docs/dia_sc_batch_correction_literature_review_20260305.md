@@ -14,7 +14,7 @@
 | P2（数据/模态） | single-cell proteomics, DIA, plexDIA, mass spectrometry proteomics |
 | P3（应用域） | preprocessing workflow, data integration, confounded design, reproducibility |
 
-**检索日期**：2026-03-05  
+**检索日期**：2026-03-05
 **检索平台**：Nature / Genome Biology / PubMed / Oxford Academic / ProteomeXchange / 方法原始论文页面
 
 ---
@@ -49,6 +49,8 @@
 
 ## 3. 逐篇证据摘要（Per-paper Summaries）
 
+说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。
+
 ## 3.1 Wang et al., Nat Commun 2025（DIA SCP workflow benchmark）
 
 - 题目：Benchmarking informatics workflows for data-independent acquisition single-cell proteomics
@@ -59,7 +61,7 @@
 - 关键发现：
   - 不做去批次时 ARI 明显偏低；加入去批次可显著改善聚类一致性。
   - 在其任务中，ComBat/limma 常出现在高表现组合内；Scanorama 贡献相对不稳定。
-- 数据/代码：PXD056832（iProX/ProteomeXchange），并提供 Source data 与代码仓库。
+- 数据/代码：论文提供 Source data 与代码仓库；其关联 accession `PXD056832` 可解析到 ProteomeXchange 页面，但该页面在 `2026-03-12` 仍显示 `reserved / not yet released`，因此当前不应被表述为“稳定可直接复用”的公开数据入口。
 - 局限：评估任务与数据构成对结论有依赖，方法优劣存在数据集特异性。
 - P1/P2/P3 相关性：2 / 2 / 2（高）
 
@@ -71,14 +73,14 @@
 - 去批次实践：SCnorm + log10 后使用 limma::removeBatchEffect，并将处理变量（drug effect）显式保留在模型中。
 - 评估：通过 PCA 回归估计技术批次贡献，并比较批次校正前后。
 - 关键发现：可在保留处理效应前提下降低技术方差。
-- 数据：MassIVE: MSV000093867。
+- 数据入口：MassIVE `MSV000093867`。
 - 局限：不是“多方法 benchmark”，更偏 pipeline 实战验证。
 - P1/P2/P3：1 / 2 / 2（中高）
 
 ## 3.3 Vanderaa et al., Genome Biology 2025（scplainer 批次校正 benchmark）
 
 - 题目：scplainer: using linear models to understand mass spectrometry-based single-cell proteomics data
-- 链接：https://genomebiology.biomedcentral.com/articles/10.1186/s13059-025-03713-4
+- 链接：https://doi.org/10.1186/s13059-025-03713-4
 - 目标：提出可解释线性模型框架，并对比 SCP 场景下批次校正策略。
 - 对比方法：None、HarmonizR-ComBat、limma、scplainer、以及 Leduc 工作流结果。
 - 评估指标：ARI、NMI、PS、ASW；区分 biological separation 与 technical mixing 两类评价。
@@ -86,7 +88,7 @@
   - 各方法相对无校正均有提升；
   - HarmonizR-ComBat 整体增益较小，但在部分批次混合方面有优势；
   - limma 与 scplainer 表现接近（线性模型家族）。
-- 数据/代码：scpdata（Bioconductor）+ scp 包 + GitHub/Zenodo/Docker。
+- 资源包/代码：`scpdata`（Bioconductor）+ `scp` 包 + GitHub/Zenodo/Docker。
 - 局限：主 benchmark 重点仍在其选定数据与任务设置。
 - P1/P2/P3：2 / 2 / 2（高）
 
@@ -154,26 +156,34 @@
 - 链接（PubMed）：https://pubmed.ncbi.nlm.nih.gov/25605792/
 - 价值：线性模型 + 经验贝叶斯框架来源（removeBatchEffect 在生态中广泛使用）。
 
+## 3.11 二次核查补充（资源分型、稳定入口与场景边界）
+
+- `Wang 2025`、`Robles 2024`、`scplainer 2025`、`HarmonizR 2022`、`Zheng 2025`、`SCPRO-HI 2024`、`Liu 2025`、`scIB 2022`、`ComBat`、`limma` 在本综述里统一属于 `论文证据`；它们约束的是 batch-correction 方法、指标和场景边界。
+- `MSV000093867` 应单独归类为 `数据入口`，不能继续用论文页替代数据页：<https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?accession=MSV000093867>
+- `scpdata` 在本综述里应归类为 `资源包`，而不是数据集或论文页；其稳定入口应写成 Bioconductor 页面：<https://bioconductor.org/packages/release/data/experiment/html/scpdata.html>
+- `ProteoBench DIA single-cell module` 应归类为 `模块规范`，它约束任务与评估接口，不是单个 dataset：<https://proteobench.readthedocs.io/en/stable/available-modules/active-modules/9-quant-lfq-ion-dia-singlecell/>
+- `Wang 2025` 关联的 `PXD056832` 当前仍不应写成稳定公开数据入口，因此本综述中它继续只承担 `task-design evidence` 角色。
+
 ---
 
 ## 4. 横向比较（Comparative Assessment）
 
 ## 4.1 一致结论（高一致性）
 
-1. **去批次是 SCP 预处理中不可忽略环节**：NoBC 通常显著劣于至少一种校正方法。  
-2. **线性模型家族（limma / ComBat）仍是主力基线**：在多个 SCP/MS 蛋白组研究中持续出现。  
+1. **去批次是 SCP 预处理中不可忽略环节**：NoBC 通常显著劣于至少一种校正方法。
+2. **线性模型家族（limma / ComBat）仍是主力基线**：在多个 SCP/MS 蛋白组研究中持续出现。
 3. **指标必须成组使用**：仅看“batch mixing”或仅看“生物分离”会导致偏差，需联合评估。
 
 ## 4.2 争议与分歧（并存证据）
 
 1. **ComBat vs limma 并无绝对赢家**：
    - 在 DIA-SCP workflow benchmark（Nat Commun 2025）中，ComBat 与 limma 都可进入高表现组合；
-   - 在 scplainer benchmark（Genome Biology 2025）中，HarmonizR-ComBat 的总体增益小于 limma/scplainer。  
+   - 在 scplainer benchmark（Genome Biology 2025）中，HarmonizR-ComBat 的总体增益小于 limma/scplainer。
    **推断**：优劣依赖于缺失结构、协变量建模与实验设计（尤其标签/批次是否混杂）。
 
 2. **非线性方法（Scanorama/Harmony/MNN 类）是否优于线性方法**：
    - 在部分研究中可改善混合度；
-   - 但在蛋白矩阵预处理任务中，稳定性和可解释性未必持续领先。  
+   - 但在蛋白矩阵预处理任务中，稳定性和可解释性未必持续领先。
    **推断**：若目标是“生成可追溯蛋白定量矩阵并保留协变量解释”，线性模型更可控；若批次形态明显非线性，可再引入非线性方法对照。
 
 ## 4.3 证据强度评级
@@ -202,88 +212,97 @@
 
 ### 5.3 场景设计建议
 
-- 同时包含 **balanced** 与 **confounded** 场景（文献反复强调）。
+- 最小要同时包含 **balanced** 与 **confounded** 场景（文献反复强调）。
+- 在当前 ScpTensor benchmark 设计中，建议进一步把 `confounded` 拆成 `partially confounded` 与 `fully confounded` 两类，而不是继续放成单一大类。
+- `fully confounded` 更适合作为 `guardrail / failure benchmark`，不应与 `balanced` 主榜单混排。
 - 明确协变量策略：
   - 有协变量：进入设计矩阵；
   - 协变量与批次共线：应返回可解释错误（rank-deficient guardrail）。
 
 ### 5.4 风险边界
 
-1. 在高缺失场景，直接套 ComBat/limma 可能因矩阵缺口导致不稳。  
-2. 先补值再校正可能引入偏差（特别是 MNAR）；需要谨慎。  
+1. 在高缺失场景，直接套 ComBat/limma 可能因矩阵缺口导致不稳。
+2. 先补值再校正可能引入偏差（特别是 MNAR）；需要谨慎。
 3. 仅追求 batch mixing 可能过校正，损失真实生物差异。
 
 ---
 
-## 6. 数据与资源清单（可直接复用）
+## 6. 数据与资源清单（需区分稳定公开与待复核）
 
-1. **DIA-SCP workflow benchmark 数据**：PXD056832  
+1. **论文证据**：Wang 2025
    https://www.nature.com/articles/s41467-025-65174-4
+   说明：截至 `2026-03-12`，其关联 accession `PXD056832` 仍不宜表述为稳定公开主数据入口，因此这里继续只把 Wang 2025 作为 task-design 论文证据。
 
-2. **自动化 SCP 实战数据**：MSV000093867  
+2. **数据入口**：MassIVE `MSV000093867`
+   https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?accession=MSV000093867
+
+3. **论文证据**：Robles 2024
    https://www.nature.com/articles/s41467-024-49651-w
 
-3. **scplainer 数据入口**：scpdata（Bioconductor）  
-   https://genomebiology.biomedcentral.com/articles/10.1186/s13059-025-03713-4
+4. **资源包**：`scpdata`（Bioconductor）
+   https://bioconductor.org/packages/release/data/experiment/html/scpdata.html
 
-4. **Protein-level timing benchmark 数据**（Figshare）  
+5. **论文证据**：scplainer 2025
+   https://doi.org/10.1186/s13059-025-03713-4
+
+6. **论文证据 / task-design evidence**：Zheng 2025
    https://www.nature.com/articles/s41467-025-64718-y
 
-5. **ProteoBench DIA Single Cell 模块（社区基准）**  
+7. **模块规范**：ProteoBench DIA Single Cell 模块（社区基准）
    https://proteobench.readthedocs.io/en/stable/available-modules/active-modules/9-quant-lfq-ion-dia-singlecell/
 
 ---
 
 ## 7. 未解决问题（Gaps）
 
-1. 目前“专门针对 DIA-SCP 蛋白矩阵去批次”的公开 benchmark 仍较少，许多结论来自 workflow 级评估或跨模态迁移。  
-2. 单一总分（overall score）容易掩盖“batch removal 与 bio-conservation”的结构性权衡，建议长期保留分项分数。  
+1. 目前“专门针对 DIA-SCP 蛋白矩阵去批次”的公开 benchmark 仍较少，许多结论来自 workflow 级评估或跨模态迁移。
+2. 单一总分（overall score）容易掩盖“batch removal 与 bio-conservation”的结构性权衡，建议长期保留分项分数。
 3. 对“缺失机制（MCAR/MNAR）× 去批次方法”的交互评估仍不充分，值得单独设计。
 
 ---
 
 ## 8. 参考文献（点击可访问）
 
-1. Wang et al., Nat Commun 2025, DIA-SCP workflow benchmark  
+1. Wang et al., Nat Commun 2025, DIA-SCP workflow benchmark
    https://www.nature.com/articles/s41467-025-65174-4
 
-2. Robles et al., Nat Commun 2024, automated SCP + limma batch correction  
+2. Robles et al., Nat Commun 2024, automated SCP + limma batch correction
    https://www.nature.com/articles/s41467-024-49651-w
 
-3. Vanderaa et al., Genome Biology 2025, scplainer and batch-correction benchmark  
-   https://genomebiology.biomedcentral.com/articles/10.1186/s13059-025-03713-4
+3. Vanderaa et al., Genome Biology 2025, scplainer and batch-correction benchmark
+   https://doi.org/10.1186/s13059-025-03713-4
 
-4. Schlumbohm et al., Nat Commun 2022, HarmonizR  
+4. Schlumbohm et al., Nat Commun 2022, HarmonizR
    https://www.nature.com/articles/s41467-022-31007-x
 
-5. Zheng et al., Nat Commun 2025, protein-level timing benchmark  
+5. Zheng et al., Nat Commun 2025, protein-level timing benchmark
    https://www.nature.com/articles/s41467-025-64718-y
 
-6. Koca & Sevilgen, Proteomics 2024, SCPRO-HI  
+6. Koca & Sevilgen, Proteomics 2024, SCPRO-HI
    https://pubmed.ncbi.nlm.nih.gov/38135888/
 
-7. Liu et al., Nat Methods 2025, multitask single-cell multi-omics integration benchmark  
+7. Liu et al., Nat Methods 2025, multitask single-cell multi-omics integration benchmark
    https://pubmed.ncbi.nlm.nih.gov/41083898/
 
-8. Luecken et al., Nat Methods 2022, scIB  
+8. Luecken et al., Nat Methods 2022, scIB
    https://www.nature.com/articles/s41592-021-01336-8
 
-9. Johnson et al., Biostatistics 2007, ComBat  
+9. Johnson et al., Biostatistics 2007, ComBat
    https://pubmed.ncbi.nlm.nih.gov/16632515/
 
-10. Ritchie et al., Nucleic Acids Research 2015, limma  
+10. Ritchie et al., Nucleic Acids Research 2015, limma
     https://pubmed.ncbi.nlm.nih.gov/25605792/
 
-11. Haghverdi et al., Nat Biotechnol 2018, MNN correction  
+11. Haghverdi et al., Nat Biotechnol 2018, MNN correction
     https://pubmed.ncbi.nlm.nih.gov/29608177/
 
-12. Korsunsky et al., Nat Methods 2019, Harmony  
+12. Korsunsky et al., Nat Methods 2019, Harmony
     https://www.nature.com/articles/s41592-019-0619-0
 
-13. Hie et al., Nat Biotechnol 2019, Scanorama  
+13. Hie et al., Nat Biotechnol 2019, Scanorama
     https://www.nature.com/articles/s41587-019-0113-3
 
-14. ProteoBench DIA single-cell module  
+14. ProteoBench DIA single-cell module
     https://proteobench.readthedocs.io/en/stable/available-modules/active-modules/9-quant-lfq-ion-dia-singlecell/
 
 ---

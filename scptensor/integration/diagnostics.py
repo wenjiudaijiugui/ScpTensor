@@ -50,6 +50,7 @@ def compute_batch_asw(
     X = assay.layers[layer_name].X
     if hasattr(X, "toarray"):
         X = X.toarray()
+    X = np.asarray(X, dtype=float)
 
     if batch_key not in container.obs.columns:
         raise ValueError(f"Batch key '{batch_key}' not found in obs")
@@ -61,7 +62,9 @@ def compute_batch_asw(
     X_valid = X[valid_mask]
     batches_valid = batches[valid_mask]
 
-    if len(np.unique(batches_valid)) < 2:
+    n_valid = len(X_valid)
+    n_labels = len(np.unique(batches_valid))
+    if n_labels < 2 or n_valid < 3 or n_labels >= n_valid:
         return 0.0
 
     # ASW for batch labels (lower = better mixing)
@@ -113,11 +116,19 @@ def compute_batch_mixing_metric(
     X = assay.layers[layer_name].X
     if hasattr(X, "toarray"):
         X = X.toarray()
+    X = np.asarray(X, dtype=float)
 
     if batch_key not in container.obs.columns:
         raise ValueError(f"Batch key '{batch_key}' not found in obs")
 
     batches = container.obs[batch_key].to_numpy()
+    valid_mask = ~np.isnan(X).any(axis=1)
+    X = X[valid_mask]
+    batches = batches[valid_mask]
+
+    if len(X) < 2:
+        return 1.0
+
     unique_batches = np.unique(batches)
     n_batches = len(unique_batches)
 
@@ -126,6 +137,8 @@ def compute_batch_mixing_metric(
 
     # Compute kNN
     n_neighbors = min(n_neighbors, len(X) - 1)
+    if n_neighbors < 1:
+        return 1.0
     nbrs = NearestNeighbors(n_neighbors=n_neighbors + 1).fit(X)
     _, indices = nbrs.kneighbors(X)
 
@@ -136,10 +149,14 @@ def compute_batch_mixing_metric(
     for idx in indices:
         # Skip self
         neighbor_batches = batches[idx[1:]]
+        n_local = len(neighbor_batches)
+        if n_local == 0:
+            scores.append(1.0)
+            continue
         # Expected frequency if perfectly mixed
         expected = batch_frequencies
         # Observed frequency
-        observed = np.array([np.sum(neighbor_batches == b) for b in unique_batches]) / n_neighbors
+        observed = np.array([np.sum(neighbor_batches == b) for b in unique_batches]) / n_local
         # Entropy-based mixing score
         score = 1 - np.sum(np.abs(observed - expected)) / 2
         scores.append(score)
@@ -188,11 +205,19 @@ def compute_lisi_approx(
     X = assay.layers[layer_name].X
     if hasattr(X, "toarray"):
         X = X.toarray()
+    X = np.asarray(X, dtype=float)
 
     if batch_key not in container.obs.columns:
         raise ValueError(f"Batch key '{batch_key}' not found in obs")
 
     batches = container.obs[batch_key].to_numpy()
+    valid_mask = ~np.isnan(X).any(axis=1)
+    X = X[valid_mask]
+    batches = batches[valid_mask]
+
+    if len(X) < 2:
+        return 1.0
+
     unique_batches = np.unique(batches)
     n_batches = len(unique_batches)
 
@@ -201,6 +226,8 @@ def compute_lisi_approx(
 
     # Compute kNN
     n_neighbors = min(n_neighbors, len(X) - 1)
+    if n_neighbors < 1:
+        return 1.0
     nbrs = NearestNeighbors(n_neighbors=n_neighbors + 1).fit(X)
     _, indices = nbrs.kneighbors(X)
 
@@ -208,10 +235,14 @@ def compute_lisi_approx(
     lisi_scores: list[float] = []
     for idx in indices:
         neighbor_batches = batches[idx[1:]]  # Skip self
+        n_local = len(neighbor_batches)
+        if n_local == 0:
+            lisi_scores.append(1.0)
+            continue
         # Count per batch
         counts = np.array([np.sum(neighbor_batches == b) for b in unique_batches])
         # Simpson's index
-        proportions = counts / n_neighbors
+        proportions = counts / n_local
         simpson = np.sum(proportions**2)
         # Inverse Simpson's index
         if simpson > 0:

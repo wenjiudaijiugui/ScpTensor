@@ -6,11 +6,17 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import polars as pl
+import scipy.sparse as sp
 
+from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
+from scptensor.core.structures import MaskCode
 
 if TYPE_CHECKING:
     from scptensor.core.structures import Assay, ScpContainer
+
+
+_DETECTED_MASK_CODES = (MaskCode.VALID.value,)
 
 
 def validate_assay(
@@ -36,13 +42,30 @@ def validate_assay(
     AssayNotFoundError
         If assay not found.
     """
-    if assay_name not in container.assays:
+    resolved_assay_name = resolve_assay_name(container, assay_name)
+
+    if resolved_assay_name not in container.assays:
         available = list(container.assays.keys())
         raise AssayNotFoundError(
             assay_name=assay_name,
             available_assays=available,
         )
-    return container.assays[assay_name]
+    return container.assays[resolved_assay_name]
+
+
+def resolve_assay(
+    container: ScpContainer,
+    assay_name: str,
+) -> tuple[str, Assay]:
+    """Resolve assay aliases and return ``(resolved_name, assay)``."""
+    resolved_assay_name = resolve_assay_name(container, assay_name)
+    if resolved_assay_name not in container.assays:
+        available = list(container.assays.keys())
+        raise AssayNotFoundError(
+            assay_name=assay_name,
+            available_assays=available,
+        )
+    return resolved_assay_name, container.assays[resolved_assay_name]
 
 
 def validate_layer(
@@ -80,6 +103,57 @@ def validate_layer(
     if hasattr(X, "toarray"):
         X = X.toarray()
     return np.asarray(X)
+
+
+def _to_dense_float64(X: np.ndarray | sp.spmatrix) -> np.ndarray:  # noqa: N803
+    """Convert dense/sparse matrices to dense float64 arrays."""
+    if sp.issparse(X):
+        return X.toarray().astype(np.float64, copy=False)
+    return np.asarray(X, dtype=np.float64)
+
+
+def _to_dense_int8(M: np.ndarray | sp.spmatrix) -> np.ndarray:  # noqa: N803
+    """Convert dense/sparse mask matrices to dense int8 arrays."""
+    if sp.issparse(M):
+        return M.toarray().astype(np.int8, copy=False)
+    return np.asarray(M, dtype=np.int8)
+
+
+def get_detection_mask(
+    X: np.ndarray | sp.spmatrix,  # noqa: N803
+    M: np.ndarray | sp.spmatrix | None = None,  # noqa: N803
+    *,
+    detected_codes: tuple[int, ...] = _DETECTED_MASK_CODES,
+) -> np.ndarray:
+    """Return a boolean mask of detected observations.
+
+    Detection semantics:
+    - When ``M`` is provided, mask codes are authoritative.
+    - For sparse matrices without ``M``, structural zeros are treated as undetected.
+    - For dense matrices without ``M``, finite values are treated as detected.
+    """
+    if M is None:
+        if sp.issparse(X):
+            return X.toarray() != 0
+        return np.isfinite(np.asarray(X))
+
+    x_dense = _to_dense_float64(X)
+    m_dense = _to_dense_int8(M)
+    return np.isin(m_dense, detected_codes) & np.isfinite(x_dense)
+
+
+def count_detected(
+    X: np.ndarray | sp.spmatrix,  # noqa: N803
+    M: np.ndarray | sp.spmatrix | None = None,  # noqa: N803
+    *,
+    axis: int = 0,
+    detected_codes: tuple[int, ...] = _DETECTED_MASK_CODES,
+) -> np.ndarray:
+    """Count detected values along an axis."""
+    if M is None and sp.issparse(X):
+        return np.asarray(X.getnnz(axis=axis))
+    detected_mask = get_detection_mask(X, M, detected_codes=detected_codes)
+    return np.sum(detected_mask, axis=axis)
 
 
 def validate_threshold(
@@ -149,15 +223,19 @@ def validate_column_exists(
 
 
 def compute_detection_stats(
-    X: np.ndarray,
+    X: np.ndarray | sp.spmatrix,
+    M: np.ndarray | sp.spmatrix | None = None,  # noqa: N803
     axis: int = 0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Compute detection statistics.
 
     Parameters
     ----------
-    X : np.ndarray
+    X : np.ndarray | sp.spmatrix
         Data matrix.
+    M : np.ndarray | sp.spmatrix | None, optional
+        Mask matrix defining observation state. When provided, ``MaskCode.VALID``
+        entries are treated as detected observations.
     axis : int, default=0
         Axis for computation (0=per feature, 1=per sample).
 
@@ -166,12 +244,20 @@ def compute_detection_stats(
     tuple[np.ndarray, np.ndarray, np.ndarray]
         Tuple of (n_detected, detection_rate, means).
     """
-    n_total = X.shape[axis]
-    n_detected = np.sum(~np.isnan(X), axis=axis)
+    x_dense = _to_dense_float64(X)
+    detected_mask = get_detection_mask(X, M)
+    n_total = x_dense.shape[axis]
+    n_detected = np.sum(detected_mask, axis=axis)
     detection_rate = n_detected / n_total
 
-    # Compute means ignoring NaN
-    means = np.nanmean(X, axis=axis)
+    masked_values = np.where(detected_mask, x_dense, 0.0)
+    sums = np.sum(masked_values, axis=axis)
+    means = np.divide(
+        sums,
+        n_detected,
+        out=np.full_like(sums, np.nan, dtype=np.float64),
+        where=n_detected > 0,
+    )
 
     return n_detected, detection_rate, means
 
@@ -205,10 +291,13 @@ def log_filtering_operation(
 
 
 __all__ = [
+    "resolve_assay",
     "validate_assay",
     "validate_layer",
     "validate_threshold",
     "validate_column_exists",
+    "count_detected",
+    "get_detection_mask",
     "compute_detection_stats",
     "log_filtering_operation",
 ]

@@ -1,5 +1,7 @@
 """Core utility functions for ScpTensor."""
 
+from __future__ import annotations
+
 from collections.abc import Callable, Collection
 from difflib import get_close_matches
 from functools import wraps

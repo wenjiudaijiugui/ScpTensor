@@ -292,7 +292,7 @@ def sample_aggregation_link() -> AggregationLink:
     linkage = pl.DataFrame(
         {
             "source_id": ["PEP1", "PEP2", "PEP3", "PEP4", "PEP5"],
-            "target_id": ["PROT1", "PROT1", "PROT2", "PROT2", "PROT3"],
+            "target_id": ["P1", "P1", "P2", "P2", "P3"],
         }
     )
     return AggregationLink(source_assay="peptides", target_assay="proteins", linkage=linkage)

@@ -18,9 +18,23 @@ import scipy.sparse as sp
 import seaborn as sns
 from scipy.cluster.hierarchy import leaves_list, linkage
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.core.structures import ScpContainer
 from scptensor.viz.base.style import PlotStyle
+
+
+def _get_mask_array(matrix) -> np.ndarray:
+    """Return dense mask matrix; missing mask defaults to all-valid zeros."""
+    if matrix.M is None:
+        return np.zeros(matrix.X.shape, dtype=np.int8)
+    if sp.issparse(matrix.M):
+        return matrix.M.toarray()
+    return np.asarray(matrix.M, dtype=np.int8).copy()
+
+
+def _get_detected_mask(matrix) -> np.ndarray:
+    """Return dense boolean mask where True means detected/valid (mask code 0)."""
+    return _get_mask_array(matrix) == 0
 
 
 def plot_sensitivity_summary(
@@ -86,11 +100,9 @@ def plot_sensitivity_summary(
 
     matrix = assay.layers[layer_name]
 
-    # Calculate detected features per sample (M == 0 means valid/detected)
-    if sp.issparse(matrix.M):
-        n_detected = np.array(matrix.shape[1] - matrix.M.getnnz(axis=1)).flatten()  # type: ignore[union-attr, attr-defined]
-    else:
-        n_detected = np.sum(matrix.M == 0, axis=1)
+    # Calculate detected features per sample (mask code 0 means valid/detected)
+    detected_mask = _get_detected_mask(matrix)
+    n_detected = np.sum(detected_mask, axis=1)
 
     # Get grouping labels
     if group_by is None or group_by not in container.obs.columns:
@@ -285,8 +297,8 @@ def plot_cumulative_sensitivity(
         group_detected = detected_mask[group_indices, :]  # type: ignore[index]
 
         # Randomize order to avoid batch effects in ordering
-        np.random.seed(42)
-        perm = np.random.permutation(len(group_indices))
+        rng = np.random.default_rng(42)
+        perm = rng.permutation(len(group_indices))
         group_detected = group_detected[perm, :]
 
         # Calculate cumulative unique detections
@@ -439,14 +451,7 @@ def plot_jaccard_heatmap(
     matrix = assay.layers[layer_name]
 
     # Get detection matrix (True where detected/valid, M == 0)
-    if sp.issparse(matrix.M):
-        detected_mask = matrix.M == 0
-    else:
-        detected_mask = matrix.M == 0
-
-    # Convert to dense for Jaccard calculation
-    if sp.issparse(detected_mask):
-        detected_mask = detected_mask.toarray()  # type: ignore[union-attr]
+    detected_mask = _get_detected_mask(matrix)
 
     n_samples = container.n_samples
 
@@ -625,10 +630,7 @@ def plot_missing_type_heatmap(
     matrix = assay.layers[layer_name]
 
     # Get mask matrix
-    if sp.issparse(matrix.M):
-        M = matrix.M.toarray()  # type: ignore[union-attr]
-    else:
-        M = matrix.M.copy()  # type: ignore[union-attr]
+    M = _get_mask_array(matrix)
 
     n_samples, n_features = M.shape
 
@@ -637,8 +639,8 @@ def plot_missing_type_heatmap(
     feature_indices = np.arange(n_features)
 
     if n_samples > max_samples:
-        np.random.seed(42)
-        sample_indices = np.random.choice(n_samples, max_samples, replace=False)
+        rng = np.random.default_rng(42)
+        sample_indices = rng.choice(n_samples, max_samples, replace=False)
 
     if n_features > max_features:
         # Select features with highest variability in mask codes
@@ -843,10 +845,7 @@ def plot_missing_summary(
     matrix = assay.layers[layer_name]
 
     # Get mask matrix
-    if sp.issparse(matrix.M):
-        M = matrix.M.toarray()  # type: ignore[union-attr]
-    else:
-        M = matrix.M.copy()  # type: ignore[union-attr]
+    M = _get_mask_array(matrix)
 
     n_samples, n_features = M.shape
 
@@ -882,6 +881,15 @@ def plot_missing_summary(
         mean_missing, color="red", linestyle="--", linewidth=2, label=f"Mean: {mean_missing:.2%}"
     )
     ax_sample.legend(loc="upper right")
+    if show_sample_labels and n_samples <= 50:
+        ax_sample.set_xticks(range(n_samples))
+        sample_ids = (
+            container.obs[container.sample_id_col].to_list()
+            if container.sample_id_col and container.sample_id_col in container.obs.columns
+            else [f"S{i}" for i in sample_order]
+        )
+        ordered_sample_ids = [sample_ids[i] for i in sample_order]
+        ax_sample.set_xticklabels(ordered_sample_ids, rotation=90, fontsize=7)
 
     # Panel 2: Feature-wise missing rate
     feature_missing_rate = np.mean(is_missing, axis=0)
@@ -902,6 +910,7 @@ def plot_missing_summary(
         ax_feature.set_xlabel("Features (sorted by missing rate)")
         ax_feature.set_ylabel("Missing Rate")
         ax_feature.set_title("Feature-wise Missing Rate")
+        ax_feature.set_ylim(0, 1)
     else:
         # Show histogram for many features
         ax_feature.hist(
@@ -912,16 +921,16 @@ def plot_missing_summary(
         ax_feature.set_title(f"Feature-wise Missing Rate Distribution (n={n_features})")
 
         # Add statistics
+        mean_feature_missing = np.mean(feature_missing_rate)
         ax_feature.axvline(
-            mean_missing,
+            mean_feature_missing,
             color="red",
             linestyle="--",
             linewidth=2,
-            label=f"Mean: {mean_missing:.2%}",
+            label=f"Mean: {mean_feature_missing:.2%}",
         )
         ax_feature.legend(loc="upper right")
 
-    ax_feature.set_ylim(0, 1)
     ax_feature.grid(True, alpha=0.3, axis="y")
 
     # Panel 3: Missing value type distribution (pie chart)
@@ -1111,12 +1120,7 @@ def plot_cv_distribution(
         X = matrix.X.copy()
 
     # Get valid mask (M == 0 means detected/valid)
-    if sp.issparse(matrix.M):
-        valid_mask = matrix.M == 0
-        if sp.issparse(valid_mask):
-            valid_mask = valid_mask.toarray()  # type: ignore[union-attr]
-    else:
-        valid_mask = matrix.M == 0
+    valid_mask = _get_detected_mask(matrix)
 
     n_features = assay.n_features
 
@@ -1136,7 +1140,7 @@ def plot_cv_distribution(
     colors = sns.color_palette("colorblind", n_colors=len(unique_groups))
 
     # Calculate and plot CV for each group
-    all_cv_values = []
+    all_cv_values: list[float] = []
     for i, group_label in enumerate(unique_groups):
         group_mask = groups == group_label
         group_X = X[group_mask, :]
@@ -1185,9 +1189,11 @@ def plot_cv_distribution(
             )
 
     # Calculate overall statistics
-    all_cv_values = np.array(all_cv_values, dtype=np.float64)  # type: ignore[assignment]
-    median_cv = np.median(all_cv_values)
-    mean_cv = np.mean(all_cv_values)
+    all_cv_values_array = np.array(all_cv_values, dtype=np.float64)
+    if all_cv_values_array.size == 0:
+        raise ScpValueError("No valid features with enough detected values to compute CV.")
+    median_cv = float(np.median(all_cv_values_array))
+    mean_cv = float(np.mean(all_cv_values_array))
 
     # Add threshold line
     ax.axvline(
@@ -1218,9 +1224,7 @@ def plot_cv_distribution(
 
     # Add statistics box
     stats_text = f"Mean CV: {mean_cv:.3f}\nMedian CV: {median_cv:.3f}\n"
-    stats_text += (
-        f"Features > {cv_threshold}: {np.sum(all_cv_values > cv_threshold)} / {len(all_cv_values)}"  # type: ignore[operator]
-    )
+    stats_text += f"Features > {cv_threshold}: {np.sum(all_cv_values_array > cv_threshold)} / {len(all_cv_values_array)}"
 
     ax.text(
         0.98,
@@ -1312,12 +1316,7 @@ def plot_cv_by_feature(
         X = matrix.X.copy()
 
     # Get valid mask (M == 0 means detected/valid)
-    if sp.issparse(matrix.M):
-        valid_mask = matrix.M == 0
-        if sp.issparse(valid_mask):
-            valid_mask = valid_mask.toarray()  # type: ignore[union-attr]
-    else:
-        valid_mask = matrix.M == 0
+    valid_mask = _get_detected_mask(matrix)
 
     n_features = assay.n_features
 
@@ -1342,6 +1341,8 @@ def plot_cv_by_feature(
     valid_features = ~np.isnan(feature_cvs) & ~np.isnan(feature_means)
     feature_means = feature_means[valid_features]
     feature_cvs = feature_cvs[valid_features]
+    if feature_cvs.size == 0:
+        raise ScpValueError("No valid features with enough detected values to compute CV.")
 
     # Identify high CV features
     high_cv_mask = feature_cvs > cv_threshold
@@ -1470,8 +1471,6 @@ def plot_cv_comparison(
 
     # Validate batch column
     if batch_col not in container.obs.columns:
-        from scptensor.core.exceptions import ScpValueError
-
         raise ScpValueError(f"Batch column '{batch_col}' not found in obs")
 
     matrix = assay.layers[layer_name]
@@ -1483,12 +1482,7 @@ def plot_cv_comparison(
         X = matrix.X.copy()
 
     # Get valid mask (M == 0 means detected/valid)
-    if sp.issparse(matrix.M):
-        valid_mask = matrix.M == 0
-        if sp.issparse(valid_mask):
-            valid_mask = valid_mask.toarray()  # type: ignore[union-attr]
-    else:
-        valid_mask = matrix.M == 0
+    valid_mask = _get_detected_mask(matrix)
 
     n_features = assay.n_features
 
@@ -1544,7 +1538,9 @@ def plot_cv_comparison(
             if mean_val > 0:
                 overall_cv_values.append(np.std(valid_vals) / mean_val)
 
-    overall_cv = np.mean(overall_cv_values) if overall_cv_values else np.nan
+    if not overall_cv_values:
+        raise ScpValueError("No valid features with enough detected values to compute CV.")
+    overall_cv = np.mean(overall_cv_values)
 
     # Prepare comparison results
     comparison_results = {

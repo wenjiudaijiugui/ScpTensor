@@ -535,13 +535,50 @@ class ScpContainer:
         Raises
         ------
         ValueError
-            If any link references non-existent assay
+            If any link references non-existent assays or features.
         """
         for link in self.links:
             if link.source_assay not in self.assays:
                 raise ValueError(f"Link source assay '{link.source_assay}' not found.")
             if link.target_assay not in self.assays:
                 raise ValueError(f"Link target assay '{link.target_assay}' not found.")
+
+            linkage_cols = set(link.linkage.columns)
+            if "source_id" not in linkage_cols or "target_id" not in linkage_cols:
+                raise ValueError(
+                    "Linkage table must contain 'source_id' and 'target_id' columns. "
+                    f"Got columns: {link.linkage.columns}"
+                )
+
+            source_assay = self.assays[link.source_assay]
+            target_assay = self.assays[link.target_assay]
+            source_ids = set(
+                source_assay.feature_ids.cast(pl.Utf8, strict=False).fill_null("").to_list()
+            )
+            target_ids = set(
+                target_assay.feature_ids.cast(pl.Utf8, strict=False).fill_null("").to_list()
+            )
+
+            source_series = link.linkage["source_id"].cast(pl.Utf8, strict=False).fill_null("")
+            target_series = link.linkage["target_id"].cast(pl.Utf8, strict=False).fill_null("")
+
+            missing_source = sorted(
+                {val for val in source_series.to_list() if val not in source_ids}
+            )
+            missing_target = sorted(
+                {val for val in target_series.to_list() if val not in target_ids}
+            )
+
+            if missing_source:
+                preview = ", ".join(missing_source[:5])
+                raise ValueError(
+                    f"Link source_id values not found in assay '{link.source_assay}': {preview}"
+                )
+            if missing_target:
+                preview = ", ".join(missing_target[:5])
+                raise ValueError(
+                    f"Link target_id values not found in assay '{link.target_assay}': {preview}"
+                )
 
     def add_assay(self, name: str, assay: Assay) -> ScpContainer:
         """

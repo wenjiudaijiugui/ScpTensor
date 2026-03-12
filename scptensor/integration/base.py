@@ -13,6 +13,7 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
+from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 
 if TYPE_CHECKING:
@@ -21,6 +22,8 @@ if TYPE_CHECKING:
 # Type alias for integrate method
 IntegrateMethod = Callable[..., "ScpContainer"]
 IntegrationLevel = Literal["matrix", "embedding"]
+_PCA_LIKE_LAYER_NAMES = {"pc", "pcs", "pca"}
+_PROTEIN_ASSAY_ALIASES = {"protein", "proteins"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,9 +39,6 @@ class IntegrationMethodInfo:
 # Registry for integration methods
 _INTEGRATE_METHODS: dict[str, IntegrateMethod] = {}
 _INTEGRATE_METHOD_INFO: dict[str, IntegrationMethodInfo] = {}
-
-# Accepted aliases for protein-level assays in integration APIs.
-_PROTEIN_ASSAY_ALIASES: tuple[str, str] = ("protein", "proteins")
 
 
 def register_integrate_method(
@@ -160,19 +160,6 @@ def integrate(
     return func(container, **kwargs)
 
 
-def _resolve_assay_alias(container: ScpContainer, assay_name: str) -> str:
-    """Resolve singular/plural protein assay aliases."""
-    if assay_name in container.assays:
-        return assay_name
-
-    if assay_name == _PROTEIN_ASSAY_ALIASES[0] and _PROTEIN_ASSAY_ALIASES[1] in container.assays:
-        return _PROTEIN_ASSAY_ALIASES[1]
-    if assay_name == _PROTEIN_ASSAY_ALIASES[1] and _PROTEIN_ASSAY_ALIASES[0] in container.assays:
-        return _PROTEIN_ASSAY_ALIASES[0]
-
-    return assay_name
-
-
 def validate_layer_params(
     container: ScpContainer,
     assay_name: str,
@@ -201,7 +188,7 @@ def validate_layer_params(
     LayerNotFoundError
         If layer not found.
     """
-    resolved_assay_name = _resolve_assay_alias(container, assay_name)
+    resolved_assay_name = resolve_assay_name(container, assay_name)
 
     if resolved_assay_name not in container.assays:
         available = list(container.assays.keys())
@@ -221,6 +208,47 @@ def validate_layer_params(
         )
 
     return assay, assay.layers[layer_name]
+
+
+def validate_embedding_input(
+    container: ScpContainer,
+    assay_name: str,
+    layer_name: str,
+    *,
+    method_name: str,
+) -> tuple[Assay, ScpMatrix]:
+    """Validate that an integration method receives embedding-like input.
+
+    Accepted inputs are:
+    - an embedding assay using layer ``"X"`` (for example assay ``"pca"``)
+    - a PCA-like layer on an assay (for example layer ``"pca"``)
+    """
+    resolved_assay_name = resolve_assay_name(container, assay_name)
+    assay, layer = validate_layer_params(container, assay_name, layer_name)
+
+    normalized_assay = resolved_assay_name.strip().lower()
+    normalized_layer = layer_name.strip().lower()
+
+    is_embedding_assay = normalized_layer == "x" and normalized_assay not in _PROTEIN_ASSAY_ALIASES
+    is_pca_like_layer = (
+        normalized_layer in _PCA_LIKE_LAYER_NAMES
+        or normalized_layer.startswith("pca_")
+        or normalized_layer.endswith("_pca")
+    )
+
+    if not (is_embedding_assay or is_pca_like_layer):
+        raise ScpValueError(
+            f"{method_name} requires a low-dimensional embedding input, "
+            f"but received assay '{resolved_assay_name}' layer '{layer_name}'. "
+            "Pass an embedding assay with layer 'X' (for example assay='pca', "
+            "base_layer='X') or a PCA-like layer on the protein assay "
+            "(for example base_layer='pca'). Raw protein matrices are not valid "
+            "inputs for embedding-level integration methods.",
+            parameter="base_layer",
+            value=layer_name,
+        )
+
+    return assay, layer
 
 
 def validate_batch_integration_params(
@@ -288,8 +316,11 @@ def validate_batch_integration_params(
 
 def prepare_integration_data(
     X: np.ndarray | sp.spmatrix,
+    *,
+    allow_missing: bool = False,
+    context: str = "integration",
 ) -> np.ndarray:
-    """Prepare data for integration by converting to dense and handling NaN.
+    """Prepare data for integration by converting to dense and validating NaN.
 
     Parameters
     ----------
@@ -299,16 +330,19 @@ def prepare_integration_data(
     Returns
     -------
     np.ndarray
-        Dense array with NaN values filled with 0.
+        Dense array for downstream integration.
     """
     if sp.issparse(X):
         X = X.toarray()  # type: ignore[union-attr]
     else:
         X = np.asarray(X)
 
-    # Fill NaN with 0 for integration
-    if np.any(np.isnan(X)):
-        X = np.nan_to_num(X, nan=0.0)
+    if np.isnan(X).any() and not allow_missing:
+        raise ScpValueError(
+            f"{context} requires a complete matrix (no NaN values). "
+            "Please impute or filter missing values before batch integration.",
+            parameter="X",
+        )
 
     return X
 
@@ -355,6 +389,7 @@ __all__ = [
     "list_integrate_method_info",
     "integrate",
     "validate_layer_params",
+    "validate_embedding_input",
     "validate_batch_integration_params",
     "prepare_integration_data",
     "preserve_sparsity",

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import scipy.sparse as sp
 
+from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ValidationError
 
 if TYPE_CHECKING:
@@ -41,20 +42,22 @@ def _validate_assay_layer(
     LayerNotFoundError
         If layer not found.
     """
-    if assay_name not in container.assays:
+    resolved_assay_name = resolve_assay_name(container, assay_name)
+
+    if resolved_assay_name not in container.assays:
         available = list(container.assays.keys())
         raise AssayNotFoundError(
             assay_name=assay_name,
             available_assays=available,
         )
 
-    assay = container.assays[assay_name]
+    assay = container.assays[resolved_assay_name]
 
     if layer_name not in assay.layers:
         available = list(assay.layers.keys())
         raise LayerNotFoundError(
             layer_name=layer_name,
-            assay_name=assay_name,
+            assay_name=resolved_assay_name,
             available_layers=available,
         )
 

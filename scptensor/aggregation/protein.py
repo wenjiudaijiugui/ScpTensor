@@ -73,6 +73,13 @@ def _safe_row_stat(values: np.ndarray, reducer: Literal["mean", "median", "max"]
     return out
 
 
+def _nan_sum_preserving_missing(values: np.ndarray) -> np.ndarray:
+    """Row-wise sum that keeps all-missing rows as NaN."""
+    out = np.nansum(values, axis=1)
+    out[~np.isfinite(values).any(axis=1)] = np.nan
+    return out
+
+
 def _weighted_row_mean(values: np.ndarray, weights: np.ndarray) -> np.ndarray:
     """Row-wise weighted mean ignoring missing values."""
     out = np.full(values.shape[0], np.nan, dtype=np.float64)
@@ -105,7 +112,7 @@ def _select_top_n_indices(values: np.ndarray, top_n: int) -> np.ndarray:
 def _aggregate_basic(values: np.ndarray, method: BasicAggMethod) -> np.ndarray:
     """Aggregate peptide matrix (samples x peptides) with a basic method."""
     if method == "sum":
-        return np.nansum(values, axis=1)
+        return _nan_sum_preserving_missing(values)
     if method == "mean":
         return _safe_row_stat(values, "mean")
     if method == "median":
@@ -141,7 +148,7 @@ def _aggregate_maxlfq(values: np.ndarray, min_ratio_count: int = 1) -> np.ndarra
             adjacency[j].add(i)
 
     if not edges:
-        return _safe_row_stat(log_vals, "median")
+        return np.exp(_safe_row_stat(log_vals, "median"))
 
     visited = set()
     for start in range(n_samples):
@@ -314,7 +321,7 @@ def _aggregate_protein_values(
 
     if method == "ibaq":
         selected = np.arange(values.shape[1], dtype=np.int64)
-        return np.nansum(values, axis=1) / ibaq_denominator, selected
+        return _nan_sum_preserving_missing(values) / ibaq_denominator, selected
 
     selected = np.arange(values.shape[1], dtype=np.int64)
     return _aggregate_basic(values, method), selected

@@ -14,6 +14,7 @@ import numpy as np
 from scptensor.autoselect.evaluators.base import BaseEvaluator
 
 if TYPE_CHECKING:
+    from scptensor.autoselect.core import StageReport
     from scptensor.core.structures import ScpContainer
 
 
@@ -43,7 +44,12 @@ class IntegrationEvaluator(BaseEvaluator):
     ... )
     """
 
-    def __init__(self, batch_key: str = "batch", bio_key: str | None = None):
+    def __init__(
+        self,
+        batch_key: str = "batch",
+        bio_key: str | None = None,
+        include_embedding_methods: bool = False,
+    ):
         """Initialize the integration evaluator.
 
         Parameters
@@ -53,10 +59,51 @@ class IntegrationEvaluator(BaseEvaluator):
         bio_key : str | None, optional
             Column name in obs containing biological group labels (e.g., cell_type)
             for computing biological ASW. If None, biological ASW is skipped.
+        include_embedding_methods : bool, optional
+            Whether to include embedding-only integration methods such as
+            MNN/Harmony/Scanorama. Disabled by default so stable integration
+            only compares matrix-level methods recommended for downstream
+            differential analysis.
         """
         self._batch_key = batch_key
         self._bio_key = bio_key
+        self._include_embedding_methods = include_embedding_methods
         self._available_methods: dict[str, Callable] | None = None
+
+    def _method_is_allowed(self, method_name: str) -> bool:
+        """Return whether a method satisfies the current integration contract."""
+        from scptensor.integration import get_integrate_method_info
+
+        method_info = get_integrate_method_info(method_name)
+        if method_info.integration_level == "matrix" and method_info.recommended_for_de:
+            return True
+        return self._include_embedding_methods and method_info.integration_level == "embedding"
+
+    def _build_method_contracts(self, method_names: list[str]) -> dict[str, dict[str, object]]:
+        """Collect per-method contract metadata for the stage report."""
+        from scptensor.integration import get_integrate_method_info
+
+        contracts: dict[str, dict[str, object]] = {}
+        for method_name in method_names:
+            method_info = get_integrate_method_info(method_name)
+            is_stable = method_info.integration_level == "matrix" and method_info.recommended_for_de
+            contracts[method_name] = {
+                "integration_level": method_info.integration_level,
+                "recommended_for_de": method_info.recommended_for_de,
+                "candidate_scope": "stable" if is_stable else "exploratory",
+            }
+        return contracts
+
+    def _attach_result_contracts(
+        self,
+        report: StageReport,
+    ) -> None:
+        """Attach contract metadata to the stage report and each method result."""
+        report.method_contracts = self._build_method_contracts(
+            [result.method_name for result in report.results]
+        )
+        for result in report.results:
+            result.method_contract = report.method_contracts.get(result.method_name)
 
     def _get_available_methods(self) -> dict[str, Callable]:
         """Get available integration methods, checking for optional dependencies.
@@ -74,82 +121,89 @@ class IntegrationEvaluator(BaseEvaluator):
         methods: dict[str, Callable] = {}
 
         # Explicit no-batch-correction baseline
-        try:
-            from scptensor.integration import integrate_none
+        if self._method_is_allowed("none"):
+            try:
+                from scptensor.integration import integrate_none
 
-            methods["none"] = create_wrapper(
-                integrate_none,
-                source_layer_param="base_layer",
-                layer_namer="clean",
-                batch_key=self._batch_key,
-            )
-        except ImportError:
-            pass
+                methods["none"] = create_wrapper(
+                    integrate_none,
+                    source_layer_param="base_layer",
+                    layer_namer="clean",
+                    batch_key=self._batch_key,
+                )
+            except ImportError:
+                pass
 
-        # ComBat is always available (built-in)
-        try:
-            from scptensor.integration import integrate_combat
+        # ComBat remains available as a direct API, but only enters AutoSelect
+        # when its method contract marks it as stable for DE-oriented matrix use.
+        if self._method_is_allowed("combat"):
+            try:
+                from scptensor.integration import integrate_combat
 
-            methods["combat"] = create_wrapper(
-                integrate_combat,
-                source_layer_param="base_layer",
-                layer_namer="clean",
-                batch_key=self._batch_key,
-            )
-        except ImportError:
-            pass
+                methods["combat"] = create_wrapper(
+                    integrate_combat,
+                    source_layer_param="base_layer",
+                    layer_namer="clean",
+                    batch_key=self._batch_key,
+                )
+            except ImportError:
+                pass
 
         # limma-style linear correction is built-in
-        try:
-            from scptensor.integration import integrate_limma
+        if self._method_is_allowed("limma"):
+            try:
+                from scptensor.integration import integrate_limma
 
-            methods["limma"] = create_wrapper(
-                integrate_limma,
-                source_layer_param="base_layer",
-                layer_namer="clean",
-                batch_key=self._batch_key,
-            )
-        except ImportError:
-            pass
+                methods["limma"] = create_wrapper(
+                    integrate_limma,
+                    source_layer_param="base_layer",
+                    layer_namer="clean",
+                    batch_key=self._batch_key,
+                )
+            except ImportError:
+                pass
 
-        # MNN is always available (built-in)
-        try:
-            from scptensor.integration import integrate_mnn
+        # MNN is exploratory because it operates at embedding level
+        if self._method_is_allowed("mnn"):
+            try:
+                from scptensor.integration import integrate_mnn
 
-            methods["mnn"] = create_wrapper(
-                integrate_mnn,
-                source_layer_param="base_layer",
-                layer_namer="clean",
-                batch_key=self._batch_key,
-            )
-        except ImportError:
-            pass
+                methods["mnn"] = create_wrapper(
+                    integrate_mnn,
+                    source_layer_param="base_layer",
+                    layer_namer="clean",
+                    batch_key=self._batch_key,
+                )
+            except ImportError:
+                pass
 
-        # Harmony requires harmonypy
-        try:
-            from scptensor.integration import integrate_harmony
+        # Harmony requires harmonypy and embedding-like inputs
+        if self._method_is_allowed("harmony"):
+            try:
+                from scptensor.integration import integrate_harmony
 
-            methods["harmony"] = create_wrapper(
-                integrate_harmony,
-                source_layer_param="base_layer",
-                layer_namer=lambda src, _: f"{src}_harmony",
-                batch_key=self._batch_key,
-            )
-        except ImportError:
-            pass
+                methods["harmony"] = create_wrapper(
+                    integrate_harmony,
+                    source_layer_param="base_layer",
+                    layer_namer=lambda src, _: f"{src}_harmony",
+                    batch_key=self._batch_key,
+                )
+            except ImportError:
+                pass
 
         # Scanorama requires scanorama package
-        try:
-            from scptensor.integration import integrate_scanorama
+        if self._method_is_allowed("scanorama"):
+            try:
+                from scptensor.integration import integrate_scanorama
 
-            methods["scanorama"] = create_wrapper(
-                integrate_scanorama,
-                source_layer_param="base_layer",
-                layer_namer="clean",
-                batch_key=self._batch_key,
-            )
-        except ImportError:
-            pass
+                methods["scanorama"] = create_wrapper(
+                    integrate_scanorama,
+                    source_layer_param="base_layer",
+                    layer_namer="clean",
+                    batch_key=self._batch_key,
+                )
+            except ImportError:
+                pass
 
         self._available_methods = methods
         return methods
@@ -176,6 +230,58 @@ class IntegrationEvaluator(BaseEvaluator):
             Only methods with installed dependencies are included.
         """
         return self._get_available_methods()
+
+    def run_all(
+        self,
+        container: ScpContainer,
+        assay_name: str = "proteins",
+        source_layer: str = "raw",
+        keep_all: bool = False,
+        **kwargs,
+    ) -> tuple[ScpContainer, StageReport]:
+        """Run integration selection with contract-aware candidate filtering."""
+        include_embedding_methods = kwargs.pop(
+            "include_embedding_methods",
+            self._include_embedding_methods,
+        )
+        batch_key = kwargs.get("batch_key", self._batch_key)
+        bio_key = kwargs.get("bio_key", self._bio_key)
+
+        previous_batch_key = self._batch_key
+        previous_bio_key = self._bio_key
+        previous_include_embedding = self._include_embedding_methods
+        self._batch_key = batch_key
+        self._bio_key = bio_key
+        self._include_embedding_methods = include_embedding_methods
+        self._available_methods = None
+
+        try:
+            result_container, report = super().run_all(
+                container=container,
+                assay_name=assay_name,
+                source_layer=source_layer,
+                keep_all=keep_all,
+                **kwargs,
+            )
+            self._attach_result_contracts(report)
+            if report.recommendation_reason:
+                if include_embedding_methods:
+                    report.recommendation_reason = (
+                        "Exploratory embedding-level integration methods were included. "
+                        + report.recommendation_reason
+                    )
+                else:
+                    report.recommendation_reason = (
+                        "Candidate set restricted to matrix-level methods "
+                        "recommended for downstream differential analysis. "
+                        + report.recommendation_reason
+                    )
+            return result_container, report
+        finally:
+            self._batch_key = previous_batch_key
+            self._bio_key = previous_bio_key
+            self._include_embedding_methods = previous_include_embedding
+            self._available_methods = None
 
     @property
     def metric_weights(self) -> dict[str, float]:
@@ -223,10 +329,9 @@ class IntegrationEvaluator(BaseEvaluator):
         import numpy as np
 
         # Check if layer exists
-        if "proteins" not in container.assays:
+        assay = self._get_metric_assay(container)
+        if assay is None:
             return dict.fromkeys(self.metric_weights, 0.0)
-
-        assay = container.assays["proteins"]
         if layer_name not in assay.layers:
             return dict.fromkeys(self.metric_weights, 0.0)
 
@@ -249,7 +354,7 @@ class IntegrationEvaluator(BaseEvaluator):
         scores: dict[str, float] = {}
 
         source_layer = self._infer_source_layer(
-            original_container.assays.get("proteins"), layer_name
+            self._get_metric_assay(original_container), layer_name
         )
 
         # Batch ASW (1 - ASW so higher is better)
@@ -387,10 +492,10 @@ class IntegrationEvaluator(BaseEvaluator):
 
         try:
             # Get original variance
-            if "proteins" not in original_container.assays:
+            original_assay = self._get_metric_assay(original_container)
+            if original_assay is None:
                 return 0.0
 
-            original_assay = original_container.assays["proteins"]
             # Prefer inferred source layer from naming convention.
             if source_layer not in original_assay.layers:
                 source_layer = None
@@ -407,7 +512,9 @@ class IntegrationEvaluator(BaseEvaluator):
                 x_orig = x_orig.toarray()
 
             # Get integrated variance
-            assay = container.assays["proteins"]
+            assay = self._get_metric_assay(container)
+            if assay is None:
+                return 0.0
             x_int = assay.layers[layer_name].X
             if hasattr(x_int, "toarray"):
                 x_int = x_int.toarray()

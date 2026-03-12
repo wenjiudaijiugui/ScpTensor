@@ -170,8 +170,100 @@
 5. 元数据保留
    把关键注释与质量列保留到 `var` 元数据，避免二次读取原文件。
 
+## 9. 状态映射与 provenance 合同（ScpTensor 建议）
 
-## 9. 与当前生态的兼容补充（非官方主规范）
+### 9.1 importer 必须记录的最小 provenance
+
+- `source_software`
+- `source_column`
+- `data_level`
+- `table_format`
+- `feature_column_used`
+- `sample_column_used`
+- `fdr_column_used`
+- `is_vendor_normalized`
+
+当前 `scptensor.io.mass_spec` 已将其中大部分信息记录到 `container.history[-1].params`，文档与后续错误消息应继续对齐这一合同。
+
+### 9.2 quantity 列的默认语义
+
+- DIA-NN
+  - `Precursor.Quantity`: 未归一化线性前体强度
+  - `Precursor.Normalised`: 已归一化线性前体强度
+  - `PG.MaxLFQ`: 已做 protein-level quantification / normalization 的蛋白量
+  - `PG.TopN`: Top-N 路线的蛋白量
+- Spectronaut
+  - `PG.Quantity`: 蛋白定量值，需结合导出模板解释
+  - `PG.Normalized` / `PG.Normalised`: vendor-normalized 蛋白量
+  - `EG.TotalQuantity`: 前体/肽段层定量
+  - `F.NormalizedPeakArea`: vendor-normalized 片段层强度
+
+结论：
+
+- `normalized`/`normalised` 类字段不应被视作未处理 raw。
+- vendor-normalized 输入仍通常是 **linear scale**，不应与 logged layer 混淆。
+
+### 9.3 `MaskCode` 的保守映射建议
+
+| 场景 | 推荐映射 |
+|---|---|
+| 明确可用的定量值 | `VALID` |
+| 明确的 run 间匹配 / second-pass transfer | `MBR` |
+| 缺失、未检出、低丰度占位、DIA-NN `0` 更接近 low-abundance 的情形 | `LOD` |
+| 由 q/FDR 或规则过滤显式排除 | `FILTERED` |
+| 后验统计剔除 | `OUTLIER` |
+| 后续填补得到 | `IMPUTED` |
+| 只有最终矩阵、无法恢复来源语义 | `UNCERTAIN` |
+
+说明：
+
+- 当前 matrix import 中，缺失单元格默认映射到 `LOD`，这是保守 engineering choice。
+- 若上游只提供最终 pivot matrix，ScpTensor 不应过度宣称该值是 `VALID` 还是 `MBR`；此时更适合依赖 provenance 和记为 `UNCERTAIN` 或保守 `LOD`。
+
+## 10. 用户可见错误合同
+
+I/O 和 aggregation 的错误消息必须 explicit + actionable。当前测试已经覆盖以下核心场景，文档应与之保持一致。
+
+### 10.1 导入阶段
+
+- `Unsupported file extension`
+  - 应告诉用户支持哪些后缀
+- `Unsupported table_format`
+  - 应明确合法值：`auto`, `matrix`, `long`
+- `fdr_threshold must be within [0, 1]`
+  - 应回显实际传入值
+- `Unable to detect software type`
+  - 应建议显式设置 `software='diann'` 或 `software='spectronaut'`
+  - 应附列名预览
+- `Unable to auto-detect feature column`
+  - 应提示当前 level 与可见列名
+- `No rows remain after FDR filtering`
+  - 应说明使用了哪一个 FDR 列和阈值
+- `No sample columns produced after long-to-matrix pivot`
+  - 应附 `sample_column` 与 `quantity_column`
+- `Input file is empty`
+  - 应回显 path
+
+### 10.2 aggregation 阶段
+
+- `No protein mapping column`
+  - 应提示可用映射列或要求显式传 `protein_column`
+- `Missing iBAQ denominator`
+  - 应指出缺失的是哪个 protein
+- `Unsupported aggregation method`
+- `top_n must be >= 0`
+- `lfq_min_ratio_count must be >= 1`
+- `tmp_log_base must be > 1`
+- `No protein groups found to aggregate`
+
+### 10.3 vendor-normalized 输入告警
+
+- 当 source quantity 已是 vendor-normalized 时，history 中必须记录：
+  - `resolved_quantity_column`
+  - `input_quantity_is_vendor_normalized=True`
+- 后续 normalization 若继续作用于该层，应发出明确警告，而不是 silently double-normalize。
+
+## 11. 与当前生态的兼容补充（非官方主规范）
 
 在 MSstats / protti 的 Spectronaut 工作流中，常见额外列包括：
 
@@ -184,15 +276,17 @@
 - 不应作为核心必需字段，以避免对导出模板产生过强耦合。
 
 
-## 10. 与当前 `scptensor/io` 实现对齐建议
+## 12. 与当前 `scptensor/io` 实现对齐建议
 
 1. 接口只暴露四类输入原型（protein/peptide × long/matrix）。
 2. 先识别软件，再识别格式，再选 level，最后解析列。
 3. 建立“主列 + 别名”字典，并在解析日志中记录命中情况。
 4. 把过滤阈值、聚合策略、定量列选择写入 provenance，保证可复现。
+5. 对 vendor-normalized source layer，既要保留导入成功路径，也要在下游 normalization/log transform 文档中明确其边界。
+6. 对 ambiguous state mapping，不应伪精确；优先保守和可解释。
 
 
-## 11. 参考来源
+## 13. 参考来源
 
 - DIA-NN 官方 README
   https://raw.githubusercontent.com/vdemichev/DiaNN/master/README.md

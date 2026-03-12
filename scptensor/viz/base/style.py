@@ -6,6 +6,8 @@ including SciencePlots integration and proteomics-specific color schemes.
 
 from typing import Literal
 
+from cycler import cycler
+
 # Predefined themes
 THEMES: dict[str, list[str]] = {
     "science": ["science", "no-latex"],
@@ -23,7 +25,69 @@ CMAP_PROTEOMICS: dict[str, str] = {
     "clusters": "tab20",
 }
 
+CBLIND_FRIENDLY_CYCLE: list[str] = [
+    "#0072B2",
+    "#D55E00",
+    "#009E73",
+    "#CC79A7",
+    "#56B4E9",
+    "#E69F00",
+    "#000000",
+    "#F0E442",
+]
+
 _VALID_PURPOSES = set(CMAP_PROTEOMICS.keys())
+_DEFAULT_THEME: Literal["science", "science_grid", "ieee", "nature"] = "science"
+_DEFAULT_SAVE_DPI = 300
+
+
+def _publication_rc_params(save_dpi: int) -> dict[str, object]:
+    """Return publication-oriented rcParams.
+
+    Defaults follow common journal figure constraints:
+    readable sans-serif fonts, restrained line widths, high export DPI,
+    and colorblind-friendly categorical palettes.
+    """
+    figure_dpi = min(max(120, save_dpi), 180)
+    return {
+        "figure.dpi": figure_dpi,
+        "savefig.dpi": save_dpi,
+        "savefig.bbox": "tight",
+        "savefig.pad_inches": 0.05,
+        "axes.unicode_minus": False,
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "Liberation Sans"],
+        "font.size": 9.0,
+        "axes.titlesize": 10.0,
+        "axes.labelsize": 9.0,
+        "xtick.labelsize": 8.0,
+        "ytick.labelsize": 8.0,
+        "legend.fontsize": 8.0,
+        "legend.title_fontsize": 8.0,
+        "axes.linewidth": 0.8,
+        "lines.linewidth": 1.2,
+        "lines.markersize": 4.5,
+        "grid.linewidth": 0.4,
+        "grid.alpha": 0.25,
+        "xtick.major.width": 0.8,
+        "ytick.major.width": 0.8,
+        "xtick.minor.width": 0.6,
+        "ytick.minor.width": 0.6,
+        "xtick.major.size": 3.5,
+        "ytick.major.size": 3.5,
+        "xtick.minor.size": 2.0,
+        "ytick.minor.size": 2.0,
+        "xtick.direction": "out",
+        "ytick.direction": "out",
+        "legend.frameon": False,
+        "legend.borderaxespad": 0.2,
+        "legend.handlelength": 1.4,
+        "legend.handletextpad": 0.4,
+        "axes.prop_cycle": cycler(color=CBLIND_FRIENDLY_CYCLE),
+        "image.cmap": CMAP_PROTEOMICS["expression"],
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42,
+    }
 
 
 class PlotStyle:
@@ -69,10 +133,12 @@ class PlotStyle:
             raise ValueError(f"Unknown theme: {theme}. Choose from {list(THEMES.keys())}")
 
         styles = THEMES[theme]
-        plt.style.use(styles)
-        plt.rcParams["figure.dpi"] = dpi
-        plt.rcParams["savefig.dpi"] = dpi
-        plt.rcParams["axes.unicode_minus"] = False
+        try:
+            plt.style.use(styles)
+        except Exception:
+            # Fallback when SciencePlots styles are unavailable.
+            plt.style.use("seaborn-v0_8-whitegrid")
+        plt.rcParams.update(_publication_rc_params(save_dpi=dpi))
 
     @staticmethod
     def get_colormap(purpose: str, custom: str | None = None) -> str:
@@ -116,9 +182,10 @@ def setup_style() -> None:
     .. deprecated::
         Use :meth:`PlotStyle.apply_style` instead for more control.
     """
-    import matplotlib.pyplot as plt
-
     try:
-        plt.style.use(["science", "no-latex"])
+        PlotStyle.apply_style(theme=_DEFAULT_THEME, dpi=_DEFAULT_SAVE_DPI)
     except Exception:
+        import matplotlib.pyplot as plt
+
         plt.style.use("seaborn-v0_8-whitegrid")
+        plt.rcParams.update(_publication_rc_params(save_dpi=_DEFAULT_SAVE_DPI))

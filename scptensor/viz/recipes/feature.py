@@ -13,7 +13,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
+from scipy import sparse
 
+from scptensor.core.exceptions import VisualizationError
 from scptensor.viz.base.style import PlotStyle
 from scptensor.viz.base.validation import (
     validate_container,
@@ -28,7 +30,39 @@ if TYPE_CHECKING:
 
     from scptensor import ScpContainer
 
-__all__ = ["dotplot"]
+__all__ = [
+    "plot_feature_dotplot",
+    "dotplot",
+]
+
+
+def _to_dense_array(matrix: np.ndarray) -> np.ndarray:
+    """Convert dense/sparse matrix-like input to a 2D NumPy array."""
+    if sparse.issparse(matrix):
+        return np.asarray(matrix.toarray())
+    return np.asarray(matrix)
+
+
+def _ordered_unique(values: np.ndarray) -> np.ndarray:
+    """Return unique values preserving first appearance order."""
+    _, first_idx = np.unique(values, return_index=True)
+    return values[np.sort(first_idx)]
+
+
+def _resolve_feature_column(assay) -> str:
+    """Resolve feature name column from assay metadata."""
+    preferred_cols = [
+        assay.feature_id_col,
+        "protein",
+        "gene",
+        "feature",
+        "name",
+        "_index",
+    ]
+    for col in preferred_cols:
+        if col in assay.var.columns:
+            return col
+    return assay.var.columns[0]
 
 
 def dotplot(
@@ -68,7 +102,8 @@ def dotplot(
     assay_name : str, default="proteins"
         Assay name containing the features.
     dendrogram : bool, default=False
-        Whether to show dendrogram (not yet implemented).
+        Whether to show dendrogram. Currently not supported and will raise an
+        explicit error when set to True.
     log : bool, default=True
         Whether to apply log1p transform to expression values.
     cmap : str, default="viridis"
@@ -115,40 +150,40 @@ def dotplot(
     validate_layer(container, assay_name, layer)
     validate_features(container, assay_name, var_names)
     validate_groupby(container, groupby)
+    if len(var_names) == 0:
+        raise VisualizationError("var_names must contain at least one feature")
+    if dendrogram:
+        raise VisualizationError(
+            "dendrogram=True is not supported in plot_feature_dotplot/dotplot yet"
+        )
+    if standard_scale not in {"var", "obs", None}:
+        raise VisualizationError(
+            f"standard_scale must be one of ['var', 'obs', None], got: {standard_scale}"
+        )
 
     PlotStyle.apply_style()
 
     assay = container.assays[assay_name]
-    x = assay.layers[layer].X.copy()
+    x = _to_dense_array(assay.layers[layer].X.copy())
 
     # Find feature identifier column
-    var_col = None
-    for preferred in ["protein", "gene", "feature", "name"]:
-        if preferred in assay.var.columns:
-            var_col = preferred
-            break
-
-    if var_col is None:
-        var_col = assay.var.columns[0]
+    var_col = _resolve_feature_column(assay)
 
     # Filter to selected features (preserve order from var_names)
     available_features = dict(
         zip(assay.var[var_col].to_list(), range(len(assay.var)), strict=False)
     )
-    feature_idx = []
-    for var in var_names:
-        if var in available_features:
-            feature_idx.append(available_features[var])
+    feature_idx = [available_features[var] for var in var_names]
 
     x = x[:, feature_idx]
 
     # Log transform if requested
     if log:
-        x = np.log1p(x)
+        x = np.log1p(np.clip(x, a_min=0.0, a_max=None))
 
     # Get groups
     groups = container.obs[groupby].to_numpy()
-    unique_groups = np.unique(groups)
+    unique_groups = _ordered_unique(groups)
 
     # Calculate mean expression per group
     mean_expr = np.zeros((len(unique_groups), len(var_names)))
@@ -157,8 +192,11 @@ def dotplot(
     for i, _g in enumerate(unique_groups):
         mask = groups == _g
         group_data = x[mask]
-        mean_expr[i] = group_data.mean(axis=0)
+        mean_expr[i] = np.asarray(group_data.mean(axis=0)).ravel()
         pct_expr[i] = (group_data > 0).mean(axis=0)
+
+    color_vmin = float(np.min(mean_expr))
+    color_vmax = float(np.max(mean_expr))
 
     # Standardize
     if standard_scale == "var":
@@ -168,6 +206,7 @@ def dotplot(
         col_range = col_max - col_min
         col_range[col_range < 1e-8] = 1.0  # Avoid division by zero
         mean_expr = (mean_expr - col_min) / col_range
+        color_vmin, color_vmax = 0.0, 1.0
     elif standard_scale == "obs":
         # Scale each group independently
         row_min = mean_expr.min(axis=1, keepdims=True)
@@ -175,6 +214,10 @@ def dotplot(
         row_range = row_max - row_min
         row_range[row_range < 1e-8] = 1.0
         mean_expr = (mean_expr - row_min) / row_range
+        color_vmin, color_vmax = 0.0, 1.0
+    elif abs(color_vmax - color_vmin) < 1e-8:
+        color_vmin = color_vmin - 0.5
+        color_vmax = color_vmax + 0.5
 
     # Import matplotlib
     import matplotlib.pyplot as plt
@@ -196,8 +239,8 @@ def dotplot(
                 s=size,
                 c=[[color]],
                 cmap=cmap,
-                vmin=0,
-                vmax=1,
+                vmin=color_vmin,
+                vmax=color_vmax,
                 edgecolors="black",
                 linewidth=0.5,
                 **kwargs,
@@ -214,7 +257,7 @@ def dotplot(
     ax.invert_yaxis()
 
     # Add colorbar
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=0, vmax=1))
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=color_vmin, vmax=color_vmax))
     sm.set_array([])
     plt.colorbar(sm, ax=ax, label="Mean expression")
 
@@ -223,3 +266,8 @@ def dotplot(
         plt.show()
 
     return ax
+
+
+def plot_feature_dotplot(*args, **kwargs):
+    """Canonical alias of :func:`dotplot`."""
+    return dotplot(*args, **kwargs)

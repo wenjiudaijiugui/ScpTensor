@@ -29,7 +29,14 @@ if TYPE_CHECKING:
 
     from scptensor import ScpContainer
 
-__all__ = ["matrixplot", "heatmap", "tracksplot"]
+__all__ = [
+    "plot_matrixplot",
+    "plot_matrix_heatmap",
+    "plot_tracksplot",
+    "matrixplot",
+    "heatmap",
+    "tracksplot",
+]
 
 
 def matrixplot(
@@ -504,3 +511,18 @@ def tracksplot(
         plt.show()
 
     return ax
+
+
+def plot_matrixplot(*args, **kwargs):
+    """Canonical alias of :func:`matrixplot`."""
+    return matrixplot(*args, **kwargs)
+
+
+def plot_matrix_heatmap(*args, **kwargs):
+    """Canonical alias of :func:`heatmap`."""
+    return heatmap(*args, **kwargs)
+
+
+def plot_tracksplot(*args, **kwargs):
+    """Canonical alias of :func:`tracksplot`."""
+    return tracksplot(*args, **kwargs)

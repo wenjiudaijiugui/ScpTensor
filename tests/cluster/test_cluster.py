@@ -8,6 +8,8 @@ Tests cover:
 
 from __future__ import annotations
 
+import importlib.util
+
 import numpy as np
 import polars as pl
 import pytest
@@ -16,6 +18,11 @@ from scipy import sparse
 from scptensor.cluster import cluster_kmeans, cluster_leiden
 from scptensor.core import Assay, ScpContainer, ScpMatrix
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
+
+LEIDEN_AVAILABLE = (
+    importlib.util.find_spec("leidenalg") is not None
+    and importlib.util.find_spec("igraph") is not None
+)
 
 # =============================================================================
 # Fixtures for clustering tests
@@ -183,6 +190,14 @@ class TestClusterKmeans:
         assert log_entry.action == "cluster_kmeans"
         assert log_entry.params["n_clusters"] == 3
 
+    def test_kmeans_history_is_not_shared_with_input(self, pca_container):
+        """Result container history should not mutate the input container."""
+        result = cluster_kmeans(pca_container, assay_name="reduce_pca", n_clusters=3)
+
+        assert len(pca_container.history) == 0
+        assert len(result.history) == 1
+        assert pca_container.history is not result.history
+
     def test_kmeans_invalid_n_clusters_zero(self, pca_container):
         """Test K-means with n_clusters=0 raises error."""
         with pytest.raises(ScpValueError) as exc_info:
@@ -225,7 +240,9 @@ class TestClusterKmeans:
 class TestClusterLeiden:
     """Tests for cluster_leiden function."""
 
-    @pytest.mark.skip(reason="Requires optional dependencies: leidenalg and python-igraph")
+    @pytest.mark.skipif(
+        not LEIDEN_AVAILABLE, reason="Requires optional dependencies: leidenalg and python-igraph"
+    )
     def test_leiden_basic(self, pca_container):
         """Test basic Leiden clustering."""
         result = cluster_leiden(pca_container, resolution=1.0)
@@ -233,7 +250,9 @@ class TestClusterLeiden:
         expected_col = "leiden_r1.0"
         assert expected_col in result.obs.columns
 
-    @pytest.mark.skip(reason="Requires optional dependencies")
+    @pytest.mark.skipif(
+        not LEIDEN_AVAILABLE, reason="Requires optional dependencies: leidenalg and python-igraph"
+    )
     def test_leiden_different_resolution(self, pca_container):
         """Test Leiden with different resolution parameters."""
         for res in [0.5, 1.0, 2.0]:
@@ -241,7 +260,9 @@ class TestClusterLeiden:
             expected_col = f"leiden_r{res}"
             assert expected_col in result.obs.columns
 
-    @pytest.mark.skip(reason="Requires optional dependencies")
+    @pytest.mark.skipif(
+        not LEIDEN_AVAILABLE, reason="Requires optional dependencies: leidenalg and python-igraph"
+    )
     def test_leiden_custom_key_added(self, pca_container):
         """Test Leiden with custom key_added."""
         result = cluster_leiden(
@@ -252,13 +273,17 @@ class TestClusterLeiden:
 
         assert "my_leiden" in result.obs.columns
 
-    @pytest.mark.skip(reason="Requires optional dependencies")
+    @pytest.mark.skipif(
+        not LEIDEN_AVAILABLE, reason="Requires optional dependencies: leidenalg and python-igraph"
+    )
     def test_leiden_invalid_n_neighbors_zero(self, pca_container):
         """Test Leiden with n_neighbors=0 raises error."""
         with pytest.raises(ScpValueError):
             cluster_leiden(pca_container, n_neighbors=0)
 
-    @pytest.mark.skip(reason="Requires optional dependencies")
+    @pytest.mark.skipif(
+        not LEIDEN_AVAILABLE, reason="Requires optional dependencies: leidenalg and python-igraph"
+    )
     def test_leiden_invalid_resolution_zero(self, pca_container):
         """Test Leiden with resolution=0 raises error."""
         with pytest.raises(ScpValueError):
@@ -294,7 +319,3 @@ class TestClusteringEdgeCases:
 
         result = cluster_kmeans(container, assay_name="reduce_pca", n_clusters=2)
         assert "kmeans_k2" in result.obs.columns
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
