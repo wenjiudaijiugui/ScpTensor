@@ -26,7 +26,7 @@ Read boundary:
 
 Machine-readable manifest:
 
-- [`review_resource_manifest_20260312.json`](../docs/review_resource_manifest_20260312.json)
+- [`review_manifest_20260312.json`](../docs/review_manifest_20260312.json)
 
 ## Benchmark Architecture
 
@@ -44,16 +44,16 @@ ScpTensor 的 benchmark 不再只是一组脚本，而是三层结构：
 
 对应稳定入口与资源分型，应优先查阅：
 
-- [`dia_sc_public_benchmark_datasets_and_task_design_review_20260312.md`](../docs/dia_sc_public_benchmark_datasets_and_task_design_review_20260312.md)
-- [`review_resource_manifest_20260312.json`](../docs/review_resource_manifest_20260312.json)
+- [`review_public_benchmark_data_20260312.md`](../docs/review_public_benchmark_data_20260312.md)
+- [`review_manifest_20260312.json`](../docs/review_manifest_20260312.json)
 
 对应文献整理：
 
-- `docs/dia_sc_public_benchmark_datasets_and_task_design_review_20260312.md`
-- `docs/dia_sc_masked_value_benchmark_design_review_20260312.md`
-- `docs/dia_sc_batch_confounding_benchmark_design_review_20260312.md`
-- `docs/dia_sc_aggregation_benchmark_design_review_20260312.md`
-- `docs/dia_sc_state_aware_completeness_metrics_review_20260312.md`
+- `docs/review_public_benchmark_data_20260312.md`
+- `docs/review_masked_imputation_20260312.md`
+- `docs/review_batch_confounding_20260312.md`
+- `docs/review_aggregation_benchmark_20260312.md`
+- `docs/review_state_metrics_20260312.md`
 
 补充核查（用于解释 benchmark 合同为什么这样写）：
 
@@ -67,7 +67,7 @@ ScpTensor 的 benchmark 不再只是一组脚本，而是三层结构：
 ### Normalization
 
 - 当前 `benchmark/normalization` 在脚本层固定执行 `raw -> log_transform(base=2, offset=1) -> normalization`，因此 `quantile` / `trqn` 的比较发生在显式 `logged` layer 上。
-- 这一点与 `docs/dia_sc_log_transform_scale_contract_review_20260312.md` 一致，不应把 `quantile` / `trqn` 解释为对线性 vendor 输出层的直接默认比较。
+- 这一点与 `docs/review_log_scale_20260312.md` 一致，不应把 `quantile` / `trqn` 解释为对线性 vendor 输出层的直接默认比较。
 - 当前实现方法池是：
   - `none`
   - `mean`

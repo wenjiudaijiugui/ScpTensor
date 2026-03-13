@@ -20,8 +20,8 @@ def write_file(path: Path, content: str) -> None:
 
 
 def make_repo_fixture(tmp_path: Path, *, break_review_url: bool = False) -> tuple[Path, Path]:
-    manifest_path = tmp_path / "docs/review_resource_manifest_20260312.json"
-    review_path = tmp_path / "docs/dia_sc_example_review_20260312.md"
+    manifest_path = tmp_path / "docs/review_manifest_20260312.json"
+    review_path = tmp_path / "docs/review_example_20260312.md"
     stable_url = "https://example.org/stable-entry"
     review_body = """# Example Review
 
@@ -48,7 +48,7 @@ def make_repo_fixture(tmp_path: Path, *, break_review_url: bool = False) -> tupl
 - `模块规范 / 软件文档`
 - `资源包`
 
-Manifest: `review_resource_manifest_20260312.json`
+Manifest: `review_manifest_20260312.json`
 """,
     )
     write_file(
@@ -62,7 +62,7 @@ Manifest: `review_resource_manifest_20260312.json`
 - `模块规范 / 软件文档`
 - `资源包`
 
-Manifest: `review_resource_manifest_20260312.json`
+Manifest: `review_manifest_20260312.json`
 """,
     )
     write_file(
@@ -80,7 +80,7 @@ Manifest: `review_resource_manifest_20260312.json`
 
     manifest = {
         "generated_on": "2026-03-12",
-        "scope_glob": "docs/dia_sc_*review_*.md",
+        "scope_glob": "docs/review_*.md",
         "taxonomy": {
             "论文证据": "papers",
             "数据入口": "datasets",
@@ -90,7 +90,7 @@ Manifest: `review_resource_manifest_20260312.json`
         },
         "reviews": [
             {
-                "file": "docs/dia_sc_example_review_20260312.md",
+                "file": "docs/review_example_20260312.md",
                 "focus": "example focus",
                 "resource_types": ["论文证据", "模块规范 / 软件文档"],
                 "stable_entrypoints": [

@@ -4,8 +4,8 @@
 
 该 benchmark 当前主要对齐以下两篇综述：
 
-- `docs/dia_sc_imputation_literature_review_20260304.md`
-- `docs/dia_sc_masked_value_benchmark_design_review_20260312.md`
+- `docs/review_imputation_20260304.md`
+- `docs/review_masked_imputation_20260312.md`
 
 当前实现边界：
 

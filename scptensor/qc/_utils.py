@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import polars as pl
@@ -100,22 +100,25 @@ def validate_layer(
             available_layers=available,
         )
     X = assay.layers[layer_name].X
-    if hasattr(X, "toarray"):
-        X = X.toarray()
+    if sp.issparse(X):
+        sparse_x = cast(sp.spmatrix, X)
+        return np.asarray(sparse_x.toarray())
     return np.asarray(X)
 
 
 def _to_dense_float64(X: np.ndarray | sp.spmatrix) -> np.ndarray:  # noqa: N803
     """Convert dense/sparse matrices to dense float64 arrays."""
     if sp.issparse(X):
-        return X.toarray().astype(np.float64, copy=False)
+        sparse_x = cast(sp.spmatrix, X)
+        return sparse_x.toarray().astype(np.float64, copy=False)
     return np.asarray(X, dtype=np.float64)
 
 
 def _to_dense_int8(M: np.ndarray | sp.spmatrix) -> np.ndarray:  # noqa: N803
     """Convert dense/sparse mask matrices to dense int8 arrays."""
     if sp.issparse(M):
-        return M.toarray().astype(np.int8, copy=False)
+        sparse_m = cast(sp.spmatrix, M)
+        return sparse_m.toarray().astype(np.int8, copy=False)
     return np.asarray(M, dtype=np.int8)
 
 
@@ -134,7 +137,8 @@ def get_detection_mask(
     """
     if M is None:
         if sp.issparse(X):
-            return X.toarray() != 0
+            sparse_x = cast(sp.spmatrix, X)
+            return sparse_x.toarray() != 0
         return np.isfinite(np.asarray(X))
 
     x_dense = _to_dense_float64(X)
@@ -151,7 +155,8 @@ def count_detected(
 ) -> np.ndarray:
     """Count detected values along an axis."""
     if M is None and sp.issparse(X):
-        return np.asarray(X.getnnz(axis=axis))
+        sparse_x = cast(sp.spmatrix, X)
+        return np.asarray(sparse_x.getnnz(axis=axis))
     detected_mask = get_detection_mask(X, M, detected_codes=detected_codes)
     return np.sum(detected_mask, axis=axis)
 

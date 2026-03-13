@@ -239,7 +239,7 @@
 
 ## 7. 对后续文档/实现的优先建议
 
-1. 在 `io_input_spec_diann_spectronaut.md` 中增加“vendor-normalized vs raw”对照表。
+1. 在 `io_diann_spectronaut.md` 中增加“vendor-normalized vs raw”对照表。
 2. 在 `docs/README.md` 或教程中统一示例层名，例如 `raw_vendor`、`norm_vendor`、`log2`。
 3. 在 AutoSelect 报告中把 `source_layer_logged`、`comparison_scale` 和 `input_scale_requirement` 直接展示给用户。
 

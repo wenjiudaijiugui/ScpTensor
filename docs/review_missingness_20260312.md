@@ -231,7 +231,7 @@
 
 ## 7. 对后续文档/实现的优先建议
 
-1. 在 `io_input_spec_diann_spectronaut.md` 中新增“缺失状态映射表”。
+1. 在 `io_diann_spectronaut.md` 中新增“缺失状态映射表”。
 2. 在 `scptensor.impute` 文档中明确“默认插补只面向 `LOD`”。
 3. 在 `benchmark/imputation` 与 `benchmark/autoselect` 中加入 state-aware completeness 指标，而不是只看总体空值比例。
 

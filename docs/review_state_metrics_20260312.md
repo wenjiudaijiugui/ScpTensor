@@ -8,7 +8,7 @@
   - `benchmark/README.md`
   - `benchmark/imputation`
   - `benchmark/autoselect`
-  - `docs/io_input_spec_diann_spectronaut.md`
+  - `docs/io_diann_spectronaut.md`
 - 核心边界：项目合同要求最终交付是完整 protein-level matrix，但完整性不能仅用“非 NaN 比例”表达。
 - 检索日期：`2026-03-12`
 
@@ -221,7 +221,7 @@
 ## 7. 对后续实现/文档的优先建议
 
 1. 在 `benchmark/README.md` 中新增 `State-Aware Metric Contract` 一节。
-2. 在 `io_input_spec_diann_spectronaut.md` 中写明哪些状态可以直接从上游推断，哪些必须保守映射。
+2. 在 `io_diann_spectronaut.md` 中写明哪些状态可以直接从上游推断，哪些必须保守映射。
 3. 在 AutoSelect 结果对象里保留 state-aware burden 字段，而不只保留最终总分。
 
 ## 8. 参考文献（含链接）

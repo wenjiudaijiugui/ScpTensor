@@ -92,12 +92,12 @@ This directory contains the GitHub Actions workflows for the ScpTensor project.
 
 | Job | Purpose |
 |-----|---------|
-| `docs-contracts` | Validate `review_resource_manifest_20260312.json`, review coverage, taxonomy markers, and benchmark README contracts |
+| `docs-contracts` | Validate `review_manifest_20260312.json`, review coverage, taxonomy markers, and benchmark README contracts |
 | `docs-links` | Run Lychee against docs/review/benchmark Markdown entrypoints to catch broken links and bad absolute paths |
 
 **Notes:**
 - `docs-contracts` is repo-local and uses `scripts/docs/validate_review_manifest.py` only.
-- `docs-links` uses `lycheeverse/lychee-action@v2` and scans `README.md`, `docs/README.md`, `benchmark/README.md`, `benchmark/*/README.md`, `docs/dia_sc_*review_*.md`, and `.github/workflows/README.md`.
+- `docs-links` uses `lycheeverse/lychee-action@v2` and scans `README.md`, `docs/README.md`, `benchmark/README.md`, `benchmark/*/README.md`, `docs/review_*.md`, and `.github/workflows/README.md`.
 
 ---
 

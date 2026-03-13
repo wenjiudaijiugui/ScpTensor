@@ -159,6 +159,6 @@ UV_CACHE_DIR=/tmp/.uv-cache uv run --no-project python benchmark/integration/run
 
 对应综述：
 
-- `docs/dia_sc_batch_correction_literature_review_20260305.md`
-- `docs/dia_sc_batch_diagnostics_metrics_review_20260312.md`
-- `docs/dia_sc_batch_confounding_benchmark_design_review_20260312.md`
+- `docs/review_batch_correction_20260305.md`
+- `docs/review_batch_diagnostics_20260312.md`
+- `docs/review_batch_confounding_20260312.md`
