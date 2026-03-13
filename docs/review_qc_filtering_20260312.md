@@ -1,8 +1,8 @@
-# DIA 驱动单细胞蛋白组预处理中的 QC 与过滤策略：优先级文献综述（截至 2026-03-12）
+# DIA 驱动单细胞蛋白组预处理中的 QC 与过滤策略：优先级文献综述（截至 2026-03-13）
 
 ## 1. 研究范围
 
-- 研究问题：在 DIA 驱动单细胞蛋白组与强相关定量蛋白组场景中，`sample QC` 与 `feature QC/filtering` 应优先参考哪些一手证据？
+- 研究问题：在 DIA 驱动单细胞蛋白组与强相关定量蛋白组场景中，`sample QC` 与 `feature QC/filtering` 应优先参考哪些一手证据，才能既保留真实生物学异质性，又不过度放大技术噪声、批次漂移和背景污染？
 - 目标输出：为 `scptensor.qc` 当前稳定接口提供文献支撑，重点覆盖：
   - `calculate_sample_qc_metrics`
   - `filter_low_quality_samples`
@@ -11,16 +11,16 @@
   - `calculate_feature_qc_metrics`
   - `filter_features_by_missingness`
   - `filter_features_by_cv`
-- 关注指标：
-  - 样本层：`n_features`、`total_intensity`、离群点检测、doublet-like filtering、batch-aware QC
+- 关注维度：
+  - 样本层：`n_features`、`total_intensity`、control-aware filtering、样本级 outlier、batch-aware QC
   - 特征层：`detection_rate` / `missing_rate`、feature consistency、`CV`
-- 检索日期：`2026-03-12`
+- 检索日期：`2026-03-13`
 
 ### 1.1 关键词优先级（P1 / P2 / P3）
 
 | 优先级 | 目的 | 关键词 |
 |---|---|---|
-| P1 | 方法核心 | quality control, filtering, missingness, coefficient of variation, outlier detection, data completeness |
+| P1 | 方法核心 | quality control, filtering, sample QC, control-aware filtering, coefficient of variation, outlier detection, data completeness |
 | P2 | 模态与数据 | single-cell proteomics, DIA proteomics, quantitative proteomics, mass spectrometry |
 | P3 | 应用边界 | preprocessing, benchmark, reproducibility, batch-aware QC |
 
@@ -28,198 +28,287 @@
 
 ### 2.1 Query 梯度（P1 -> P2 -> P3）
 
-1. 先检索 QC / filtering / missingness / CV / outlier detection 的一手来源。
-2. 再限定到 `single-cell proteomics`、`DIA proteomics`、`quantitative proteomics`。
-3. 最后补充 benchmark、reproducibility、batch-aware QC 语境。
+1. 先检索 single-cell proteomics 与 quantitative proteomics 中的 QC/filtering 一手来源。
+2. 再限定到 DIA / single-cell proteomics 或强可迁移 MS-proteomics QC 框架。
+3. 最后补充与 batch-aware QC、controls 和 feature-consistency 直接相关的 benchmark/reporting 证据。
 
 ### 2.2 纳入标准
 
-- 一手来源：期刊官网、DOI 页面、PubMed / PMC、官方方法文档。
+- 一手来源：期刊官网、DOI 页面、PubMed / PMC、官方 benchmark 或方法论文。
 - 直接涉及以下至少一项：
-  - 单细胞蛋白组或 DIA 蛋白组的 QC / filtering
-  - 与 protein-level quantification 质量直接相关的 feature selection / missingness 处理
-  - 可迁移到 ScpTensor stable QC 的批次感知样本过滤与质量监控框架
+  - DIA-SCP 或 SCP 的 sample-level QC/filtering
+  - empty/negative/0-cell controls 或 control-aware filtering
+  - load/intensity、batch-aware QC、样本级 outlier 识别
+  - feature missingness、feature consistency 或 CV 与 protein-level reliability 的关系
 
 ### 2.3 排除标准
 
 - 非一手博客、论坛和教程。
-- 只讨论鉴定数提升，但没有 QC / filtering 解释的文章。
-- 只提供软件操作说明、没有方法学或实证对比价值的材料。
+- 只讨论鉴定数提升、没有 QC/filtering 解释的文章。
+- 没有实证或方法边界说明的单纯软件说明页。
 
 ### 2.4 本轮纳入
 
-- 初筛候选：`30+`
-- 深读纳入：`7` 篇
-- 其中 DIA-SCP 直接证据：`2` 篇
-- 强相关可迁移证据：`5` 篇
+- 初筛候选：`40+`
+- 深读纳入：`11` 篇
+- 其中 SCP/DIA 直接或近直接证据：`7`
+- 强可迁移 MS-proteomics QC 框架：`2`
+- feature-level 质量证据：`2`
 
 ## 3. 逐篇证据摘要（Per-paper Summaries）
 
-说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。
+说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`。
+共享高频条目的规范元数据统一以 `docs/references/citations.json` 为准；若本文件历史写法与 registry 在作者简称、发布日期、期刊、DOI 或 canonical URL 上不一致，以 registry 为准，本文件仅保留 QC/filtering 的解释与样本边界。
 
 ### 3.1 Wang et al., Nature Communications, 2025
 
+- 资源类型：`论文证据`
 - 题目：Benchmarking informatics workflows for data-independent acquisition single-cell proteomics
 - 链接：https://www.nature.com/articles/s41467-025-65174-4
-- 目标：系统 benchmark DIA 单细胞蛋白组全流程，包括 sparsity reduction、imputation、normalization、batch correction 与 DE。
+- 发布日期：`2025-11-21`
 - 与 QC 直接相关的结论：
   - `sparsity reduction` 是关键前置步骤，不应把全部缺失都留给 imputation。
   - 在其同质细胞系设计中，`75% data completeness` 是 coverage 与缺失负担之间的较佳折中。
-  - 更严格 completeness gate 能降低错误检出负担，但可能损失覆盖。
-- 局限：结论受样本同质性、任务定义和实验设计影响，不能直接机械外推到高异质细胞群。
+  - 更严格 completeness gate 能降低潜在错误检出或错误转移负担，但也会损失覆盖。
+- 对 ScpTensor 的意义：
+  - `missingness/completeness` 应作为 stable sample/feature QC 的核心维度。
+  - `75% completeness` 只适合作为特定同质设计下的 evidence-backed 起点，不应机械上升为全场景默认。
 
 ### 3.2 Yu et al., Molecular & Cellular Proteomics, 2024
 
+- 资源类型：`论文证据`
 - 题目：Quantification Quality Control Emerges as a Crucial Factor to Enhance Single-Cell Proteomics Data Analysis
 - 链接：https://pmc.ncbi.nlm.nih.gov/articles/PMC11103571/
-- 目标：强调 single-cell proteomics 中 quantification QC 的必要性。
 - 主要发现：
   - 在 SCP 分析链中加入 quantification QC 后，定量蛋白/肽段数、组间分离和差异分析结果都可改善。
-  - 重点不是“过滤越多越好”，而是先识别哪些 quantification 可被信任。
-- 局限：方法链偏其特定实验与分析框架，不提供可直接泛化的单一阈值。
+  - 文中比较了不同 valid-value filtering 强度，强调阈值必须跟数据集特征绑定，而不是一刀切。
+- 对 ScpTensor 的意义：
+  - `filter_low_quality_samples` 和 `filter_features_by_missingness` 应继续被表述为 study-design-dependent，而不是 universal fixed cutoffs。
+  - “过滤越多越好”不是正确目标，重点是提高 quantification trustworthiness。
 
-### 3.3 Specht et al., Nature Methods, 2023
+### 3.3 Huffman et al., Nature Methods, 2023
 
+- 资源类型：`论文证据`
 - 题目：Prioritized mass spectrometry increases the depth, sensitivity and data completeness of single-cell proteomics
 - 链接：https://www.nature.com/articles/s41592-023-01830-1
-- 目标：提升单细胞蛋白组的深度、灵敏度和 completeness。
-- 与 QC 相关的要点：
-  - 文中明确使用 single-cell quality controls。
-  - 用 `CV threshold` 区分无细胞/对照液滴与真实单细胞，说明 sample filtering 更适合锚定 controls 或分布，而不是固定全局阈值。
-- 局限：主要是 DDA/TMT 路线，不是 DIA 专项；阈值与平台和实验设计强相关。
+- 主要发现：
+  - 在该单细胞蛋白组实验中，negative-control wells 被用于样本级 QC。
+  - 文中使用 protein-level `CV` 阈值区分无细胞/对照液滴与真实单细胞，示例阈值为 `0.4`。
+- 对 ScpTensor 的意义：
+  - 这为 `control-aware filtering > global fixed threshold` 提供了直接 SCP 证据。
+  - 但 `CV = 0.4` 明确是平台/实验依赖阈值，不能外推为 stable 全局默认。
 
-### 3.4 Patterson et al., Journal of the American Society for Mass Spectrometry, 2023
+### 3.4 Ctortecka et al., Nature Communications, 2024
 
+- 资源类型：`论文证据`
+- 题目：Automated single-cell proteomics providing sufficient proteome depth to study complex biology beyond cell type classifications
+- 链接：https://www.nature.com/articles/s41467-024-49651-w
+- 主要发现：
+  - 样本处理与采集存在跨天/跨批次结构时，需要把 day/batch 影响与 biological effect 分开解释。
+  - 文章同时强调 cell-size/intensity 等 sample-level covariates 对下游解释的重要性。
+- 对 ScpTensor 的意义：
+  - `total_intensity`、sample load proxy 和 batch-stratified sample summaries 应成为 stable QC 文档的一部分。
+  - 样本级低信号不一定代表“坏样本”，也可能反映细胞大小、批次或处理流程差异。
+
+### 3.5 Sadiku et al., Nature Communications, 2025/2026 article page
+
+- 资源类型：`论文证据`
+- 题目：Single cell proteomic analysis defines discrete neutrophil functional states in human glioblastoma
+- 链接：https://www.nature.com/articles/s41467-025-67367-3
+- 主要发现：
+  - 使用显式 `0-cell` QC runs 作为背景/污染参照。
+  - 在该研究中，细胞样本需要满足蛋白鉴定数高于 `0-cell` QC 最大值的 `1.75x`，并据此收束到 `>= 400 proteins` 的 study-specific gate。
+  - 文中还明确移除一个明显异常的对照样本。
+- 对 ScpTensor 的意义：
+  - control-aware sample filtering 在最新 SCP 文献中已有直接一手实例。
+  - 这进一步支持：存在 empty wells / negative / 0-cell controls 时，应优先用 controls 定阈值，而不是只靠全局 MAD 或固定 `min_features`。
+
+### 3.6 Gatto et al., Nature Methods, 2023
+
+- 资源类型：`论文证据`
+- 题目：Initial recommendations for performing, benchmarking and reporting single-cell proteomics experiments
+- 链接：https://www.nature.com/articles/s41592-023-01785-3
+- 主要发现：
+  - single-cell proteomics 的 benchmark 与 reporting 需要清楚记录 controls、metadata、处理路径和可重复性条件。
+  - 不应只报告图形结果而不说明 QC/过滤路径。
+- 对 ScpTensor 的意义：
+  - `scptensor.qc` 文档应继续要求 batch/control metadata 明确进入 QC 报表。
+  - 没有 controls 时可以用稳健工程规则，但必须承认那是 heuristic，而不是 community gold standard。
+
+### 3.7 Vanderaa and Gatto, Genome Biology, 2025
+
+- 资源类型：`论文证据`
+- 题目：scplainer: using linear models to understand mass spectrometry-based single-cell proteomics data
+- 链接：https://genomebiology.biomedcentral.com/articles/10.1186/s13059-025-03713-4
+- 主要发现：
+  - 单细胞蛋白组中的技术与生物学变异应被联合建模，而不是先验地全部折叠成“低质量样本”。
+  - 样本级 intensity/size proxy 和 batch covariates 都可能进入解释框架。
+- 对 ScpTensor 的意义：
+  - `assess_batch_effects` 不应只是附属函数，而应成为 sample QC 的稳定解释层。
+  - 对 sample-level QC，median intensity / load proxy 更适合作为 covariate summary，而不是单独硬判定“好/坏样本”。
+
+### 3.8 Tsantilas et al., Journal of Proteome Research, 2024
+
+- 资源类型：`论文证据`
+- 题目：A Framework for Quality Control in Quantitative Proteomics
+- 链接：https://pmc.ncbi.nlm.nih.gov/articles/PMC11973981/
+- 主要发现：
+  - 定量蛋白组 QC 需要分层：system suitability、internal QC、external pooled QC。
+  - QC 不仅用于淘汰样本，也用于区分仪器故障、制备偏差和样本本身差异。
+- 对 ScpTensor 的意义：
+  - 即使在单细胞场景中，也应把 sample QC 与 run/batch/system QC 分层解释。
+  - 这支持 `batch / run / plate` 分层汇总，而不是只输出全局样本排名。
+
+### 3.9 Patterson et al., Journal of the American Society for Mass Spectrometry, 2023
+
+- 资源类型：`论文证据`
 - 题目：Establishing Quality Control Procedures for Large-Scale Plasma Proteomics Analyses
 - 链接：https://pubmed.ncbi.nlm.nih.gov/37163770/
-- 目标：建立大规模定量蛋白组的 QC protocol。
 - 主要发现：
-  - 应利用长期 pooled QC 跟踪 protein / peptide IDs、平均丰度、质量误差、保留时间等指标。
-  - 很多异常本质上是批次/系统问题，不应直接解释为单一样本低质量。
-- 局限：bulk plasma，不是单细胞，但对 batch-aware QC 原则很重要。
+  - 大规模定量蛋白组应持续跟踪 pooled QC、IDs、丰度、保留时间、质量误差等指标。
+  - 很多异常更像 run-level 或 operator-level 漂移，而不是单一样本低质量。
+- 对 ScpTensor 的意义：
+  - `calculate_sample_qc_metrics` 输出不应被脱离批次上下文直接解释。
+  - `assess_batch_effects` 与 sample QC summary 应在文档层显式联动。
 
-### 3.5 Goeminne et al., Molecular & Cellular Proteomics, 2020
+### 3.10 Goeminne et al., Molecular & Cellular Proteomics, 2020
 
+- 资源类型：`论文证据`
 - 题目：Selection of Features with Consistent Profiles Improves Relative Protein Quantification in Mass Spectrometry Experiments
 - 链接：https://pubmed.ncbi.nlm.nih.gov/32234965/
-- 目标：提高相对定量时 protein summarization 的可靠性。
 - 主要发现：
-  - 并非所有 feature 都应平权纳入 protein quantification。
-  - 一致性差的 feature 会拉低最终 protein-level 定量质量。
-- 局限：不是单细胞专用，更接近 summarization 与 QC 边界，但能支持 `feature consistency` 视角。
+  - 一致性差的 feature 会降低最终 protein quantification 质量。
+  - 并非所有 feature 都应平权纳入 downstream quantification。
+- 对 ScpTensor 的意义：
+  - feature QC 不能只看 missingness，仍需保留 `feature consistency` 视角。
+  - `filter_features_by_cv` 的价值更接近“技术稳定性检查”，而不是普适生物学过滤。
 
-### 3.6 Lazar et al., Journal of Proteome Research, 2016
+### 3.11 Lazar et al., Journal of Proteome Research, 2016
 
+- 资源类型：`论文证据`
 - 题目：Accounting for the Multiple Natures of Missing Values in Label-Free Quantitative Proteomics Data Sets to Compare Imputation Strategies
 - 链接：https://pubmed.ncbi.nlm.nih.gov/26906401/
-- 目标：系统区分蛋白组缺失值机制。
 - 主要发现：
-  - 缺失值不是单一类型，应区分 `MCAR / MAR / MNAR`。
-  - 低丰度特征更容易表现为 abundance-dependent missingness。
-- 局限：bulk LFQ，不是单细胞，也不是 DIA 专属；但对 `missingness filtering` 语义是基础来源。
+  - missing values 具有不同机制，不能只用单一 missing rate 解释。
+  - abundance-dependent missingness 是 proteomics 中重要基础语义。
+- 对 ScpTensor 的意义：
+  - `filter_features_by_missingness` 文档应继续与 missingness semantics 一起解释，而不是把任何非空洞都等价看待。
+  - feature missingness gate 必须与研究设计和后续 imputation contract 联动。
 
-### 3.7 二次核查补充（资源分型、稳定入口与场景边界）
+### 3.12 二次核查补充（资源分型、发布日期与场景边界）
 
-- 本综述当前纳入的 7 条来源全部属于 `论文证据`，没有单独指定 `数据入口`、`模块规范` 或 `资源包`；因此本文件给出的是 QC/filtering 原则证据，而不是公开数据清单。
-- `Wang 2025` 是唯一直接落在 DIA-SCP workflow benchmark 语境中的来源，应继续作为 `QC 任务设计证据` 使用，而不是被扩大解释为全场景固定阈值来源：<https://www.nature.com/articles/s41467-025-65174-4>
-- `Yu 2024` 与 `Specht 2023` 提供 SCP 直接或近直接证据，但它们支持的是 `distribution-aware / control-aware` filtering 原则，不支持把某一 completeness 或 CV cutoff 写成仓库稳定默认。
-- `Patterson 2023`、`Goeminne 2020`、`Lazar 2016` 更适合作为可迁移框架证据；在文档层应持续与 DIA-SCP 直接证据分开陈述，避免把 bulk QC 框架误写成单细胞专用规范。
+- `Wang 2025` 仍是当前最直接的 DIA-SCP workflow/QC 任务设计证据，但 `75% completeness` 只在特定同质设计下有直接支持，不应升级为全场景默认：<https://www.nature.com/articles/s41467-025-65174-4>
+- `Huffman 2023` 与 `Sadiku` 的最新 SCP 文章共同支持 `control-aware filtering`，但它们给出的 `CV` 或 `protein-ID` 阈值都属于 dataset-specific rules，而不是社区统一标准：<https://www.nature.com/articles/s41592-023-01830-1>；<https://www.nature.com/articles/s41467-025-67367-3>
+- `Ctortecka 2024`、`scplainer 2025`、`Tsantilas 2024` 和 `Patterson 2023` 共同支持 batch-/run-aware QC：很多异常应先解释为 system/batch drift，而不是立刻解释为单一样本低质量：<https://www.nature.com/articles/s41467-024-49651-w>；<https://genomebiology.biomedcentral.com/articles/10.1186/s13059-025-03713-4>；<https://pmc.ncbi.nlm.nih.gov/articles/PMC11973981/>；<https://pubmed.ncbi.nlm.nih.gov/37163770/>
+- `Goeminne 2020` 与 `Lazar 2016` 继续约束 feature-level QC：全局 missingness 或 global CV 不能代替 feature consistency 和缺失机制解释：<https://pubmed.ncbi.nlm.nih.gov/32234965/>；<https://pubmed.ncbi.nlm.nih.gov/26906401/>
 
 ## 4. 横向比较与证据分级
 
 ### 4.1 一致结论（facts）
 
-1. 在 DIA-SCP 场景中，`data completeness / sparsity reduction` 应作为前置 QC/filtering 重点，而不是默认由 imputation 兜底。
-2. 样本层 QC 更可靠的思路是 `distribution-aware` 或 `control-aware` filtering，而不是给所有实验套同一固定阈值。
-3. feature QC 不能只看 missingness；feature consistency 与 downstream protein quantification reliability 同样重要。
-4. QC 需要 batch-aware 视角。很多异常反映的是系统或批次漂移，而不是单一样本劣质。
+1. 当前没有跨 DIA-SCP 研究统一认可的 sample-level universal threshold。
+2. 存在 empty wells、negative controls 或 `0-cell` runs 时，`control-aware filtering` 的证据强于纯全局固定阈值。
+3. `n_features`、`total_intensity`、median intensity/load proxy 需要结合 `batch / run / plate` 分层解释，不能脱离上下文直接当成坏样本判据。
+4. feature QC 不能只看 missingness；feature consistency 与技术稳定性仍然重要。
+5. 目前缺少 single-cell proteomics 社区统一认可的 doublet detector；`MAD` 一类方法更接近稳健工程 heuristic。
 
 ### 4.2 分歧与解释（inference）
 
-- [推断] `filter_features_by_cv()` 更适用于技术重复、同质 cell line、spike-in 或 batch 内同组样本；在高异质单细胞 atlas 中直接全局按 CV 过滤容易误删真实生物差异。
-- [推断] 对 ScpTensor 这类以 `protein-level matrix` 为稳定主线的包，更合理的 stable QC 应以 `detection/missingness + sample intensity/load + batch-stratified summaries` 为主，而不是默认启用激进的 global CV gate。
+- [推断] `filter_low_quality_samples()` 更合理的 stable 顺序应是：`control-aware threshold > batch-aware robust rule > hard fallback threshold`。
+- [推断] `filter_doublets_mad()` 可以保留为无 controls 时的工程后备方案，但不应在文档中被写成文献支持充分的 single-cell proteomics doublet standard。
+- [推断] 对高异质组织样本，`global CV filtering` 的误删风险高于同质 cell line、技术重复或 pooled QC 场景。
 
 ### 4.3 证据强度
 
-- 高：Wang 2025（DIA-SCP 直接 benchmark）
-- 中高：Yu 2024（SCP quantification QC）、Specht 2023（SCP control-aware QC 实践）
-- 中：Patterson 2023、Goeminne 2020、Lazar 2016（可迁移框架证据）
+- 高：Wang 2025、Yu 2024、Huffman 2023、Gatto 2023
+- 中高：Ctortecka 2024、Sadiku article page、scplainer 2025、Tsantilas 2024、Patterson 2023
+- 中：Goeminne 2020、Lazar 2016
 
 ## 5. 面向 ScpTensor 的实践建议（映射当前模块）
 
-### 5.1 `calculate_sample_qc_metrics` / `calculate_feature_qc_metrics`
+### 5.1 `calculate_sample_qc_metrics`
 
-- 继续把 `n_features`、`detection_rate`、`missing_rate` 作为 stable QC 主指标。
-- 检测/缺失计算应基于显式缺失语义，而不是 `X > 0` 或“非 NaN 即检出”。
-- 建议在文档中明确：真实 `0.0` 与未检出是不同语义。
+- 继续把以下指标作为 stable 输出：
+  - `n_features`
+  - `total_intensity`
+  - `detection/completeness`
+  - `batch / run / plate` stratified summaries
+- 建议文档补充：
+  - `n_features` 与 `total_intensity` 是 sample-level covariates，不是单独 universal pass/fail rules。
+  - 若有 controls，最好同时输出 `sample vs control` 对照摘要。
 
 ### 5.2 `filter_low_quality_samples`
 
-- 不建议在 stable API 写死单一 `min_features`。
-- 更合理的表述是：
-  - `hard threshold` 适合保底清洗
-  - `MAD lower-tail` 适合无 controls 的稳健默认
-  - `control-aware threshold` 在存在 empty wells / negative controls 时优先
+- 建议明确三类路径：
+  1. `control-aware threshold`
+  2. `robust distribution-aware threshold`（如 MAD lower-tail）
+  3. `hard threshold fallback`
+- 建议文档顺序也按这三层写，而不是先给单一固定 `min_features`。
 
-### 5.3 `filter_features_by_missingness`
+### 5.3 `filter_doublets_mad`
 
-- 建议把 `max_missing_rate` 文档化为 `study-design-dependent completeness gate`。
-- 可提供证据化参考档位：
-  - `0.10`：90% completeness，严格
-  - `0.25`：75% completeness，Wang 2025 同质数据的实用起点
-  - `0.34`：约 66% completeness，较宽松
-  - `0.50+`：异质或探索性
-- 对异质细胞群，优先支持 `group-aware` 或 `batch-aware` missingness summary，而不是只做全局过滤。
+- 建议保留，但文档应明确其定位是：
+  - `heuristic outlier / doublet-like filter`
+  - `no-controls fallback`
+- 不应写成：
+  - 社区统一 doublet detector
+  - 已在 DIA-SCP benchmark 中定型的方法
 
-### 5.4 `filter_features_by_cv`
+### 5.4 `assess_batch_effects`
+
+- 建议提升为 stable QC 文档中的必经解释层。
+- 样本级 QC 指标至少应支持按 `batch / run / plate` 分层汇总，否则很容易把系统问题误删成“低质量样本”。
+
+### 5.5 `calculate_feature_qc_metrics` / `filter_features_by_missingness`
+
+- 建议继续把 `detection_rate / missing_rate` 作为 stable 主指标，但必须和缺失语义联动解释。
+- `max_missing_rate` 建议被表述为 `study-design-dependent completeness gate`。
+- 可保留 evidence-backed 参考档位：
+  - `0.10`：严格
+  - `0.25`：约 75% completeness，Wang 2025 同质设计的常用起点
+  - `0.34`：较宽松
+  - `0.50+`：探索性或高异质设计
+
+### 5.6 `filter_features_by_cv`
 
 - 建议明确标注为 `context-sensitive`。
-- 若没有技术重复、同质群或 control channel，`global CV filtering` 不宜作为默认 stable gate。
-- 更合适的解释是：CV 用于同批次、同组、技术重复或 pooled QC 内部稳定性判断。
-
-### 5.5 `filter_doublets_mad`
-
-- 作为工程化默认可保留，但文档应明确它是 `heuristic outlier removal`，而不是已经在 DIA-SCP 社区统一 benchmark 的标准 doublet detector。
-- 若实验包含空孔或 negative controls，应优先用 controls 设阈值；`MAD` 作为无 controls 时的后备方案。
-
-### 5.6 `assess_batch_effects`
-
-- 建议提升为 stable QC 文档中的必经步骤，而不是附属函数。
-- 所有样本级 QC 指标都应支持按 `batch / run / plate` 分层汇总，否则容易把系统性批次问题误删成“低质量样本”。
+- 更适用场景：
+  - 技术重复
+  - 同质 cell line
+  - pooled QC 或 control channel
+- 不应默认作为高异质单细胞 atlas 的 global stable gate。
 
 ## 6. 风险边界
 
-1. 直接针对 `DIA single-cell proteomics QC filtering` 的一手 benchmark 仍然不多，尤其是 `CV cutoff` 和 `doublet detection`。
-2. `75% completeness` 只在特定同质数据中有直接支持，不能机械外推到高异质组织样本。
-3. `CV` 在单细胞里同时承载技术噪声和真实生物异质性；若不分组直接过滤，风险很高。
-4. `MAD-based doublet/outlier` 更像稳健工程启发式，而不是社区标准答案。
+1. 直接针对 `DIA single-cell proteomics sample QC` 的一手 benchmark 仍然有限，尤其是 `doublet detection` 与 `global CV gate`。
+2. `75% completeness`、`CV 0.4`、`>= 400 proteins` 等数字都有明显的 study-specific 条件。
+3. 样本级低信号既可能是低质量，也可能是 cell-size、batch、run drift 或实验设计差异。
+4. 若没有 controls，只靠单一固定阈值或单一 MAD 规则做清洗，误删真实生物学样本的风险较高。
 
 ## 7. 对文档分层的建议
 
 - `evidence-backed stable defaults`
-  - detection / missingness summary
-  - sample load / n_features summary
-  - batch-stratified QC summary
+  - detection / completeness summary
+  - sample load / intensity summary
+  - batch-stratified sample QC summary
+  - control-aware thresholding when controls exist
 - `heuristic exploratory filters`
-  - global CV filtering
-  - MAD doublet filtering without controls
+  - MAD doublet-like filtering without controls
+  - global CV filtering in heterogeneous cohorts
+  - aggressive fixed `min_features` without design context
 
-## 8. 参考文献（点击可访问）
+## 8. Shared Citation Registry Coverage
 
-1. Wang et al., 2025, Nature Communications
-   https://www.nature.com/articles/s41467-025-65174-4
+以下共享高频条目的规范元数据以 `docs/references/citations.json` 为准：
 
-2. Yu et al., 2024, Molecular & Cellular Proteomics
-   https://pmc.ncbi.nlm.nih.gov/articles/PMC11103571/
-
-3. Specht et al., 2023, Nature Methods
-   https://www.nature.com/articles/s41592-023-01830-1
-
-4. Patterson et al., 2023, Journal of the American Society for Mass Spectrometry
-   https://pubmed.ncbi.nlm.nih.gov/37163770/
-
-5. Goeminne et al., 2020, Molecular & Cellular Proteomics
-   https://pubmed.ncbi.nlm.nih.gov/32234965/
-
-6. Lazar et al., 2016, Journal of Proteome Research
-   https://pubmed.ncbi.nlm.nih.gov/26906401/
+- `wang2025_natcom_dia_scp_benchmark`
+- `yu2024_mcp_quant_qc`
+- `huffman2023_natmethods_prioritized_ms`
+- `ctortecka2024_natcom_automated_scp`
+- `sadiku2025_natcom_glioblastoma_scp`
+- `gatto2023_natmethods_scp_recommendations`
+- `vanderaa2025_genomebio_scplainer`
+- `tsantilas2024_jpr_qc_framework`
+- `patterson2023_jasms_large_scale_qc`
+- `goeminne2020_mcp_feature_consistency`
+- `lazar2016_jpr_missing_values`

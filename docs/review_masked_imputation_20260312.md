@@ -50,6 +50,7 @@
 ## 3. 逐篇证据摘要（Per-paper Summaries）
 
 说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。
+共享高频条目的规范元数据统一以 `docs/references/citations.json` 为准；若本文件历史写法与 registry 在作者简称、发布日期、期刊、DOI 或 canonical URL 上不一致，以 registry 为准，本文件仅保留 masked-value benchmark 协议解释。
 
 ### 3.1 Lazar et al., Journal of Proteome Research, 2016
 
@@ -121,7 +122,7 @@
 ### 3.7 Wang et al., Nature Communications, 2025
 
 - 题目：Benchmarking informatics workflows for data-independent acquisition single-cell proteomics
-- 链接：https://www.nature.com/articles/s41467-025-65174-4
+- 链接：https://doi.org/10.1038/s41467-025-65174-4
 - 主要发现：
   - 在 DIA 单细胞工作流中，缺失处理必须与 normalization、batch correction、DE 分析联动评估。
   - 论文使用 `ARI`、`pAUC`、`F1` 等 downstream 指标，而不只看矩阵填补误差。
@@ -132,7 +133,7 @@
 ### 3.8 二次核查补充（资源分型、稳定入口与场景边界）
 
 - 本综述纳入的 `Lazar 2016`、`Jin 2021`、`Shen 2022`、`Harris 2023`、`Webel 2024`、`NAguideR 2020`、`Wang 2025` 全部属于 `论文证据`；它们约束的是 masking protocol 与评价维度，而不是公共数据入口。
-- `Wang 2025` 是当前最直接的 DIA-SCP workflow/masked-value 设计证据，但应继续定位为 `task-design evidence`，不应替代稳定公开 benchmark 数据入口：<https://www.nature.com/articles/s41467-025-65174-4>
+- `Wang 2025` 是当前最直接的 DIA-SCP workflow/masked-value 设计证据，但应继续定位为 `task-design evidence`，不应替代稳定公开 benchmark 数据入口：<https://doi.org/10.1038/s41467-025-65174-4>
 - `NAguideR` 与 `Webel 2024` 提供的是方法比较与评估协议证据，不是 `模块规范` 或 `资源包`；因此本综述不应把它们写成可直接复用的 benchmark service / package contract。
 - 本综述本身不承担 `数据入口` 与 `资源包` 选型；这些角色应回到公共 benchmark 数据综述和后续 benchmark manifest 中统一管理。
 
@@ -222,25 +223,18 @@
 2. 在 `benchmark/autoselect` 中增加“只对 protein-level 主榜单计分、aggregation 路径单独附榜”的说明。
 3. 在 imputation benchmark 输出中新增 `seed_summary.csv` 或等价汇总，避免只留单次运行结果。
 
-## 8. 参考文献（含链接）
+## 8. Shared Citation Registry Coverage
 
-1. Lazar et al., 2016, Journal of Proteome Research
-   https://pubmed.ncbi.nlm.nih.gov/26906401/
+以下共享高频条目的规范元数据以 `docs/references/citations.json` 为准：
 
-2. Jin et al., 2021, Scientific Reports
-   https://www.nature.com/articles/s41598-021-81279-4
+- `lazar2016_jpr_missing_values`
+- `jin2021_scirep_imputation_benchmark`
+- `shen2022_scirep_imputation_strategy`
+- `webel2024_natcom_self_supervised_imputation`
+- `wang2020_nar_naguider`
+- `wang2025_natcom_dia_scp_benchmark`
 
-3. Shen et al., 2022, Scientific Reports
-   https://www.nature.com/articles/s41598-022-04938-0
+本文件额外保留的当前非 registry 条目：
 
-4. Harris et al., 2023, Journal of Proteome Research
+1. Harris et al., 2023, Journal of Proteome Research
    https://pubmed.ncbi.nlm.nih.gov/37861703/
-
-5. Webel et al., 2024, Nature Communications
-   https://www.nature.com/articles/s41467-024-48711-5
-
-6. NAguideR, 2020, Bioinformatics
-   https://pmc.ncbi.nlm.nih.gov/articles/PMC7641313/
-
-7. Wang et al., 2025, Nature Communications
-   https://www.nature.com/articles/s41467-025-65174-4

@@ -1,6 +1,14 @@
 {
-  "generated_on": "2026-03-12",
+  "generated_on": "2026-03-13",
   "scope_glob": "docs/review_*.md",
+  "shared_reference_registry": "docs/references/citations.json",
+  "shared_reference_usage_map": "docs/references/citation_usage.json",
+  "registry_first_tail_template": {
+    "status": "complete",
+    "completed_on": "2026-03-13",
+    "section_title": "Shared Citation Registry Coverage",
+    "notes": "All review_*.md files now use the same registry-first tail section. Shared citation metadata should be updated in citations.json first, then synced to affected reviews."
+  },
   "taxonomy": {
     "论文证据": "journal articles, benchmark papers, method papers",
     "数据入口": "stable dataset landing pages or accession pages",
@@ -226,6 +234,16 @@
       ],
       "stable_entrypoints": [],
       "notes": "QC/filtering principle review only."
+    },
+    {
+      "file": "docs/review_zscore_standardization_20260313.md",
+      "focus": "z-score standardization and downstream scale contract",
+      "resource_types": [
+        "论文证据",
+        "本地实现上下文"
+      ],
+      "stable_entrypoints": [],
+      "notes": "Representation-layer review only; z-score is scoped to downstream exploratory tasks and local API alignment."
     },
     {
       "file": "docs/review_state_metrics_20260312.md",

@@ -50,11 +50,12 @@
 ## 3. 逐篇证据摘要（Per-paper Summaries）
 
 说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。
+共享高频条目的规范元数据统一以 `docs/references/citations.json` 为准；若本文件历史写法与 registry 在作者简称、发布日期、期刊、DOI 或 canonical URL 上不一致，以 registry 为准，本文件仅保留 batch-correction 任务解释、资源分型和场景边界。
 
 ## 3.1 Wang et al., Nat Commun 2025（DIA SCP workflow benchmark）
 
 - 题目：Benchmarking informatics workflows for data-independent acquisition single-cell proteomics
-- 链接：https://www.nature.com/articles/s41467-025-65174-4
+- 链接：https://doi.org/10.1038/s41467-025-65174-4
 - 目标：系统评估 DIA-SCP 全流程方法组合（含缺失处理、归一化、去批次、统计检验）。
 - 去批次方法：NoBC、limma、ComBat-P、ComBat-NP、Scanorama。
 - 关键评估：ARI、pAUC、F1 及组合排名；并进行方法交互贡献分析（SHAP）。
@@ -65,10 +66,10 @@
 - 局限：评估任务与数据构成对结论有依赖，方法优劣存在数据集特异性。
 - P1/P2/P3 相关性：2 / 2 / 2（高）
 
-## 3.2 Robles et al., Nat Commun 2024（SCP 实战中 limma 去批次）
+## 3.2 Ctortecka et al., Nat Commun 2024（SCP 实战中 limma 去批次）
 
 - 题目：Automated single-cell proteomics providing sufficient proteome depth to study complex biology beyond cell type classifications
-- 链接：https://www.nature.com/articles/s41467-024-49651-w
+- 链接：https://doi.org/10.1038/s41467-024-49651-w
 - 目标：展示自动化 SCP 工作流在复杂生物学问题中的可用性。
 - 去批次实践：SCnorm + log10 后使用 limma::removeBatchEffect，并将处理变量（drug effect）显式保留在模型中。
 - 评估：通过 PCA 回归估计技术批次贡献，并比较批次校正前后。
@@ -95,7 +96,7 @@
 ## 3.4 Schlumbohm et al., Nat Commun 2022（HarmonizR）
 
 - 题目：HarmonizR enables data harmonization across independent proteomic datasets with appropriate handling of missing values
-- 链接：https://www.nature.com/articles/s41467-022-31007-x
+- 链接：https://doi.org/10.1038/s41467-022-31007-x
 - 目标：解决蛋白组高缺失下 ComBat/limma 难直接应用的问题。
 - 方法要点：按缺失模式分解子矩阵后再调用 ComBat/limma，尽量避免“先全局补值再校正”的误差传递。
 - 关键发现：在多批次高缺失蛋白组中，相比先补值后校正策略，HarmonizR 路径更稳健，信息损失更低。
@@ -105,7 +106,7 @@
 ## 3.5 Zheng et al., Nat Commun 2025（蛋白组层级去批次时机 benchmark）
 
 - 题目：Protein-level batch-effect correction enhances robustness in MS-based proteomics
-- 链接：https://www.nature.com/articles/s41467-025-64718-y
+- 链接：https://doi.org/10.1038/s41467-025-64718-y
 - 目标：比较 precursor/peptide/protein 三个层级进行去批次的效果。
 - 设计亮点：
   - balanced 与 confounded 两种场景；
@@ -128,7 +129,7 @@
 ## 3.7 Liu et al., Nat Methods 2025（多模态单细胞整合 benchmark）
 
 - 题目：Multitask benchmarking of single-cell multimodal omics integration methods
-- 链接：https://pubmed.ncbi.nlm.nih.gov/41083898/
+- 链接：https://doi.org/10.1038/s41592-025-02856-3
 - 目标：建立多任务、多模态单细胞整合 benchmark 框架。
 - 价值：提供“任务分解 + 指标面板 + 评分逻辑”的通用评测范式，可迁移到 SCP。
 - 局限：非 MS-SCP 专项 benchmark。
@@ -137,7 +138,7 @@
 ## 3.8 Luecken et al., Nat Methods 2022（scIB）
 
 - 题目：Benchmarking atlas-level data integration in single-cell genomics
-- 链接：https://www.nature.com/articles/s41592-021-01336-8
+- 链接：https://doi.org/10.1038/s41592-021-01336-8
 - 目标：系统比较单细胞整合方法并建立指标体系。
 - 贡献：明确 batch removal 与 bio-conservation 的权衡，给出 ASW/LISI 等指标定义与聚合思路。
 - 与 SCP 关系：跨模态指标框架来源，常被用于 SCP benchmark 指标借鉴。
@@ -147,18 +148,18 @@
 ## 3.9 ComBat 原始论文（方法学来源）
 
 - 题目：Adjusting batch effects in microarray expression data using empirical Bayes methods
-- 链接（PubMed）：https://pubmed.ncbi.nlm.nih.gov/16632515/
+- 链接：https://pubmed.ncbi.nlm.nih.gov/16632515/
 - 价值：ComBat 参数化/非参数化经验贝叶斯框架来源。
 
 ## 3.10 limma 框架论文（方法学来源）
 
 - 题目：limma powers differential expression analyses for RNA-sequencing and microarray studies
-- 链接（PubMed）：https://pubmed.ncbi.nlm.nih.gov/25605792/
+- 链接：https://pubmed.ncbi.nlm.nih.gov/25605792/
 - 价值：线性模型 + 经验贝叶斯框架来源（removeBatchEffect 在生态中广泛使用）。
 
 ## 3.11 二次核查补充（资源分型、稳定入口与场景边界）
 
-- `Wang 2025`、`Robles 2024`、`scplainer 2025`、`HarmonizR 2022`、`Zheng 2025`、`SCPRO-HI 2024`、`Liu 2025`、`scIB 2022`、`ComBat`、`limma` 在本综述里统一属于 `论文证据`；它们约束的是 batch-correction 方法、指标和场景边界。
+- `Wang 2025`、`Ctortecka 2024`、`scplainer 2025`、`HarmonizR 2022`、`Zheng 2025`、`SCPRO-HI 2024`、`Liu 2025`、`scIB 2022`、`ComBat`、`limma` 在本综述里统一属于 `论文证据`；它们约束的是 batch-correction 方法、指标和场景边界。
 - `MSV000093867` 应单独归类为 `数据入口`，不能继续用论文页替代数据页：<https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?accession=MSV000093867>
 - `scpdata` 在本综述里应归类为 `资源包`，而不是数据集或论文页；其稳定入口应写成 Bioconductor 页面：<https://bioconductor.org/packages/release/data/experiment/html/scpdata.html>
 - `ProteoBench DIA single-cell module` 应归类为 `模块规范`，它约束任务与评估接口，不是单个 dataset：<https://proteobench.readthedocs.io/en/stable/available-modules/active-modules/9-quant-lfq-ion-dia-singlecell/>
@@ -236,7 +237,7 @@
 2. **数据入口**：MassIVE `MSV000093867`
    https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?accession=MSV000093867
 
-3. **论文证据**：Robles 2024
+3. **论文证据**：Ctortecka 2024
    https://www.nature.com/articles/s41467-024-49651-w
 
 4. **资源包**：`scpdata`（Bioconductor）
@@ -261,49 +262,30 @@
 
 ---
 
-## 8. 参考文献（点击可访问）
+## 8. Shared Citation Registry Coverage
 
-1. Wang et al., Nat Commun 2025, DIA-SCP workflow benchmark
-   https://www.nature.com/articles/s41467-025-65174-4
+以下共享高频条目的规范元数据以 `docs/references/citations.json` 为准：
 
-2. Robles et al., Nat Commun 2024, automated SCP + limma batch correction
-   https://www.nature.com/articles/s41467-024-49651-w
+- `wang2025_natcom_dia_scp_benchmark`
+- `ctortecka2024_natcom_automated_scp`
+- `vanderaa2025_genomebio_scplainer`
+- `schlumbohm2022_natcom_harmonizr`
+- `zheng2025_natcom_protein_batch`
+- `liu2025_natmethods_multitask_integration`
+- `luecken2022_natmethods_scib`
+- `johnson2007_biostatistics_combat`
+- `ritchie2015_nar_limma`
+- `haghverdi2018_natbiotechnol_mnn`
+- `korsunsky2019_natmethods_harmony_lisi`
+- `hie2019_natbiotechnol_scanorama`
+- `massive_msv000093867`
+- `scpdata_bioconductor`
+- `proteobench_dia_singlecell_module`
 
-3. Vanderaa et al., Genome Biology 2025, scplainer and batch-correction benchmark
-   https://doi.org/10.1186/s13059-025-03713-4
+本文件额外保留的当前非 registry 条目：
 
-4. Schlumbohm et al., Nat Commun 2022, HarmonizR
-   https://www.nature.com/articles/s41467-022-31007-x
-
-5. Zheng et al., Nat Commun 2025, protein-level timing benchmark
-   https://www.nature.com/articles/s41467-025-64718-y
-
-6. Koca & Sevilgen, Proteomics 2024, SCPRO-HI
+1. Koca & Sevilgen, Proteomics 2024, SCPRO-HI
    https://pubmed.ncbi.nlm.nih.gov/38135888/
-
-7. Liu et al., Nat Methods 2025, multitask single-cell multi-omics integration benchmark
-   https://pubmed.ncbi.nlm.nih.gov/41083898/
-
-8. Luecken et al., Nat Methods 2022, scIB
-   https://www.nature.com/articles/s41592-021-01336-8
-
-9. Johnson et al., Biostatistics 2007, ComBat
-   https://pubmed.ncbi.nlm.nih.gov/16632515/
-
-10. Ritchie et al., Nucleic Acids Research 2015, limma
-    https://pubmed.ncbi.nlm.nih.gov/25605792/
-
-11. Haghverdi et al., Nat Biotechnol 2018, MNN correction
-    https://pubmed.ncbi.nlm.nih.gov/29608177/
-
-12. Korsunsky et al., Nat Methods 2019, Harmony
-    https://www.nature.com/articles/s41592-019-0619-0
-
-13. Hie et al., Nat Biotechnol 2019, Scanorama
-    https://www.nature.com/articles/s41587-019-0113-3
-
-14. ProteoBench DIA single-cell module
-    https://proteobench.readthedocs.io/en/stable/available-modules/active-modules/9-quant-lfq-ion-dia-singlecell/
 
 ---
 

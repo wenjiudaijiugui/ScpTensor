@@ -54,6 +54,7 @@
 ## 3. 逐篇证据摘要（Per-paper Summaries）
 
 说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。
+共享高频条目的规范元数据统一以 `docs/references/citations.json` 为准；若本文件历史写法与 registry 在标题、作者简称、发布日期、DOI 或 canonical URL 上不一致，以 registry 为准，本文件仅保留 AutoSelect 相关解释。
 
 ### 3.1 Wang et al., Nature Communications, 2025
 
@@ -78,15 +79,17 @@
   - 强调数据集、任务与指标共同决定方法排名。
 - 局限：genomics 场景，不是 proteomics。
 
-### 3.3 Bredikhin et al., Nature Methods, 2023
+### 3.3 scib-metrics 官方文档与基准示例（访问于 2026-03-12）
 
-- 题目：scib-metrics: a Python package for efficient biologically relevant benchmarking of single-cell integration
-- 链接：https://pubmed.ncbi.nlm.nih.gov/38032186/
-- 目标：为 scIB 类 benchmark 提供统一指标实现。
+- 资源类型：`模块规范 / 软件文档`
+- 链接：https://scib-metrics.readthedocs.io/
+- 补充示例：https://scib-metrics.readthedocs.io/en/stable/notebooks/large_scale.html
+- 目标：为 scIB 类 benchmark 提供统一指标实现、标准化 API 和可扩展基准接口。
 - 主要贡献：
   - benchmark 需要稳定实现、统一 API、可扩展计算与标准化输入/输出。
   - “如何计算指标”与“如何汇总指标”应分层处理。
-- 局限：更偏基础设施与计算实现，不直接给出固定权重法则。
+  - 官方 `Benchmarker` API 明确把 `bio_conservation_metrics` 与 `batch_correction_metrics` 分开，再进行汇总制表。
+- 局限：它是实现规范与文档入口，不是独立 peer-reviewed scoring 论文，因此更适合作为 `模块规范` 证据。
 
 ### 3.4 Liu et al., Nature Methods, 2025
 
@@ -145,7 +148,7 @@
 |---|---|---|---|---|---|
 | Wang 2025 | 强，多步骤组合评分 | 有组合排名，但不主张单指标决定 | workflow 组合比较，强调数据依赖 | 强调不同 workflow 可得不同结论 | 不把 runtime 作为主排序核心 |
 | scIB 2022 | 非常强，分 `batch removal` / `bio-conservation` | 支持聚合，但保留分项分数 | 多任务多数据集比单次运行更重要 | 重点是跨任务稳健性 | scalability 是独立考量 |
-| scib-metrics 2023 | 强，统一 metrics 实现 | 不规定单一权重 | 强调标准化实现与可复现 benchmark | 更偏实现可复现 | 强调大规模可计算 |
+| scib-metrics docs | 强，统一 metrics 实现 | 不规定单一权重 | 强调标准化实现与可复现 benchmark | 更偏实现可复现 | 强调大规模可计算 |
 | Liu 2025 | 非常强，task-specific metric battery | overall rank 仅作导航 | 强调 task / output / dataset 差异 | 强调指标局限必须报告 | 输出类型与成本差异要说明 |
 | Weber 2019 | 强，强调 benchmark design | 不鼓励黑箱式单总分 | 强调独立 benchmark 与多验证集 | 强调失败模式与场景边界 | runtime / scalability 应独立报告 |
 | Nat Methods 2021 | 间接支持 | 不谈具体权重 | 强调随机种子、环境和自动化 | 强调完整重现实验条件 | 资源与环境是 reproducibility 一部分 |
@@ -167,7 +170,7 @@
 
 ### 4.4 证据强度
 
-- 高：Wang 2025、scIB 2022、scib-metrics 2023、Liu 2025
+- 高：Wang 2025、scIB 2022、scib-metrics 官方文档、Liu 2025
 - 中高：Weber 2019
 - 中：Nat Methods 2021、Nat Methods 2023 SCP recommendations
 
@@ -226,28 +229,19 @@
 3. graph outputs、embedding outputs、matrix outputs 的指标适用性不同，不应混用。
 4. 无标签场景下 `bio-conservation` 指标会退化，报告中应明确“未计算”，而不是默认为 `0`。
 
-## 7. 参考文献（点击可访问）
+## 7. Shared Citation Registry Coverage
 
-1. Wang et al., 2025, Nature Communications
-   https://www.nature.com/articles/s41467-025-65174-4
+以下共享高频条目的规范元数据以 `docs/references/citations.json` 为准：
 
-2. Luecken et al., 2022, Nature Methods
-   https://www.nature.com/articles/s41592-021-01336-8
+- `wang2025_natcom_dia_scp_benchmark`
+- `luecken2022_natmethods_scib`
+- `liu2025_natmethods_multitask_integration`
+- `weber2019_natcom_benchmarking_guidelines`
+- `heil2021_natmethods_ml_reproducibility`
+- `gatto2023_natmethods_scp_recommendations`
+- `scib_metrics_docs`
 
-3. Bredikhin et al., 2023, Nature Methods
-   https://pubmed.ncbi.nlm.nih.gov/38032186/
+本文件额外保留的实现性补充入口：
 
-4. Liu et al., 2025, Nature Methods
-   https://www.nature.com/articles/s41592-025-02856-3
-
-5. Weber et al., 2019, Nature Communications
-   https://www.nature.com/articles/s41467-019-09406-4
-
-6. Reproducibility standards for machine learning in the life sciences, 2021, Nature Methods
-   https://www.nature.com/articles/s41592-021-01256-7
-
-7. Initial recommendations for performing, benchmarking and reporting single-cell proteomics experiments, 2023, Nature Methods
-   https://www.nature.com/articles/s41592-023-01785-3
-
-8. scib-metrics Benchmarker large-scale example (documentation, accessed 2026-03-12)
+1. scib-metrics Benchmarker large-scale example（documentation, accessed 2026-03-12）
    https://scib-metrics.readthedocs.io/en/stable/notebooks/large_scale.html

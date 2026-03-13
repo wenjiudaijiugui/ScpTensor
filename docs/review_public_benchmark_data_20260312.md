@@ -50,11 +50,12 @@
 ## 3. 逐篇证据摘要（Per-paper Summaries）
 
 说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。
+共享高频条目的规范元数据统一以 `docs/references/citations.json` 为准；若本文件历史写法与 registry 在作者简称、发布日期、期刊、DOI 或 canonical URL 上不一致，以 registry 为准，本文件仅保留 public benchmark panel 的角色定义和场景边界。
 
 ### 3.1 Wang et al., Nature Communications, 2025
 
 - 题目：Benchmarking informatics workflows for data-independent acquisition single-cell proteomics
-- 链接：https://www.nature.com/articles/s41467-025-65174-4
+- 链接：https://doi.org/10.1038/s41467-025-65174-4
 - 发布日期：`2025-11-21`
 - 价值：
   - 这是目前最直接面向 `DIA single-cell proteomics preprocessing` 的一手 benchmark 论文之一。
@@ -65,10 +66,10 @@
 - 最新访问核查：
   - 文中关联数据集 accession `PXD056832` 当前可解析到 ProteomeXchange 页面，但该页面在 `2026-03-12` 仍标记为 `reserved`，语义上对应“已存储但尚未公开发布/公告”，因此不宜直接作为 CI 级稳定公共输入。
 
-### 3.2 Robles et al., Nature Communications, 2024
+### 3.2 Ctortecka et al., Nature Communications, 2024
 
 - 题目：Automated single-cell proteomics providing sufficient proteome depth to study complex biology beyond cell type classifications
-- 论文链接：https://www.nature.com/articles/s41467-024-49651-w
+- 论文链接：https://doi.org/10.1038/s41467-024-49651-w
 - 发布日期：`2024-07-23`
 - 数据入口：https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?accession=MSV000093867
 - 主要价值：
@@ -113,7 +114,7 @@
 ### 3.5 Zheng et al., Nature Communications, 2025
 
 - 题目：Protein-level batch-effect correction enhances robustness in MS-based proteomics
-- 链接：https://www.nature.com/articles/s41467-025-64718-y
+- 链接：https://doi.org/10.1038/s41467-025-64718-y
 - 发布日期：`2025-11-04`
 - 主要价值：
   - 把 `protein-level endpoint`、balanced/confounded 设计和 correction timing 放到同一评价框架中，比只看 peptide/feature 级指标更贴近 ScpTensor 合同边界。
@@ -128,7 +129,7 @@
 ### 3.6 Weber et al., Nature Communications, 2019
 
 - 题目：Essential guidelines for computational method benchmarking
-- 链接：https://www.nature.com/articles/s41467-019-09406-4
+- 链接：https://doi.org/10.1038/s41467-019-09406-4
 - 发布日期：`2019-04-02`
 - 主要结论：
   - benchmark 必须把数据生成假设、评价指标、调参范围、失败情形和可重复性清楚分离。
@@ -145,12 +146,12 @@
 
 ### 3.8 二次核查补充（发布日期、稳定入口与场景边界）
 
-- `Wang et al., Nat Commun (published: 2025-11-21)` 是当前最直接的 DIA-SCP workflow/task-design 证据，但其关联 accession `PXD056832` 在 `2026-03-12` 的官方核查中仍为 ProteomeXchange `reserved` 状态，因此只能作为设计证据，不能写成“当前稳定公开主数据入口”：<https://www.nature.com/articles/s41467-025-65174-4>
-- `Robles et al., Nat Commun (published: 2024-07-23)` 提供稳定可访问的论文页，而 `MSV000093867` 提供稳定可访问的数据页；二者应分开书写为“论文证据”和“数据入口”，避免把 paper URL 与 dataset URL 混成同一层级：<https://www.nature.com/articles/s41467-024-49651-w>；<https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?accession=MSV000093867>
+- `Wang et al., Nat Commun (published: 2025-11-21)` 是当前最直接的 DIA-SCP workflow/task-design 证据，但其关联 accession `PXD056832` 在 `2026-03-12` 的官方核查中仍为 ProteomeXchange `reserved` 状态，因此只能作为设计证据，不能写成“当前稳定公开主数据入口”：<https://doi.org/10.1038/s41467-025-65174-4>
+- `Ctortecka et al., Nat Commun (published: 2024-07-23)` 提供稳定可访问的论文页，而 `MSV000093867` 提供稳定可访问的数据页；二者应分开书写为“论文证据”和“数据入口”，避免把 paper URL 与 dataset URL 混成同一层级：<https://doi.org/10.1038/s41467-024-49651-w>；<https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?accession=MSV000093867>
 - `ProteoBench DIA single-cell module`（accessed: `2026-03-12`）是社区 benchmark 模块规范，不是单个 public dataset；适合作为任务定义、输出格式和评分接口的稳定入口：<https://proteobench.readthedocs.io/en/stable/available-modules/active-modules/9-quant-lfq-ion-dia-singlecell/>
 - `scpdata`（accessed: `2026-03-12`）是 Bioconductor 资源包入口，适合作为教程、示例与可脚本化 reference layer，而不是完整的 DIA-SCP benchmark panel：<https://bioconductor.org/packages/release/data/experiment/html/scpdata.html>
-- `Zheng et al., Nat Commun (published: 2025-11-04)` 提供 protein-level endpoint 与 balanced/confounded 解释框架，但它不是 DIA-SCP public dataset 论文；更合适的定位是 `task-design / interpretation evidence`：<https://www.nature.com/articles/s41467-025-64718-y>
-- `Weber et al., Nat Commun (published: 2019-04-02)` 继续约束文档层的 benchmark 设计原则，即必须把数据、指标、失败情形与可重复性分开陈述：<https://www.nature.com/articles/s41467-019-09406-4>
+- `Zheng et al., Nat Commun (published: 2025-11-04)` 提供 protein-level endpoint 与 balanced/confounded 解释框架，但它不是 DIA-SCP public dataset 论文；更合适的定位是 `task-design / interpretation evidence`：<https://doi.org/10.1038/s41467-025-64718-y>
+- `Weber et al., Nat Commun (published: 2019-04-02)` 继续约束文档层的 benchmark 设计原则，即必须把数据、指标、失败情形与可重复性分开陈述：<https://doi.org/10.1038/s41467-019-09406-4>
 
 ## 4. 横向比较与证据分级
 
@@ -160,7 +161,7 @@
 |---|---|---|---|---|---|
 | Wang 2025 paper | 论文 / 设计证据 | Nature article | DIA-SCP workflow 与任务拆分证据 | 否，论文本身不是输入数据 | 必须与真实数据入口分开 |
 | `PXD056832` | 数据入口 | ProteomeXchange | Wang 2025 关联 accession | 否，当前为 `reserved` | 尚未稳定公开 |
-| Robles 2024 paper | 论文 / 实验描述 | Nature article | public SCP reference evidence | 否，论文本身不是输入数据 | 不是合同内 DIA 主线输入 |
+| Ctortecka 2024 paper | 论文 / 实验描述 | Nature article | public SCP reference evidence | 否，论文本身不是输入数据 | 不是合同内 DIA 主线输入 |
 | `MSV000093867` | 数据入口 | MassIVE dataset | public SCP reference layer | 条件性可用，仅适合 reference / prototype | 需额外标注 provenance、软件出口与数据层级 |
 | ProteoBench DIA-SC module | 模块规范 | ReadTheDocs stable page | 合同内任务定义与外部对齐 | 是，但作为规范入口而非原始数据入口 | 外部模块版本可能演进 |
 | `scpdata` | 资源包 / example layer | Bioconductor release page | 教程、示例、小规模回归 scaffold | 是，但不应承担主 benchmark 面板 | 覆盖面有限 |
@@ -184,7 +185,7 @@
 
 ### 4.4 证据强度
 
-- 高：Wang 2025、Robles 2024、ProteoBench 模块、Weber 2019
+- 高：Wang 2025、Ctortecka 2024、ProteoBench 模块、Weber 2019
 - 中高：Zheng 2025、`scpdata`
 - 中：与具体任务对齐时的二次推断
 
@@ -259,25 +260,14 @@
 2. 把当前公共 benchmark panel 固化为 machine-readable manifest，至少记录 `accession / source_url / public_status / data_level / recommended_tasks / CI_suitability`。
 3. 对 accession 可用性建立定期复核与降级策略，避免将 `reserved`、临时失效或镜像不稳定的数据源放成 CI 主路径唯一依赖。
 
-## 8. 参考文献（含链接）
+## 8. Shared Citation Registry Coverage
 
-1. Wang et al., 2025, Nature Communications
-   https://www.nature.com/articles/s41467-025-65174-4
+以下共享高频条目的规范元数据以 `docs/references/citations.json` 为准：
 
-2. Robles et al., 2024, Nature Communications
-   https://www.nature.com/articles/s41467-024-49651-w
-
-3. MassIVE dataset `MSV000093867`
-   https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?accession=MSV000093867
-
-4. ProteoBench DIA single-cell 模块
-   https://proteobench.readthedocs.io/en/stable/available-modules/active-modules/9-quant-lfq-ion-dia-singlecell/
-
-5. `scpdata` Bioconductor 页面
-   https://bioconductor.org/packages/release/data/experiment/html/scpdata.html
-
-6. Zheng et al., 2025, Nature Communications
-   https://www.nature.com/articles/s41467-025-64718-y
-
-7. Weber et al., 2019, Nature Communications
-   https://www.nature.com/articles/s41467-019-09406-4
+- `wang2025_natcom_dia_scp_benchmark`
+- `ctortecka2024_natcom_automated_scp`
+- `massive_msv000093867`
+- `proteobench_dia_singlecell_module`
+- `scpdata_bioconductor`
+- `zheng2025_natcom_protein_batch`
+- `weber2019_natcom_benchmarking_guidelines`

@@ -52,11 +52,12 @@
 ## 3. 逐篇证据摘要（Per-paper Summaries）
 
 说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。
+共享高频条目的规范元数据统一以 `docs/references/citations.json` 为准；若本文件历史写法与 registry 在作者简称、发布日期、期刊、DOI 或 canonical URL 上不一致，以 registry 为准，本文件仅保留 missingness 语义解释。
 
 ### 3.1 HarmonizR, Nature Communications, 2022
 
 - 题目：HarmonizR enables data harmonization across independent proteomic datasets with appropriate handling of missing values
-- 链接：https://www.nature.com/articles/s41467-022-31007-x
+- 链接：https://doi.org/10.1038/s41467-022-31007-x
 - 主要发现：
   - 跨数据集 harmonization 若忽略 missingness 结构，会显著损伤整合后的可解释性。
   - 缺失值不仅是噪声，也携带平台、批次与数据集间可迁移性的信息。
@@ -105,7 +106,7 @@
 ### 3.5 Wang et al., Nature Communications, 2025
 
 - 题目：Benchmarking informatics workflows for data-independent acquisition single-cell proteomics
-- 链接：https://www.nature.com/articles/s41467-025-65174-4
+- 链接：https://doi.org/10.1038/s41467-025-65174-4
 - 主要发现：
   - `sparsity reduction` 是 DIA-SCP 全流程 benchmark 中的重要前置步骤，不宜默认把全部缺失都留给 imputation。
   - 在其同质设计里，`75% data completeness` 是 coverage 与稀疏性负担之间的实用折中。
@@ -127,9 +128,9 @@
   - 对 feature missingness 的汇总最好支持 `state-aware summary`，而不是只统计 `NaN`。
 - 局限：研究重心在 quantification QC，不是专门的缺失机制分型论文。
 
-### 3.7 Derks et al., Nature Biotechnology, 2022
+### 3.7 Derks et al., Nature Biotechnology, 2023
 
-- 题目：Increasing throughput and depth of sensitive single-cell proteomics using plexDIA
+- 题目：Increasing the throughput of sensitive proteomics by plexDIA
 - 链接：https://doi.org/10.1038/s41587-022-01389-w
 - 主要发现：
   - 该研究强调单细胞 DIA 路线可以获得非常高的数据完整度，并把高 completeness 视为关键优势。
@@ -142,7 +143,7 @@
 ### 3.8 二次核查补充（资源分型、稳定入口与场景边界）
 
 - `DIA-NN 官方文档`（accessed: `2026-03-12`）在本综述中属于 `模块规范 / 软件文档`，负责约束 `未报告 / MBR / zero quantity` 的软件语义；它不是 benchmark 论文，也不是数据入口：<https://vdemichev.github.io/DiaNN/>
-- `HarmonizR 2022`、`Lazar 2016`、`Demichev 2020`、`Wang 2025`、`Yu 2024`、`Derks 2022` 在本综述中统一属于 `论文证据`；它们共同支持 missingness 必须先分语义，再谈 filtering / imputation / integration。
+- `HarmonizR 2022`、`Lazar 2016`、`Demichev 2020`、`Wang 2025`、`Yu 2024`、`Derks 2023` 在本综述中统一属于 `论文证据`；它们共同支持 missingness 必须先分语义，再谈 filtering / imputation / integration。
 - 本综述不直接提供 `数据入口` 或 `资源包`；它在仓库中的作用是 `state semantics evidence`，应与公共 benchmark 数据、模块规范和资源包类文档分层引用。
 - 对后续文档引用，最关键的稳定边界是：`MBR`、vendor `0`、`FILTERED`、`IMPUTED` 都是状态语义，不应被降格成“只是矩阵里的空值或非空值”。
 
@@ -177,7 +178,7 @@
 
 - 高：Lazar 2016、Wang 2025、DIA-NN 官方文档、HarmonizR 2022
 - 中高：Yu 2024、Demichev 2020
-- 中：Derks 2022
+- 中：Derks 2023
 
 ## 5. 面向 ScpTensor 的实践建议
 
@@ -235,25 +236,14 @@
 2. 在 `scptensor.impute` 文档中明确“默认插补只面向 `LOD`”。
 3. 在 `benchmark/imputation` 与 `benchmark/autoselect` 中加入 state-aware completeness 指标，而不是只看总体空值比例。
 
-## 8. 参考文献（含链接）
+## 8. Shared Citation Registry Coverage
 
-1. HarmonizR, 2022, Nature Communications
-   https://www.nature.com/articles/s41467-022-31007-x
+以下共享高频条目的规范元数据以 `docs/references/citations.json` 为准：
 
-2. Lazar et al., 2016, Journal of Proteome Research
-   https://pubmed.ncbi.nlm.nih.gov/26906401/
-
-3. Demichev et al., 2020, Nature Methods
-   https://doi.org/10.1038/s41592-019-0638-x
-
-4. DIA-NN 官方文档
-   https://vdemichev.github.io/DiaNN/
-
-5. Wang et al., 2025, Nature Communications
-   https://www.nature.com/articles/s41467-025-65174-4
-
-6. Yu et al., 2024, Molecular & Cellular Proteomics
-   https://pmc.ncbi.nlm.nih.gov/articles/PMC11103571/
-
-7. Derks et al., 2022, Nature Biotechnology
-   https://doi.org/10.1038/s41587-022-01389-w
+- `schlumbohm2022_natcom_harmonizr`
+- `lazar2016_jpr_missing_values`
+- `demichev2020_natmethods_diann`
+- `diann_docs`
+- `wang2025_natcom_dia_scp_benchmark`
+- `yu2024_mcp_quant_qc`
+- `derks2023_natbiotechnol_plexdia`

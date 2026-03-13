@@ -51,6 +51,7 @@
 ## 3. 逐篇证据摘要（Per-paper Summaries）
 
 说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。
+共享高频条目的规范元数据统一以 `docs/references/citations.json` 为准；若本文件历史写法与 registry 在作者简称、发布日期、期刊、DOI 或 canonical URL 上不一致，以 registry 为准，本文件仅保留 confounding design 的解释与边界。
 
 ### 3.1 Johnson et al., Biostatistics, 2007
 
@@ -218,25 +219,24 @@
 2. 在 integration 报告里加入 `design_identifiability` 或等价说明字段。
 3. 在 AutoSelect 文档中明确：`fully confounded` 不是为了选赢家，而是为了验证 guardrail。
 
-## 8. 参考文献（含链接）
+## 8. Shared Citation Registry Coverage
 
-1. Johnson et al., 2007, Biostatistics
-   https://pubmed.ncbi.nlm.nih.gov/16632515/
+以下共享高频条目的规范元数据以 `docs/references/citations.json` 为准：
 
-2. Nygaard et al., 2016, Biostatistics
+- `johnson2007_biostatistics_combat`
+- `luecken2022_natmethods_scib`
+- `wang2025_natcom_dia_scp_benchmark`
+
+本文件额外保留的当前非 registry 条目：
+
+1. Nygaard et al., 2016, Biostatistics
    https://pubmed.ncbi.nlm.nih.gov/26272994/
 
-3. Song et al., 2020, Nature Communications
+2. Song et al., 2020, Nature Communications
    https://doi.org/10.1038/s41467-020-16905-2
 
-4. Tran et al., 2020, Genome Biology
+3. Tran et al., 2020, Genome Biology
    https://doi.org/10.1186/s13059-019-1850-9
 
-5. Luecken et al., 2022, Nature Methods
-   https://www.nature.com/articles/s41592-021-01336-8
-
-6. Chazarra-Gil et al., 2023, Nature Communications
+4. Chazarra-Gil et al., 2023, Nature Communications
    https://doi.org/10.1038/s41467-023-37126-3
-
-7. Wang et al., 2025, Nature Communications
-   https://www.nature.com/articles/s41467-025-65174-4

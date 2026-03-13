@@ -40,6 +40,7 @@
 ## 3. 论文摘要（中文整理）
 
 说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。当前 P1-P12 条目均属于 `论文证据`。
+共享高频条目的规范元数据统一以 `docs/references/citations.json` 为准；若本文件历史写法与 registry 在作者简称、发布日期、期刊、DOI 或 canonical URL 上不一致，以 registry 为准，本文件仅保留旧版 imputation 方法池与证据面解释。
 
 ### P1. Wang et al., Nat Commun, 2025（DIA 单细胞直接证据）
 
@@ -198,17 +199,33 @@
 - 若计算资源受限或需要快速迭代：`LLS/KNN` 是性价比较高的工程起点。
 - 任何场景都不建议仅使用“单一简单填充 + 单一指标”下结论。
 
-## 5. 参考链接
+## 5. Shared Citation Registry Coverage
 
-- P1: https://www.nature.com/articles/s41467-025-65174-4 （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/41271703/）
-- P2: https://pubmed.ncbi.nlm.nih.gov/34735399/
-- P3: https://pubmed.ncbi.nlm.nih.gov/32526036/ （DOI: 10.1093/nar/gkaa498）
-- P4: https://www.nature.com/articles/s41598-021-81279-4
-- P5: https://www.nature.com/articles/s41598-022-04938-0
-- P6: https://www.nature.com/articles/s41467-024-48711-5 （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/38926340/）
-- P7: https://www.nature.com/articles/s41592-023-01791-5 （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/36864196/）
-- P8: https://www.nature.com/articles/s41467-024-52605-x （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/39327420/）
-- P9: https://www.nature.com/articles/s41467-022-31007-x （PubMed 备选：https://pubmed.ncbi.nlm.nih.gov/35725563/）
-- P10: https://genomebiology.biomedcentral.com/articles/10.1186/s13059-025-03713-4
-- P11: https://arxiv.org/abs/2312.06354
-- P12: https://pubmed.ncbi.nlm.nih.gov/40155995/
+以下共享高频条目的规范元数据以 `docs/references/citations.json` 为准：
+
+- `wang2025_natcom_dia_scp_benchmark`
+- `wang2020_nar_naguider`
+- `jin2021_scirep_imputation_benchmark`
+- `shen2022_scirep_imputation_strategy`
+- `webel2024_natcom_self_supervised_imputation`
+- `schlumbohm2022_natcom_harmonizr`
+
+本文件额外保留的当前非 registry 条目：
+
+1. P2 `Dabke et al., J Proteome Res, 2021`
+   当前保留在旧版方法池综述正文中，后续单独核查并迁入 registry。
+
+2. P7 `Bennett et al., Nat Methods, 2023`
+   当前保留在旧版方法池综述正文中，后续单独核查并迁入 registry。
+
+3. P8 `Krull et al., Nat Commun, 2024`
+   当前保留在旧版方法池综述正文中，后续单独核查并迁入 registry。
+
+4. P10 `Vanderaa et al., Genome Biology, 2025`
+   当前保留在旧版方法池综述正文中，后续单独核查并迁入 registry。
+
+5. P11 `Vanderaa & Gatto, J Proteome Res, 2023`
+   当前保留在旧版方法池综述正文中，后续单独核查并迁入 registry。
+
+6. P12 `Zhao et al., Comput Struct Biotechnol J, 2025`
+   当前保留在旧版方法池综述正文中，后续单独核查并迁入 registry。

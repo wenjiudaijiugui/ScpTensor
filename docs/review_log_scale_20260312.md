@@ -51,6 +51,7 @@
 ## 3. 逐篇证据摘要（Per-paper Summaries）
 
 说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。
+共享高频条目的规范元数据统一以 `docs/references/citations.json` 为准；若本文件历史写法与 registry 在作者简称、发布日期、期刊、DOI 或 canonical URL 上不一致，以 registry 为准，本文件仅保留 scale/provenance 合同解释。
 
 ### 3.1 DIA-NN 官方文档（访问于 2026-03-12）
 
@@ -100,9 +101,9 @@
   - 单细胞蛋白组实践中，“一层矩阵走完全流程”并不是最佳文档策略。
   - ScpTensor 的 layer contract 应显式保留 `source layer -> transformed layer` 的 provenance。
 
-### 3.5 Robles et al., Nature Communications, 2024
+### 3.5 Ctortecka et al., Nature Communications, 2024
 
-- 题目：Automated single-cell proteomics workflow can sample thousands of proteomes in days
+- 题目：Automated single-cell proteomics providing sufficient proteome depth to study complex biology beyond cell type classifications
 - 链接：https://doi.org/10.1038/s41467-024-49651-w
 - 主要发现：
   - 文中 DIA 数据由 DIA-NN 处理，使用 1% FDR 与 retention-time-dependent cross-run normalization。
@@ -114,7 +115,7 @@
 ### 3.6 Wang et al., Nature Communications, 2025
 
 - 题目：Benchmarking informatics workflows for data-independent acquisition single-cell proteomics
-- 链接：https://www.nature.com/articles/s41467-025-65174-4
+- 链接：https://doi.org/10.1038/s41467-025-65174-4
 - 主要发现：
   - benchmark 流程中，normalization 与 `log2(x + 1)` 紧密耦合。
   - 文中明确指出是否归一化取决于生物学假设，例如“总蛋白量是否可视为大致恒定”。
@@ -122,9 +123,9 @@
   - `log transform` 不是纯机械步骤，它依赖前面 normalization 的统计假设和零值处理策略。
   - 不存在对所有数据集都最优的单一顺序或单一尺度。
 
-### 3.7 Brombacher et al., Bioinformatics, 2020
+### 3.7 Brombacher et al., Proteomics, 2020
 
-- 题目：Tail-Robust Quantile Normalization to improve the reliability of low-input proteomic data analysis
+- 题目：Tail-Robust Quantile Normalization
 - 链接：https://pubmed.ncbi.nlm.nih.gov/32865322/
 - 主要发现：
   - 在低输入、高缺失蛋白组里，TRQN 比普通 quantile normalization 更稳健。
@@ -133,10 +134,10 @@
   - `norm_quantile`、`norm_trqn` 这类方法不是“任何线性强度矩阵都可直接比较”的默认选项。
   - 在工程实现上，要求其只对显式 logged layer 自动比较是合理的保守门禁。
 
-### 3.8 Marabita et al., Nature Communications, 2020
+### 3.8 Poulos et al., Nature Communications, 2020
 
 - 题目：Strategies to enable large-scale proteomics for reproducible research
-- 链接：https://www.nature.com/articles/s41467-020-17641-3
+- 链接：https://doi.org/10.1038/s41467-020-17641-3
 - 主要发现：
   - 论文中的 `ProNorM` pipeline 通过 missing-aware normalization 与 technical replacement 改善大规模 LFQ / DIA 数据的稳定性与 downstream 功能分析准确性。
   - 归一化策略效果受缺失结构和样本组成影响。
@@ -147,7 +148,7 @@
 ### 3.9 二次核查补充（资源分型、稳定入口与场景边界）
 
 - `DIA-NN 官方文档` 与 `Spectronaut 官方手册`（accessed: `2026-03-12`）在本综述中属于 `模块规范 / 软件文档`，负责定义 vendor-normalized linear layer 与 cross-run normalization 语义，不应被视为 benchmark 结论本身。
-- `MaxLFQ 2014`、`Specht 2023`、`Robles 2024`、`Wang 2025`、`Brombacher 2020`、`Marabita 2020` 统一属于 `论文证据`；它们约束的是 `raw / vendor-normalized / logged` 三层尺度和 downstream contract。
+- `MaxLFQ 2014`、`Specht 2023`、`Ctortecka 2024`、`Wang 2025`、`Brombacher 2020`、`Poulos 2020` 统一属于 `论文证据`；它们约束的是 `raw / vendor-normalized / logged` 三层尺度和 downstream contract。
 - 本综述当前不单列 `数据入口` 或 `资源包`，因为其任务是 `scale/provenance contract review`；需要公开数据来源时，应回到公共 benchmark 数据综述。
 - 统一边界应保持为：`vendor-normalized` 是线性层语义，`logged` 是变换后层语义；二者不能因为都“不是 raw”就被混成同一类资源或同一层。
 
@@ -177,8 +178,8 @@
 ### 4.4 证据强度
 
 - 高：DIA-NN 官方文档、MaxLFQ 原始论文、Wang 2025
-- 中高：Spectronaut 官方手册、Robles 2024、Brombacher 2020
-- 中：Specht 2023、Marabita 2020
+- 中高：Spectronaut 官方手册、Ctortecka 2024、Brombacher 2020
+- 中：Specht 2023、Poulos 2020
 
 ## 5. 面向 ScpTensor 的实践建议
 
@@ -233,7 +234,7 @@
 ## 6. 风险边界
 
 1. 软件导出列的命名在不同版本中可能有小差异，因此 contract 不应仅依赖列名字符串，还应保留原始来源元数据。
-2. vendor-normalized 并不保证适合所有 downstream 分析；Robles 2024 和 Wang 2025 都说明 downstream task-specific normalization 仍可能发生。
+2. vendor-normalized 并不保证适合所有 downstream 分析；Ctortecka 2024 和 Wang 2025 都说明 downstream task-specific normalization 仍可能发生。
 3. 若在 batch correction 后得到负值或中心化值，不能再对同一层直接使用普通 `log_transform()`。
 4. 对 Spectronaut 输入，如果用户只提供最终 pivot matrix 而不附带导出设置，部分尺度判断只能保守处理。
 
@@ -243,28 +244,19 @@
 2. 在 `docs/README.md` 或教程中统一示例层名，例如 `raw_vendor`、`norm_vendor`、`log2`。
 3. 在 AutoSelect 报告中把 `source_layer_logged`、`comparison_scale` 和 `input_scale_requirement` 直接展示给用户。
 
-## 8. 参考文献（含链接）
+## 8. Shared Citation Registry Coverage
 
-1. DIA-NN 官方文档
-   https://vdemichev.github.io/DiaNN/
+以下共享高频条目的规范元数据以 `docs/references/citations.json` 为准：
 
-2. Spectronaut 官方手册入口
-   https://biognosys.com/resources/spectronaut-manual/
+- `diann_docs`
+- `spectronaut_manual`
+- `cox2014_mcp_maxlfq`
+- `ctortecka2024_natcom_automated_scp`
+- `wang2025_natcom_dia_scp_benchmark`
+- `brombacher2020_proteomics_trqn`
+- `poulos2020_natcom_pronorm`
 
-3. Cox et al., 2014, Molecular & Cellular Proteomics
-   https://doi.org/10.1074/mcp.M113.031591
+本文件额外保留的当前非 registry 条目：
 
-4. Specht et al., 2023, Nature Methods
+1. Specht et al., 2023, Nature Methods
    https://doi.org/10.1038/s41592-023-01830-1
-
-5. Robles et al., 2024, Nature Communications
-   https://doi.org/10.1038/s41467-024-49651-w
-
-6. Wang et al., 2025, Nature Communications
-   https://www.nature.com/articles/s41467-025-65174-4
-
-7. Brombacher et al., 2020, Bioinformatics
-   https://pubmed.ncbi.nlm.nih.gov/32865322/
-
-8. Marabita et al., 2020, Nature Communications
-   https://www.nature.com/articles/s41467-020-17641-3

@@ -54,6 +54,7 @@
 ## 3. 逐篇证据摘要（Per-paper Summaries）
 
 说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。
+共享高频条目的规范元数据统一以 `docs/references/citations.json` 为准；若本文件历史写法与 registry 在作者简称、发布日期、期刊、DOI 或 canonical URL 上不一致，以 registry 为准，本文件仅保留 importer contract 语义解释。
 
 ### 3.1 DIA-NN 官方文档（访问于 2026-03-12）
 
@@ -106,7 +107,7 @@
 ### 3.5 Wang et al., Nature Communications, 2025
 
 - 题目：Benchmarking informatics workflows for data-independent acquisition single-cell proteomics
-- 链接：https://www.nature.com/articles/s41467-025-65174-4
+- 链接：https://doi.org/10.1038/s41467-025-65174-4
 - 主要发现：
   - 在 DIA-sc 流程中，sparsity reduction、normalization、batch correction 都强依赖 upstream software output 的实际语义。
   - 论文明确比较了 `DIA-NN` 与 `Spectronaut` 路线。
@@ -215,22 +216,23 @@
 2. 在 importer 返回对象的 provenance 中显式记录 `is_vendor_normalized` 与 `source_column_used`。
 3. 在用户文档中统一区分 `raw-linear`、`vendor-normalized-linear`、`logged` 三类 layer。
 
-## 8. 参考文献（含链接）
+## 8. Shared Citation Registry Coverage
 
-1. DIA-NN 官方文档
-   https://vdemichev.github.io/DiaNN/
+以下共享高频条目的规范元数据以 `docs/references/citations.json` 为准：
 
-2. DIA-NN 原始论文，Nature Methods, 2020
-   https://doi.org/10.1038/s41592-019-0638-x
+- `diann_docs`
+- `demichev2020_natmethods_diann`
+- `spectronaut_manual`
+- `cox2014_mcp_maxlfq`
+- `wang2025_natcom_dia_scp_benchmark`
 
-3. Spectronaut 官方手册入口
-   https://biognosys.com/resources/spectronaut-manual/
+本文件额外保留的当前非 registry 条目：
 
-4. Spectronaut 19 Manual v4 PDF
+1. Spectronaut 19 Manual v4 PDF
    https://biognosys.com/content/uploads/2024/09/Spectronaut-19-manual-v4.pdf
 
-5. Cox et al., 2014, Molecular & Cellular Proteomics
-   https://doi.org/10.1074/mcp.M113.031591
+2. 本地实现上下文文档
+   [io_diann_spectronaut.md](io_diann_spectronaut.md)
 
-6. Wang et al., 2025, Nature Communications
-   https://www.nature.com/articles/s41467-025-65174-4
+3. 本地 importer 实现
+   [mass_spec.py](../scptensor/io/mass_spec.py)

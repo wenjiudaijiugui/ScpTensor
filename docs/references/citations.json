@@ -1,0 +1,659 @@
+{
+  "generated_on": "2026-03-13",
+  "policy": {
+    "paper_canonical": "Prefer DOI URL when a DOI is verified and locally resolvable without repeated access limits; otherwise use the publisher or PubMed landing page.",
+    "dataset_canonical": "Prefer accession landing page.",
+    "module_spec_canonical": "Prefer stable documentation landing page.",
+    "resource_package_canonical": "Prefer release landing page.",
+    "secondary_anchor": "Keep DOI or PMID when available to reduce link-drift ambiguity."
+  },
+  "entries": [
+    {
+      "id": "wang2025_natcom_dia_scp_benchmark",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Benchmarking informatics workflows for data-independent acquisition single-cell proteomics",
+      "authors_short": "Wang et al.",
+      "venue": "Nature Communications",
+      "year": 2025,
+      "published_date": "2025-11-21",
+      "canonical_url": "https://doi.org/10.1038/s41467-025-65174-4",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41467-025-65174-4",
+        "https://pubmed.ncbi.nlm.nih.gov/41271703/"
+      ],
+      "doi": "10.1038/s41467-025-65174-4",
+      "pmid": "41271703",
+      "notes": "Direct DIA-SCP workflow and task-design evidence; not a stable public dataset entrypoint by itself."
+    },
+    {
+      "id": "zheng2025_natcom_protein_batch",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Protein-level batch-effect correction enhances robustness in MS-based proteomics",
+      "authors_short": "Zheng et al.",
+      "venue": "Nature Communications",
+      "year": 2025,
+      "published_date": "2025-11-04",
+      "canonical_url": "https://doi.org/10.1038/s41467-025-64718-y",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41467-025-64718-y"
+      ],
+      "doi": "10.1038/s41467-025-64718-y",
+      "notes": "Protein-level endpoint and balanced/confounded interpretation evidence."
+    },
+    {
+      "id": "luecken2022_natmethods_scib",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Benchmarking atlas-level data integration in single-cell genomics",
+      "authors_short": "Luecken et al.",
+      "venue": "Nature Methods",
+      "year": 2022,
+      "published_date": "2022-01-10",
+      "canonical_url": "https://doi.org/10.1038/s41592-021-01336-8",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41592-021-01336-8"
+      ],
+      "doi": "10.1038/s41592-021-01336-8",
+      "notes": "High-value benchmark framework for batch removal, bio-conservation, and representation-sensitive evaluation."
+    },
+    {
+      "id": "liu2025_natmethods_multitask_integration",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Multitask benchmarking of single-cell multimodal omics integration methods",
+      "authors_short": "Liu et al.",
+      "venue": "Nature Methods",
+      "year": 2025,
+      "published_date": "2025-10-20",
+      "canonical_url": "https://doi.org/10.1038/s41592-025-02856-3",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41592-025-02856-3",
+        "https://pubmed.ncbi.nlm.nih.gov/41083898/"
+      ],
+      "doi": "10.1038/s41592-025-02856-3",
+      "pmid": "41083898",
+      "notes": "Output-type- and task-specific benchmarking evidence; useful for AutoSelect and z-score representation boundaries."
+    },
+    {
+      "id": "weber2019_natcom_benchmarking_guidelines",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Essential guidelines for computational method benchmarking",
+      "authors_short": "Weber et al.",
+      "venue": "Nature Communications",
+      "year": 2019,
+      "published_date": "2019-04-02",
+      "canonical_url": "https://doi.org/10.1038/s41467-019-09406-4",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41467-019-09406-4"
+      ],
+      "doi": "10.1038/s41467-019-09406-4",
+      "notes": "General computational benchmarking and reporting guidance."
+    },
+    {
+      "id": "demichev2020_natmethods_diann",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "DIA-NN: neural networks and interference correction enable deep proteome coverage in high throughput",
+      "authors_short": "Demichev et al.",
+      "venue": "Nature Methods",
+      "year": 2020,
+      "canonical_url": "https://doi.org/10.1038/s41592-019-0638-x",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41592-019-0638-x"
+      ],
+      "doi": "10.1038/s41592-019-0638-x",
+      "notes": "Primary DIA-NN algorithm paper; use for vendor semantics and DIA context, not as a benchmark paper."
+    },
+    {
+      "id": "diann_docs",
+      "kind": "module_spec",
+      "resource_type": "模块规范 / 软件文档",
+      "title": "DIA-NN documentation",
+      "authors_short": "DIA-NN",
+      "venue": "Project documentation",
+      "year": 2026,
+      "canonical_url": "https://vdemichev.github.io/DiaNN/",
+      "notes": "Canonical semantic source for DIA-NN output fields, MBR, zero quantities, and upstream normalization options."
+    },
+    {
+      "id": "spectronaut_manual",
+      "kind": "module_spec",
+      "resource_type": "模块规范 / 软件文档",
+      "title": "Spectronaut manual landing page",
+      "authors_short": "Biognosys",
+      "venue": "Project documentation",
+      "year": 2026,
+      "canonical_url": "https://biognosys.com/resources/spectronaut-manual/",
+      "url_aliases": [
+        "https://biognosys.com/content/uploads/2024/09/Spectronaut-19-manual-v4.pdf"
+      ],
+      "notes": "Canonical semantic source for Spectronaut report fields and upstream normalization behavior."
+    },
+    {
+      "id": "scib_metrics_docs",
+      "kind": "module_spec",
+      "resource_type": "模块规范 / 软件文档",
+      "title": "scib-metrics documentation",
+      "authors_short": "scib-metrics",
+      "venue": "Project documentation",
+      "year": 2026,
+      "canonical_url": "https://scib-metrics.readthedocs.io/",
+      "notes": "Canonical implementation semantics for integration metrics."
+    },
+    {
+      "id": "scib_user_guide",
+      "kind": "module_spec",
+      "resource_type": "模块规范 / 软件文档",
+      "title": "scIB user guide",
+      "authors_short": "scIB",
+      "venue": "Project documentation",
+      "year": 2026,
+      "canonical_url": "https://scib.readthedocs.io/en/latest/user_guide.html",
+      "notes": "Canonical user guide for integration metrics and benchmark framing."
+    },
+    {
+      "id": "buettner2019_natmethods_kbet",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "A test metric for assessing single-cell RNA-seq batch correction",
+      "authors_short": "Buttner et al.",
+      "venue": "Nature Methods",
+      "year": 2019,
+      "published_date": "2019-01-07",
+      "canonical_url": "https://doi.org/10.1038/s41592-018-0254-1",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41592-018-0254-1"
+      ],
+      "doi": "10.1038/s41592-018-0254-1",
+      "notes": "Primary kBET metric paper."
+    },
+    {
+      "id": "korsunsky2019_natmethods_harmony_lisi",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Fast, sensitive and accurate integration of single-cell data with Harmony",
+      "authors_short": "Korsunsky et al.",
+      "venue": "Nature Methods",
+      "year": 2019,
+      "published_date": "2019-11-18",
+      "canonical_url": "https://doi.org/10.1038/s41592-019-0619-0",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41592-019-0619-0"
+      ],
+      "doi": "10.1038/s41592-019-0619-0",
+      "notes": "Primary Harmony paper and original LISI family evaluation context."
+    },
+    {
+      "id": "gatto2023_natmethods_scp_recommendations",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Initial recommendations for performing, benchmarking and reporting single-cell proteomics experiments",
+      "authors_short": "Gatto et al.",
+      "venue": "Nature Methods",
+      "year": 2023,
+      "published_date": "2023-03-02",
+      "canonical_url": "https://doi.org/10.1038/s41592-023-01785-3",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41592-023-01785-3"
+      ],
+      "doi": "10.1038/s41592-023-01785-3",
+      "notes": "Community reporting and benchmarking guidance for single-cell proteomics."
+    },
+    {
+      "id": "huffman2023_natmethods_prioritized_ms",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Prioritized mass spectrometry increases the depth, sensitivity and data completeness of single-cell proteomics",
+      "authors_short": "Huffman et al.",
+      "venue": "Nature Methods",
+      "year": 2023,
+      "published_date": "2023-04-03",
+      "canonical_url": "https://doi.org/10.1038/s41592-023-01830-1",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41592-023-01830-1"
+      ],
+      "doi": "10.1038/s41592-023-01830-1",
+      "notes": "Control-aware SCP QC evidence; includes negative-control-based CV filtering."
+    },
+    {
+      "id": "yu2024_mcp_quant_qc",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Quantification Quality Control Emerges as a Crucial Factor to Enhance Single-Cell Proteomics Data Analysis",
+      "authors_short": "Yu et al.",
+      "venue": "Molecular & Cellular Proteomics",
+      "year": 2024,
+      "published_date": "2024-04-15",
+      "canonical_url": "https://pubmed.ncbi.nlm.nih.gov/38621647/",
+      "url_aliases": [
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC11103571/"
+      ],
+      "pmid": "38621647",
+      "notes": "Primary quantification-QC evidence for single-cell proteomics."
+    },
+    {
+      "id": "vanderaa2025_genomebio_scplainer",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "scplainer: using linear models to understand mass spectrometry-based single-cell proteomics data",
+      "authors_short": "Vanderaa and Gatto",
+      "venue": "Genome Biology",
+      "year": 2025,
+      "published_date": "2025-08-07",
+      "canonical_url": "https://doi.org/10.1186/s13059-025-03713-4",
+      "url_aliases": [
+        "https://genomebiology.biomedcentral.com/articles/10.1186/s13059-025-03713-4"
+      ],
+      "doi": "10.1186/s13059-025-03713-4",
+      "notes": "Primary single-cell proteomics evidence for batch-aware linear modeling and intensity covariates."
+    },
+    {
+      "id": "tsantilas2024_jpr_qc_framework",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "A Framework for Quality Control in Quantitative Proteomics",
+      "authors_short": "Tsantilas et al.",
+      "venue": "Journal of Proteome Research",
+      "year": 2024,
+      "published_date": "2024-09-09",
+      "canonical_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11973981/",
+      "url_aliases": [
+        "https://doi.org/10.1021/acs.jproteome.4c00363",
+        "https://pubmed.ncbi.nlm.nih.gov/39248652/"
+      ],
+      "doi": "10.1021/acs.jproteome.4c00363",
+      "pmid": "39248652",
+      "notes": "Primary QC framework for quantitative proteomics; strongly transferable to sample-level SCP QC."
+    },
+    {
+      "id": "patterson2023_jasms_large_scale_qc",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Establishing Quality Control Procedures for Large-Scale Plasma Proteomics Analyses",
+      "authors_short": "Patterson et al.",
+      "venue": "Journal of the American Society for Mass Spectrometry",
+      "year": 2023,
+      "published_date": "2023-05-10",
+      "canonical_url": "https://pubmed.ncbi.nlm.nih.gov/37163770/",
+      "pmid": "37163770",
+      "notes": "Primary large-scale proteomics QC workflow reference."
+    },
+    {
+      "id": "sadiku2025_natcom_glioblastoma_scp",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Single cell proteomic analysis defines discrete neutrophil functional states in human glioblastoma",
+      "authors_short": "Sadiku et al.",
+      "venue": "Nature Communications",
+      "year": 2025,
+      "published_date": "2025-12-15",
+      "canonical_url": "https://www.nature.com/articles/s41467-025-67367-3",
+      "url_aliases": [
+        "https://doi.org/10.1038/s41467-025-67367-3"
+      ],
+      "notes": "Latest SCP evidence for explicit 0-cell controls and dataset-specific sample filtering."
+    },
+    {
+      "id": "ctortecka2024_natcom_automated_scp",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Automated single-cell proteomics providing sufficient proteome depth to study complex biology beyond cell type classifications",
+      "authors_short": "Ctortecka et al.",
+      "venue": "Nature Communications",
+      "year": 2024,
+      "published_date": "2024-07-23",
+      "canonical_url": "https://doi.org/10.1038/s41467-024-49651-w",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41467-024-49651-w"
+      ],
+      "doi": "10.1038/s41467-024-49651-w",
+      "notes": "Public SCP dataset paper and batch-aware processing reference."
+    },
+    {
+      "id": "chawade2014_jpr_normalyzer",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Normalyzer: a tool for rapid evaluation of normalization methods for omics data sets",
+      "authors_short": "Chawade et al.",
+      "venue": "Journal of Proteome Research",
+      "year": 2014,
+      "canonical_url": "https://pubmed.ncbi.nlm.nih.gov/25234251/",
+      "pmid": "25234251",
+      "notes": "Primary omics normalization-evaluation paper; use for data-dependent method selection, not as DIA-SCP-specific evidence."
+    },
+    {
+      "id": "gui2024_mcpro_zmap",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "zMAP: a data normalization strategy enabling comparative analysis of quantitative proteomics data",
+      "authors_short": "Gui et al.",
+      "venue": "Molecular & Cellular Proteomics",
+      "year": 2024,
+      "canonical_url": "https://doi.org/10.1016/j.mcpro.2024.100791",
+      "doi": "10.1016/j.mcpro.2024.100791",
+      "notes": "Primary proteomics z-transformation paper; important to separate model-based z-transforms from generic per-feature z-score layers."
+    },
+    {
+      "id": "rautenstrauch2025_natbiotechnol_silhouette",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Shortcomings of silhouette-based evaluation in single-cell integration benchmarking",
+      "authors_short": "Rautenstrauch and Ohler",
+      "venue": "Nature Biotechnology",
+      "year": 2025,
+      "canonical_url": "https://doi.org/10.1038/s41587-025-02743-4",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41587-025-02743-4"
+      ],
+      "doi": "10.1038/s41587-025-02743-4",
+      "notes": "Primary warning against over-reliance on silhouette-family scores."
+    },
+    {
+      "id": "goeminne2020_mcp_feature_consistency",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Selection of Features with Consistent Profiles Improves Relative Protein Quantification in Mass Spectrometry Experiments",
+      "authors_short": "Goeminne et al.",
+      "venue": "Molecular & Cellular Proteomics",
+      "year": 2020,
+      "canonical_url": "https://pubmed.ncbi.nlm.nih.gov/32234965/",
+      "pmid": "32234965",
+      "notes": "Feature-consistency evidence relevant to QC and aggregation."
+    },
+    {
+      "id": "lazar2016_jpr_missing_values",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Accounting for the Multiple Natures of Missing Values in Label-Free Quantitative Proteomics Data Sets to Compare Imputation Strategies",
+      "authors_short": "Lazar et al.",
+      "venue": "Journal of Proteome Research",
+      "year": 2016,
+      "canonical_url": "https://pubmed.ncbi.nlm.nih.gov/26906401/",
+      "pmid": "26906401",
+      "notes": "Primary missingness-mechanism reference reused across QC, missingness, and state-aware metrics reviews."
+    },
+    {
+      "id": "schlumbohm2022_natcom_harmonizr",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "HarmonizR enables data harmonization across independent proteomic datasets with appropriate handling of missing values",
+      "authors_short": "Schlumbohm et al.",
+      "venue": "Nature Communications",
+      "year": 2022,
+      "published_date": "2022-06-20",
+      "canonical_url": "https://doi.org/10.1038/s41467-022-31007-x",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41467-022-31007-x",
+        "https://pubmed.ncbi.nlm.nih.gov/35725563/"
+      ],
+      "doi": "10.1038/s41467-022-31007-x",
+      "pmid": "35725563",
+      "notes": "Primary missing-aware harmonization paper; shared across batch-correction, missingness, state-aware metrics, and imputation reviews."
+    },
+    {
+      "id": "johnson2007_biostatistics_combat",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Adjusting batch effects in microarray expression data using empirical Bayes methods",
+      "authors_short": "Johnson et al.",
+      "venue": "Biostatistics",
+      "year": 2007,
+      "published_date": "2007-01-01",
+      "canonical_url": "https://pubmed.ncbi.nlm.nih.gov/16632515/",
+      "url_aliases": [
+        "https://doi.org/10.1093/biostatistics/kxj037"
+      ],
+      "doi": "10.1093/biostatistics/kxj037",
+      "pmid": "16632515",
+      "notes": "Primary ComBat paper; registry canonicalizes shared ComBat references to DOI."
+    },
+    {
+      "id": "ritchie2015_nar_limma",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "limma powers differential expression analyses for RNA-sequencing and microarray studies",
+      "authors_short": "Ritchie et al.",
+      "venue": "Nucleic Acids Research",
+      "year": 2015,
+      "published_date": "2015-04-20",
+      "canonical_url": "https://pubmed.ncbi.nlm.nih.gov/25605792/",
+      "url_aliases": [
+        "https://doi.org/10.1093/nar/gkv007"
+      ],
+      "doi": "10.1093/nar/gkv007",
+      "pmid": "25605792",
+      "notes": "Primary limma framework paper used as canonical shared reference for linear-model batch handling."
+    },
+    {
+      "id": "haghverdi2018_natbiotechnol_mnn",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Batch effects in single-cell RNA-sequencing data are corrected by matching mutual nearest neighbors",
+      "authors_short": "Haghverdi et al.",
+      "venue": "Nature Biotechnology",
+      "year": 2018,
+      "published_date": "2018-05",
+      "canonical_url": "https://doi.org/10.1038/nbt.4091",
+      "url_aliases": [
+        "https://pubmed.ncbi.nlm.nih.gov/29608177/"
+      ],
+      "doi": "10.1038/nbt.4091",
+      "pmid": "29608177",
+      "notes": "Primary MNN correction paper; retained as method-family evidence for non-linear integration baselines."
+    },
+    {
+      "id": "hie2019_natbiotechnol_scanorama",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Efficient integration of heterogeneous single-cell transcriptomes using Scanorama",
+      "authors_short": "Hie et al.",
+      "venue": "Nature Biotechnology",
+      "year": 2019,
+      "published_date": "2019-06",
+      "canonical_url": "https://doi.org/10.1038/s41587-019-0113-3",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41587-019-0113-3"
+      ],
+      "doi": "10.1038/s41587-019-0113-3",
+      "notes": "Primary Scanorama paper; registry canonicalizes shared non-linear batch-correction references to DOI."
+    },
+    {
+      "id": "brombacher2020_proteomics_trqn",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Tail-Robust Quantile Normalization",
+      "authors_short": "Brombacher et al.",
+      "venue": "Proteomics",
+      "year": 2020,
+      "published_date": "2020-12",
+      "canonical_url": "https://pubmed.ncbi.nlm.nih.gov/32865322/",
+      "url_aliases": [
+        "https://doi.org/10.1002/pmic.202000068"
+      ],
+      "doi": "10.1002/pmic.202000068",
+      "pmid": "32865322",
+      "notes": "Primary TRQN paper; shared across normalization and log-scale reviews."
+    },
+    {
+      "id": "poulos2020_natcom_pronorm",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Strategies to enable large-scale proteomics for reproducible research",
+      "authors_short": "Poulos et al.",
+      "venue": "Nature Communications",
+      "year": 2020,
+      "published_date": "2020-07-30",
+      "canonical_url": "https://doi.org/10.1038/s41467-020-17641-3",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41467-020-17641-3"
+      ],
+      "doi": "10.1038/s41467-020-17641-3",
+      "notes": "Primary ProNorM / large-scale proteomics reproducibility paper; registry fixes prior author drift in local reviews."
+    },
+    {
+      "id": "ammar2023_mcpro_directlfq",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Accurate Label-Free Quantification by directLFQ to Compare Unlimited Numbers of Proteomes",
+      "authors_short": "Ammar et al.",
+      "venue": "Molecular & Cellular Proteomics",
+      "year": 2023,
+      "published_date": "2023-07",
+      "canonical_url": "https://doi.org/10.1016/j.mcpro.2023.100581",
+      "url_aliases": [
+        "https://pubmed.ncbi.nlm.nih.gov/37225017/"
+      ],
+      "doi": "10.1016/j.mcpro.2023.100581",
+      "pmid": "37225017",
+      "notes": "Primary directLFQ paper; registry replaces prior dead Nature URL and incorrect title variants."
+    },
+    {
+      "id": "cox2014_mcp_maxlfq",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Accurate Proteome-wide Label-free Quantification by Delayed Normalization and Maximal Peptide Ratio Extraction, Termed MaxLFQ",
+      "authors_short": "Cox et al.",
+      "venue": "Molecular & Cellular Proteomics",
+      "year": 2014,
+      "canonical_url": "https://doi.org/10.1074/mcp.M113.031591",
+      "url_aliases": [
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC4159666/"
+      ],
+      "doi": "10.1074/mcp.M113.031591",
+      "notes": "Primary MaxLFQ paper; shared across aggregation, I/O state-mapping, and log-scale reviews."
+    },
+    {
+      "id": "derks2023_natbiotechnol_plexdia",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Increasing the throughput of sensitive proteomics by plexDIA",
+      "authors_short": "Derks et al.",
+      "venue": "Nature Biotechnology",
+      "year": 2023,
+      "published_date": "2023-01",
+      "canonical_url": "https://doi.org/10.1038/s41587-022-01389-w",
+      "doi": "10.1038/s41587-022-01389-w",
+      "notes": "Primary plexDIA paper; shared as multiplex-DIA completeness and normalization-context evidence."
+    },
+    {
+      "id": "heil2021_natmethods_ml_reproducibility",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Reproducibility standards for machine learning in the life sciences",
+      "authors_short": "Heil et al.",
+      "venue": "Nature Methods",
+      "year": 2021,
+      "published_date": "2021-10",
+      "canonical_url": "https://doi.org/10.1038/s41592-021-01256-7",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41592-021-01256-7"
+      ],
+      "doi": "10.1038/s41592-021-01256-7",
+      "notes": "Primary ML reproducibility standards paper reused in AutoSelect/reporting reviews."
+    },
+    {
+      "id": "massive_msv000093867",
+      "kind": "dataset",
+      "resource_type": "数据入口",
+      "title": "MassIVE dataset MSV000093867",
+      "authors_short": "MassIVE",
+      "venue": "MassIVE / ProteomeXchange",
+      "year": 2026,
+      "canonical_url": "https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?accession=MSV000093867",
+      "notes": "Stable public dataset landing page for the Ctortecka et al. SCP study; keep distinct from the paper page."
+    },
+    {
+      "id": "scpdata_bioconductor",
+      "kind": "resource_package",
+      "resource_type": "资源包",
+      "title": "scpdata",
+      "authors_short": "Bioconductor",
+      "venue": "Bioconductor ExperimentHub package page",
+      "year": 2026,
+      "canonical_url": "https://bioconductor.org/packages/release/data/experiment/html/scpdata.html",
+      "notes": "Canonical scriptable public resource-package entrypoint for SCP examples and small-scale reproducible demos."
+    },
+    {
+      "id": "proteobench_dia_singlecell_module",
+      "kind": "module_spec",
+      "resource_type": "模块规范 / 软件文档",
+      "title": "ProteoBench DIA single-cell module",
+      "authors_short": "ProteoBench",
+      "venue": "Project documentation",
+      "year": 2026,
+      "canonical_url": "https://proteobench.readthedocs.io/en/stable/available-modules/active-modules/9-quant-lfq-ion-dia-singlecell/",
+      "notes": "Stable community benchmark module entrypoint for DIA single-cell task definitions, outputs, and evaluation interfaces."
+    },
+    {
+      "id": "jin2021_scirep_imputation_benchmark",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "A comparative study of evaluating missing value imputation methods in label-free proteomics",
+      "authors_short": "Jin et al.",
+      "venue": "Scientific Reports",
+      "year": 2021,
+      "published_date": "2021-01-19",
+      "canonical_url": "https://doi.org/10.1038/s41598-021-81279-4",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41598-021-81279-4"
+      ],
+      "doi": "10.1038/s41598-021-81279-4",
+      "notes": "Shared masking-design evidence for imputation benchmarking under controlled missing-rate and MNAR-rate grids."
+    },
+    {
+      "id": "shen2022_scirep_imputation_strategy",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Comparative assessment and novel strategy on methods for imputing proteomics data",
+      "authors_short": "Shen et al.",
+      "venue": "Scientific Reports",
+      "year": 2022,
+      "published_date": "2022-01-20",
+      "canonical_url": "https://doi.org/10.1038/s41598-022-04938-0",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41598-022-04938-0"
+      ],
+      "doi": "10.1038/s41598-022-04938-0",
+      "notes": "Shared evidence for imputation benchmarks that preserve real missingness structure before masking observed values."
+    },
+    {
+      "id": "webel2024_natcom_self_supervised_imputation",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Imputation of label-free quantitative mass spectrometry-based proteomics data using self-supervised deep learning",
+      "authors_short": "Webel et al.",
+      "venue": "Nature Communications",
+      "year": 2024,
+      "published_date": "2024-06-26",
+      "canonical_url": "https://doi.org/10.1038/s41467-024-48711-5",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41467-024-48711-5",
+        "https://pubmed.ncbi.nlm.nih.gov/38926340/"
+      ],
+      "doi": "10.1038/s41467-024-48711-5",
+      "pmid": "38926340",
+      "notes": "Shared learned-imputation evidence; keeps masking protocol itself as part of the benchmark contract."
+    },
+    {
+      "id": "wang2020_nar_naguider",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "NAguideR: performing and prioritizing missing value imputations for consistent bottom-up proteomic analyses",
+      "authors_short": "Wang et al.",
+      "venue": "Nucleic Acids Research",
+      "year": 2020,
+      "published_date": "2020-08-20",
+      "canonical_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7641313/",
+      "url_aliases": [
+        "https://doi.org/10.1093/nar/gkaa498",
+        "https://pubmed.ncbi.nlm.nih.gov/32526036/"
+      ],
+      "doi": "10.1093/nar/gkaa498",
+      "pmid": "32526036",
+      "notes": "Shared imputation-reporting and prioritization framework; PMC landing page is preferred here to avoid DOI/OUP resolver instability."
+    }
+  ]
+}

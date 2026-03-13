@@ -43,6 +43,7 @@
 ## 3. 逐篇证据摘要（Per-paper Summaries）
 
 说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。
+共享高频条目的规范元数据统一以 `docs/references/citations.json` 为准；若本文件历史写法与 registry 在作者简称、发布日期、期刊、DOI 或 canonical URL 上不一致，以 registry 为准，本文件仅保留 normalization 语境下的解释。
 
 ### P1. Wang et al., Nature Communications, 2025
 
@@ -82,29 +83,29 @@
 - 局限：同样属于软件说明，不是公开 benchmark。
 - 相关性：`2/2/1`。
 
-### P5. Brombacher et al., Bioinformatics, 2020（TRQN）
+### P5. Brombacher et al., Proteomics, 2020（TRQN）
 
-- 题目：Tail-Robust Quantile Normalization to improve the reliability of low-input proteomic data analysis
+- 题目：Tail-Robust Quantile Normalization
 - 链接：https://pubmed.ncbi.nlm.nih.gov/32865322/
 - 目标：针对低输入、缺失严重蛋白组数据，提出尾部稳健分位数归一化（TRQN）。
 - 主要发现：在缺失值较多场景下，TRQN 相比标准 quantile normalization 有更好稳健性。
 - 局限：不是 DIA 单细胞专用，但高度可迁移。
 - 相关性：`2/1/1`。
 
-### P6. Marabita et al., Nature Communications, 2020（ProNorM pipeline 证据）
+### P6. Poulos et al., Nature Communications, 2020（ProNorM pipeline 证据）
 
 - 题目：Strategies to enable large-scale proteomics for reproducible research
-- 链接：https://www.nature.com/articles/s41467-020-17641-3
+- 链接：https://doi.org/10.1038/s41467-020-17641-3
 - 目标：在大规模、长期 DIA-MS 队列中构建兼顾 reproducibility、missing-value handling 与 normalization 的处理框架，其中 `ProNorM` 是论文中的整合 pipeline 名称。
 - 主要发现：missing-aware 的归一化可提升下游功能分析稳定性。
 - 局限：面向 bulk 蛋白组；对 DIA-sc 需二次验证。
 - 相关性：`2/1/1`。
 
-### P7. Ammar et al., Nature Methods, 2023（directLFQ）
+### P7. Ammar et al., Molecular & Cellular Proteomics, 2023（directLFQ）
 
-- 题目：A hybrid method for peptide-centered and protein-centered protein quantification
-- 链接：https://www.nature.com/articles/s41592-022-01795-4
-- PubMed：https://pubmed.ncbi.nlm.nih.gov/36717664/
+- 题目：Accurate Label-Free Quantification by directLFQ to Compare Unlimited Numbers of Proteomes
+- 链接：https://doi.org/10.1016/j.mcpro.2023.100581
+- PubMed：https://pubmed.ncbi.nlm.nih.gov/37225017/
 - 目标：提出高效蛋白定量（directLFQ），通过 ratio/强度整合减轻跨样本不一致性。
 - 价值：在 DIA-sc 场景中被后续工作用于 normalization + quantification 组合。
 - 局限：方法核心是定量框架，不是单独归一化 benchmark。
@@ -118,11 +119,10 @@
 - 局限：重点是 multiplex DIA 分析链路，不是单细胞纯 label-free 设计。
 - 相关性：`2/2/2`。
 
-### P9. Derks et al., Nature Biotechnology, 2022（plexDIA）
+### P9. Derks et al., Nature Biotechnology, 2023（plexDIA）
 
-- 题目：Increasing throughput and depth of sensitive single-cell proteomics using plexDIA
+- 题目：Increasing the throughput of sensitive proteomics by plexDIA
 - DOI：https://doi.org/10.1038/s41587-022-01389-w
-- PubMed：https://pubmed.ncbi.nlm.nih.gov/35868330/
 - 价值：确立 multiplex DIA 单细胞路线（channel ratio 思想），为“参考通道/比值型归一化”提供场景基础。
 - 局限：论文重心在采集与定量深度，不是归一化方法 benchmark。
 - 相关性：`1/2/2`。
@@ -140,7 +140,7 @@
 
 - `DIA-NN docs` 与 `Spectronaut manual` 在本综述里都应固定归类为 `模块规范 / 软件文档`；它们提供 upstream normalization 语义与导出层解释，不应与 benchmark paper 混写：<https://vdemichev.github.io/DiaNN/>；<https://biognosys.com/resources/spectronaut-manual/>
 - `Wang 2025` 是最直接的 DIA-SCP normalization/task-design `论文证据`，但不应被扩大解释为当前稳定公共 benchmark 输入来源：<https://www.nature.com/articles/s41467-025-65174-4>
-- `TRQN`、`ProNorM`、`directLFQ` 提供的是 normalization family / quantification family 的 `论文证据`；它们不是 `模块规范`、`资源包` 或 `数据入口`。
+- `TRQN`、`ProNorM`、`directLFQ` 提供的是 normalization family / quantification family 的 `论文证据`；它们不是 `模块规范`、`资源包` 或 `数据入口`，其规范元数据应统一回收至 registry。
 - `plexDIA` 与 `RefQuant` 更适合作为 multiplex/reference-channel 设计证据，而不是当前合同内 label-free DIA 主线的默认输入或默认 normalization 路线。
 - 本综述当前不直接承担 `数据入口` 与 `资源包` 的稳定入口职责；该角色应继续由公共 benchmark 数据综述和后续 manifest 统一管理。
 
@@ -155,7 +155,7 @@
 | `quantile` | Wang 2025 | 跨批次、组成相对可比时 | 分布强行一致，易过校正 |
 | `TRQN`/稳健分位数 | Brombacher 2020 | 低输入、高缺失数据 | 实现复杂度高于普通 quantile |
 | missing-aware 归一化 | ProNorM 2020 | 大规模、缺失非随机风险高 | 需额外验证参数与可解释性 |
-| 比值/参考通道归一化 | RefQuant 2023, plexDIA 2022 | multiplex DIA、存在稳定 reference channel | 对实验设计依赖强 |
+| 比值/参考通道归一化 | RefQuant 2023, plexDIA 2023 | multiplex DIA、存在稳定 reference channel | 对实验设计依赖强 |
 
 ### 4.2 一致结论（facts）
 
@@ -201,18 +201,28 @@
 - 归一化要与缺失值处理、批次校正联动评估，避免串联步骤互相抵消或放大偏差。
 - `quantile` / TRQN 一类方法对输入尺度假设更强；在当前工程合同下，不应对线性 vendor 输出层直接自动比较。
 
-## 6. 参考文献（含链接）
+## 6. Shared Citation Registry Coverage
 
-1. Wang et al., 2025, Nat Commun: https://www.nature.com/articles/s41467-025-65174-4
-2. Demichev et al., 2020, Nat Methods: https://www.nature.com/articles/s41592-019-0638-x
-3. DIA-NN docs: https://vdemichev.github.io/DiaNN/
-4. Spectronaut manual: https://biognosys.com/resources/spectronaut-manual/
-5. Brombacher et al., 2020, Bioinformatics: https://pubmed.ncbi.nlm.nih.gov/32865322/
-6. Marabita et al., 2020, Nat Commun: https://www.nature.com/articles/s41467-020-17641-3
-7. Ammar et al., 2023, Nat Methods: https://www.nature.com/articles/s41592-022-01795-4
-8. Ali et al., 2024, Anal Chem: https://pubmed.ncbi.nlm.nih.gov/39292979/
-9. Derks et al., 2022, Nat Biotechnol: https://doi.org/10.1038/s41587-022-01389-w
-10. Brunner et al., 2023, Mol Syst Biol: https://doi.org/10.15252/msb.202211503
-11. Callister et al., 2006, J Proteome Res（local normalization 起源之一）: https://pubmed.ncbi.nlm.nih.gov/17269722/
+以下共享高频条目的规范元数据以 `docs/references/citations.json` 为准：
+
+- `wang2025_natcom_dia_scp_benchmark`
+- `demichev2020_natmethods_diann`
+- `diann_docs`
+- `spectronaut_manual`
+- `brombacher2020_proteomics_trqn`
+- `poulos2020_natcom_pronorm`
+- `ammar2023_mcpro_directlfq`
+- `derks2023_natbiotechnol_plexdia`
+
+本文件额外保留的当前非 registry 条目：
+
+1. Ali et al., 2024, Analytical Chemistry
+   https://pubmed.ncbi.nlm.nih.gov/39292979/
+
+2. Brunner et al., 2023, Molecular Systems Biology
+   https://doi.org/10.15252/msb.202211503
+
+3. Callister et al., 2006, Journal of Proteome Research（local normalization 起源之一）
+   https://pubmed.ncbi.nlm.nih.gov/17269722/
 
 注：以上网页链接访问日期均为 `2026-03-07`。

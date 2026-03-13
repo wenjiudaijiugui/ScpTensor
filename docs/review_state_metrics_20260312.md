@@ -52,6 +52,7 @@
 ## 3. 逐篇证据摘要（Per-paper Summaries）
 
 说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。
+共享高频条目的规范元数据统一以 `docs/references/citations.json` 为准；若本文件历史写法与 registry 在作者简称、发布日期、期刊、DOI 或 canonical URL 上不一致，以 registry 为准，本文件仅保留 state-aware 指标合同解释。
 
 ### 3.1 DIA-NN 官方文档（访问于 2026-03-12）
 
@@ -100,7 +101,7 @@
 ### 3.5 HarmonizR, Nature Communications, 2022
 
 - 题目：HarmonizR enables data harmonization across independent proteomic datasets with appropriate handling of missing values
-- 链接：https://www.nature.com/articles/s41467-022-31007-x
+- 链接：https://doi.org/10.1038/s41467-022-31007-x
 - 主要发现：
   - 跨数据集整合若忽略 missingness 结构，会损伤可解释性。
   - missing-aware processing 是整合与 harmonization 的必要条件。
@@ -111,7 +112,7 @@
 ### 3.6 Wang et al., Nature Communications, 2025
 
 - 题目：Benchmarking informatics workflows for data-independent acquisition single-cell proteomics
-- 链接：https://www.nature.com/articles/s41467-025-65174-4
+- 链接：https://doi.org/10.1038/s41467-025-65174-4
 - 主要发现：
   - `data completeness` 是 DIA-sc workflow 里的关键前置指标，但它必须和 downstream 任务联合解释。
   - 不同 workflow 在 completeness、聚类、DE 等指标间存在 trade-off。
@@ -224,25 +225,18 @@
 2. 在 `io_diann_spectronaut.md` 中写明哪些状态可以直接从上游推断，哪些必须保守映射。
 3. 在 AutoSelect 结果对象里保留 state-aware burden 字段，而不只保留最终总分。
 
-## 8. 参考文献（含链接）
+## 8. Shared Citation Registry Coverage
 
-1. DIA-NN 官方文档
-   https://vdemichev.github.io/DiaNN/
+以下共享高频条目的规范元数据以 `docs/references/citations.json` 为准：
 
-2. Lazar et al., 2016, Journal of Proteome Research
-   https://pubmed.ncbi.nlm.nih.gov/26906401/
+- `diann_docs`
+- `lazar2016_jpr_missing_values`
+- `yu2024_mcp_quant_qc`
+- `schlumbohm2022_natcom_harmonizr`
+- `wang2025_natcom_dia_scp_benchmark`
+- `goeminne2020_mcp_feature_consistency`
 
-3. Vanderaa and Gatto, 2023, Journal of Proteome Research
+本文件额外保留的当前非 registry 条目：
+
+1. Vanderaa and Gatto, 2023, Journal of Proteome Research
    https://pubmed.ncbi.nlm.nih.gov/37530557/
-
-4. Yu et al., 2024, Molecular & Cellular Proteomics
-   https://pmc.ncbi.nlm.nih.gov/articles/PMC11103571/
-
-5. HarmonizR, 2022, Nature Communications
-   https://www.nature.com/articles/s41467-022-31007-x
-
-6. Wang et al., 2025, Nature Communications
-   https://www.nature.com/articles/s41467-025-65174-4
-
-7. Goeminne et al., 2020, Molecular & Cellular Proteomics
-   https://pubmed.ncbi.nlm.nih.gov/32234965/

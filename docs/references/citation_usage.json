@@ -1,0 +1,190 @@
+{
+  "generated_on": "2026-03-13",
+  "notes": "Initial file-level usage map for high-frequency shared citations. Update citations.json first when canonical metadata changes, then sync affected review files.",
+  "usages": [
+    {
+      "review_file": "docs/review_aggregation_benchmark_20260312.md",
+      "citation_ids": [
+        "cox2014_mcp_maxlfq",
+        "ammar2023_mcpro_directlfq",
+        "goeminne2020_mcp_feature_consistency",
+        "wang2025_natcom_dia_scp_benchmark",
+        "zheng2025_natcom_protein_batch"
+      ]
+    },
+    {
+      "review_file": "docs/review_autoselect_scoring_20260312.md",
+      "citation_ids": [
+        "wang2025_natcom_dia_scp_benchmark",
+        "luecken2022_natmethods_scib",
+        "liu2025_natmethods_multitask_integration",
+        "weber2019_natcom_benchmarking_guidelines",
+        "gatto2023_natmethods_scp_recommendations",
+        "scib_metrics_docs",
+        "heil2021_natmethods_ml_reproducibility"
+      ]
+    },
+    {
+      "review_file": "docs/review_batch_confounding_20260312.md",
+      "citation_ids": [
+        "johnson2007_biostatistics_combat",
+        "luecken2022_natmethods_scib",
+        "wang2025_natcom_dia_scp_benchmark"
+      ]
+    },
+    {
+      "review_file": "docs/review_batch_diagnostics_20260312.md",
+      "citation_ids": [
+        "luecken2022_natmethods_scib",
+        "buettner2019_natmethods_kbet",
+        "korsunsky2019_natmethods_harmony_lisi",
+        "liu2025_natmethods_multitask_integration",
+        "wang2025_natcom_dia_scp_benchmark",
+        "zheng2025_natcom_protein_batch",
+        "scib_metrics_docs",
+        "scib_user_guide",
+        "rautenstrauch2025_natbiotechnol_silhouette"
+      ]
+    },
+    {
+      "review_file": "docs/review_log_scale_20260312.md",
+      "citation_ids": [
+        "wang2025_natcom_dia_scp_benchmark",
+        "demichev2020_natmethods_diann",
+        "diann_docs",
+        "spectronaut_manual",
+        "cox2014_mcp_maxlfq",
+        "brombacher2020_proteomics_trqn",
+        "poulos2020_natcom_pronorm",
+        "ctortecka2024_natcom_automated_scp"
+      ]
+    },
+    {
+      "review_file": "docs/review_missingness_20260312.md",
+      "citation_ids": [
+        "wang2025_natcom_dia_scp_benchmark",
+        "demichev2020_natmethods_diann",
+        "diann_docs",
+        "lazar2016_jpr_missing_values",
+        "schlumbohm2022_natcom_harmonizr",
+        "yu2024_mcp_quant_qc",
+        "derks2023_natbiotechnol_plexdia"
+      ]
+    },
+    {
+      "review_file": "docs/review_normalization_20260307.md",
+      "citation_ids": [
+        "wang2025_natcom_dia_scp_benchmark",
+        "demichev2020_natmethods_diann",
+        "diann_docs",
+        "spectronaut_manual",
+        "brombacher2020_proteomics_trqn",
+        "poulos2020_natcom_pronorm",
+        "ammar2023_mcpro_directlfq",
+        "derks2023_natbiotechnol_plexdia"
+      ]
+    },
+    {
+      "review_file": "docs/review_public_benchmark_data_20260312.md",
+      "citation_ids": [
+        "wang2025_natcom_dia_scp_benchmark",
+        "ctortecka2024_natcom_automated_scp",
+        "massive_msv000093867",
+        "proteobench_dia_singlecell_module",
+        "scpdata_bioconductor",
+        "zheng2025_natcom_protein_batch",
+        "weber2019_natcom_benchmarking_guidelines"
+      ]
+    },
+    {
+      "review_file": "docs/review_qc_filtering_20260312.md",
+      "citation_ids": [
+        "wang2025_natcom_dia_scp_benchmark",
+        "yu2024_mcp_quant_qc",
+        "huffman2023_natmethods_prioritized_ms",
+        "ctortecka2024_natcom_automated_scp",
+        "sadiku2025_natcom_glioblastoma_scp",
+        "gatto2023_natmethods_scp_recommendations",
+        "vanderaa2025_genomebio_scplainer",
+        "tsantilas2024_jpr_qc_framework",
+        "patterson2023_jasms_large_scale_qc",
+        "goeminne2020_mcp_feature_consistency",
+        "lazar2016_jpr_missing_values"
+      ]
+    },
+    {
+      "review_file": "docs/review_batch_correction_20260305.md",
+      "citation_ids": [
+        "wang2025_natcom_dia_scp_benchmark",
+        "ctortecka2024_natcom_automated_scp",
+        "vanderaa2025_genomebio_scplainer",
+        "schlumbohm2022_natcom_harmonizr",
+        "zheng2025_natcom_protein_batch",
+        "liu2025_natmethods_multitask_integration",
+        "luecken2022_natmethods_scib",
+        "johnson2007_biostatistics_combat",
+        "ritchie2015_nar_limma",
+        "haghverdi2018_natbiotechnol_mnn",
+        "korsunsky2019_natmethods_harmony_lisi",
+        "hie2019_natbiotechnol_scanorama",
+        "massive_msv000093867",
+        "scpdata_bioconductor",
+        "proteobench_dia_singlecell_module"
+      ]
+    },
+    {
+      "review_file": "docs/review_imputation_20260304.md",
+      "citation_ids": [
+        "wang2025_natcom_dia_scp_benchmark",
+        "wang2020_nar_naguider",
+        "jin2021_scirep_imputation_benchmark",
+        "shen2022_scirep_imputation_strategy",
+        "webel2024_natcom_self_supervised_imputation",
+        "schlumbohm2022_natcom_harmonizr"
+      ]
+    },
+    {
+      "review_file": "docs/review_io_state_mapping_20260312.md",
+      "citation_ids": [
+        "demichev2020_natmethods_diann",
+        "diann_docs",
+        "spectronaut_manual",
+        "cox2014_mcp_maxlfq",
+        "wang2025_natcom_dia_scp_benchmark"
+      ]
+    },
+    {
+      "review_file": "docs/review_masked_imputation_20260312.md",
+      "citation_ids": [
+        "lazar2016_jpr_missing_values",
+        "jin2021_scirep_imputation_benchmark",
+        "shen2022_scirep_imputation_strategy",
+        "webel2024_natcom_self_supervised_imputation",
+        "wang2020_nar_naguider",
+        "wang2025_natcom_dia_scp_benchmark"
+      ]
+    },
+    {
+      "review_file": "docs/review_state_metrics_20260312.md",
+      "citation_ids": [
+        "diann_docs",
+        "lazar2016_jpr_missing_values",
+        "yu2024_mcp_quant_qc",
+        "schlumbohm2022_natcom_harmonizr",
+        "wang2025_natcom_dia_scp_benchmark",
+        "goeminne2020_mcp_feature_consistency"
+      ]
+    },
+    {
+      "review_file": "docs/review_zscore_standardization_20260313.md",
+      "citation_ids": [
+        "chawade2014_jpr_normalyzer",
+        "wang2025_natcom_dia_scp_benchmark",
+        "gatto2023_natmethods_scp_recommendations",
+        "luecken2022_natmethods_scib",
+        "liu2025_natmethods_multitask_integration",
+        "gui2024_mcpro_zmap"
+      ]
+    }
+  ]
+}

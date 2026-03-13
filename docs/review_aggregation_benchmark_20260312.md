@@ -51,6 +51,7 @@
 ## 3. 逐篇证据摘要（Per-paper Summaries）
 
 说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。
+共享高频条目的规范元数据统一以 `docs/references/citations.json` 为准；若本文件历史写法与 registry 在作者简称、发布日期、期刊、DOI 或 canonical URL 上不一致，以 registry 为准，本文件仅保留 aggregation benchmark 语义解释。
 
 ### 3.1 OpenMS ProteinQuantifier 官方文档
 
@@ -66,7 +67,7 @@
 ### 3.2 Cox et al., Molecular & Cellular Proteomics, 2014
 
 - 题目：Accurate Proteome-wide Label-free Quantification by Delayed Normalization and Maximal Peptide Ratio Extraction, Termed MaxLFQ
-- 链接：https://pmc.ncbi.nlm.nih.gov/articles/PMC4159666/
+- 链接：https://doi.org/10.1074/mcp.M113.031591
 - 主要发现：
   - `MaxLFQ` 通过 pairwise peptide ratio network 和 delayed normalization 提升 protein-level relative quantification 稳定性。
   - 核心目标不是“数值看起来平滑”，而是跨样本 ratio 的保真。
@@ -74,10 +75,10 @@
   - `maxlfq` 评测不能只看总量误差，应显式看 ratio preservation。
   - 对 protein-level benchmark，fold-change / rank consistency 比单点绝对误差更关键。
 
-### 3.3 Ammar et al., Nature Methods, 2023
+### 3.3 Ammar et al., Molecular & Cellular Proteomics, 2023
 
-- 题目：A hybrid method for peptide-centered and protein-centered protein quantification
-- 链接：https://www.nature.com/articles/s41592-022-01795-4
+- 题目：Accurate Label-Free Quantification by directLFQ to Compare Unlimited Numbers of Proteomes
+- 链接：https://doi.org/10.1016/j.mcpro.2023.100581
 - 主要发现：
   - directLFQ 强调在 peptide-centered 与 protein-centered 视角之间折中，提升大规模 proteomics 的 protein quantification 鲁棒性。
   - 方法学焦点仍是 protein-level consistency，而不是仅仅多保留几个 peptide。
@@ -197,22 +198,17 @@
 2. 在 `benchmark/aggregation` 里新增“ratio preservation + consistency stress”场景。
 3. 在 `aggregation_literature.md` 中补一节“benchmark interpretation”，把方法语义与评测标准分开。
 
-## 8. 参考文献（含链接）
+## 8. Shared Citation Registry Coverage
+
+以下共享高频条目的规范元数据以 `docs/references/citations.json` 为准：
+
+- `cox2014_mcp_maxlfq`
+- `ammar2023_mcpro_directlfq`
+- `goeminne2020_mcp_feature_consistency`
+- `wang2025_natcom_dia_scp_benchmark`
+- `zheng2025_natcom_protein_batch`
+
+本文件额外保留的当前非 registry 条目：
 
 1. OpenMS ProteinQuantifier 官方文档
    https://openms.de/documentation/html/TOPP_ProteinQuantifier.html
-
-2. Cox et al., 2014, Molecular & Cellular Proteomics
-   https://pmc.ncbi.nlm.nih.gov/articles/PMC4159666/
-
-3. Ammar et al., 2023, Nature Methods
-   https://www.nature.com/articles/s41592-022-01795-4
-
-4. Goeminne et al., 2020, Molecular & Cellular Proteomics
-   https://pubmed.ncbi.nlm.nih.gov/32234965/
-
-5. Wang et al., 2025, Nature Communications
-   https://www.nature.com/articles/s41467-025-65174-4
-
-6. Zheng et al., 2025, Nature Communications
-   https://www.nature.com/articles/s41467-025-64718-y

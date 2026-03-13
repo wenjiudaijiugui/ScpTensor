@@ -54,6 +54,7 @@
 ## 3. 逐篇证据摘要（Per-paper Summaries）
 
 说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。
+共享高频条目的规范元数据统一以 `docs/references/citations.json` 为准；若本文件历史写法与 registry 在作者简称、发布日期、期刊、DOI 或 canonical URL 上不一致，以 registry 为准，本文件仅保留 diagnostics metric 的解释与表示空间边界。
 
 ### 3.1 Luecken et al., Nature Methods, 2022
 
@@ -80,7 +81,7 @@
 ### 3.3 Buttner et al., Nature Methods, 2019
 
 - 题目：A test metric for assessing single-cell RNA-seq batch correction
-- 链接：https://www.nature.com/articles/s41592-018-0254-1
+- 链接：https://doi.org/10.1038/s41592-018-0254-1
 - 发布日期：`2019-01-07`
 - 目标：提出 `kBET`。
 - 主要贡献：
@@ -138,9 +139,9 @@
 
 - `Luecken et al., Nat Methods (published: 2022-01-10)` 明确把 `batch removal` 与 `bio-conservation` 作为并列目标，而不是单一胜负分数；ScpTensor 文档应继续把两轴分开报告：<https://www.nature.com/articles/s41592-021-01336-8>
 - `scib-metrics` 官方文档与 `scIB` 官方文档（accessed: `2026-03-12`）都把指标与输入表示空间绑定，至少要区分 `feature/matrix`、`embedding`、`graph` 三类输入，不能把同一指标跨空间直接等价解释：<https://scib-metrics.readthedocs.io/>；<https://scib.readthedocs.io/en/latest/user_guide.html>
-- `Buttner et al., Nat Methods (published: 2019-01-07)` 的 `kBET` 是局部邻域 batch 组成是否偏离全局期望的检验，不是泛化的“mixing score”；因此任何内部 proxy 都不应被表述成 kBET 替代：<https://www.nature.com/articles/s41592-018-0254-1>
+- `Buttner et al., Nat Methods (published: 2019-01-07)` 的 `kBET` 是局部邻域 batch 组成是否偏离全局期望的检验，不是泛化的“mixing score”；因此任何内部 proxy 都不应被表述成 kBET 替代：<https://doi.org/10.1038/s41592-018-0254-1>
 - `Korsunsky et al., Nat Methods (published: 2019-11-18)` 的原始 `LISI` 建立在 integrated representation 的局部多样性定义上，不等同于“固定 kNN + inverse Simpson”的简化近似；因此 `compute_lisi_approx` 必须继续明确写为 approximate proxy：<https://www.nature.com/articles/s41592-019-0619-0>
-- `Heumos et al., Nat Biotechnol (published: 2025-09-12)` 进一步指出 silhouette 家族指标在 integration benchmarking 中存在系统性偏置风险，因此 `Batch ASW` 只能作为一个维度，而不能升级为单一主分数：<https://www.nature.com/articles/s41587-025-02765-7>
+- `Rautenstrauch and Ohler, Nat Biotechnol, 2025` 进一步指出 silhouette 家族指标在 integration benchmarking 中存在系统性偏置风险，因此 `Batch ASW` 只能作为一个维度，而不能升级为单一主分数：<https://www.nature.com/articles/s41587-025-02743-4>
 - `Wang 2025` 与 `Zheng 2025` 共同支持 `protein-level endpoint + task-linked interpretation`：在 DIA-SCP 或 MS 蛋白组里，不能只看局部混合度，还要结合下游标签保留、balanced/confounded 设计和最终 protein-level 交付物解释：<https://www.nature.com/articles/s41467-025-65174-4>；<https://www.nature.com/articles/s41467-025-64718-y>
 
 ## 4. 指标对比与证据分级
@@ -223,31 +224,16 @@
 4. 在 DIA-SCP 高缺失场景里，缺失处理会改变局部几何结构，因此 diagnostics 需与 normalization / imputation 联同解释。
 5. 近似指标若继续保留，命名与文档必须克制，避免把启发式 proxy 写成标准文献指标。
 
-## 7. 参考文献（点击可访问）
+## 7. Shared Citation Registry Coverage
 
-1. Luecken et al., 2022, Nature Methods
-   https://www.nature.com/articles/s41592-021-01336-8
+以下共享高频条目的规范元数据以 `docs/references/citations.json` 为准：
 
-2. scib-metrics 官方文档（accessed: `2026-03-12`）
-   https://scib-metrics.readthedocs.io/
-
-3. Buttner et al., 2019, Nature Methods
-   https://www.nature.com/articles/s41592-018-0254-1
-
-4. Korsunsky et al., 2019, Nature Methods
-   https://www.nature.com/articles/s41592-019-0619-0
-
-5. Liu et al., 2025, Nature Methods
-   https://www.nature.com/articles/s41592-025-02856-3
-
-6. Wang et al., 2025, Nature Communications
-   https://www.nature.com/articles/s41467-025-65174-4
-
-7. Zheng et al., 2025, Nature Communications
-   https://www.nature.com/articles/s41467-025-64718-y
-
-8. scIB User Guide（accessed: `2026-03-12`）
-   https://scib.readthedocs.io/en/latest/user_guide.html
-
-9. Heumos et al., 2025, Nature Biotechnology
-   https://www.nature.com/articles/s41587-025-02765-7
+- `luecken2022_natmethods_scib`
+- `scib_metrics_docs`
+- `buettner2019_natmethods_kbet`
+- `korsunsky2019_natmethods_harmony_lisi`
+- `liu2025_natmethods_multitask_integration`
+- `wang2025_natcom_dia_scp_benchmark`
+- `zheng2025_natcom_protein_batch`
+- `scib_user_guide`
+- `rautenstrauch2025_natbiotechnol_silhouette`
