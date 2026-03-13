@@ -93,11 +93,11 @@ This directory contains the GitHub Actions workflows for the ScpTensor project.
 | Job | Purpose |
 |-----|---------|
 | `docs-contracts` | Validate `review_manifest_20260312.json`, review coverage, taxonomy markers, and benchmark README contracts |
-| `docs-links` | Run Lychee against docs/review/benchmark Markdown entrypoints to catch broken links and bad absolute paths |
 
 **Notes:**
 - `docs-contracts` is repo-local and uses `scripts/docs/validate_review_manifest.py` only.
-- `docs-links` uses `lycheeverse/lychee-action@v2` and scans `README.md`, `docs/README.md`, `benchmark/README.md`, `benchmark/*/README.md`, `docs/review_*.md`, and `.github/workflows/README.md`.
+- External documentation links are intentionally not enforced in GitHub CI. Those checks are non-deterministic because public sites can rate-limit, time out, or change redirect behavior.
+- Link stability should be validated locally before merge or release using a local checker such as `lychee` or the team's preferred link-check workflow.
 
 ---
 
@@ -133,7 +133,7 @@ The workflows use OpenID Connect (OIDC) for trusted publishing. No tokens needed
 2. Add rule for `main` branch:
    - Require status checks to pass
    - Require branches to be up to date
-   - Select required checks: `quality`, `build`, `security`, `docs-contracts`, `docs-links`
+   - Select required checks: `quality`, `build`, `security`, `docs-contracts`
 
 ---
 
