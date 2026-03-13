@@ -1,7 +1,9 @@
 from collections.abc import Sequence
+from typing import cast
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.collections import PolyCollection
 
 from .style import setup_style
 
@@ -60,11 +62,12 @@ def violin(
 
     # Style violins with publication-friendly categorical colors.
     palette = plt.rcParams["axes.prop_cycle"].by_key().get("color", ["#4C72B0"])
-    for idx, pc in enumerate(parts["bodies"]):  # type: ignore[attr-defined]
-        pc.set_facecolor(palette[idx % len(palette)])
-        pc.set_edgecolor("#222222")
-        pc.set_linewidth(0.7)
-        pc.set_alpha(alpha)
+    bodies = cast(list[PolyCollection], parts["bodies"])
+    for idx, body in enumerate(bodies):
+        body.set_facecolor(palette[idx % len(palette)])
+        body.set_edgecolor("#222222")
+        body.set_linewidth(0.7)
+        body.set_alpha(alpha)
 
     if "cmedians" in parts:
         parts["cmedians"].set_color("#111111")

@@ -8,26 +8,26 @@ Benchmark scripts and benchmark outputs should stay under `benchmark/`.
 - `../tutorial/README.md`: tutorial index
 - `../tutorial/tutorial.ipynb`: main tutorial
 - `../tutorial/autoselect_tutorial.ipynb`: AutoSelect tutorial
-- `io_input_spec_diann_spectronaut.md`: DIA-NN / Spectronaut I/O contract
-- `aggregation_methods_from_literature.md`: peptide -> protein aggregation literature notes
-- `dia_sc_imputation_literature_review_20260304.md`: DIA single-cell imputation review notes
-- `dia_sc_batch_correction_literature_review_20260305.md`: DIA single-cell batch-correction review notes
-- `dia_sc_normalization_literature_review_20260307.md`: DIA single-cell normalization review notes
-- `dia_sc_qc_filtering_literature_review_20260312.md`: DIA single-cell QC and filtering review notes
-- `dia_sc_batch_diagnostics_metrics_review_20260312.md`: DIA single-cell batch diagnostics metrics review notes
-- `dia_sc_autoselect_scoring_framework_review_20260312.md`: AutoSelect scoring and reporting framework review notes
-- `dia_sc_missingness_semantics_review_20260312.md`: DIA single-cell missingness semantics and detection-state review notes
-- `dia_sc_log_transform_scale_contract_review_20260312.md`: DIA single-cell log-transform and scale-contract review notes
-- `dia_sc_public_benchmark_datasets_and_task_design_review_20260312.md`: DIA single-cell public benchmark datasets and task-design review notes
-- `dia_sc_masked_value_benchmark_design_review_20260312.md`: DIA single-cell masked-value imputation benchmark design review notes
-- `dia_sc_batch_confounding_benchmark_design_review_20260312.md`: DIA single-cell batch-confounding benchmark design review notes
-- `dia_sc_io_state_mapping_contract_review_20260312.md`: DIA-NN / Spectronaut importer state-mapping contract review notes
-- `dia_sc_aggregation_benchmark_design_review_20260312.md`: DIA single-cell aggregation benchmark design review notes
-- `dia_sc_state_aware_completeness_metrics_review_20260312.md`: DIA single-cell state-aware completeness and uncertainty metrics review notes
+- `io_diann_spectronaut.md`: DIA-NN / Spectronaut I/O contract
+- `aggregation_literature.md`: peptide -> protein aggregation literature notes
+- `review_imputation_20260304.md`: DIA single-cell imputation review notes
+- `review_batch_correction_20260305.md`: DIA single-cell batch-correction review notes
+- `review_normalization_20260307.md`: DIA single-cell normalization review notes
+- `review_qc_filtering_20260312.md`: DIA single-cell QC and filtering review notes
+- `review_batch_diagnostics_20260312.md`: DIA single-cell batch diagnostics metrics review notes
+- `review_autoselect_scoring_20260312.md`: AutoSelect scoring and reporting framework review notes
+- `review_missingness_20260312.md`: DIA single-cell missingness semantics and detection-state review notes
+- `review_log_scale_20260312.md`: DIA single-cell log-transform and scale-contract review notes
+- `review_public_benchmark_data_20260312.md`: DIA single-cell public benchmark datasets and task-design review notes
+- `review_masked_imputation_20260312.md`: DIA single-cell masked-value imputation benchmark design review notes
+- `review_batch_confounding_20260312.md`: DIA single-cell batch-confounding benchmark design review notes
+- `review_io_state_mapping_20260312.md`: DIA-NN / Spectronaut importer state-mapping contract review notes
+- `review_aggregation_benchmark_20260312.md`: DIA single-cell aggregation benchmark design review notes
+- `review_state_metrics_20260312.md`: DIA single-cell state-aware completeness and uncertainty metrics review notes
 
 ## Evidence Taxonomy
 
-All `dia_sc_*review_*.md` reviews now use the same source typing contract:
+All `review_*.md` reviews now use the same source typing contract:
 
 - `论文证据`
   - journal articles, benchmark papers, method papers
@@ -48,7 +48,7 @@ Entry rule:
 
 Machine-readable index:
 
-- `review_resource_manifest_20260312.json`: typed manifest for all `dia_sc_*review_*.md` reviews
+- `review_manifest_20260312.json`: typed manifest for all `review_*.md` reviews
 
 ## Notes
 

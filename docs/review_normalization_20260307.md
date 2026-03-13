@@ -185,7 +185,7 @@
 4. `quantile`（仅在显式 `logged` layer 上比较）
 5. `robust_quantile`（TRQN/MBQN 类，仅在显式 `logged` layer 上比较，可作为扩展）
 
-注：结合后续 `dia_sc_log_transform_scale_contract_review_20260312.md` 的收束结论，当前 ScpTensor 合同不应在 `raw` 或 `vendor-normalized` 的线性层上自动比较 `quantile` / `robust_quantile`；若需要比较，应先生成显式 log 层并保留 `scale` / `pseudocount` provenance。
+注：结合后续 `review_log_scale_20260312.md` 的收束结论，当前 ScpTensor 合同不应在 `raw` 或 `vendor-normalized` 的线性层上自动比较 `quantile` / `robust_quantile`；若需要比较，应先生成显式 log 层并保留 `scale` / `pseudocount` provenance。
 另注：这里的 `sum` 属于文献层建议保留的 rescaling baseline；截至 `2026-03-12`，ScpTensor 当前 stable normalization API / benchmark README 已明确落地的方法池仍是 `none / mean / median / quantile / trqn`，因此不应把 `sum` 或泛化的 `robust_quantile` 写成“当前已实现事实”。其中当前实现与 benchmark 直接对应的稳健分位数方法名是 `trqn`。
 
 ### 5.2 规则化选择逻辑（建议）

@@ -66,7 +66,7 @@
 - 物种分离能力：`species_overlap_auc_mean`, `changed_vs_background_auc`
 - 覆盖率：`coverage_ratio`, `n_quantified`
 
-按 `docs/dia_sc_aggregation_benchmark_design_review_20260312.md`，后续仍应补充：
+按 `docs/review_aggregation_benchmark_20260312.md`，后续仍应补充：
 
 - `protein-direct main board`
 - `downstream DE consistency`

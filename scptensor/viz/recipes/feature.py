@@ -10,7 +10,7 @@ Functions include:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 import numpy as np
 from scipy import sparse
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
     from scptensor import ScpContainer
+    from scptensor.core.structures import Assay
 
 __all__ = [
     "plot_feature_dotplot",
@@ -36,10 +37,11 @@ __all__ = [
 ]
 
 
-def _to_dense_array(matrix: np.ndarray) -> np.ndarray:
+def _to_dense_array(matrix: np.ndarray | sparse.spmatrix) -> np.ndarray:
     """Convert dense/sparse matrix-like input to a 2D NumPy array."""
     if sparse.issparse(matrix):
-        return np.asarray(matrix.toarray())
+        sparse_matrix = cast(sparse.spmatrix, matrix)
+        return np.asarray(sparse_matrix.toarray())
     return np.asarray(matrix)
 
 
@@ -49,7 +51,7 @@ def _ordered_unique(values: np.ndarray) -> np.ndarray:
     return values[np.sort(first_idx)]
 
 
-def _resolve_feature_column(assay) -> str:
+def _resolve_feature_column(assay: Assay) -> str:
     """Resolve feature name column from assay metadata."""
     preferred_cols = [
         assay.feature_id_col,

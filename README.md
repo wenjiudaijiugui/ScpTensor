@@ -117,7 +117,7 @@ Main APIs:
 ## Documentation
 
 - [Docs index](docs/README.md)
-- [DIA-NN / Spectronaut I/O spec](docs/io_input_spec_diann_spectronaut.md)
+- [DIA-NN / Spectronaut I/O spec](docs/io_diann_spectronaut.md)
 - [Tutorial index](tutorial/README.md)
 - [Main tutorial notebook](tutorial/tutorial.ipynb)
 - [AutoSelect tutorial](tutorial/autoselect_tutorial.ipynb)

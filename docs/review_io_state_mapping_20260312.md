@@ -8,7 +8,7 @@
   - `scptensor.io.load_diann`
   - `scptensor.io.load_spectronaut`
   - `scptensor.io.load_peptide_pivot`
-  - `docs/io_input_spec_diann_spectronaut.md`
+  - `docs/io_diann_spectronaut.md`
   - `scptensor.core.structures.MaskCode`
 - 补充边界：除 vendor long/matrix importer 外，本综述也约束 `peptide-matrix -> protein aggregation` 交接前必须保留的 provenance，避免 `load_peptide_pivot` 导入后丢失 level/format/normalized-state 语义。
 - 核心边界：遵循项目合同，支持的软件仅限 `DIA-NN` 与 `Spectronaut`；最终交付物是 **完整 protein-level quantitative matrix**。
@@ -116,7 +116,7 @@
 ### 3.6 ScpTensor 当前 I/O 文档与实现（本地实现上下文）
 
 - 资源类型：`本地实现上下文`
-- 文档：[io_input_spec_diann_spectronaut.md](io_input_spec_diann_spectronaut.md)
+- 文档：[io_diann_spectronaut.md](io_diann_spectronaut.md)
 - 代码：[mass_spec.py](../scptensor/io/mass_spec.py)
 - 当前实现直接体现的事实：
   - `DIA-NN` 与 `Spectronaut` 的 `protein / peptide` 两层 profile 已分开。
@@ -190,7 +190,7 @@
 - `UNCERTAIN`
   - 只有最终矩阵、无法恢复上游状态来源时的保守默认
 
-### 5.3 `docs/io_input_spec_diann_spectronaut.md` 最值得补的内容
+### 5.3 `docs/io_diann_spectronaut.md` 最值得补的内容
 
 1. `source_column -> layer semantics` 对照表
 2. `q/FDR column -> filtering state` 对照表
@@ -211,7 +211,7 @@
 
 ## 7. 对后续实现/文档的优先建议
 
-1. 在 [io_input_spec_diann_spectronaut.md](io_input_spec_diann_spectronaut.md) 中新增 `state mapping` 章节。
+1. 在 [io_diann_spectronaut.md](io_diann_spectronaut.md) 中新增 `state mapping` 章节。
 2. 在 importer 返回对象的 provenance 中显式记录 `is_vendor_normalized` 与 `source_column_used`。
 3. 在用户文档中统一区分 `raw-linear`、`vendor-normalized-linear`、`logged` 三类 layer。
 

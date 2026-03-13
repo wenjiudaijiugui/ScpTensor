@@ -65,5 +65,4 @@ jobs:
             docs/README.md
             benchmark/README.md
             benchmark/*/README.md
-            docs/dia_sc_*review_*.md
-            .github/workflows/README.md
+            docs/review_*.md

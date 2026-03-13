@@ -13,7 +13,7 @@
 当前实现边界：
 
 - benchmark 脚本会先对 `raw` 层执行 `log_transform(base=2, offset=1)`，再在显式 `log2` 层比较归一化方法。
-- 因此 `quantile` / `trqn` 并不是对线性 vendor 输出层直接比较，这与 `docs/dia_sc_log_transform_scale_contract_review_20260312.md` 的尺度门禁一致。
+- 因此 `quantile` / `trqn` 并不是对线性 vendor 输出层直接比较，这与 `docs/review_log_scale_20260312.md` 的尺度门禁一致。
 - 当前 stable normalization API 的方法池是 `none / mean / median / quantile / trqn`。
 - 文献综述里提到的 `sum` 是可补候选，但当前实现与本 benchmark 尚未覆盖。
 - 当前 benchmark 还没有输出 state-aware completeness / uncertainty burden。

@@ -15,7 +15,7 @@
 对齐说明（`2026-03-12` 二次核查）：
 
 - 本文是“方法池与证据面”综述，不等同于当前 ScpTensor 的最终 benchmark 合同。
-- 当前更严格的 benchmark 口径，应以 `docs/dia_sc_masked_value_benchmark_design_review_20260312.md` 与 `docs/dia_sc_missingness_semantics_review_20260312.md` 为准。
+- 当前更严格的 benchmark 口径，应以 `docs/review_masked_imputation_20260312.md` 与 `docs/review_missingness_20260312.md` 为准。
 - 表中的“可见引用指标”仅是 `2026-03-04` 检索快照，不应用来直接决定方法优先级或评分权重。
 
 ## 2. 重点文献清单（按与你需求的相关性排序）
@@ -154,7 +154,7 @@
 - 本综述当前纳入的 `P1-P12` 全部属于 `论文证据`；没有单独指定 `数据入口`、`模块规范` 或 `资源包`。因此本文件给出的是 imputation 方法池与证据面，而不是当前仓库的稳定 benchmark 输入清单。
 - `Wang 2025` 是最直接的 DIA-SCP workflow `论文证据`，但其关联 accession 当前并不适合作为仓库稳定公共输入，因此本综述不应把它扩大解释为数据入口。
 - `Krull 2024`、`HarmonizR 2022`、`scplainer 2025` 一类来源在这里应继续被视作“上游减少缺失或任务导向建模的论文证据”，而不是替代 `masked-value benchmark contract` 的模块规范。
-- 对当前 ScpTensor 来说，更严格的 benchmark/contract 入口仍应以后续的 `dia_sc_masked_value_benchmark_design_review_20260312.md`、`dia_sc_missingness_semantics_review_20260312.md` 和公共 benchmark 数据综述为准。
+- 对当前 ScpTensor 来说，更严格的 benchmark/contract 入口仍应以后续的 `review_masked_imputation_20260312.md`、`review_missingness_20260312.md` 和公共 benchmark 数据综述为准。
 
 ## 4. 文献综合测评报告（面向 DIA 单细胞蛋白组）
 
