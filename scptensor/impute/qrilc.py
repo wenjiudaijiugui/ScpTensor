@@ -9,10 +9,7 @@ Designed specifically for MNAR (Missing Not At Random) data where missingness
 is due to low abundance (left-censored) values.
 """
 
-from typing import cast
-
 import numpy as np
-import scipy.sparse as sp
 from scipy.stats import truncnorm
 
 from scptensor.core.exceptions import (
@@ -20,8 +17,13 @@ from scptensor.core.exceptions import (
     LayerNotFoundError,
     ScpValueError,
 )
-from scptensor.core.structures import ScpContainer, ScpMatrix
-from scptensor.impute._utils import _update_imputed_mask
+from scptensor.core.structures import ScpContainer
+from scptensor.impute._utils import (
+    add_imputed_layer,
+    log_imputation_operation,
+    preserve_observed_values,
+    to_dense_float_copy,
+)
 from scptensor.impute.base import ImputeMethod, register_impute_method
 
 # =============================================================================
@@ -211,37 +213,29 @@ def impute_qrilc(
         )
 
     input_matrix = assay.layers[source_layer]
-    X_original = input_matrix.X.copy()
-
-    # Convert sparse to dense
-    if sp.issparse(X_original):
-        X_dense = cast(sp.spmatrix, X_original).toarray()
-    else:
-        X_dense = np.asarray(X_original)
+    X_dense = to_dense_float_copy(input_matrix.X)
 
     missing_mask = np.isnan(X_dense)
+    layer_name = new_layer_name or "qrilc"
     if not np.any(missing_mask):
-        new_matrix = ScpMatrix(X=X_dense, M=_update_imputed_mask(input_matrix.M, missing_mask))
-        layer_name = new_layer_name or "qrilc"
-        assay.add_layer(layer_name, new_matrix)
-        container.log_operation(
+        add_imputed_layer(assay, layer_name, X_dense, input_matrix, missing_mask)
+        return log_imputation_operation(
+            container,
             action="impute_qrilc",
             params={"assay": assay_name, "source_layer": source_layer, "q": q},
             description=f"QRILC imputation on assay '{assay_name}': no missing values found.",
         )
-        return container
 
     # Apply QRILC imputation
     X_imputed = qrilc_impute(X_dense, q=q, random_state=random_state)
-    X_imputed[~missing_mask] = X_dense[~missing_mask]
+    preserve_observed_values(X_imputed, X_dense, missing_mask)
 
     # Create new layer
-    new_matrix = ScpMatrix(X=X_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask))
-    layer_name = new_layer_name or "qrilc"
-    assay.add_layer(layer_name, new_matrix)
+    add_imputed_layer(assay, layer_name, X_imputed, input_matrix, missing_mask)
 
     # Log operation
-    container.log_operation(
+    return log_imputation_operation(
+        container,
         action="impute_qrilc",
         params={
             "assay": assay_name,
@@ -251,8 +245,6 @@ def impute_qrilc(
         },
         description=f"QRILC imputation (q={q}) on assay '{assay_name}'.",
     )
-
-    return container
 
 
 register_impute_method(

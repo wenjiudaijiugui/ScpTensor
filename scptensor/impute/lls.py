@@ -7,10 +7,7 @@ Reference:
     Local least squares imputation.
 """
 
-from typing import cast
-
 import numpy as np
-import scipy.sparse as sp
 from sklearn.neighbors import NearestNeighbors
 
 from scptensor.core.exceptions import (
@@ -18,8 +15,13 @@ from scptensor.core.exceptions import (
     LayerNotFoundError,
     ScpValueError,
 )
-from scptensor.core.structures import ScpContainer, ScpMatrix
-from scptensor.impute._utils import _update_imputed_mask
+from scptensor.core.structures import ScpContainer
+from scptensor.impute._utils import (
+    add_imputed_layer,
+    log_imputation_operation,
+    preserve_observed_values,
+    to_dense_float_copy,
+)
 from scptensor.impute.base import ImputeMethod, register_impute_method
 
 # =============================================================================
@@ -264,23 +266,18 @@ def impute_lls(
         )
 
     input_matrix = assay.layers[source_layer]
-    X_raw = input_matrix.X.copy()
-    if sp.issparse(X_raw):
-        X_original = cast(sp.spmatrix, X_raw).toarray().astype(np.float64, copy=False)
-    else:
-        X_original = np.asarray(X_raw, dtype=np.float64)
+    X_original = to_dense_float_copy(input_matrix.X)
 
     missing_mask = np.isnan(X_original)
+    layer_name = new_layer_name or "imputed_lls"
     if not np.any(missing_mask):
-        new_matrix = ScpMatrix(X=X_original, M=_update_imputed_mask(input_matrix.M, missing_mask))
-        layer_name = new_layer_name or "imputed_lls"
-        assay.add_layer(layer_name, new_matrix)
-        container.log_operation(
+        add_imputed_layer(assay, layer_name, X_original, input_matrix, missing_mask)
+        return log_imputation_operation(
+            container,
             action="impute_lls",
             params={"assay": assay_name, "source_layer": source_layer, "k": k},
             description=f"LLS imputation on assay '{assay_name}': no missing values found.",
         )
-        return container
 
     # Apply LLS imputation
     X_imputed, iterations = lls_impute(
@@ -290,15 +287,14 @@ def impute_lls(
         tol=tol,
         return_n_iter=True,
     )
-    X_imputed[~missing_mask] = X_original[~missing_mask]
+    preserve_observed_values(X_imputed, X_original, missing_mask)
 
     # Create new layer
-    new_matrix = ScpMatrix(X=X_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask))
-    layer_name = new_layer_name or "imputed_lls"
-    assay.add_layer(layer_name, new_matrix)
+    add_imputed_layer(assay, layer_name, X_imputed, input_matrix, missing_mask)
 
     # Log operation
-    container.log_operation(
+    return log_imputation_operation(
+        container,
         action="impute_lls",
         params={
             "assay": assay_name,
@@ -309,8 +305,6 @@ def impute_lls(
         },
         description=f"LLS imputation (k={k}, iterations={iterations}) on assay '{assay_name}'.",
     )
-
-    return container
 
 
 register_impute_method(

@@ -10,7 +10,7 @@ from scptensor.core import Assay, ScpContainer, ScpMatrix
 from scptensor.impute.bpca import bpca_impute
 from scptensor.impute.knn import impute_knn, knn_impute
 from scptensor.impute.minprob import minprob_impute
-from scptensor.impute.qrilc import qrilc_impute
+from scptensor.impute.qrilc import impute_qrilc, qrilc_impute
 
 
 def test_minprob_handles_negative_log_values_without_crash() -> None:
@@ -104,3 +104,49 @@ def test_knn_wrapper_handles_sparse_input_without_type_error() -> None:
     out = impute_knn(container, assay_name="protein", source_layer="raw", k=2)
     x_out = out.assays["protein"].layers["imputed_knn"].X
     assert not np.any(np.isnan(x_out))
+
+
+def test_knn_no_missing_fast_path_does_not_append_history() -> None:
+    """Regression: KNN no-missing fast path currently returns without logging."""
+    x = np.array(
+        [
+            [1.0, 2.0],
+            [3.0, 4.0],
+        ],
+        dtype=np.float64,
+    )
+    assay = Assay(var=pl.DataFrame({"_index": ["p1", "p2"]}))
+    assay.add_layer("raw", ScpMatrix(X=x, M=None))
+    container = ScpContainer(
+        obs=pl.DataFrame({"_index": ["s1", "s2"]}),
+        assays={"protein": assay},
+    )
+
+    initial_len = len(container.history)
+    out = impute_knn(container, assay_name="protein", source_layer="raw", k=1)
+
+    assert len(out.history) == initial_len
+    np.testing.assert_allclose(out.assays["protein"].layers["imputed_knn"].X, x)
+
+
+def test_qrilc_no_missing_fast_path_still_logs_history() -> None:
+    """Regression: QRILC no-missing path keeps its current logging behavior."""
+    x = np.array(
+        [
+            [8.0, 7.5],
+            [6.2, 5.9],
+        ],
+        dtype=np.float64,
+    )
+    assay = Assay(var=pl.DataFrame({"_index": ["p1", "p2"]}))
+    assay.add_layer("raw", ScpMatrix(X=x, M=None))
+    container = ScpContainer(
+        obs=pl.DataFrame({"_index": ["s1", "s2"]}),
+        assays={"protein": assay},
+    )
+
+    initial_len = len(container.history)
+    out = impute_qrilc(container, assay_name="protein", source_layer="raw", q=0.01)
+
+    assert len(out.history) == initial_len + 1
+    assert out.history[-1].action == "impute_qrilc"

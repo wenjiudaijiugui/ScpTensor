@@ -11,7 +11,6 @@ automatically determine the effective number of components.
 
 import numpy as np
 import numpy.typing as npt
-import scipy.sparse as sp
 from scipy.sparse.linalg import svds
 
 from scptensor.core.exceptions import (
@@ -20,8 +19,12 @@ from scptensor.core.exceptions import (
     LayerNotFoundError,
     ScpValueError,
 )
-from scptensor.core.structures import ScpContainer, ScpMatrix
-from scptensor.impute._utils import _update_imputed_mask
+from scptensor.core.structures import ScpContainer
+from scptensor.impute._utils import (
+    add_imputed_layer,
+    log_imputation_operation,
+    to_dense_float_copy,
+)
 from scptensor.impute.base import ImputeMethod, register_impute_method
 
 # =============================================================================
@@ -339,17 +342,14 @@ def impute_bpca(
             actual_shape=(n_samples, n_components),
         )
 
-    if sp.issparse(X_original):
-        X_dense = sp.csr_matrix(X_original).toarray()
-    else:
-        X_dense = np.asarray(X_original)
+    X_dense = to_dense_float_copy(X_original)
 
     missing_mask = np.isnan(X_dense)
+    layer_name = new_layer_name or "imputed_bpca"
     if not np.any(missing_mask):
-        new_matrix = ScpMatrix(X=X_dense, M=_update_imputed_mask(input_matrix.M, missing_mask))
-        layer_name = new_layer_name or "imputed_bpca"
-        assay.add_layer(layer_name, new_matrix)
-        container.log_operation(
+        add_imputed_layer(assay, layer_name, X_dense, input_matrix, missing_mask)
+        return log_imputation_operation(
+            container,
             action="impute_bpca",
             params={
                 "assay": assay_name,
@@ -359,7 +359,6 @@ def impute_bpca(
             },
             description=f"BPCA imputation on assay '{assay_name}': no missing values found.",
         )
-        return container
 
     # Apply BPCA imputation
     X_imputed = bpca_impute(
@@ -370,9 +369,7 @@ def impute_bpca(
     )
 
     # Create new layer
-    new_matrix = ScpMatrix(X=X_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask))
-    layer_name = new_layer_name or "imputed_bpca"
-    assay.add_layer(layer_name, new_matrix)
+    add_imputed_layer(assay, layer_name, X_imputed, input_matrix, missing_mask)
 
     # Log operation
     singular_values = np.linalg.svd(X_imputed, full_matrices=False, compute_uv=False)
@@ -381,7 +378,8 @@ def impute_bpca(
     effective_components = int(np.sum(singular_values > threshold))
     effective_components = min(effective_components, int(n_components))
 
-    container.log_operation(
+    return log_imputation_operation(
+        container,
         action="impute_bpca",
         params={
             "assay": assay_name,
@@ -392,8 +390,6 @@ def impute_bpca(
         },
         description=f"BPCA imputation (n_components={n_components}) on assay '{assay_name}'.",
     )
-
-    return container
 
 
 # Register with base interface

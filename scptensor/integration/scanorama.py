@@ -27,12 +27,12 @@ from __future__ import annotations
 import numpy as np
 
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.sparse_utils import is_sparse_matrix
-from scptensor.core.structures import ScpContainer, ScpMatrix
+from scptensor.core.structures import ScpContainer
 from scptensor.core.utils import requires_dependency
 from scptensor.integration.base import (
-    get_integrate_method_info,
-    prepare_integration_data,
+    add_integrated_layer,
+    log_integration_operation,
+    prepare_integration_input,
     preserve_sparsity,
     register_integrate_method,
     validate_batch_integration_params,
@@ -111,10 +111,7 @@ def integrate_scanorama(
     )
 
     # Get and prepare data
-    X = layer.X.copy()
-    M = layer.M
-    input_was_sparse = is_sparse_matrix(X)
-    X = prepare_integration_data(X, context="Scanorama integration")
+    X, input_was_sparse = prepare_integration_input(layer, context="Scanorama integration")
 
     # Prepare data list for scanorama
     datasets_list = [X[batches == b] for b in unique_batches]
@@ -142,16 +139,13 @@ def integrate_scanorama(
         X_corrected = preserve_sparsity(X_corrected, input_was_sparse)
 
     # Create new layer
-    new_matrix = ScpMatrix(
-        X=X_corrected,
-        M=M.copy() if M is not None else None,
-    )
-    assay.add_layer(new_layer_name or "scanorama", new_matrix)
+    add_integrated_layer(assay, new_layer_name or "scanorama", X_corrected, layer)
 
     # Log operation
-    method_info = get_integrate_method_info("scanorama")
-    container.log_operation(
+    return log_integration_operation(
+        container,
         action="integration_scanorama",
+        method_name="scanorama",
         params={
             "batch_key": batch_key,
             "assay": assay_name,
@@ -161,13 +155,9 @@ def integrate_scanorama(
             "approx": approx,
             "return_dimred": return_dimred,
             "n_batches": len(unique_batches),
-            "integration_level": method_info.integration_level,
-            "recommended_for_de": method_info.recommended_for_de,
         },
         description=f"Scanorama integration (sigma={sigma}, alpha={alpha}) on assay '{assay_name}'.",
     )
-
-    return container
 
 
 __all__ = ["integrate_scanorama"]

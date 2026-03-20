@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import polars as pl
@@ -15,9 +15,10 @@ import scipy.sparse as sp
 
 from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
+from scptensor.core.structures import ScpMatrix
 
 if TYPE_CHECKING:
-    from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
+    from scptensor.core.structures import Assay, ScpContainer
 
 # Type alias for integrate method
 IntegrateMethod = Callable[..., "ScpContainer"]
@@ -210,6 +211,32 @@ def validate_layer_params(
     return assay, assay.layers[layer_name]
 
 
+def clone_layer_matrix(layer: ScpMatrix) -> ScpMatrix:
+    """Clone X and M for baseline/no-op integration outputs."""
+    if sp.issparse(layer.X):
+        x_copy: np.ndarray | sp.spmatrix = layer.X.copy()
+    else:
+        x_copy = np.array(layer.X, copy=True)
+
+    m_copy = layer.M.copy() if layer.M is not None else None
+    return ScpMatrix(X=x_copy, M=m_copy)
+
+
+def add_integrated_layer(
+    assay: Assay,
+    layer_name: str,
+    X: np.ndarray | sp.spmatrix,
+    source_layer: ScpMatrix,
+) -> ScpMatrix:
+    """Write an integration result while preserving copy semantics for M."""
+    result = ScpMatrix(
+        X=X,
+        M=source_layer.M.copy() if source_layer.M is not None else None,
+    )
+    assay.add_layer(layer_name, result)
+    return result
+
+
 def validate_embedding_input(
     container: ScpContainer,
     assay_name: str,
@@ -332,10 +359,7 @@ def prepare_integration_data(
     np.ndarray
         Dense array for downstream integration.
     """
-    if sp.issparse(X):
-        X = X.toarray()  # type: ignore[union-attr]
-    else:
-        X = np.asarray(X)
+    X = to_dense_array(X, copy=not sp.issparse(X))
 
     if np.isnan(X).any() and not allow_missing:
         raise ScpValueError(
@@ -345,6 +369,35 @@ def prepare_integration_data(
         )
 
     return X
+
+
+def to_dense_array(
+    X: np.ndarray | sp.spmatrix,
+    *,
+    copy: bool = False,
+) -> np.ndarray:
+    """Convert sparse/dense input to a dense ndarray."""
+    if sp.issparse(X):
+        return X.toarray()  # type: ignore[union-attr]
+    if copy:
+        return np.array(X, copy=True)
+    return np.asarray(X)
+
+
+def prepare_integration_input(
+    layer: ScpMatrix,
+    *,
+    allow_missing: bool = False,
+    context: str = "integration",
+) -> tuple[np.ndarray, bool]:
+    """Return dense input data and the original sparse flag."""
+    input_was_sparse = sp.issparse(layer.X)
+    X_dense = prepare_integration_data(
+        layer.X,
+        allow_missing=allow_missing,
+        context=context,
+    )
+    return X_dense, input_was_sparse
 
 
 def preserve_sparsity(
@@ -378,6 +431,28 @@ def preserve_sparsity(
     return X
 
 
+def log_integration_operation(
+    container: ScpContainer,
+    *,
+    action: str,
+    method_name: str,
+    params: dict[str, Any],
+    description: str,
+) -> ScpContainer:
+    """Append integration provenance with registered method metadata."""
+    method_info = get_integrate_method_info(method_name)
+    container.log_operation(
+        action=action,
+        params={
+            **params,
+            "integration_level": method_info.integration_level,
+            "recommended_for_de": method_info.recommended_for_de,
+        },
+        description=description,
+    )
+    return container
+
+
 __all__ = [
     "IntegrateMethod",
     "IntegrationLevel",
@@ -389,8 +464,13 @@ __all__ = [
     "list_integrate_method_info",
     "integrate",
     "validate_layer_params",
+    "clone_layer_matrix",
+    "add_integrated_layer",
     "validate_embedding_input",
     "validate_batch_integration_params",
     "prepare_integration_data",
+    "to_dense_array",
+    "prepare_integration_input",
     "preserve_sparsity",
+    "log_integration_operation",
 ]

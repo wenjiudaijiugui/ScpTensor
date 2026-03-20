@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import inspect
 import sys
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
-import scipy.sparse as sp
 import sklearn.utils
 from sklearn.decomposition import TruncatedSVD
 
@@ -22,15 +21,14 @@ from scptensor.core.exceptions import (
     MissingDependencyError,
     ScpValueError,
 )
-from scptensor.core.structures import ScpContainer, ScpMatrix
-from scptensor.impute._utils import _update_imputed_mask
+from scptensor.core.structures import ScpContainer
+from scptensor.impute._utils import (
+    add_imputed_layer,
+    log_imputation_operation,
+    preserve_observed_values,
+    to_dense_float_copy,
+)
 from scptensor.impute.base import ImputeMethod, register_impute_method
-
-
-def _to_dense_copy(x_data: np.ndarray | sp.spmatrix) -> np.ndarray:
-    if sp.issparse(x_data):
-        return cast(sp.spmatrix, x_data).toarray().astype(np.float64, copy=False)
-    return np.asarray(x_data, dtype=np.float64).copy()
 
 
 def _initial_fill_with_column_means(data: np.ndarray) -> np.ndarray:
@@ -220,14 +218,11 @@ def impute_iterative_svd(
         raise LayerNotFoundError(source_layer, assay_name, available_layers=assay.layers.keys())
 
     input_matrix = assay.layers[source_layer]
-    x_original = _to_dense_copy(input_matrix.X)
+    x_original = to_dense_float_copy(input_matrix.X)
     missing_mask = np.isnan(x_original)
 
     if not np.any(missing_mask):
-        assay.add_layer(
-            new_layer_name,
-            ScpMatrix(X=x_original.copy(), M=_update_imputed_mask(input_matrix.M, missing_mask)),
-        )
+        add_imputed_layer(assay, new_layer_name, x_original.copy(), input_matrix, missing_mask)
         return container
 
     x_imputed, n_iterations = iterative_svd_impute(
@@ -238,13 +233,11 @@ def impute_iterative_svd(
         random_state=random_state,
         return_n_iter=True,
     )
-    x_imputed[~missing_mask] = x_original[~missing_mask]
+    preserve_observed_values(x_imputed, x_original, missing_mask)
 
-    assay.add_layer(
-        new_layer_name,
-        ScpMatrix(X=x_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask)),
-    )
-    container.log_operation(
+    add_imputed_layer(assay, new_layer_name, x_imputed, input_matrix, missing_mask)
+    return log_imputation_operation(
+        container,
         action="impute_iterative_svd",
         params={
             "assay": assay_name,
@@ -260,7 +253,6 @@ def impute_iterative_svd(
             f"(n_components={n_components}, iterations={n_iterations}) on assay '{assay_name}'."
         ),
     )
-    return container
 
 
 def impute_softimpute(
@@ -307,14 +299,11 @@ def impute_softimpute(
         raise LayerNotFoundError(source_layer, assay_name, available_layers=assay.layers.keys())
 
     input_matrix = assay.layers[source_layer]
-    x_original = _to_dense_copy(input_matrix.X)
+    x_original = to_dense_float_copy(input_matrix.X)
     missing_mask = np.isnan(x_original)
 
     if not np.any(missing_mask):
-        assay.add_layer(
-            new_layer_name,
-            ScpMatrix(X=x_original.copy(), M=_update_imputed_mask(input_matrix.M, missing_mask)),
-        )
+        add_imputed_layer(assay, new_layer_name, x_original.copy(), input_matrix, missing_mask)
         return container
 
     try:
@@ -334,12 +323,10 @@ def impute_softimpute(
             parameter="softimpute",
         ) from exc
 
-    x_imputed[~missing_mask] = x_original[~missing_mask]
-    assay.add_layer(
-        new_layer_name,
-        ScpMatrix(X=x_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask)),
-    )
-    container.log_operation(
+    preserve_observed_values(x_imputed, x_original, missing_mask)
+    add_imputed_layer(assay, new_layer_name, x_imputed, input_matrix, missing_mask)
+    return log_imputation_operation(
+        container,
         action="impute_softimpute",
         params={
             "assay": assay_name,
@@ -352,7 +339,6 @@ def impute_softimpute(
         },
         description=f"SoftImpute imputation on assay '{assay_name}'.",
     )
-    return container
 
 
 register_impute_method(

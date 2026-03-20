@@ -8,18 +8,20 @@ Designed for left-censored MNAR (Missing Not At Random) data where
 missingness is due to low abundance - values below detection limit.
 """
 
-from typing import cast
-
 import numpy as np
-import scipy.sparse as sp
 
 from scptensor.core.exceptions import (
     AssayNotFoundError,
     LayerNotFoundError,
     ScpValueError,
 )
-from scptensor.core.structures import ScpContainer, ScpMatrix
-from scptensor.impute._utils import _update_imputed_mask
+from scptensor.core.structures import ScpContainer
+from scptensor.impute._utils import (
+    add_imputed_layer,
+    log_imputation_operation,
+    preserve_observed_values,
+    to_dense_float_copy,
+)
 from scptensor.impute.base import ImputeMethod, register_impute_method
 
 # =============================================================================
@@ -201,37 +203,29 @@ def impute_minprob(
         )
 
     input_matrix = assay.layers[source_layer]
-    X_original = input_matrix.X
-
-    # Convert sparse to dense
-    if sp.issparse(X_original):
-        X_dense = cast(sp.spmatrix, X_original).toarray()
-    else:
-        X_dense = X_original.copy()
+    X_dense = to_dense_float_copy(input_matrix.X)
 
     missing_mask = np.isnan(X_dense)
+    layer_name = new_layer_name or "imputed_minprob"
     if not np.any(missing_mask):
-        new_matrix = ScpMatrix(X=X_dense, M=_update_imputed_mask(input_matrix.M, missing_mask))
-        layer_name = new_layer_name or "imputed_minprob"
-        assay.add_layer(layer_name, new_matrix)
-        container.log_operation(
+        add_imputed_layer(assay, layer_name, X_dense, input_matrix, missing_mask)
+        return log_imputation_operation(
+            container,
             action="impute_minprob",
             params={"assay": assay_name, "source_layer": source_layer, "sigma": sigma},
             description=f"MinProb imputation on assay '{assay_name}': no missing values found.",
         )
-        return container
 
     # Apply MinProb imputation
     X_imputed = minprob_impute(X_dense, sigma=sigma, random_state=random_state, q=q)
-    X_imputed[~missing_mask] = X_dense[~missing_mask]
+    preserve_observed_values(X_imputed, X_dense, missing_mask)
 
     # Create new layer
-    new_matrix = ScpMatrix(X=X_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask))
-    layer_name = new_layer_name or "imputed_minprob"
-    assay.add_layer(layer_name, new_matrix)
+    add_imputed_layer(assay, layer_name, X_imputed, input_matrix, missing_mask)
 
     # Log operation
-    container.log_operation(
+    return log_imputation_operation(
+        container,
         action="impute_minprob",
         params={
             "assay": assay_name,
@@ -242,8 +236,6 @@ def impute_minprob(
         },
         description=f"MinProb imputation (sigma={sigma}, q={q}) on assay '{assay_name}'.",
     )
-
-    return container
 
 
 register_impute_method(

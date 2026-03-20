@@ -5,10 +5,7 @@ Uses sklearn's IterativeImputer with RandomForestRegressor to iteratively
 train on observed values and predict missing values.
 """
 
-from typing import cast
-
 import numpy as np
-import scipy.sparse as sp
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.experimental import enable_iterative_imputer  # noqa: F401
 from sklearn.impute import IterativeImputer
@@ -19,8 +16,13 @@ from scptensor.core.exceptions import (
     ScpValueError,
 )
 from scptensor.core.jit_ops import impute_missing_with_col_means_jit
-from scptensor.core.structures import ScpContainer, ScpMatrix
-from scptensor.impute._utils import _update_imputed_mask
+from scptensor.core.structures import ScpContainer
+from scptensor.impute._utils import (
+    add_imputed_layer,
+    log_imputation_operation,
+    preserve_observed_values,
+    to_dense_float_copy,
+)
 from scptensor.impute.base import ImputeMethod, register_impute_method
 
 # =============================================================================
@@ -198,21 +200,12 @@ def impute_mf(
         )
 
     input_matrix = assay.layers[source_layer]
-    X_original = input_matrix.X
-
-    # Convert sparse to dense
-    if sp.issparse(X_original):
-        X_in = cast(sp.spmatrix, X_original).toarray().copy()
-    else:
-        X_in = X_original.copy()
+    X_in = to_dense_float_copy(input_matrix.X)
     missing_mask_original = np.isnan(X_in)
+    layer_name = new_layer_name or "imputed_missforest"
 
     if not np.any(missing_mask_original):
-        new_matrix = ScpMatrix(
-            X=X_in.copy(),
-            M=_update_imputed_mask(input_matrix.M, missing_mask_original),
-        )
-        assay.add_layer(new_layer_name or "imputed_missforest", new_matrix)
+        add_imputed_layer(assay, layer_name, X_in.copy(), input_matrix, missing_mask_original)
         return container
 
     # Apply MissForest imputation
@@ -234,18 +227,14 @@ def impute_mf(
             f"IterativeImputer failed: {e}",
             parameter="iterative_imputer",
         ) from e
-    X_imputed[~missing_mask_original] = X_in[~missing_mask_original]
+    preserve_observed_values(X_imputed, X_in, missing_mask_original)
 
     # Create new layer
-    new_matrix = ScpMatrix(
-        X=X_imputed,
-        M=_update_imputed_mask(input_matrix.M, missing_mask_original),
-    )
-    layer_name = new_layer_name or "imputed_missforest"
-    assay.add_layer(layer_name, new_matrix)
+    add_imputed_layer(assay, layer_name, X_imputed, input_matrix, missing_mask_original)
 
     # Log operation
-    container.log_operation(
+    return log_imputation_operation(
+        container,
         action="impute_missforest",
         params={
             "assay": assay_name,
@@ -256,8 +245,6 @@ def impute_mf(
         },
         description=f"MissForest imputation on assay '{assay_name}'.",
     )
-
-    return container
 
 
 register_impute_method(

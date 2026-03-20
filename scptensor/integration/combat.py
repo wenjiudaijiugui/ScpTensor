@@ -44,7 +44,7 @@ microarray data using empirical Bayes methods. bioRxiv.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Literal, cast
+from typing import Literal
 
 import numpy as np
 import polars as pl
@@ -52,10 +52,12 @@ import scipy.sparse as sp
 
 from scptensor.core.exceptions import ScpValueError, ValidationError
 from scptensor.core.sparse_utils import is_sparse_matrix
-from scptensor.core.structures import ScpContainer, ScpMatrix
+from scptensor.core.structures import ScpContainer
 from scptensor.integration.base import (
-    get_integrate_method_info,
+    add_integrated_layer,
+    log_integration_operation,
     register_integrate_method,
+    to_dense_array,
     validate_batch_integration_params,
     validate_layer_params,
 )
@@ -137,12 +139,8 @@ def integrate_combat(
     )
 
     # Get data
-    X = layer.X.copy()
-    input_was_sparse = is_sparse_matrix(X)
-    if sp.issparse(X):
-        X_dense = cast(sp.spmatrix, X).toarray()
-    else:
-        X_dense = np.asarray(X)
+    input_was_sparse = is_sparse_matrix(layer.X)
+    X_dense = to_dense_array(layer.X, copy=not input_was_sparse)
 
     if np.isnan(X_dense).any():
         raise ValidationError(
@@ -190,26 +188,18 @@ def integrate_combat(
             X_corrected = sp.csr_matrix(X_corrected)
 
     # Create new layer and log
-    M_input = layer.M
-    new_matrix = ScpMatrix(
-        X=X_corrected,
-        M=M_input.copy() if M_input is not None else None,
-    )
-    assay.add_layer(new_layer_name or "combat", new_matrix)
-    method_info = get_integrate_method_info("combat")
-    container.log_operation(
+    add_integrated_layer(assay, new_layer_name or "combat", X_corrected, layer)
+    return log_integration_operation(
+        container,
         action="integration_combat",
+        method_name="combat",
         params={
             "batch_key": batch_key,
             "covariates": list(covariates) if covariates else None,
             "eb_mode": eb_mode,
-            "integration_level": method_info.integration_level,
-            "recommended_for_de": method_info.recommended_for_de,
         },
         description=f"ComBat batch correction (eb_mode={eb_mode}).",
     )
-
-    return container
 
 
 def _build_design_matrices(

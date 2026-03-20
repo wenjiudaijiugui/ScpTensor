@@ -6,13 +6,11 @@ correction. It is useful as an explicit baseline in method comparison.
 
 from __future__ import annotations
 
-import numpy as np
-import scipy.sparse as sp
-
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import ScpContainer, ScpMatrix
+from scptensor.core.structures import ScpContainer
 from scptensor.integration.base import (
-    get_integrate_method_info,
+    clone_layer_matrix,
+    log_integration_operation,
     register_integrate_method,
     validate_layer_params,
 )
@@ -51,28 +49,19 @@ def integrate_none(
             value=batch_key,
         )
 
-    if sp.issparse(layer.X):
-        x_copy = layer.X.copy()
-    else:
-        x_copy = np.array(layer.X, copy=True)
+    assay.add_layer(new_layer_name or "none", clone_layer_matrix(layer))
 
-    m_copy = layer.M.copy() if layer.M is not None else None
-    assay.add_layer(new_layer_name or "none", ScpMatrix(X=x_copy, M=m_copy))
-
-    method_info = get_integrate_method_info("none")
-    container.log_operation(
+    return log_integration_operation(
+        container,
         action="integration_none",
+        method_name="none",
         params={
             "batch_key": batch_key,
             "assay": assay_name,
             "base_layer": base_layer,
-            "integration_level": method_info.integration_level,
-            "recommended_for_de": method_info.recommended_for_de,
         },
         description="No batch correction baseline (layer copy).",
     )
-
-    return container
 
 
 __all__ = ["integrate_none"]

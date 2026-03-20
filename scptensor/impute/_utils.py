@@ -1,9 +1,16 @@
 """Utility functions for imputation modules."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
+
 import numpy as np
 import scipy.sparse as sp
 
-from scptensor.core.structures import MaskCode
+from scptensor.core.structures import MaskCode, ScpMatrix
+
+if TYPE_CHECKING:
+    from scptensor.core.structures import Assay, ScpContainer
 
 
 def _update_imputed_mask(
@@ -43,3 +50,65 @@ def _update_imputed_mask(
         new_M = np.zeros(missing_mask.shape, dtype=np.int8)
         new_M[missing_mask] = MaskCode.IMPUTED
         return new_M
+
+
+def to_dense_float_copy(x: np.ndarray | sp.spmatrix) -> np.ndarray:
+    """Return a dense float64 copy for imputation algorithms."""
+    if sp.issparse(x):
+        return cast(sp.spmatrix, x).toarray().astype(np.float64, copy=False)
+    return np.asarray(x, dtype=np.float64).copy()
+
+
+def preserve_observed_values(
+    x_imputed: np.ndarray,
+    x_original: np.ndarray,
+    missing_mask: np.ndarray,
+) -> np.ndarray:
+    """Restore observed entries so only original NaN positions are changed."""
+    if np.any(~missing_mask):
+        x_imputed[~missing_mask] = x_original[~missing_mask]
+    return x_imputed
+
+
+def build_imputed_matrix(
+    x: np.ndarray | sp.spmatrix,
+    input_matrix: ScpMatrix,
+    missing_mask: np.ndarray,
+) -> ScpMatrix:
+    """Create a result matrix with the contract-preserving imputed mask."""
+    return ScpMatrix(X=x, M=_update_imputed_mask(input_matrix.M, missing_mask))
+
+
+def add_imputed_layer(
+    assay: Assay,
+    layer_name: str,
+    x: np.ndarray | sp.spmatrix,
+    input_matrix: ScpMatrix,
+    missing_mask: np.ndarray,
+) -> ScpMatrix:
+    """Write an imputed layer and return the stored matrix."""
+    result = build_imputed_matrix(x, input_matrix, missing_mask)
+    assay.add_layer(layer_name, result)
+    return result
+
+
+def clone_layer_matrix(source_layer: ScpMatrix) -> ScpMatrix:
+    """Clone X and M for passthrough/no-op layer creation."""
+    if sp.issparse(source_layer.X):
+        x_copy: np.ndarray | sp.spmatrix = source_layer.X.copy()
+    else:
+        x_copy = np.array(source_layer.X, copy=True)
+
+    m_copy = source_layer.M.copy() if source_layer.M is not None else None
+    return ScpMatrix(X=x_copy, M=m_copy)
+
+
+def log_imputation_operation(
+    container: ScpContainer,
+    action: str,
+    params: dict[str, Any],
+    description: str,
+) -> ScpContainer:
+    """Append imputation provenance and return the same container."""
+    container.log_operation(action=action, params=params, description=description)
+    return container

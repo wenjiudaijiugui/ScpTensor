@@ -7,19 +7,19 @@ retaining intercept and optional biological covariate effects.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import cast
 
 import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.sparse_utils import is_sparse_matrix
-from scptensor.core.structures import ScpContainer, ScpMatrix
+from scptensor.core.structures import ScpContainer
 from scptensor.integration.base import (
-    get_integrate_method_info,
+    add_integrated_layer,
+    log_integration_operation,
     preserve_sparsity,
     register_integrate_method,
+    to_dense_array,
     validate_batch_integration_params,
     validate_layer_params,
 )
@@ -60,12 +60,8 @@ def integrate_limma(
         container, batch_key, assay_name, min_batches=2, min_samples_per_batch=2
     )
 
-    x_raw = layer.X.copy()
-    input_was_sparse = is_sparse_matrix(x_raw)
-    if sp.issparse(x_raw):
-        x_dense = cast(sp.spmatrix, x_raw).toarray()
-    else:
-        x_dense = np.asarray(x_raw)
+    input_was_sparse = sp.issparse(layer.X)
+    x_dense = to_dense_array(layer.X, copy=not input_was_sparse)
 
     design_matrix, design_cols, batch_term_cols, ref_batch = _build_limma_design_matrix(
         obs_df,
@@ -87,23 +83,20 @@ def integrate_limma(
     x_corrected = _remove_batch_effect_with_missing(x_dense, design_matrix, batch_idx)
 
     x_out = preserve_sparsity(x_corrected, input_was_sparse)
-    m_out = layer.M.copy() if layer.M is not None else None
-    assay.add_layer(new_layer_name or "limma", ScpMatrix(X=x_out, M=m_out))
+    add_integrated_layer(assay, new_layer_name or "limma", x_out, layer)
 
-    method_info = get_integrate_method_info("limma")
-    container.log_operation(
+    return log_integration_operation(
+        container,
         action="integration_limma",
+        method_name="limma",
         params={
             "batch_key": batch_key,
             "covariates": list(covariates) if covariates else None,
             "reference_batch": ref_batch,
             "n_batch_terms": len(batch_term_cols),
-            "integration_level": method_info.integration_level,
-            "recommended_for_de": method_info.recommended_for_de,
         },
         description=f"Limma-style linear batch correction (reference_batch={ref_batch}).",
     )
-    return container
 
 
 def _build_limma_design_matrix(

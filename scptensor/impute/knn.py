@@ -10,10 +10,7 @@ where:
 - :math:`w_k` are the weights (uniform or distance-based)
 """
 
-from typing import cast
-
 import numpy as np
-import scipy.sparse as sp
 from sklearn.metrics.pairwise import nan_euclidean_distances
 
 from scptensor.core.exceptions import (
@@ -21,8 +18,13 @@ from scptensor.core.exceptions import (
     LayerNotFoundError,
     ScpValueError,
 )
-from scptensor.core.structures import ScpContainer, ScpMatrix
-from scptensor.impute._utils import _update_imputed_mask
+from scptensor.core.structures import ScpContainer
+from scptensor.impute._utils import (
+    add_imputed_layer,
+    log_imputation_operation,
+    preserve_observed_values,
+    to_dense_float_copy,
+)
 from scptensor.impute.base import ImputeMethod, register_impute_method
 
 # =============================================================================
@@ -258,16 +260,12 @@ def impute_knn(
         )
 
     matrix = assay.layers[source_layer]
-    x_raw = matrix.X
-    if sp.issparse(x_raw):
-        X = cast(sp.spmatrix, x_raw).toarray().astype(np.float64, copy=False)
-    else:
-        X = np.asarray(x_raw, dtype=np.float64).copy()
+    X = to_dense_float_copy(matrix.X)
     missing_mask = np.isnan(X)
+    layer_name = new_layer_name or "imputed_knn"
 
     if not np.any(missing_mask):
-        new_matrix = ScpMatrix(X=X, M=_update_imputed_mask(matrix.M, missing_mask))
-        assay.add_layer(new_layer_name or "imputed_knn", new_matrix)
+        add_imputed_layer(assay, layer_name, X, matrix, missing_mask)
         return container
 
     # Apply KNN imputation
@@ -278,15 +276,14 @@ def impute_knn(
         oversample_factor=oversample_factor,
         batch_size=batch_size,
     )
-    X_imputed[~missing_mask] = X[~missing_mask]
+    preserve_observed_values(X_imputed, X, missing_mask)
 
     # Create new layer
-    new_matrix = ScpMatrix(X=X_imputed, M=_update_imputed_mask(matrix.M, missing_mask))
-    layer_name = new_layer_name or "imputed_knn"
-    assay.add_layer(layer_name, new_matrix)
+    add_imputed_layer(assay, layer_name, X_imputed, matrix, missing_mask)
 
     # Log operation
-    container.log_operation(
+    return log_imputation_operation(
+        container,
         action="impute_knn",
         params={
             "assay": assay_name,
@@ -297,8 +294,6 @@ def impute_knn(
         },
         description=f"KNN imputation (k={k}, weights={weights}) on assay '{assay_name}'.",
     )
-
-    return container
 
 
 register_impute_method(

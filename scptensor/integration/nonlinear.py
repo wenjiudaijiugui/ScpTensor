@@ -28,11 +28,11 @@ single-cell data with Harmony. Nature Methods (2019).
 from __future__ import annotations
 
 from scptensor.core.exceptions import MissingDependencyError
-from scptensor.core.sparse_utils import is_sparse_matrix
-from scptensor.core.structures import ScpContainer, ScpMatrix
+from scptensor.core.structures import ScpContainer
 from scptensor.integration.base import (
-    get_integrate_method_info,
-    prepare_integration_data,
+    add_integrated_layer,
+    log_integration_operation,
+    prepare_integration_input,
     preserve_sparsity,
     register_integrate_method,
     validate_batch_integration_params,
@@ -125,9 +125,10 @@ def integrate_harmony(
     except ImportError as exc:
         raise MissingDependencyError("harmonypy") from exc
 
-    X = layer.X
-    input_was_sparse = is_sparse_matrix(X)
-    X_dense = prepare_integration_data(X, context="Harmony integration")
+    X_dense, input_was_sparse = prepare_integration_input(
+        layer,
+        context="Harmony integration",
+    )
     meta_data = container.obs.to_pandas()
 
     harmony_params = {
@@ -146,15 +147,12 @@ def integrate_harmony(
     res = ho.Z_corr.T
     res = preserve_sparsity(res, input_was_sparse)
 
-    new_matrix = ScpMatrix(
-        X=res,
-        M=layer.M.copy() if layer.M is not None else None,
-    )
-    assay.add_layer(new_layer_name or "harmony", new_matrix)
+    add_integrated_layer(assay, new_layer_name or "harmony", res, layer)
 
-    method_info = get_integrate_method_info("harmony")
-    container.log_operation(
+    return log_integration_operation(
+        container,
         action="integration_harmony",
+        method_name="harmony",
         params={
             "batch_key": batch_key,
             "theta": harmony_params["theta"],
@@ -162,16 +160,12 @@ def integrate_harmony(
             "sigma": harmony_params["sigma"],
             "nclust": harmony_params["nclust"],
             "n_batches": len(unique_batches),
-            "integration_level": method_info.integration_level,
-            "recommended_for_de": method_info.recommended_for_de,
         },
         description=(
             f"Harmony integration (theta={harmony_params['theta']}, "
             f"lamb={harmony_params['lamb']}) on layer '{base_layer}'."
         ),
     )
-
-    return container
 
 
 __all__ = ["integrate_harmony"]

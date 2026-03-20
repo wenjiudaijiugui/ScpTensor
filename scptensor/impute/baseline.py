@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 import numpy as np
-import scipy.sparse as sp
 
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.core.structures import ScpContainer, ScpMatrix
-from scptensor.impute._utils import _update_imputed_mask
+from scptensor.impute._utils import (
+    add_imputed_layer,
+    clone_layer_matrix,
+    log_imputation_operation,
+    preserve_observed_values,
+    to_dense_float_copy,
+)
 from scptensor.impute.base import ImputeMethod, register_impute_method
 
 
@@ -109,12 +112,6 @@ def _validate_and_get_matrix(
     return assay.layers[source_layer]
 
 
-def _to_dense_copy(x: np.ndarray | sp.spmatrix) -> np.ndarray:
-    if sp.issparse(x):
-        return cast(sp.spmatrix, x).toarray().astype(np.float64, copy=False)
-    return np.asarray(x, dtype=np.float64).copy()
-
-
 def impute_none(
     container: ScpContainer,
     assay_name: str,
@@ -125,11 +122,9 @@ def impute_none(
     matrix = _validate_and_get_matrix(container, assay_name, source_layer)
     assay = container.assays[assay_name]
 
-    x_copy = matrix.X.copy()
-    m_copy = matrix.M.copy() if matrix.M is not None else None
-    assay.add_layer(new_layer_name, ScpMatrix(X=x_copy, M=m_copy))
-
-    container.log_operation(
+    assay.add_layer(new_layer_name, clone_layer_matrix(matrix))
+    return log_imputation_operation(
+        container,
         action="impute_none",
         params={
             "assay": assay_name,
@@ -138,7 +133,6 @@ def impute_none(
         },
         description=f"Passthrough imputation (no-op) on assay '{assay_name}'.",
     )
-    return container
 
 
 def impute_zero(
@@ -151,16 +145,13 @@ def impute_zero(
     input_matrix = _validate_and_get_matrix(container, assay_name, source_layer)
     assay = container.assays[assay_name]
 
-    x_dense = _to_dense_copy(input_matrix.X)
+    x_dense = to_dense_float_copy(input_matrix.X)
     missing_mask = np.isnan(x_dense)
-    x_imputed = impute_zero_core(x_dense)
-    x_imputed[~missing_mask] = x_dense[~missing_mask]
+    x_imputed = preserve_observed_values(impute_zero_core(x_dense), x_dense, missing_mask)
 
-    assay.add_layer(
-        new_layer_name,
-        ScpMatrix(X=x_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask)),
-    )
-    container.log_operation(
+    add_imputed_layer(assay, new_layer_name, x_imputed, input_matrix, missing_mask)
+    return log_imputation_operation(
+        container,
         action="impute_zero",
         params={
             "assay": assay_name,
@@ -169,7 +160,6 @@ def impute_zero(
         },
         description=f"Zero imputation on assay '{assay_name}'.",
     )
-    return container
 
 
 def impute_row_mean(
@@ -182,16 +172,13 @@ def impute_row_mean(
     input_matrix = _validate_and_get_matrix(container, assay_name, source_layer)
     assay = container.assays[assay_name]
 
-    x_dense = _to_dense_copy(input_matrix.X)
+    x_dense = to_dense_float_copy(input_matrix.X)
     missing_mask = np.isnan(x_dense)
-    x_imputed = impute_row_mean_core(x_dense)
-    x_imputed[~missing_mask] = x_dense[~missing_mask]
+    x_imputed = preserve_observed_values(impute_row_mean_core(x_dense), x_dense, missing_mask)
 
-    assay.add_layer(
-        new_layer_name,
-        ScpMatrix(X=x_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask)),
-    )
-    container.log_operation(
+    add_imputed_layer(assay, new_layer_name, x_imputed, input_matrix, missing_mask)
+    return log_imputation_operation(
+        container,
         action="impute_row_mean",
         params={
             "assay": assay_name,
@@ -200,7 +187,6 @@ def impute_row_mean(
         },
         description=f"Row-mean imputation on assay '{assay_name}'.",
     )
-    return container
 
 
 def impute_row_median(
@@ -213,16 +199,13 @@ def impute_row_median(
     input_matrix = _validate_and_get_matrix(container, assay_name, source_layer)
     assay = container.assays[assay_name]
 
-    x_dense = _to_dense_copy(input_matrix.X)
+    x_dense = to_dense_float_copy(input_matrix.X)
     missing_mask = np.isnan(x_dense)
-    x_imputed = impute_row_median_core(x_dense)
-    x_imputed[~missing_mask] = x_dense[~missing_mask]
+    x_imputed = preserve_observed_values(impute_row_median_core(x_dense), x_dense, missing_mask)
 
-    assay.add_layer(
-        new_layer_name,
-        ScpMatrix(X=x_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask)),
-    )
-    container.log_operation(
+    add_imputed_layer(assay, new_layer_name, x_imputed, input_matrix, missing_mask)
+    return log_imputation_operation(
+        container,
         action="impute_row_median",
         params={
             "assay": assay_name,
@@ -231,7 +214,6 @@ def impute_row_median(
         },
         description=f"Row-median imputation on assay '{assay_name}'.",
     )
-    return container
 
 
 def impute_half_row_min(
@@ -252,16 +234,17 @@ def impute_half_row_min(
     input_matrix = _validate_and_get_matrix(container, assay_name, source_layer)
     assay = container.assays[assay_name]
 
-    x_dense = _to_dense_copy(input_matrix.X)
+    x_dense = to_dense_float_copy(input_matrix.X)
     missing_mask = np.isnan(x_dense)
-    x_imputed = impute_half_row_min_core(x_dense, fraction=fraction)
-    x_imputed[~missing_mask] = x_dense[~missing_mask]
-
-    assay.add_layer(
-        new_layer_name,
-        ScpMatrix(X=x_imputed, M=_update_imputed_mask(input_matrix.M, missing_mask)),
+    x_imputed = preserve_observed_values(
+        impute_half_row_min_core(x_dense, fraction=fraction),
+        x_dense,
+        missing_mask,
     )
-    container.log_operation(
+
+    add_imputed_layer(assay, new_layer_name, x_imputed, input_matrix, missing_mask)
+    return log_imputation_operation(
+        container,
         action="impute_half_row_min",
         params={
             "assay": assay_name,
@@ -271,7 +254,6 @@ def impute_half_row_min(
         },
         description=f"Half-row-min imputation (fraction={fraction}) on assay '{assay_name}'.",
     )
-    return container
 
 
 register_impute_method(

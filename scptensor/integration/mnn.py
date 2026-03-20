@@ -37,11 +37,11 @@ from sklearn.decomposition import PCA
 from sklearn.neighbors import NearestNeighbors
 
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.sparse_utils import is_sparse_matrix
-from scptensor.core.structures import ScpContainer, ScpMatrix
+from scptensor.core.structures import ScpContainer
 from scptensor.integration.base import (
-    get_integrate_method_info,
-    prepare_integration_data,
+    add_integrated_layer,
+    log_integration_operation,
+    prepare_integration_input,
     preserve_sparsity,
     register_integrate_method,
     validate_batch_integration_params,
@@ -111,10 +111,7 @@ def integrate_mnn(
     )
 
     # Get and prepare data
-    X = layer.X.copy()
-    M = layer.M
-    input_was_sparse = is_sparse_matrix(X)
-    X = prepare_integration_data(X, context="MNN integration")
+    X, input_was_sparse = prepare_integration_input(layer, context="MNN integration")
 
     # Compute PCA for efficient neighbor search
     X_pca = _compute_pca_for_mnn(X, n_pcs) if use_pca else X
@@ -128,16 +125,13 @@ def integrate_mnn(
     X_corrected = preserve_sparsity(X_corrected, input_was_sparse)
 
     # Create new layer
-    new_matrix = ScpMatrix(
-        X=X_corrected,
-        M=M.copy() if M is not None else None,
-    )
-    assay.add_layer(new_layer_name or "mnn_corrected", new_matrix)
+    add_integrated_layer(assay, new_layer_name or "mnn_corrected", X_corrected, layer)
 
     # Log operation
-    method_info = get_integrate_method_info("mnn")
-    container.log_operation(
+    return log_integration_operation(
+        container,
         action="integration_mnn",
+        method_name="mnn",
         params={
             "batch_key": batch_key,
             "assay": assay_name,
@@ -145,13 +139,9 @@ def integrate_mnn(
             "sigma": sigma,
             "use_pca": use_pca,
             "n_batches": len(unique_batches),
-            "integration_level": method_info.integration_level,
-            "recommended_for_de": method_info.recommended_for_de,
         },
         description=f"MNN correction (k={k}, sigma={sigma}) on assay '{assay_name}'.",
     )
-
-    return container
 
 
 def _compute_pca_for_mnn(X: np.ndarray, n_pcs: int | None) -> np.ndarray:

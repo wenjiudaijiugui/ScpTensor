@@ -1450,6 +1450,21 @@ class TestLimmaIntegration:
         assert log_entry.params["integration_level"] == "matrix"
         assert log_entry.params["recommended_for_de"] is True
 
+    def test_limma_copies_mask_not_reference(self):
+        """Regression: integration output M should be copied, not aliased."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+        )
+        raw_layer = container.assays["protein"].layers["raw"]
+        raw_layer.M = np.zeros(raw_layer.X.shape, dtype=np.int8)
+
+        result = limma_correct(container, batch_key="batch", assay_name="protein", base_layer="raw")
+
+        m_out = result.assays["protein"].layers["limma"].M
+        assert m_out is not None
+        assert np.array_equal(m_out, raw_layer.M)
+        assert m_out is not raw_layer.M
+
     def test_limma_preserves_missing_values_without_imputation(self):
         """Test limma fits on observed samples and keeps missing positions as NaN."""
         container = create_batch_container(
@@ -1785,6 +1800,8 @@ class TestIntegrationBaselineAndMetadata:
             n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
         )
         x_before = container.assays["protein"].layers["raw"].X
+        raw_layer = container.assays["protein"].layers["raw"]
+        raw_layer.M = np.zeros(raw_layer.X.shape, dtype=np.int8)
 
         result = integrate_none(
             container,
@@ -1798,6 +1815,10 @@ class TestIntegrationBaselineAndMetadata:
         x_after = result.assays["protein"].layers["none"].X
         assert np.array_equal(x_before, x_after)
         assert x_before is not x_after
+        m_after = result.assays["protein"].layers["none"].M
+        assert m_after is not None
+        assert np.array_equal(m_after, raw_layer.M)
+        assert m_after is not raw_layer.M
 
         log_entry = result.history[-1]
         assert log_entry.action == "integration_none"
