@@ -53,7 +53,7 @@
 
 ## 3. 逐篇证据摘要（Per-paper Summaries）
 
-说明：本节沿用全仓库资源分型。单篇论文默认记为 `论文证据`；仓库源码/本地实现说明记为 `本地实现上下文`。
+说明：本节统一沿用全仓库资源分型。单篇论文默认记为 `论文证据`；仓库源码/本地实现说明记为 `本地实现上下文`。
 共享高频条目的规范元数据统一以 `docs/references/citations.json` 为准；若本文件历史写法与 registry 在作者简称、发布日期、期刊、DOI 或 canonical URL 上不一致，以 registry 为准，本文件仅保留 z-score representation 的语义与边界。
 
 ### 3.1 Chawade et al., Journal of Proteome Research, 2014
@@ -105,7 +105,7 @@
   - 文中明确提醒：不同表示空间下的得分不可被机械视为同一含义。
 - 对 ScpTensor 的意义：
   - `zscore` 产出的 layer 更接近 `analysis space`，而不是 `quantitative source of truth`。
-  - 如果在 z-scored space 上计算 PCA/ASW/聚类指标，文档必须显式写出 `@zscore`，避免与 `@log` 或 `@normalized` 空间混淆。
+  - 如果在 z-scored space 上计算 PCA/ASW/聚类指标，文档必须显式写出 `@zscore`，避免与 `@log` 或 `@norm` 空间混淆。
 
 ### 3.5 Liu et al., Nature Methods, 2025
 
@@ -137,7 +137,7 @@
 ### 3.7 本地实现上下文：`scptensor.standardization.zscore`
 
 - 资源类型：`本地实现上下文`
-- 代码位置：[scptensor/standardization/zscore.py](/home/shenshang/projects/ScpTensor/scptensor/standardization/zscore.py#L26)
+- 代码位置：`scptensor/standardization/zscore.py`（入口定义位于 `zscore()`）
 - 当前实现直接语义：
   - 默认 `source_layer="imputed"`
   - 要求输入矩阵无 `NaN`
@@ -151,7 +151,7 @@
 
 - `Wang et al., Nat Commun (published: 2025-11-21)` 明确支持 preprocessing choice 必须跟数据结构和任务场景绑定，因此 `zscore` 不应被写成 ScpTensor 的主线默认 normalization：<https://www.nature.com/articles/s41467-025-65174-4>
 - `Gatto et al., Nat Methods (published: 2023-03-02)` 支持 transformation provenance 必须在 single-cell proteomics 报告中透明呈现；因此 `zscore` layer 的来源和参数必须文档化：<https://www.nature.com/articles/s41592-023-01785-3>
-- `Luecken 2022` 与 `Liu 2025` 共同支持“表示空间依赖任务边界”，因此任何 `@zscore` 空间上的指标都应继续带着表示空间标签报告，而不是与 `@log` 或 `@normalized` 混成同一 quantitative layer：<https://www.nature.com/articles/s41592-021-01336-8>；<https://www.nature.com/articles/s41592-025-02856-3>
+- `Luecken 2022` 与 `Liu 2025` 共同支持“表示空间依赖任务边界”，因此任何 `@zscore` 空间上的指标都应继续带着表示空间标签报告，而不是与 `@log` 或 `@norm` 混成同一 quantitative layer：<https://www.nature.com/articles/s41592-021-01336-8>；<https://www.nature.com/articles/s41592-025-02856-3>
 - `zMAP 2024` 进一步说明，如果要把 z-transform 用作定量比较方法，应把它视作专门方法，而不是 generic helper；当前 ScpTensor 的 `zscore` 文档必须避免这类语义漂移：<https://doi.org/10.1016/j.mcpro.2024.100791>
 
 ## 4. 横向比较与证据分级
@@ -160,7 +160,7 @@
 
 1. `zscore` 不是 proteomics quantitative normalization 的通用默认答案。
 2. `zscore` 更适合被界定为下游表示空间变换，用于 heatmap、PCA、embedding、clustering 等 exploratory tasks。
-3. 表示空间不同，指标解释就不同；`@zscore` 结果不应与 `@log`、`@vendor-normalized`、`@normalized` 空间直接混写。
+3. 表示空间不同，指标解释就不同；`@zscore` 结果不应与 `@log`、带 `is_vendor_normalized=true` 的 `raw` 层、或 `@norm` 空间直接混写。
 4. 若要把 z-transform 作为 quantitative-comparison 方法，必须采用明确的方法学定义，而不是把 generic z-score 冒充成专门 normalization。
 
 ### 4.2 分歧与解释（inference）
@@ -192,12 +192,12 @@
   - 输入必须是 `complete matrix`
   - 输入层必须显式命名
 - 推荐优先顺序：
-  1. `logged + complete`
-  2. `normalized + logged + complete`
-  3. `imputed + logged + complete`
+  1. `log + complete`
+  2. `norm + complete`
+  3. `imputed + complete`
 - 不建议默认在以下层上静默执行：
-  - `raw-linear`
-  - `vendor-normalized-linear`
+  - `raw`
+  - 带 `is_vendor_normalized=true` 的 `raw`
   - provenance 不明的 merged layer
 
 ### 5.3 适用任务
@@ -242,8 +242,4 @@
 - `luecken2022_natmethods_scib`
 - `liu2025_natmethods_multitask_integration`
 - `gui2024_mcpro_zmap`
-
-本文件额外保留的当前非 registry 条目：
-
-1. 本地实现上下文：`scptensor.standardization.zscore`
-   [zscore.py](/home/shenshang/projects/ScpTensor/scptensor/standardization/zscore.py)
+注：本文件中的本地实现上下文锚点保留在正文 `3.7`，不再作为尾部额外 citation 条目单列。

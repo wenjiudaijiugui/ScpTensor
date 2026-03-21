@@ -2,6 +2,8 @@
 
 本文档汇总了常用 peptide/precursor -> protein 聚合策略，并对应到 ScpTensor 当前实现。
 
+若需要查看当前代码基线的冻结实现边界，请优先参见 `docs/aggregation_contract.md`；本文档更偏方法背景与来源整理，不替代实现合同。
+
 ## 1. 方法清单与来源
 
 | 方法 | 核心思想 | 典型来源 | ScpTensor 实现状态 |
@@ -19,7 +21,7 @@
 ## 2. 主要参考链接
 
 - OpenMS: `ProteinQuantifier`（当前文档页；包含 `top:aggregate` 的 `sum/mean/median/weighted_mean` 以及 `method=iBAQ`）
-  - https://openms.de/documentation/html/TOPP_ProteinQuantifier.html
+  - http://www.openms.de/doxygen/release/3.4.1/html/TOPP_ProteinQuantifier.html
 - MaxLFQ 原始论文（Cox et al., 2014, MCP）
   - https://pmc.ncbi.nlm.nih.gov/articles/PMC4159666/
 - MSstats `dataProcess`（TMP summarization）

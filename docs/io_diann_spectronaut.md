@@ -220,6 +220,46 @@
 - 当前 matrix import 中，缺失单元格默认映射到 `LOD`，这是保守 engineering choice。
 - 若上游只提供最终 pivot matrix，ScpTensor 不应过度宣称该值是 `VALID` 还是 `MBR`；此时更适合依赖 provenance 和记为 `UNCERTAIN` 或保守 `LOD`。
 
+### 9.4 当前实现快照与解释边界（2026-03-16）
+
+当前 `scptensor.io.mass_spec` 的 matrix/pivot 导入实现仍采用最简基线：
+
+- finite cell -> `VALID`
+- non-finite cell -> `LOD`
+
+这条规则的意义应被收紧为：
+
+- 它是“当前 importer 的保守基线映射”
+- 它不是“已经完整恢复 vendor 缺失机制”的证明
+
+因此在后续文档、QC 统计、missingness 指标与 benchmark 解释中，应继续遵守以下口径：
+
+- matrix-only 导入得到的 `LOD`，默认解释为 `matrix-missing baseline`
+- 不应把它自动上升为“明确 left-censored low abundance”
+- 若来源语义无法恢复，长期目标语义仍更接近 `UNCERTAIN`
+
+换句话说，当前实现允许工程上先走通导入路径，但文档不能把这一简化写成状态语义已经完全解决。
+
+### 9.5 与核心合同统一的 assay / layer 命名建议
+
+I/O 文档与示例应优先使用以下 canonical naming：
+
+- assay:
+  - `proteins`
+  - `peptides`
+- layers:
+  - `raw`
+  - `log`
+  - `norm`
+  - `imputed`
+
+补充说明：
+
+- `protein` / `peptide` 可以作为历史兼容别名，但不应继续作为仓库文档首选示例名。
+- `raw` 是仓库级 I/O 文档中导入后主 quantitative layer 的默认名字；若来源列本身已经 vendor-normalized，应通过 provenance 字段例如 `is_vendor_normalized=true` 和 `source_column` 说明，而不是再引入第二套默认 layer 名。
+- `normalized`、`trqn_norm` 等实现级 layer 名可以存在，但仓库级 I/O 文档优先用 `norm` 表示“主线 quantitative normalized layer”。
+- `layer='X'` 不应出现在 stable quantitative importer 示例中；它保留给兼容性或 experimental/downstream coordinate assay。
+
 ## 10. 用户可见错误合同
 
 I/O 和 aggregation 的错误消息必须 explicit + actionable。当前测试已经覆盖以下核心场景，文档应与之保持一致。

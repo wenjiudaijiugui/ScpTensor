@@ -281,11 +281,7 @@
 - `massive_msv000093867`
 - `scpdata_bioconductor`
 - `proteobench_dia_singlecell_module`
-
-本文件额外保留的当前非 registry 条目：
-
-1. Koca & Sevilgen, Proteomics 2024, SCPRO-HI
-   https://pubmed.ncbi.nlm.nih.gov/38135888/
+- `koca2024_proteomics_scpro_hi`
 
 ---
 

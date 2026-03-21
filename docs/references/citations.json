@@ -1,5 +1,5 @@
 {
-  "generated_on": "2026-03-13",
+  "generated_on": "2026-03-16",
   "policy": {
     "paper_canonical": "Prefer DOI URL when a DOI is verified and locally resolvable without repeated access limits; otherwise use the publisher or PubMed landing page.",
     "dataset_canonical": "Prefer accession landing page.",
@@ -654,6 +654,247 @@
       "doi": "10.1093/nar/gkaa498",
       "pmid": "32526036",
       "notes": "Shared imputation-reporting and prioritization framework; PMC landing page is preferred here to avoid DOI/OUP resolver instability."
+    },
+    {
+      "id": "openms_proteinquantifier",
+      "kind": "module_spec",
+      "resource_type": "模块规范 / 软件文档",
+      "title": "OpenMS ProteinQuantifier",
+      "authors_short": "OpenMS",
+      "venue": "Project documentation",
+      "year": 2026,
+      "canonical_url": "http://www.openms.de/doxygen/release/3.4.1/html/TOPP_ProteinQuantifier.html",
+      "notes": "Canonical OpenMS documentation for peptide/precursor-to-protein summarization options and parameter semantics."
+    },
+    {
+      "id": "dabke2021_jpr_imputation_workflow",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "A Simple Optimization Workflow to Enable Precise and Accurate Imputation of Missing Values in Proteomic Data Sets",
+      "authors_short": "Dabke et al.",
+      "venue": "Journal of Proteome Research",
+      "year": 2021,
+      "canonical_url": "https://doi.org/10.1021/acs.jproteome.1c00070",
+      "url_aliases": [
+        "https://pubmed.ncbi.nlm.nih.gov/33939434/"
+      ],
+      "doi": "10.1021/acs.jproteome.1c00070",
+      "pmid": "33939434",
+      "notes": "DIA-oriented imputation comparison with multiple protein-quantification levels."
+    },
+    {
+      "id": "bennett2023_natmethods_scp_modalities",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Single-cell proteomics enabled by next-generation sequencing or mass spectrometry",
+      "authors_short": "Bennett et al.",
+      "venue": "Nature Methods",
+      "year": 2023,
+      "published_date": "2023-03-02",
+      "canonical_url": "https://doi.org/10.1038/s41592-023-01791-5",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41592-023-01791-5"
+      ],
+      "doi": "10.1038/s41592-023-01791-5",
+      "notes": "Single-cell proteomics modality review and reporting-context evidence."
+    },
+    {
+      "id": "krull2024_natcom_feature_matching",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Enhanced feature matching in single-cell proteomics characterizes IFN-gamma response and co-existence of cell states",
+      "authors_short": "Krull et al.",
+      "venue": "Nature Communications",
+      "year": 2024,
+      "canonical_url": "https://doi.org/10.1038/s41467-024-52605-x",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41467-024-52605-x"
+      ],
+      "doi": "10.1038/s41467-024-52605-x",
+      "notes": "Upstream feature-matching evidence for reducing sparsity before downstream imputation."
+    },
+    {
+      "id": "vanderaa2023_jpr_revisiting_missing_values",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Revisiting the Thorny Issue of Missing Values in Single-Cell Proteomics",
+      "authors_short": "Vanderaa and Gatto",
+      "venue": "Journal of Proteome Research",
+      "year": 2023,
+      "canonical_url": "https://doi.org/10.1021/acs.jproteome.3c00227",
+      "url_aliases": [
+        "https://pubs.acs.org/doi/abs/10.1021/acs.jproteome.3c00227"
+      ],
+      "doi": "10.1021/acs.jproteome.3c00227",
+      "notes": "Perspective on missing-value semantics, reporting, and method-boundary issues in single-cell proteomics."
+    },
+    {
+      "id": "shi2025_csbj_imputation_bins",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Optimizing imputation strategies for mass spectrometry-based proteomics considering intensity and missing value rates",
+      "authors_short": "Shi et al.",
+      "venue": "Computational and Structural Biotechnology Journal",
+      "year": 2025,
+      "published_date": "2025-05-03",
+      "canonical_url": "https://doi.org/10.1016/j.csbj.2025.04.041",
+      "url_aliases": [
+        "https://pubmed.ncbi.nlm.nih.gov/40470318/",
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC12136770/"
+      ],
+      "doi": "10.1016/j.csbj.2025.04.041",
+      "pmid": "40470318",
+      "notes": "Intensity- and missing-rate-stratified imputation evidence; relevant for scenario-aware imputation design."
+    },
+    {
+      "id": "ali2024_analchem_diame",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "DIA-ME: A Cross-Compatible Data Analysis Pipeline for Multiplexed Data-Independent Acquisition",
+      "authors_short": "Ali et al.",
+      "venue": "Analytical Chemistry",
+      "year": 2024,
+      "canonical_url": "https://pubmed.ncbi.nlm.nih.gov/39292979/",
+      "pmid": "39292979",
+      "notes": "Multiplexed DIA workflow evidence used here only for normalization/quantification boundary comparison, not as mainline ScpTensor input scope."
+    },
+    {
+      "id": "brunner2023_msb_refquant",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Exploring single-cell data with deep visualization, quantification, and multiclonal inference with mDIA and RefQuant",
+      "authors_short": "Brunner et al.",
+      "venue": "Molecular Systems Biology",
+      "year": 2023,
+      "canonical_url": "https://doi.org/10.15252/msb.202211503",
+      "url_aliases": [
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC10486649/"
+      ],
+      "doi": "10.15252/msb.202211503",
+      "notes": "Reference-channel and shared-scale evidence; use only as boundary evidence, not as default label-free normalization contract."
+    },
+    {
+      "id": "callister2006_jpr_normalization",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Normalization approaches for removing systematic biases associated with mass spectrometry and label-free proteomics",
+      "authors_short": "Callister et al.",
+      "venue": "Journal of Proteome Research",
+      "year": 2006,
+      "canonical_url": "https://pubmed.ncbi.nlm.nih.gov/16457593/",
+      "pmid": "16457593",
+      "notes": "Classic label-free normalization background reference."
+    },
+    {
+      "id": "koca2024_proteomics_scpro_hi",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Integration of single-cell proteomic datasets through distinctive proteins in cell clusters",
+      "authors_short": "Koca and Sevilgen",
+      "venue": "Proteomics",
+      "year": 2024,
+      "canonical_url": "https://pubmed.ncbi.nlm.nih.gov/38135888/",
+      "pmid": "38135888",
+      "notes": "Single-cell proteomics integration method evidence with limited transferability to DIA protein-matrix preprocessing."
+    },
+    {
+      "id": "nygaard2016_biostatistics_exaggerated_confidence",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Methods that remove batch effects while retaining group differences may lead to exaggerated confidence in downstream analyses",
+      "authors_short": "Nygaard et al.",
+      "venue": "Biostatistics",
+      "year": 2016,
+      "canonical_url": "https://pubmed.ncbi.nlm.nih.gov/26272994/",
+      "pmid": "26272994",
+      "notes": "Primary evidence that confounded designs can create misleading post-correction confidence."
+    },
+    {
+      "id": "song2020_natcom_designs_batch",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Flexible experimental designs for valid single-cell RNA-sequencing experiments allowing batch effects correction",
+      "authors_short": "Song et al.",
+      "venue": "Nature Communications",
+      "year": 2020,
+      "published_date": "2020-08-03",
+      "canonical_url": "https://doi.org/10.1038/s41467-020-16905-2",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41467-020-16905-2"
+      ],
+      "doi": "10.1038/s41467-020-16905-2",
+      "notes": "Design-identifiability evidence for balanced, reference-panel, chain-type, and complete-confounding scenarios."
+    },
+    {
+      "id": "tran2020_genomebio_batch_benchmark",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "A benchmark of batch-effect correction methods for single-cell RNA sequencing data",
+      "authors_short": "Tran et al.",
+      "venue": "Genome Biology",
+      "year": 2020,
+      "canonical_url": "https://doi.org/10.1186/s13059-019-1850-9",
+      "doi": "10.1186/s13059-019-1850-9",
+      "notes": "Classic batch-removal versus bio-conservation trade-off benchmark."
+    },
+    {
+      "id": "chazarra_gil2023_natcom_integration_de",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Benchmarking integration of single-cell differential expression",
+      "authors_short": "Chazarra-Gil et al.",
+      "venue": "Nature Communications",
+      "year": 2023,
+      "published_date": "2023-03-20",
+      "canonical_url": "https://doi.org/10.1038/s41467-023-37126-3",
+      "url_aliases": [
+        "https://www.nature.com/articles/s41467-023-37126-3"
+      ],
+      "doi": "10.1038/s41467-023-37126-3",
+      "notes": "Integration benchmark evidence with explicit differential-expression preservation framing."
+    },
+    {
+      "id": "harris2023_jpr_imputation_criteria",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Evaluating Proteomics Imputation Methods with Improved Criteria",
+      "authors_short": "Harris et al.",
+      "venue": "Journal of Proteome Research",
+      "year": 2023,
+      "canonical_url": "https://doi.org/10.1021/acs.jproteome.3c00205",
+      "url_aliases": [
+        "https://pubmed.ncbi.nlm.nih.gov/37861703/",
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC10949645/"
+      ],
+      "doi": "10.1021/acs.jproteome.3c00205",
+      "pmid": "37861703",
+      "notes": "Downstream-centric proteomics imputation benchmark with DIA datasets included."
+    },
+    {
+      "id": "gong2025_analchem_scp_integration_benchmark",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Benchmark of Data Integration in Single-Cell Proteomics",
+      "authors_short": "Gong et al.",
+      "venue": "Analytical Chemistry",
+      "year": 2025,
+      "published_date": "2025-06-17",
+      "canonical_url": "https://doi.org/10.1021/acs.analchem.4c04933",
+      "doi": "10.1021/acs.analchem.4c04933",
+      "notes": "Direct single-cell proteomics integration benchmark comparing batch correction, biology preservation, and marker-level consistency."
+    },
+    {
+      "id": "karuppanan2025_jpr_lfproqc_combinations",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "A Statistical Approach for Identifying the Best Combination of Normalization and Imputation Methods for Label-Free Proteomics Expression Data",
+      "authors_short": "Karuppanan et al.",
+      "venue": "Journal of Proteome Research",
+      "year": 2025,
+      "published_date": "2024-12-12",
+      "canonical_url": "https://doi.org/10.1021/acs.jproteome.4c00552",
+      "doi": "10.1021/acs.jproteome.4c00552",
+      "notes": "Combination-level evidence showing normalization-imputation pairings are dataset-dependent and should be compared jointly."
     }
   ]
 }

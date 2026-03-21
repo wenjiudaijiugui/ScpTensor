@@ -56,7 +56,7 @@
 ### 3.1 OpenMS ProteinQuantifier 官方文档
 
 - 资源类型：`模块规范 / 软件文档`
-- 链接：https://openms.de/documentation/html/TOPP_ProteinQuantifier.html
+- 链接：http://www.openms.de/doxygen/release/3.4.1/html/TOPP_ProteinQuantifier.html
 - 直接价值：
   - 系统列出 `sum / mean / median / weighted_mean` 与 `iBAQ` 等 protein quantification 选项。
   - 说明 aggregation 方法不是单一默认，而是与实验目标和数据结构绑定。
@@ -121,7 +121,7 @@
 
 ### 3.7 二次核查补充（资源分型、稳定入口与场景边界）
 
-- `OpenMS ProteinQuantifier`（accessed: `2026-03-12`）属于 `模块规范 / 软件文档`，其价值是给出 aggregation family 与参数语义，不应被写成公共 benchmark 数据入口：<https://openms.de/documentation/html/TOPP_ProteinQuantifier.html>
+- `OpenMS ProteinQuantifier`（accessed: `2026-03-12`）属于 `模块规范 / 软件文档`，其价值是给出 aggregation family 与参数语义，不应被写成公共 benchmark 数据入口：<http://www.openms.de/doxygen/release/3.4.1/html/TOPP_ProteinQuantifier.html>
 - `MaxLFQ`、`directLFQ`、`Goeminne 2020`、`Wang 2025`、`Zheng 2025` 在本综述里都属于 `论文证据`；它们约束的是 protein-level 终点评价与方法边界，而不是稳定数据入口。
 - `Wang 2025` 与 `Zheng 2025` 共同支持 aggregation benchmark 必须回到 `protein-level matrix` 终点，但二者都不是当前仓库应直接绑定的公开 benchmark 数据页：<https://www.nature.com/articles/s41467-025-65174-4>；<https://www.nature.com/articles/s41467-025-64718-y>
 - 本综述本身不指定 `数据入口` 或 `资源包`；若需要稳定公开输入，应回到 `docs/review_public_benchmark_data_20260312.md` 中已收束的 public dataset / module 入口。
@@ -207,8 +207,4 @@
 - `goeminne2020_mcp_feature_consistency`
 - `wang2025_natcom_dia_scp_benchmark`
 - `zheng2025_natcom_protein_batch`
-
-本文件额外保留的当前非 registry 条目：
-
-1. OpenMS ProteinQuantifier 官方文档
-   https://openms.de/documentation/html/TOPP_ProteinQuantifier.html
+- `openms_proteinquantifier`

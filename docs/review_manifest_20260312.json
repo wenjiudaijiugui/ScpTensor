@@ -28,7 +28,7 @@
         {
           "role": "模块规范 / 软件文档",
           "label": "OpenMS ProteinQuantifier",
-          "url": "https://openms.de/documentation/html/TOPP_ProteinQuantifier.html"
+          "url": "http://www.openms.de/doxygen/release/3.4.1/html/TOPP_ProteinQuantifier.html"
         }
       ],
       "notes": "No public dataset is declared as the benchmark owner in this review."

@@ -235,8 +235,4 @@
 - `schlumbohm2022_natcom_harmonizr`
 - `wang2025_natcom_dia_scp_benchmark`
 - `goeminne2020_mcp_feature_consistency`
-
-本文件额外保留的当前非 registry 条目：
-
-1. Vanderaa and Gatto, 2023, Journal of Proteome Research
-   https://pubmed.ncbi.nlm.nih.gov/37530557/
+- `vanderaa2023_jpr_revisiting_missing_values`

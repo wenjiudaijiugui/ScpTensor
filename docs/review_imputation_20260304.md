@@ -141,7 +141,7 @@
   - 建议报告“填充前后结果一致性”。
 - 价值：为测评报告中的“鲁棒性检查”提供理论依据。
 
-### P12. Zhao et al., Comput Struct Biotechnol J, 2025（强度/缺失率分层）
+### P12. Shi et al., Comput Struct Biotechnol J, 2025（强度/缺失率分层）
 
 - 核心内容：提出在蛋白强度与缺失率分层框架下优化填充策略，减少整体统一策略带来的偏差。
 - 主要结论：
@@ -150,11 +150,21 @@
   - 提示单细胞高稀疏数据可借鉴“分层 + 场景化”流程。
 - 价值：为 DIA 单细胞数据中的混合缺失机制提供可迁移思路。
 
-### 3.13 二次核查补充（资源分型、稳定入口与边界）
+### P13. Karuppanan et al., Journal of Proteome Research, 2025（normalization + imputation 组合）
+
+- 核心内容：从组合层面比较 normalization 与 imputation 的配对效果，而不是把两步独立评估后再简单拼接。
+- 主要结论：
+  - 最优组合随数据集变化，不存在稳定的单一“最佳 normalization + imputation”。
+  - 若只独立评单步 imputation，很可能忽略前序 normalization 对缺失修复与 downstream 结果的交互影响。
+  - 组合式比较更适合用来约束 AutoSelect 或 benchmark 中的 pipeline-level 解释边界。
+- 价值：为 ScpTensor 保留“单阶段 benchmark”与“组合敏感性分析”两层输出提供直接支持。
+
+### 3.14 二次核查补充（资源分型、稳定入口与边界）
 
 - 本综述当前纳入的 `P1-P12` 全部属于 `论文证据`；没有单独指定 `数据入口`、`模块规范` 或 `资源包`。因此本文件给出的是 imputation 方法池与证据面，而不是当前仓库的稳定 benchmark 输入清单。
 - `Wang 2025` 是最直接的 DIA-SCP workflow `论文证据`，但其关联 accession 当前并不适合作为仓库稳定公共输入，因此本综述不应把它扩大解释为数据入口。
 - `Krull 2024`、`HarmonizR 2022`、`scplainer 2025` 一类来源在这里应继续被视作“上游减少缺失或任务导向建模的论文证据”，而不是替代 `masked-value benchmark contract` 的模块规范。
+- `Karuppanan 2025` 说明 normalization 与 imputation 的交互不可忽略，因此本综述的单阶段 imputation 结论不应被直接扩大解释为“完整预处理组合最优”。
 - 对当前 ScpTensor 来说，更严格的 benchmark/contract 入口仍应以后续的 `review_masked_imputation_20260312.md`、`review_missingness_20260312.md` 和公共 benchmark 数据综述为准。
 
 ## 4. 文献综合测评报告（面向 DIA 单细胞蛋白组）
@@ -209,23 +219,10 @@
 - `shen2022_scirep_imputation_strategy`
 - `webel2024_natcom_self_supervised_imputation`
 - `schlumbohm2022_natcom_harmonizr`
-
-本文件额外保留的当前非 registry 条目：
-
-1. P2 `Dabke et al., J Proteome Res, 2021`
-   当前保留在旧版方法池综述正文中，后续单独核查并迁入 registry。
-
-2. P7 `Bennett et al., Nat Methods, 2023`
-   当前保留在旧版方法池综述正文中，后续单独核查并迁入 registry。
-
-3. P8 `Krull et al., Nat Commun, 2024`
-   当前保留在旧版方法池综述正文中，后续单独核查并迁入 registry。
-
-4. P10 `Vanderaa et al., Genome Biology, 2025`
-   当前保留在旧版方法池综述正文中，后续单独核查并迁入 registry。
-
-5. P11 `Vanderaa & Gatto, J Proteome Res, 2023`
-   当前保留在旧版方法池综述正文中，后续单独核查并迁入 registry。
-
-6. P12 `Zhao et al., Comput Struct Biotechnol J, 2025`
-   当前保留在旧版方法池综述正文中，后续单独核查并迁入 registry。
+- `dabke2021_jpr_imputation_workflow`
+- `bennett2023_natmethods_scp_modalities`
+- `krull2024_natcom_feature_matching`
+- `vanderaa2025_genomebio_scplainer`
+- `vanderaa2023_jpr_revisiting_missing_values`
+- `shi2025_csbj_imputation_bins`
+- `karuppanan2025_jpr_lfproqc_combinations`

@@ -157,7 +157,7 @@
 ### 4.3 分歧与解释（inference）
 
 - [推断] 对 Spectronaut 而言，若用户只提供最终 pivot 矩阵而不附带导出模板信息，ScpTensor 无法总是唯一判定其 normalized / matched 状态，此时应保守标成 `UNCERTAIN` 或仅保留 provenance 字段，不应过度推断。
-- [推断] 对 DIA-NN 而言，若输入来自 `PG.MaxLFQ` 或 `Precursor.Normalised`，更好的 layer 命名是“vendor-normalized linear layer”，而不是简单叫 `raw`。
+- [推断] 对 DIA-NN 而言，若输入来自 `PG.MaxLFQ` 或 `Precursor.Normalised`，更稳妥的文档策略是继续使用 canonical `raw` 作为导入后主 layer 名，但在 provenance 中强制记录 `is_vendor_normalized=true` 与 `source_column`，避免把 layer 名本身再拆成第二套默认体系。
 
 ### 4.4 证据强度
 
@@ -214,7 +214,7 @@
 
 1. 在 [io_diann_spectronaut.md](io_diann_spectronaut.md) 中新增 `state mapping` 章节。
 2. 在 importer 返回对象的 provenance 中显式记录 `is_vendor_normalized` 与 `source_column_used`。
-3. 在用户文档中统一区分 `raw-linear`、`vendor-normalized-linear`、`logged` 三类 layer。
+3. 在用户文档中统一使用 `raw / log / norm / imputed` 这套 canonical layer 名；若需要表达 vendor-normalized 线性输入，应写成“`raw` layer with `is_vendor_normalized=true`”，而不是新增默认 layer 名家族。
 
 ## 8. Shared Citation Registry Coverage
 
@@ -226,13 +226,4 @@
 - `cox2014_mcp_maxlfq`
 - `wang2025_natcom_dia_scp_benchmark`
 
-本文件额外保留的当前非 registry 条目：
-
-1. Spectronaut 19 Manual v4 PDF
-   https://biognosys.com/content/uploads/2024/09/Spectronaut-19-manual-v4.pdf
-
-2. 本地实现上下文文档
-   [io_diann_spectronaut.md](io_diann_spectronaut.md)
-
-3. 本地 importer 实现
-   [mass_spec.py](../scptensor/io/mass_spec.py)
+注：`Spectronaut 19 Manual v4 PDF` 已作为 `spectronaut_manual` 的 URL alias 收敛进 citation registry；本地实现上下文锚点保留在正文 `3.6`，不再作为尾部额外 citation 清单单列。

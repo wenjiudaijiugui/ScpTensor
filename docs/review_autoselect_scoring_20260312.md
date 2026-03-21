@@ -103,12 +103,6 @@
   - 某些指标不适合某些 output types。
 - 局限：不是 proteomics 专项，但对多 stage AutoSelect 最具迁移价值。
 
-### 3.8 二次核查补充（发布日期与评分语义）
-
-- `Luecken et al., Nat Methods (published: 2022-01-10)` 给出的综合分公式本质是“按任务目标设权重后的聚合器”，不是方法本体不变量：<https://www.nature.com/articles/s41592-021-01336-8>
-- `Liu et al., Nat Methods (published: 2025-10-20)` 明确指出“没有一种方法在所有 output types 上都最优”，因此 AutoSelect 的策略层评分必须与任务语境绑定：<https://www.nature.com/articles/s41592-025-02856-3>
-- `scib-metrics` 官方 `Benchmarker` API 在接口层就分开 `bio_conservation_metrics` 与 `batch_correction_metrics`，随后再汇总制表，支持 `overall_score` 与 `selection_score` 分层报告：<https://scib-metrics.readthedocs.io/en/stable/notebooks/large_scale.html>
-
 ### 3.5 Weber et al., Nature Communications, 2019
 
 - 题目：Essential guidelines for computational method benchmarking
@@ -139,6 +133,12 @@
   - 强调 metadata、cross-validation、分析路径透明度与报告完整性。
   - 只给结果图而不报告分析路径是不够的。
 - 局限：更偏实验与整体 reporting，而不是 scoring formula。
+
+### 3.8 二次核查补充（发布日期与评分语义）
+
+- `Luecken et al., Nat Methods (published: 2022-01-10)` 给出的综合分公式本质是“按任务目标设权重后的聚合器”，不是方法本体不变量：<https://www.nature.com/articles/s41592-021-01336-8>
+- `Liu et al., Nat Methods (published: 2025-10-20)` 明确指出“没有一种方法在所有 output types 上都最优”，因此 AutoSelect 的策略层评分必须与任务语境绑定：<https://www.nature.com/articles/s41592-025-02856-3>
+- `scib-metrics` 官方 `Benchmarker` API 在接口层就分开 `bio_conservation_metrics` 与 `batch_correction_metrics`，随后再汇总制表，支持 `overall_score` 与 `selection_score` 分层报告：<https://scib-metrics.readthedocs.io/en/stable/notebooks/large_scale.html>
 
 ## 4. 横向比较（Comparative Assessment）
 

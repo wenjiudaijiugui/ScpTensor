@@ -1,5 +1,5 @@
 {
-  "generated_on": "2026-03-13",
+  "generated_on": "2026-03-16",
   "notes": "Initial file-level usage map for high-frequency shared citations. Update citations.json first when canonical metadata changes, then sync affected review files.",
   "usages": [
     {
@@ -9,7 +9,8 @@
         "ammar2023_mcpro_directlfq",
         "goeminne2020_mcp_feature_consistency",
         "wang2025_natcom_dia_scp_benchmark",
-        "zheng2025_natcom_protein_batch"
+        "zheng2025_natcom_protein_batch",
+        "openms_proteinquantifier"
       ]
     },
     {
@@ -29,7 +30,12 @@
       "citation_ids": [
         "johnson2007_biostatistics_combat",
         "luecken2022_natmethods_scib",
-        "wang2025_natcom_dia_scp_benchmark"
+        "wang2025_natcom_dia_scp_benchmark",
+        "nygaard2016_biostatistics_exaggerated_confidence",
+        "song2020_natcom_designs_batch",
+        "tran2020_genomebio_batch_benchmark",
+        "chazarra_gil2023_natcom_integration_de",
+        "gong2025_analchem_scp_integration_benchmark"
       ]
     },
     {
@@ -56,7 +62,8 @@
         "cox2014_mcp_maxlfq",
         "brombacher2020_proteomics_trqn",
         "poulos2020_natcom_pronorm",
-        "ctortecka2024_natcom_automated_scp"
+        "ctortecka2024_natcom_automated_scp",
+        "huffman2023_natmethods_prioritized_ms"
       ]
     },
     {
@@ -81,7 +88,11 @@
         "brombacher2020_proteomics_trqn",
         "poulos2020_natcom_pronorm",
         "ammar2023_mcpro_directlfq",
-        "derks2023_natbiotechnol_plexdia"
+        "derks2023_natbiotechnol_plexdia",
+        "ali2024_analchem_diame",
+        "brunner2023_msb_refquant",
+        "callister2006_jpr_normalization",
+        "karuppanan2025_jpr_lfproqc_combinations"
       ]
     },
     {
@@ -129,7 +140,8 @@
         "hie2019_natbiotechnol_scanorama",
         "massive_msv000093867",
         "scpdata_bioconductor",
-        "proteobench_dia_singlecell_module"
+        "proteobench_dia_singlecell_module",
+        "koca2024_proteomics_scpro_hi"
       ]
     },
     {
@@ -140,7 +152,14 @@
         "jin2021_scirep_imputation_benchmark",
         "shen2022_scirep_imputation_strategy",
         "webel2024_natcom_self_supervised_imputation",
-        "schlumbohm2022_natcom_harmonizr"
+        "schlumbohm2022_natcom_harmonizr",
+        "dabke2021_jpr_imputation_workflow",
+        "bennett2023_natmethods_scp_modalities",
+        "krull2024_natcom_feature_matching",
+        "vanderaa2025_genomebio_scplainer",
+        "vanderaa2023_jpr_revisiting_missing_values",
+        "shi2025_csbj_imputation_bins",
+        "karuppanan2025_jpr_lfproqc_combinations"
       ]
     },
     {
@@ -161,7 +180,8 @@
         "shen2022_scirep_imputation_strategy",
         "webel2024_natcom_self_supervised_imputation",
         "wang2020_nar_naguider",
-        "wang2025_natcom_dia_scp_benchmark"
+        "wang2025_natcom_dia_scp_benchmark",
+        "harris2023_jpr_imputation_criteria"
       ]
     },
     {
@@ -172,7 +192,8 @@
         "yu2024_mcp_quant_qc",
         "schlumbohm2022_natcom_harmonizr",
         "wang2025_natcom_dia_scp_benchmark",
-        "goeminne2020_mcp_feature_consistency"
+        "goeminne2020_mcp_feature_consistency",
+        "vanderaa2023_jpr_revisiting_missing_values"
       ]
     },
     {

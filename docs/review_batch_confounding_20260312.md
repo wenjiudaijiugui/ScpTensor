@@ -130,11 +130,24 @@
   - 这是当前最直接的 DIA-sc integration benchmark 语境。
   - 评测不能只在单一 balanced 场景上得出“最优去批次方法”。
 
-### 3.8 二次核查补充（发布日期与场景分拆证据）
+### 3.8 Gong et al., Analytical Chemistry, 2025
+
+- 题目：Benchmark of Data Integration in Single-Cell Proteomics
+- 链接：https://doi.org/10.1021/acs.analchem.4c04933
+- 主要发现：
+  - 直接在 single-cell proteomics 数据上比较多种 integration / batch-correction 方法。
+  - 评估维度不只包含 batch correction quality，也同时包含 biology preservation 与 marker-level consistency。
+  - 不同数据集与评价轴下的方法优势并不一致，说明不存在脱离场景的统一赢家。
+- 对 ScpTensor 的意义：
+  - `benchmark/integration` 的主合同不应只保留 `batch removal + biological conservation` 双轴；长期还应补充 marker / feature consistency 一类第三报告轴。
+  - `balanced` 主榜与 `fully confounded` guardrail 仍应分开解释，不能为了单一总分牺牲边界清晰度。
+
+### 3.9 二次核查补充（发布日期与场景分拆证据）
 
 - `Song et al., Nat Commun (published: 2020-08-03)` 直接把可识别设计拆为 `CR / RP / CHAIN`，并指出 `CC`（complete confounding）在统计上不可辨识；这为 `fully confounded -> guardrail` 提供了最直接的一手依据：<https://www.nature.com/articles/s41467-020-16905-2>
 - `Nygaard et al., Biostatistics (published: 2016-10-01)` 指出在 batch 与 group 不平衡时，校正后差异分析可能出现被夸大的统计信心；这支持 `fully confounded` 不应当成主榜选优场景：<https://pubmed.ncbi.nlm.nih.gov/26272994/>
 - `Chazarra-Gil et al., Nat Commun (published: 2023-03-20)` 在 integration-DE benchmark 中显式将 `balanced` 与 `unbalanced` 设计分开评测，说明不拆场景会造成解释混叠：<https://www.nature.com/articles/s41467-023-37126-3>
+- `Gong et al., Anal Chem (published: 2025-06-17)` 则把 SCP integration 直接拆成 `batch correction / biology preservation / marker consistency` 三类评价，说明 protein-level integration benchmark 继续只保留单一总分会过度丢失解释面：<https://doi.org/10.1021/acs.analchem.4c04933>
 - `Quartet, Genome Biol (published: 2023-09-13)` 直接对比 balanced 与 confounded 采样设计，并给出 reference/bridge 设计可显著提升跨批次可比性的证据：<https://genomebiology.biomedcentral.com/articles/10.1186/s13059-023-03047-z>
 
 ## 4. 横向比较与证据分级
@@ -162,7 +175,7 @@
 
 ### 4.4 证据强度
 
-- 高：Nygaard 2016、Song 2020、Tran 2020、Luecken 2022、Wang 2025
+- 高：Nygaard 2016、Song 2020、Tran 2020、Luecken 2022、Wang 2025、Gong 2025
 - 中高：Johnson 2007、Chazarra-Gil 2023
 
 ## 5. 面向 ScpTensor 的实践建议
@@ -226,17 +239,8 @@
 - `johnson2007_biostatistics_combat`
 - `luecken2022_natmethods_scib`
 - `wang2025_natcom_dia_scp_benchmark`
-
-本文件额外保留的当前非 registry 条目：
-
-1. Nygaard et al., 2016, Biostatistics
-   https://pubmed.ncbi.nlm.nih.gov/26272994/
-
-2. Song et al., 2020, Nature Communications
-   https://doi.org/10.1038/s41467-020-16905-2
-
-3. Tran et al., 2020, Genome Biology
-   https://doi.org/10.1186/s13059-019-1850-9
-
-4. Chazarra-Gil et al., 2023, Nature Communications
-   https://doi.org/10.1038/s41467-023-37126-3
+- `nygaard2016_biostatistics_exaggerated_confidence`
+- `song2020_natcom_designs_batch`
+- `tran2020_genomebio_batch_benchmark`
+- `chazarra_gil2023_natcom_integration_de`
+- `gong2025_analchem_scp_integration_benchmark`

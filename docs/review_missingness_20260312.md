@@ -197,6 +197,10 @@
   - 明确经 FDR / QC / downstream rule 排除：`FILTERED`
   - 无法从导出表唯一判断来源：`UNCERTAIN`
 - 若导入源只有最终矩阵、没有足够 provenance，宁可保守标记，也不要过度宣称“直接检测到”。
+- `2026-03-16` 的当前实现快照仍需单独说明：
+  - matrix/pivot importer 现在仍以 `finite -> VALID`、`non-finite -> LOD` 作为保守基线
+  - 这条规则只表示“工程上先完成导入”，不表示状态语义已经被完整恢复
+  - 因此 downstream 文档与报表不应把 matrix-imported `LOD` 自动解释为已经证实的 left-censored low-abundance signal
 
 ### 5.3 `filter_features_by_missingness` 需转向 state-aware 统计
 

@@ -233,8 +233,4 @@
 - `webel2024_natcom_self_supervised_imputation`
 - `wang2020_nar_naguider`
 - `wang2025_natcom_dia_scp_benchmark`
-
-本文件额外保留的当前非 registry 条目：
-
-1. Harris et al., 2023, Journal of Proteome Research
-   https://pubmed.ncbi.nlm.nih.gov/37861703/
+- `harris2023_jpr_imputation_criteria`

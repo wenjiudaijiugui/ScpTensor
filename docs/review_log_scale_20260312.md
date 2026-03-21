@@ -2,7 +2,7 @@
 
 ## 1. 研究范围
 
-- 研究问题：在 `DIA-NN / Spectronaut` 输入下，ScpTensor 应如何区分 `raw`、`vendor-normalized`、`logged` 三类数据层，并据此约束 `log_transform()` 与归一化候选方法的适用边界？
+- 研究问题：在 `DIA-NN / Spectronaut` 输入下，ScpTensor 应如何在保持 canonical `raw / log / norm` layer 命名的同时，区分 vendor-normalized provenance 与 logged scale 语义，并据此约束 `log_transform()` 与归一化候选方法的适用边界？
 - 目标输出：为以下实现与文档提供证据化约束：
   - `scptensor.transformation.log_transform`
   - `scptensor.autoselect.evaluators.normalization.NormalizationEvaluator`
@@ -90,7 +90,7 @@
   - `PG.MaxLFQ` 这类列名本身就意味着“已发生特定归一化/聚合逻辑”。
   - 在 ScpTensor 中，对此类输入再次做不加区分的全局归一化，需要文档上明确其前提和风险。
 
-### 3.4 Specht et al., Nature Methods, 2023
+### 3.4 Huffman et al., Nature Methods, 2023
 
 - 题目：Prioritized mass spectrometry increases the depth, sensitivity and data completeness of single-cell proteomics
 - 链接：https://doi.org/10.1038/s41592-023-01830-1
@@ -148,26 +148,26 @@
 ### 3.9 二次核查补充（资源分型、稳定入口与场景边界）
 
 - `DIA-NN 官方文档` 与 `Spectronaut 官方手册`（accessed: `2026-03-12`）在本综述中属于 `模块规范 / 软件文档`，负责定义 vendor-normalized linear layer 与 cross-run normalization 语义，不应被视为 benchmark 结论本身。
-- `MaxLFQ 2014`、`Specht 2023`、`Ctortecka 2024`、`Wang 2025`、`Brombacher 2020`、`Poulos 2020` 统一属于 `论文证据`；它们约束的是 `raw / vendor-normalized / logged` 三层尺度和 downstream contract。
+- `MaxLFQ 2014`、`Huffman 2023`、`Ctortecka 2024`、`Wang 2025`、`Brombacher 2020`、`Poulos 2020` 统一属于 `论文证据`；它们约束的是导入 `raw` 层的线性语义、vendor-normalized provenance 和后续 `log` 层边界。
 - 本综述当前不单列 `数据入口` 或 `资源包`，因为其任务是 `scale/provenance contract review`；需要公开数据来源时，应回到公共 benchmark 数据综述。
-- 统一边界应保持为：`vendor-normalized` 是线性层语义，`logged` 是变换后层语义；二者不能因为都“不是 raw”就被混成同一类资源或同一层。
+- 统一边界应保持为：vendor-normalized 是线性输入 provenance，`log` 是变换后 layer 语义；二者不能因为都“不是未经处理 raw”就被混成同一层。
 
 ## 4. 横向比较与证据分级
 
 ### 4.1 对 ScpTensor 最关键的三层尺度
 
-| 层 | 语义 | 典型来源 | 是否允许再次 `log_transform()` | 是否允许 AutoSelect 比较 `quantile/TRQN` |
+| 文档默认 layer / 语义类 | 含义 | 典型来源 | 是否适合 `log_transform()` | 是否适合 quantile/TRQN family |
 |---|---|---|---|---|
-| `raw` | 线性、未做下游 log；可为 upstream raw 或已归一化线性值 | `Precursor.Quantity`、`Ms1.Area`、部分 Spectronaut quantity 列 | 是，但需先确认未 logged | 否 |
-| `vendor-normalized` | 线性、已做上游 cross-run normalization | `Precursor.Normalised`、`Ms1.Normalised`、`PG.MaxLFQ`、Spectronaut normalized quantity | 是，但仅一次 | 否，除非先生成显式 logged layer |
-| `logged` | 明确 `log2` / `log10` / `ln` 后的层 | `log_transform()` 生成层或外部已说明的 log 层 | 否 | 是 |
+| `raw`（未做 vendor normalization） | 线性、导入后主 quantitative layer；未见 upstream normalization 证据 | `Precursor.Quantity`、`Ms1.Area`、部分 Spectronaut quantity 列 | 是，但需先确认未进入 `log` 层 | 否 |
+| `raw` + `is_vendor_normalized=true` | 线性、导入后主 quantitative layer；来源列已做上游 cross-run normalization | `Precursor.Normalised`、`Ms1.Normalised`、`PG.MaxLFQ`、Spectronaut normalized quantity | 是，但仅一次 | 否，除非先生成显式 `log` layer |
+| `log` | 明确 `log2` / `log10` / `ln` 后的层 | `log_transform()` 生成层或外部已说明的 log 层 | 否 | 是 |
 
 ### 4.2 一致结论（facts）
 
 1. DIA 软件导出的 normalized quantity 通常仍是线性尺度，而不是默认已取对数。
 2. vendor 输出列名本身已经携带方法学语义，例如 `MaxLFQ`、`Normalised`、`NormalizedPeakArea`，不能当作“普通 raw intensity”处理。
 3. `0` 的处理与 log transform 强耦合；至少在 DIA-NN 官方文档中，`0` 更接近低浓度指示，不应与一般观测值等同。
-4. 是否做 normalization、做哪一类 normalization，与样本组成假设密切相关；因此 `raw -> normalized -> logged` 的顺序必须可追溯。
+4. 是否做 normalization、做哪一类 normalization，与样本组成假设密切相关；因此 `raw -> log -> norm` 的处理路径必须可追溯，而 vendor normalization 应作为 provenance 单独记录。
 5. quantile-family 方法对输入分布假设更强，作为 AutoSelect 默认候选时应设更严格的尺度门禁。
 
 ### 4.3 分歧与解释（inference）
@@ -183,32 +183,32 @@
 
 ## 5. 面向 ScpTensor 的实践建议
 
-### 5.1 明确 `raw`、`normalized`、`logged` 的最小合同
+### 5.1 明确 `raw`、`log`、`norm` 的最小合同
 
 - `raw`
-  - 含义：线性尺度的输入层。
+  - 含义：仓库文档中的 canonical 导入后主 quantitative layer，默认仍是线性尺度。
   - 不承诺“绝对未归一化”，因为 vendor 输入可能本身已做上游 normalization。
   - 必须记录 `source_software`、`source_column`、`data_level`、`is_vendor_normalized`。
-- `normalized`
-  - 含义：ScpTensor 或 upstream 明确做过 normalization，但仍在 linear scale。
-  - 必须记录 `normalized_by=upstream|scptensor` 与 `normalization_method`。
-- `logged`
+- `log`
   - 含义：显式 `log2` / `log10` / `ln` 后的层。
   - 必须记录 `scale` 与 `pseudocount`。
+- `norm`
+  - 含义：ScpTensor-owned normalization 后的 canonical quantitative layer。
+  - 必须记录 `normalized_by=scptensor` 与 `normalization_method`。
 
 ### 5.2 `log_transform()` 的当前设计是合理保守的
 
 - 当前实现已经通过 layer 名称和 provenance 历史检测“是否已 log”，默认避免 double-log。
 - 这与文献和官方文档一致：
-  - vendor-normalized 不等于 logged
-  - logged layer 不应再次 log
+  - vendor-normalized 不等于 `log`
+  - `log` layer 不应再次 log
 - 建议文档里明确：
   - `detect_logged_by_distribution=False` 应继续作为默认
   - 尺度判断优先依赖 provenance，而不是仅靠数值分布猜测
 
 ### 5.3 `NormalizationEvaluator` 的 scale gate 应保留
 
-- 当前实现只在 source layer 有显式 logged provenance 时才自动纳入 `norm_quantile` 和 `norm_trqn`。
+- 当前实现只在 source layer 有显式 `log` provenance 时才自动纳入 `norm_quantile` 和 `norm_trqn`。
 - 这一门禁与 TRQN / quantile-family 的输入假设一致，属于有文献支撑的工程保守策略。
 - 建议把这一点写入 AutoSelect 文档，而不是只体现在代码里。
 
@@ -241,7 +241,7 @@
 ## 7. 对后续文档/实现的优先建议
 
 1. 在 `io_diann_spectronaut.md` 中增加“vendor-normalized vs raw”对照表。
-2. 在 `docs/README.md` 或教程中统一示例层名，例如 `raw_vendor`、`norm_vendor`、`log2`。
+2. 在 `docs/README.md`、教程和 benchmark 文档中统一使用 `raw / log / norm` 作为默认 layer 名；若需表达 vendor-normalized 输入，统一写成 `raw` + provenance 字段，而不是 `raw_vendor / norm_vendor / log2` 这类第二套默认命名。
 3. 在 AutoSelect 报告中把 `source_layer_logged`、`comparison_scale` 和 `input_scale_requirement` 直接展示给用户。
 
 ## 8. Shared Citation Registry Coverage
@@ -251,12 +251,8 @@
 - `diann_docs`
 - `spectronaut_manual`
 - `cox2014_mcp_maxlfq`
+- `huffman2023_natmethods_prioritized_ms`
 - `ctortecka2024_natcom_automated_scp`
 - `wang2025_natcom_dia_scp_benchmark`
 - `brombacher2020_proteomics_trqn`
 - `poulos2020_natcom_pronorm`
-
-本文件额外保留的当前非 registry 条目：
-
-1. Specht et al., 2023, Nature Methods
-   https://doi.org/10.1038/s41592-023-01830-1

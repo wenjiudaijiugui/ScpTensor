@@ -136,12 +136,24 @@
 - 局限：主要适用于 multiplex/参考通道设计，不等同于 label-free DIA。
 - 相关性：`2/2/2`。
 
-### 3.11 二次核查补充（资源分型、稳定入口与场景边界）
+### P11. Karuppanan et al., Journal of Proteome Research, 2025（normalization + imputation 组合）
+
+- 题目：A Statistical Approach for Identifying the Best Combination of Normalization and Imputation Methods for Label-Free Proteomics Expression Data
+- 链接：https://doi.org/10.1021/acs.jproteome.4c00552
+- 关键点（论文直接描述）：
+  - 最优预处理策略应以 normalization + imputation 组合作为比较单位，而不是把两步完全割裂后再宣称某个单方法是全局默认。
+  - 组合优劣随数据集而变化，不存在跨场景稳定的统一赢家。
+  - 论文同时给出 `lfproQC` 包与 Shiny 界面，强调组合比较与报告透明性。
+- 局限：主体证据仍来自 label-free proteomics，而不是严格的 DIA 单细胞。
+- 相关性：`2/2/2`。
+
+### 3.12 二次核查补充（资源分型、稳定入口与场景边界）
 
 - `DIA-NN docs` 与 `Spectronaut manual` 在本综述里都应固定归类为 `模块规范 / 软件文档`；它们提供 upstream normalization 语义与导出层解释，不应与 benchmark paper 混写：<https://vdemichev.github.io/DiaNN/>；<https://biognosys.com/resources/spectronaut-manual/>
 - `Wang 2025` 是最直接的 DIA-SCP normalization/task-design `论文证据`，但不应被扩大解释为当前稳定公共 benchmark 输入来源：<https://www.nature.com/articles/s41467-025-65174-4>
 - `TRQN`、`ProNorM`、`directLFQ` 提供的是 normalization family / quantification family 的 `论文证据`；它们不是 `模块规范`、`资源包` 或 `数据入口`，其规范元数据应统一回收至 registry。
 - `plexDIA` 与 `RefQuant` 更适合作为 multiplex/reference-channel 设计证据，而不是当前合同内 label-free DIA 主线的默认输入或默认 normalization 路线。
+- `Karuppanan 2025` 进一步说明 normalization 与 imputation 的最优组合是数据依赖的；因此当前仓库的 stage-specific normalization benchmark 应继续明确其边界，不应把单阶段结果扩大解释成“完整 preprocessing 组合最优”。
 - 本综述当前不直接承担 `数据入口` 与 `资源包` 的稳定入口职责；该角色应继续由公共 benchmark 数据综述和后续 manifest 统一管理。
 
 ## 4. 横向比较与证据分级
@@ -182,17 +194,18 @@
 1. `none`
 2. `median`
 3. `sum`
-4. `quantile`（仅在显式 `logged` layer 上比较）
-5. `robust_quantile`（TRQN/MBQN 类，仅在显式 `logged` layer 上比较，可作为扩展）
+4. `quantile`（仅在显式 `log` layer 上比较）
+5. `robust_quantile`（TRQN/MBQN 类，仅在显式 `log` layer 上比较，可作为扩展）
 
-注：结合后续 `review_log_scale_20260312.md` 的收束结论，当前 ScpTensor 合同不应在 `raw` 或 `vendor-normalized` 的线性层上自动比较 `quantile` / `robust_quantile`；若需要比较，应先生成显式 log 层并保留 `scale` / `pseudocount` provenance。
+注：结合后续 `review_log_scale_20260312.md` 的收束结论，当前 ScpTensor 合同不应在 `raw` 线性层上自动比较 `quantile` / `robust_quantile`；若该 `raw` 层承载 vendor-normalized 输入，也应继续通过 `is_vendor_normalized` provenance 说明，而不是切换到另一套默认 layer 名。若需要比较，应先生成显式 `log` 层并保留 `scale` / `pseudocount` provenance。
 另注：这里的 `sum` 属于文献层建议保留的 rescaling baseline；截至 `2026-03-12`，ScpTensor 当前 stable normalization API / benchmark README 已明确落地的方法池仍是 `none / mean / median / quantile / trqn`，因此不应把 `sum` 或泛化的 `robust_quantile` 写成“当前已实现事实”。其中当前实现与 benchmark 直接对应的稳健分位数方法名是 `trqn`。
 
 ### 5.2 规则化选择逻辑（建议）
 
 1. 若样本同批且细胞群体异质性高：优先比较 `none` vs `median`，避免直接上 `quantile`。
-2. 若跨批次且批次效应明显，且当前比较层为显式 `logged` layer：优先比较 `quantile` / `robust_quantile`，并联合批次校正评估。
+2. 若跨批次且批次效应明显，且当前比较层为显式 `log` layer：优先比较 `quantile` / `robust_quantile`，并联合批次校正评估。
 3. 若为 multiplex DIA 且有 reference channel：优先参考通道比值归一化路线。
+4. 若目标是决定完整 preprocessing 组合，而不是只决定单步 normalization：应把 normalization 与 imputation 组合做成单独 sensitivity panel，而不是把单阶段 normalization 榜单直接当作最终全流程答案。
 
 ### 5.3 风险边界
 
@@ -213,16 +226,9 @@
 - `poulos2020_natcom_pronorm`
 - `ammar2023_mcpro_directlfq`
 - `derks2023_natbiotechnol_plexdia`
-
-本文件额外保留的当前非 registry 条目：
-
-1. Ali et al., 2024, Analytical Chemistry
-   https://pubmed.ncbi.nlm.nih.gov/39292979/
-
-2. Brunner et al., 2023, Molecular Systems Biology
-   https://doi.org/10.15252/msb.202211503
-
-3. Callister et al., 2006, Journal of Proteome Research（local normalization 起源之一）
-   https://pubmed.ncbi.nlm.nih.gov/17269722/
+- `ali2024_analchem_diame`
+- `brunner2023_msb_refquant`
+- `callister2006_jpr_normalization`
+- `karuppanan2025_jpr_lfproqc_combinations`
 
 注：以上网页链接访问日期均为 `2026-03-07`。

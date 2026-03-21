@@ -1,64 +1,83 @@
 # ScpTensor Project Contract (Authoritative)
 
-This file defines the non-negotiable project scope and engineering conventions.
-If other documents conflict with this file, **this file wins**.
+This file defines binding project scope and contributor rules.
+If any document, prompt, or comment conflicts with this file, follow this file.
 
-## 1. Scope: DIA-Driven Single-Cell
+## 1. Project Positioning
 
 - ScpTensor is a **DIA-based single-cell proteomics preprocessing** package.
-- Keep single-cell context in user-facing description and documentation.
-- Supported upstream software is limited to:
-  - **DIA-NN**
-  - **Spectronaut**
-- Supported quantitative input levels:
-  - **Protein-level**
-  - **Peptide/Precursor-level**
-- Supported table shapes:
-  - **Long format**
-  - **Matrix/Pivot format**
+- User-facing descriptions and documentation must keep both the **DIA** and
+  **single-cell** scope explicit.
 
-## 2. Input/Output Contract
+## 2. Supported Inputs
 
-- Input must be DIA-NN or Spectronaut quantitative result files.
-- If input is peptide/precursor-level, workflow must support peptide-to-protein aggregation.
-- The primary analysis target and final deliverable is a **complete protein-level quantitative matrix**.
-- Data-level boundary for module design:
-  - `scptensor.aggregation` is the dedicated peptide/precursor -> protein conversion stage.
-  - Except for this aggregation stage, all downstream processing modules are defined at the **protein level**.
-  - Methods that are inherently peptide/precursor/run-level should not be implemented as protein-layer normalization by default.
-- Core I/O entrypoints are:
-  - `scptensor.io.load_quant_table`
-  - `scptensor.io.load_diann`
-  - `scptensor.io.load_spectronaut`
-  - `scptensor.io.load_peptide_pivot`
-  - `scptensor.io.aggregate_to_protein`
+- Upstream software: **DIA-NN** and **Spectronaut** only.
+- Quantification levels: **protein** and **peptide/precursor**.
+- Table shapes: **long** and **matrix/pivot**.
 
-## 3. Environment and Tooling
+## 3. Output and Data Boundary
 
-- Use **uv** as the default environment/package manager.
-- Standard workflow:
+- The required end product is a **complete protein-level quantitative matrix**.
+- Peptide/precursor input must support aggregation to protein level.
+- `scptensor.aggregation` is the only peptide/precursor -> protein conversion
+  stage.
+- All downstream preprocessing modules operate on **protein-level** data.
+- Do not present peptide/precursor/run-level methods as default
+  protein-normalization methods.
+
+## 4. Canonical I/O Entrypoints
+
+- `scptensor.io.load_quant_table`
+- `scptensor.io.load_diann`
+- `scptensor.io.load_spectronaut`
+- `scptensor.io.load_peptide_pivot`
+- `scptensor.io.aggregate_to_protein`
+
+## 5. Repository Boundary
+
+- Core data model: `ScpContainer -> Assay -> ScpMatrix`.
+- Stable package areas include:
+  `core`, `io`, `aggregation`, `transformation`, `normalization`, `impute`,
+  `integration`, `qc`, `viz`, `autoselect`, `utils`, `standardization`.
+- Experimental downstream areas may exist:
+  `dim_reduction`, `cluster`, `experimental`.
+- Experimental downstream helpers are allowed in the repository, but they are
+  not part of the core preprocessing release contract.
+
+## 6. Tooling
+
+- Use **uv** as the default environment and package manager.
+- Standard setup:
   - `uv venv`
   - `uv pip install -e .`
-  - `uv run pytest`
-  - `uv run ruff check`
+  - `uv pip install -e ".[dev]"` when development tools are needed
+- Standard checks:
+  - `uv run ruff check scptensor tests`
+  - `uv run mypy scptensor`
+  - `uv run pytest -q`
 
-## 4. Core Dependencies
+## 7. Engineering Rules
 
-- Core data processing stack should be centered on:
-  - **Polars** (table operations/metadata)
-  - **NumPy** (matrix/numerical operations)
-- Additional libraries are allowed only when they provide clear, necessary value.
+- Prefer **Polars** for table operations and **NumPy** for numerical work.
+- Add dependencies only when they provide clear, necessary value.
+- Public APIs must have full type hints.
+- I/O and preprocessing errors must be explicit and actionable.
+- Preserve provenance; avoid hidden in-place mutation.
+- Do not add new I/O compatibility for non-DIA software or unrelated omics
+  formats by default.
+- Legacy compatibility outside DIA-NN/Spectronaut should be removed or archived,
+  not expanded.
 
-## 5. Non-Goals
+## 8. Tests and Documentation
 
-- Do not add new I/O compatibility for non-DIA software or unrelated omics formats by default.
-- Legacy compatibility layers outside DIA-NN/Spectronaut should be removed or archived instead of expanded.
-
-## 6. Implementation Quality Requirements
-
-- Error messages in I/O and preprocessing must be explicit and actionable.
-- New code paths must include tests covering:
+- New user-facing code paths must include tests for:
   - format detection
   - required column validation
   - common user-facing error scenarios
-  - successful protein-matrix generation path
+  - successful protein-matrix generation
+- Documentation must match the real repository state, especially:
+  - package directories under `scptensor/`
+  - exports in `scptensor/__init__.py`
+  - tests under `tests/`
+  - workflows under `.github/workflows/`
+- Avoid hardcoded stale counts unless they are generated automatically.
