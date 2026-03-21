@@ -1,12 +1,17 @@
 """Experimental analysis modules for ScpTensor.
 
-This namespace hosts modules that are available for exploratory downstream
-analysis, but are not part of the core preprocessing release contract.
+This namespace hosts experimental helpers that are intentionally kept outside
+the stable preprocessing release contract.
 
 Current experimental APIs:
-- dimensionality reduction: ``reduce_pca``, ``reduce_tsne``, ``reduce_umap``
-- clustering: ``cluster_kmeans``, ``cluster_leiden``
-- peptide/PSM QC: ``qc_psm``
+- downstream analysis helpers:
+  ``reduce_pca``, ``reduce_tsne``, ``reduce_umap``,
+  ``cluster_kmeans``, ``cluster_leiden``
+- experimental pre-aggregation helper:
+  ``qc_psm``
+
+``qc_psm`` stays in this namespace for boundary clarity and discoverability,
+but it should not be interpreted as a downstream embedding/clustering helper.
 """
 
 import scptensor.qc.qc_psm as qc_psm

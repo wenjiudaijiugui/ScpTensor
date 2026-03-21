@@ -960,7 +960,7 @@ class TestScanoramaIntegration:
 
     @pytest.mark.skipif(not SCANORAMA_AVAILABLE, reason="scanorama is optional dependency")
     def test_scanorama_with_nan_values(self):
-        """Test Scanorama handles NaN values."""
+        """Test Scanorama rejects NaN values without implicit imputation."""
         container = create_batch_container(
             n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
         )
@@ -969,17 +969,14 @@ class TestScanoramaIntegration:
         X[0:5, 0:5] = np.nan
         container.assays["protein"].layers["raw"] = ScpMatrix(X=X, M=None)
 
-        result = scanorama_integrate(
-            container,
-            batch_key="batch",
-            assay_name="protein",
-            base_layer="raw",
-            new_layer_name="scanorama",
-        )
-
-        # Verify no NaN in output
-        X_corrected = result.assays["protein"].layers["scanorama"].X
-        assert not np.any(np.isnan(X_corrected))
+        with pytest.raises(ScpValueError, match="requires a complete matrix"):
+            scanorama_integrate(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                new_layer_name="scanorama",
+            )
 
     # -------------------------------------------------------------------------
     # Error handling tests
@@ -1255,6 +1252,7 @@ class TestComBatAdditional:
         M_combat = result.assays["protein"].layers["combat"].M
         assert M_combat is not None
         assert np.array_equal(M_combat, M)
+        assert M_combat is not M
 
     def test_combat_nonparametric_mode(self):
         """Test ComBat nonparametric EB mode."""
@@ -1824,6 +1822,72 @@ class TestIntegrationBaselineAndMetadata:
         assert log_entry.action == "integration_none"
         assert log_entry.params["integration_level"] == "matrix"
         assert log_entry.params["recommended_for_de"] is True
+
+    def test_integrate_none_preserves_missing_values_verbatim(self):
+        """No-op integration should copy incomplete matrices without filling NaN."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+        )
+        x = container.assays["protein"].layers["raw"].X.copy()
+        x[0:4, 0] = np.nan
+        x[10:12, 3] = np.nan
+        container.assays["protein"].layers["raw"] = ScpMatrix(X=x, M=None)
+
+        result = integrate_none(
+            container,
+            batch_key="batch",
+            assay_name="protein",
+            base_layer="raw",
+            new_layer_name="none",
+        )
+
+        x_out = result.assays["protein"].layers["none"].X
+        assert np.array_equal(np.isnan(x_out), np.isnan(x))
+        observed = ~np.isnan(x)
+        np.testing.assert_allclose(x_out[observed], x[observed])
+
+    def test_combat_keeps_source_layer_unchanged_when_target_name_differs(self):
+        """Matrix-level correction should not mutate the source layer when writing elsewhere."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+        )
+        raw_layer = container.assays["protein"].layers["raw"]
+        raw_x_before = raw_layer.X.copy()
+        raw_layer.M = np.zeros(raw_layer.X.shape, dtype=np.int8)
+        raw_m_before = raw_layer.M.copy()
+
+        result = combat(
+            container,
+            batch_key="batch",
+            assay_name="protein",
+            base_layer="raw",
+            new_layer_name="combat",
+        )
+
+        raw_after = result.assays["protein"].layers["raw"]
+        np.testing.assert_allclose(raw_after.X, raw_x_before)
+        assert np.array_equal(raw_after.M, raw_m_before)
+        assert "combat" in result.assays["protein"].layers
+
+    def test_combat_overwrites_base_layer_when_target_name_matches_source(self):
+        """Current layer-collision semantics also apply when target name equals base layer."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+        )
+        raw_layer_before = container.assays["protein"].layers["raw"]
+        raw_x_before = raw_layer_before.X.copy()
+
+        result = combat(
+            container,
+            batch_key="batch",
+            assay_name="protein",
+            base_layer="raw",
+            new_layer_name="raw",
+        )
+
+        raw_layer_after = result.assays["protein"].layers["raw"]
+        assert raw_layer_after is not raw_layer_before
+        assert not np.allclose(raw_layer_after.X, raw_x_before)
 
     def test_integrate_none_missing_batch_key_raises_error(self):
         """No-op integration still validates batch_key for API consistency."""

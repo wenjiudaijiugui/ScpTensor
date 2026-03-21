@@ -69,3 +69,42 @@ def test_reduce_umap_reuses_existing_assays_without_deepcopy() -> None:
     )
 
     assert result.assays["proteins"] is container.assays["proteins"]
+
+
+def test_reduce_umap_uses_unified_history_keys_with_resolved_assay() -> None:
+    container = _make_container()
+
+    result = reduce_umap(
+        container,
+        assay_name="protein",
+        base_layer="imputed",
+        n_neighbors=5,
+        random_state=42,
+    )
+
+    params = result.history[-1].params
+    assert params["source_assay"] == "proteins"
+    assert params["source_layer"] == "imputed"
+    assert params["target_assay"] == "umap"
+    assert "assay_name" not in params
+    assert "base_layer" not in params
+
+
+def test_reduce_umap_freezes_copy_contract() -> None:
+    container = _make_container()
+
+    result = reduce_umap(
+        container,
+        assay_name="proteins",
+        base_layer="imputed",
+        n_neighbors=5,
+        random_state=42,
+    )
+
+    assert result is not container
+    assert result.obs is container.obs
+    assert result.history is not container.history
+    assert result.assays is not container.assays
+    assert result.assays["proteins"] is container.assays["proteins"]
+    assert "umap" not in container.assays
+    assert "umap" in result.assays

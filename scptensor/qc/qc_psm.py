@@ -4,20 +4,27 @@ Handles filtering and QC for Peptide Spectrum Matches (PSMs):
 - Contaminant filtering (keratins, trypsin, albumin, etc.)
 - PIF (Parent Ion Fraction) filtering for co-elution detection
 - FDR control via PEP to q-value conversion
+- Sample-level CV summary across peptide/PSM features
 """
 
+import warnings
 from typing import Literal
 
 import numpy as np
 import polars as pl
 
-from scptensor.core.filtering import FilterCriteria
 from scptensor.core.structures import ScpContainer
 from scptensor.core.types import JsonValue
-from scptensor.qc._utils import validate_assay, validate_column_exists, validate_threshold
+from scptensor.qc._utils import (
+    filter_features_with_provenance,
+    resolve_assay,
+    validate_column_exists,
+    validate_threshold,
+)
 
-# Default contaminant patterns for proteomics
-DEFAULT_CONTAMINANT_PATTERNS = [
+# Internal default contaminant patterns for proteomics. The stable contract is
+# `patterns=None` in `filter_contaminants`, not direct reuse of this regex list.
+_DEFAULT_CONTAMINANT_PATTERNS = [
     r"^KRT\d+",  # Keratins (skin contaminants)
     r"Keratin",  # Generic keratin
     r"Trypsin",  # Digestion enzyme
@@ -34,7 +41,7 @@ DEFAULT_CONTAMINANT_PATTERNS = [
 
 def filter_psms_by_pif(
     container: ScpContainer,
-    assay_name: str = "peptide",
+    assay_name: str = "peptides",
     min_pif: float = 0.8,
     pif_col: str = "pif",
 ) -> ScpContainer:
@@ -47,7 +54,7 @@ def filter_psms_by_pif(
     ----------
     container : ScpContainer
         ScpContainer containing PSM-level data with PIF scores in var.
-    assay_name : str, default="peptide"
+    assay_name : str, default="peptides"
         Name of the assay containing PSM data.
     min_pif : float, default=0.8
         Minimum PIF threshold [0, 1].
@@ -63,39 +70,36 @@ def filter_psms_by_pif(
     Examples
     --------
     >>> result = filter_psms_by_pif(container, min_pif=0.8)
-    >>> result.assays['peptide'].n_features
+    >>> result.assays['peptides'].n_features
     2
     """
-    validate_threshold(min_pif, "min_pif")
-    assay = validate_assay(container, assay_name)
+    validate_threshold(min_pif, "min_pif", min_val=0.0, max_val=1.0)
+    resolved_assay_name, assay = resolve_assay(container, assay_name)
     validate_column_exists(assay.var, pif_col, "assay.var")
 
     pif_series = assay.var[pif_col]
     keep_mask = (pif_series >= min_pif).fill_null(False)
     keep_indices = np.where(keep_mask.to_numpy())[0]
 
-    criteria = FilterCriteria.by_indices(keep_indices)
-    new_container = container.filter_features(assay_name, criteria)
-
-    # Log provenance
     n_removed = assay.n_features - len(keep_indices)
     percent_removed = (n_removed / assay.n_features * 100) if assay.n_features > 0 else 0
 
-    new_container.log_operation(
+    return filter_features_with_provenance(
+        container,
+        resolved_assay_name,
+        keep_indices,
         action="filter_psms_by_pif",
-        params={"assay": assay_name, "min_pif": min_pif, "pif_col": pif_col},
+        params={"assay": resolved_assay_name, "min_pif": min_pif, "pif_col": pif_col},
         description=(
             f"Removed {n_removed}/{assay.n_features} PSMs ({percent_removed:.1f}%) "
-            f"with {pif_col} < {min_pif} from assay '{assay_name}'."
+            f"with {pif_col} < {min_pif} from assay '{resolved_assay_name}'."
         ),
     )
-
-    return new_container
 
 
 def filter_contaminants(
     container: ScpContainer,
-    assay_name: str = "peptide",
+    assay_name: str = "peptides",
     feature_col: str = "gene_names",
     patterns: list[str] | None = None,
 ) -> ScpContainer:
@@ -108,13 +112,13 @@ def filter_contaminants(
     ----------
     container : ScpContainer
         ScpContainer containing feature metadata.
-    assay_name : str, default="peptide"
+    assay_name : str, default="peptides"
         Name of the assay containing features to filter.
     feature_col : str, default="gene_names"
         Column name in assay.var containing feature names.
     patterns : list of str, optional
-        List of regex patterns for contaminants. If None, uses
-        DEFAULT_CONTAMINANT_PATTERNS.
+        List of regex patterns for contaminants. If None, uses the module's
+        built-in default contaminant patterns.
 
     Returns
     -------
@@ -124,46 +128,44 @@ def filter_contaminants(
     Examples
     --------
     >>> result = filter_contaminants(container, feature_col='gene_names')
-    >>> result.assays['peptide'].n_features
+    >>> result.assays['peptides'].n_features
     3
 
     Custom patterns:
     >>> custom = [r'^FLAG_', r'^HA_']
     >>> result = filter_contaminants(container, patterns=custom)
     """
-    assay = validate_assay(container, assay_name)
+    resolved_assay_name, assay = resolve_assay(container, assay_name)
     validate_column_exists(assay.var, feature_col, "assay.var")
 
-    regex_patterns = patterns or DEFAULT_CONTAMINANT_PATTERNS
+    regex_patterns = patterns or _DEFAULT_CONTAMINANT_PATTERNS
     combined_pattern = "|".join(f"({p})" for p in regex_patterns)
 
     is_contaminant = assay.var[feature_col].str.contains(combined_pattern).fill_null(False)
     keep_mask = ~is_contaminant
     keep_indices = np.where(keep_mask.to_numpy())[0]
 
-    criteria = FilterCriteria.by_indices(keep_indices)
-    new_container = container.filter_features(assay_name, criteria)
-
-    # Log provenance
     n_removed = assay.n_features - len(keep_indices)
     percent_removed = (n_removed / assay.n_features * 100) if assay.n_features > 0 else 0
 
     pattern_preview: list[JsonValue] = [str(p) for p in regex_patterns[:5]]
-    new_container.log_operation(
+    return filter_features_with_provenance(
+        container,
+        resolved_assay_name,
+        keep_indices,
         action="filter_contaminants",
         params={
-            "assay": assay_name,
+            "assay": resolved_assay_name,
             "feature_col": feature_col,
             "patterns_count": len(regex_patterns),
             "patterns": pattern_preview,
         },
         description=(
             f"Removed {n_removed}/{assay.n_features} features ({percent_removed:.1f}%) "
-            f"matching {len(regex_patterns)} contaminant patterns from assay '{assay_name}'."
+            f"matching {len(regex_patterns)} contaminant patterns "
+            f"from assay '{resolved_assay_name}'."
         ),
     )
-
-    return new_container
 
 
 def pep_to_qvalue(
@@ -237,7 +239,7 @@ def pep_to_qvalue(
 
 def filter_psms_by_qvalue(
     container: ScpContainer,
-    assay_name: str = "peptide",
+    assay_name: str = "peptides",
     qvalue_threshold: float = 0.01,
     qvalue_col: str = "qvalue",
 ) -> ScpContainer:
@@ -249,7 +251,7 @@ def filter_psms_by_qvalue(
     ----------
     container : ScpContainer
         ScpContainer containing PSM-level data with q-values in var.
-    assay_name : str, default="peptide"
+    assay_name : str, default="peptides"
         Name of the assay containing PSM data.
     qvalue_threshold : float, default=0.01
         Maximum q-value [0, 1].
@@ -265,78 +267,53 @@ def filter_psms_by_qvalue(
     Examples
     --------
     >>> result = filter_psms_by_qvalue(container, qvalue_threshold=0.01)
-    >>> result.assays['peptide'].n_features
+    >>> result.assays['peptides'].n_features
     2
     """
-    validate_threshold(qvalue_threshold, "qvalue_threshold")
-    assay = validate_assay(container, assay_name)
+    validate_threshold(qvalue_threshold, "qvalue_threshold", min_val=0.0, max_val=1.0)
+    resolved_assay_name, assay = resolve_assay(container, assay_name)
     validate_column_exists(assay.var, qvalue_col, "assay.var")
 
     qvalue_series = assay.var[qvalue_col]
     keep_mask = (qvalue_series < qvalue_threshold).fill_null(False)
     keep_indices = np.where(keep_mask.to_numpy())[0]
 
-    criteria = FilterCriteria.by_indices(keep_indices)
-    new_container = container.filter_features(assay_name, criteria)
-
-    # Log provenance
     n_removed = assay.n_features - len(keep_indices)
     percent_removed = (n_removed / assay.n_features * 100) if assay.n_features > 0 else 0
 
-    new_container.log_operation(
+    return filter_features_with_provenance(
+        container,
+        resolved_assay_name,
+        keep_indices,
         action="filter_psms_by_qvalue",
         params={
-            "assay": assay_name,
+            "assay": resolved_assay_name,
             "qvalue_threshold": qvalue_threshold,
             "qvalue_col": qvalue_col,
         },
         description=(
             f"Removed {n_removed}/{assay.n_features} PSMs ({percent_removed:.1f}%) "
-            f"with {qvalue_col} >= {qvalue_threshold} from assay '{assay_name}'. "
+            f"with {qvalue_col} >= {qvalue_threshold} from assay '{resolved_assay_name}'. "
             f"FDR controlled at {qvalue_threshold * 100:.1f}%."
         ),
     )
 
-    return new_container
 
-
-def compute_median_cv(
+def _compute_sample_cv_summary(
     container: ScpContainer,
-    assay_name: str = "peptide",
-    layer_name: str = "raw",
-    cv_threshold: float = 0.65,
+    assay_name: str,
+    layer_name: str,
+    cv_threshold: float,
+    *,
+    action: str,
+    cv_col: str,
+    flag_col: str,
+    alias_note: str | None = None,
 ) -> ScpContainer:
-    """Compute median coefficient of variation (CV) across samples.
-
-    CV = σ / μ measures technical variability. High median CV indicates
-    poor sample quality or technical issues.
-
-    Parameters
-    ----------
-    container : ScpContainer
-        ScpContainer with intensity data.
-    assay_name : str, default="peptide"
-        Name of the assay containing data.
-    layer_name : str, default="raw"
-        Name of the layer containing intensity values.
-    cv_threshold : float, default=0.65
-        Threshold for flagging high CV samples.
-
-    Returns
-    -------
-    ScpContainer
-        ScpContainer with CV metrics added to obs:
-        - median_cv: Median CV across features
-        - is_high_cv: Boolean flag if median_cv > cv_threshold
-
-    Examples
-    --------
-    >>> result = compute_median_cv(container, cv_threshold=0.5)
-    >>> result.obs[['median_cv', 'is_high_cv']]
-    """
+    """Internal helper for sample-level CV summary annotation."""
     from scptensor.qc.metrics import compute_cv
 
-    assay = validate_assay(container, assay_name)
+    resolved_assay_name, assay = resolve_assay(container, assay_name)
 
     if layer_name not in assay.layers:
         from scptensor.core.exceptions import ScpValueError
@@ -349,32 +326,121 @@ def compute_median_cv(
         )
 
     layer = assay.layers[layer_name]
-    X = layer.X
-
-    cv_values = compute_cv(X.T, axis=0)
+    cv_values = compute_cv(layer.X.T, axis=0)
 
     new_container = container.copy()
     new_container.obs = new_container.obs.with_columns(
         [
-            pl.Series("median_cv", cv_values),
-            pl.Series("is_high_cv", cv_values > cv_threshold),
+            pl.Series(cv_col, cv_values),
+            pl.Series(flag_col, cv_values > cv_threshold),
         ]
     )
 
     n_high_cv = int(np.sum(cv_values > cv_threshold))
     median_cv_all = float(np.nanmedian(cv_values))
+    description_prefix = "Computed sample CV across features."
+    if alias_note is not None:
+        description_prefix = f"Computed sample CV across features via legacy alias '{alias_note}'."
 
     new_container.log_operation(
-        action="compute_median_cv",
+        action=action,
         params={
-            "assay": assay_name,
+            "assay": resolved_assay_name,
             "layer": layer_name,
             "cv_threshold": cv_threshold,
         },
         description=(
-            f"Computed median CV. Median across samples: {median_cv_all:.3f}. "
+            f"{description_prefix} Median across samples: {median_cv_all:.3f}. "
             f"Identified {n_high_cv} samples with CV > {cv_threshold}."
         ),
     )
 
     return new_container
+
+
+def compute_sample_cv(
+    container: ScpContainer,
+    assay_name: str = "peptides",
+    layer_name: str = "raw",
+    cv_threshold: float = 0.65,
+) -> ScpContainer:
+    """Compute per-sample coefficient of variation (CV) across features.
+
+    CV = σ / μ measures technical variability. High sample CV indicates
+    poor sample quality or technical issues.
+
+    Parameters
+    ----------
+    container : ScpContainer
+        ScpContainer with intensity data.
+    assay_name : str, default="peptides"
+        Name of the assay containing data.
+    layer_name : str, default="raw"
+        Name of the layer containing intensity values.
+    cv_threshold : float, default=0.65
+        Threshold for flagging high CV samples.
+
+    Returns
+    -------
+    ScpContainer
+        ScpContainer with sample-level CV metrics added to obs:
+        - sample_cv: CV for each sample across features
+        - is_high_sample_cv: Boolean flag if sample_cv > cv_threshold
+
+    Examples
+    --------
+    >>> result = compute_sample_cv(container, cv_threshold=0.5)
+    >>> result.obs[['sample_cv', 'is_high_sample_cv']]
+    """
+    return _compute_sample_cv_summary(
+        container,
+        assay_name,
+        layer_name,
+        cv_threshold,
+        action="compute_sample_cv",
+        cv_col="sample_cv",
+        flag_col="is_high_sample_cv",
+    )
+
+
+def compute_median_cv(
+    container: ScpContainer,
+    assay_name: str = "peptides",
+    layer_name: str = "raw",
+    cv_threshold: float = 0.65,
+) -> ScpContainer:
+    """Legacy compatibility alias for :func:`compute_sample_cv`.
+
+    This alias is preserved because existing code may still expect the legacy
+    function name and the legacy output columns ``median_cv`` / ``is_high_cv``.
+    The canonical helper is ``compute_sample_cv``. New code should migrate to
+    the canonical helper. Removal of this alias requires a future contract
+    update after repository-wide migration.
+    """
+    warnings.warn(
+        "`compute_median_cv` is a legacy compatibility alias whose name does not "
+        "match the actual behavior. Use `compute_sample_cv` instead. "
+        "Removal requires a future contract update after repository-wide migration.",
+        FutureWarning,
+        stacklevel=2,
+    )
+    return _compute_sample_cv_summary(
+        container,
+        assay_name,
+        layer_name,
+        cv_threshold,
+        action="compute_median_cv",
+        cv_col="median_cv",
+        flag_col="is_high_cv",
+        alias_note="compute_median_cv",
+    )
+
+
+__all__ = [
+    "filter_psms_by_pif",
+    "filter_contaminants",
+    "pep_to_qvalue",
+    "filter_psms_by_qvalue",
+    "compute_sample_cv",
+    "compute_median_cv",
+]

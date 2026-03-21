@@ -7,7 +7,9 @@ Provides hierarchical QC workflow:
 Note
 ----
 Peptide/PSM-level QC helpers are kept in source form but are not part of the
-stable preprocessing contract. Access them from ``scptensor.experimental.qc_psm``.
+stable preprocessing contract. Import them from
+``from scptensor.experimental import qc_psm`` rather than the stable
+``scptensor.qc`` namespace.
 """
 
 from scptensor.qc import qc_feature, qc_sample

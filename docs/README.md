@@ -25,14 +25,37 @@ Benchmark scripts and benchmark outputs should stay under `benchmark/`.
 
 ### Registry
 
-- `review_manifest_20260312.json`: typed manifest for all `review_*.md` reviews
+- `review_manifest_20260312.json`: typed manifest for all `review_*.md` reviews only; contract docs are indexed in `Contract`
 - `references/citations.json`: canonical metadata for shared high-frequency citations
 - `references/citation_usage.json`: file-level usage map for shared citations
 
 ### Contract
 
+- `core_data_contract.md`: ScpTensor core container contract inspired by AnnData / MuData
+- `core_compute_contract.md`: low-level compute, sparse, and JIT implementation contract
 - `io_diann_spectronaut.md`: DIA-NN / Spectronaut I/O contract
-- `aggregation_literature.md`: peptide -> protein aggregation literature notes
+- `aggregation_contract.md`: peptide/precursor -> protein aggregation implementation contract
+- `transformation_contract.md`: log-transform implementation contract
+- `normalization_contract.md`: normalization implementation contract
+- `standardization_contract.md`: z-score representation-layer implementation contract
+- `imputation_contract.md`: imputation implementation contract
+- `integration_contract.md`: batch-correction / integration implementation contract
+- `qc_contract.md`: protein-level QC implementation contract
+- `qc_psm_contract.md`: experimental peptide/PSM QC helper contract
+- `autoselect_contract.md`: AutoSelect implementation and reporting contract
+- `utils_contract.md`: utility package public-surface and helper-boundary contract
+- `experimental_downstream_contract.md`: experimental dim-reduction / clustering boundary contract
+- `viz_contract.md`: visualization API, return-type, and data-boundary contract
+
+### Background
+
+- `aggregation_literature.md`: peptide -> protein aggregation literature background notes
+
+### Active Plan
+
+- `experimental_downstream_alignment_plan.md`: non-contract convergence record for experimental helper asymmetries; current mandatory gaps are closed, keep it as a resolution log until an archive slot is introduced
+- `optimization_checklist.md`: document-driven execution checklist for future code optimization; defines authority-doc priority, PR gates, staged execution order, and stop conditions for contract drift
+- `runtime_baseline.md`: PR-0 runtime baseline spec for stable preprocessing paths; separates engineering runtime regression checks from scientific method benchmarks
 
 ### Tutorial
 
@@ -63,7 +86,7 @@ Entry rule:
 
 Machine-readable index:
 
-- `review_manifest_20260312.json`: typed manifest for all `review_*.md` reviews
+- `review_manifest_20260312.json`: typed manifest for all `review_*.md` reviews only; it does not enumerate contract docs
 - `references/citations.json`: canonical citation registry for repeated paper/module/package entries
 - `references/citation_usage.json`: file-level usage map for the shared citation registry
 
@@ -72,6 +95,7 @@ Repository-wide review status:
 - all `review_*.md` files have completed the `registry-first` tail-template migration
 - the standardized tail section is `Shared Citation Registry Coverage`
 - shared citation metadata should be corrected in `references/citations.json` first, then synced back to affected reviews
+- frozen implementation contracts now cover `core-data / core-compute / aggregation / transformation / normalization / standardization / imputation / integration / qc / experimental-qc-psm / autoselect / utils / experimental-downstream / viz`
 
 Canonical citation policy:
 
@@ -87,8 +111,29 @@ Canonical citation policy:
 - Keep executable benchmarks, benchmark reports, and generated benchmark assets in `benchmark/`.
 - Do not track notebook runtime artifacts under `docs/`.
 - Keep shared paper metadata in `docs/references/` to reduce cross-review citation drift.
+- Keep background notes separate from implementation contracts; `aggregation_literature.md`
+  is background context, not a frozen source-of-truth contract.
+- Keep remediation / convergence notes separate from contracts;
+  `experimental_downstream_alignment_plan.md` is not a source-of-truth
+  contract, even after its mandatory gaps are closed.
 - Release boundary: dimensionality reduction and clustering are documented as
   experimental downstream helpers, not core preprocessing deliverables.
+- `qc_psm` is documented as an experimental pre-aggregation helper; use
+  `scptensor.experimental.qc_psm` semantics in docs rather than treating it as
+  part of stable `scptensor.qc`.
+- Core object docs prefer the canonical naming set
+  `proteins / peptides` and `raw / log / norm / imputed / zscore`; treat
+  `protein / peptide`, implementation-local names such as `normalized`,
+  `trqn_norm`, `log2`, and layer `X` as compatibility-facing or
+  implementation-local names rather than repository-wide defaults.
+- `raw` is the canonical imported quantitative layer name in repository docs;
+  whether that layer is vendor-normalized must be stated through provenance
+  fields such as `is_vendor_normalized`, not by introducing a second default
+  layer-name family.
+- Treat `ScpContainer.shape` and `Assay.X` as compatibility helpers, not as the
+  preferred access pattern for stable preprocessing documentation.
 - Prefer `scptensor.experimental` imports when documenting `reduce_*` and
   `cluster_*` workflows.
+- Prefer `from scptensor.experimental import qc_psm` when documenting
+  peptide/PSM experimental QC helpers.
 - Prefer `scptensor.viz` canonical `plot_*` APIs in documentation examples.

@@ -17,6 +17,7 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
+from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.dim_reduction.base import (
     _check_no_nan_inf,
@@ -106,7 +107,8 @@ def reduce_pca(
     - Otherwise: arpack
     """
     # Validation
-    assay, X = _validate_assay_layer(container, assay_name, base_layer)
+    resolved_assay_name = resolve_assay_name(container, assay_name)
+    assay, X = _validate_assay_layer(container, resolved_assay_name, base_layer)
     _check_no_nan_inf(X)
 
     n_samples, n_features = X.shape
@@ -213,7 +215,11 @@ def reduce_pca(
         original_assay = assay
 
     # Create new container
-    new_assays = {**container.assays, assay_name: original_assay, new_assay_name: pca_assay}
+    new_assays = {
+        **container.assays,
+        resolved_assay_name: original_assay,
+        new_assay_name: pca_assay,
+    }
 
     new_container = ScpContainer(
         obs=container.obs,
@@ -226,14 +232,17 @@ def reduce_pca(
     new_container.log_operation(
         action="reduce_pca",
         params={
-            "source_assay": assay_name,
+            "source_assay": resolved_assay_name,
             "source_layer": base_layer,
+            "target_assay": new_assay_name,
             "n_components": n_components,
             "center": center,
             "scale": scale,
             "svd_solver": svd_solver,
         },
-        description=f"PCA on {assay_name}/{base_layer} ({n_components} components, {svd_solver}).",
+        description=(
+            f"PCA on {resolved_assay_name}/{base_layer} ({n_components} components, {svd_solver})."
+        ),
     )
 
     return new_container

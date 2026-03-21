@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 import polars as pl
 
+from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.dim_reduction.base import (
     _check_no_nan_inf,
@@ -115,7 +116,8 @@ def reduce_tsne(
     if method == "barnes_hut" and n_components > 3:
         raise ValueError(f"n_components must be <= 3 when method='barnes_hut', got {n_components}")
 
-    assay, X = _validate_assay_layer(container, assay_name, base_layer)
+    resolved_assay_name = resolve_assay_name(container, assay_name)
+    _, X = _validate_assay_layer(container, resolved_assay_name, base_layer)
     _check_no_nan_inf(X)
 
     X_dense = _prepare_matrix(X, dtype=np.dtype(dtype))
@@ -164,8 +166,9 @@ def reduce_tsne(
     new_container.log_operation(
         action="reduce_tsne",
         params={
-            "assay_name": assay_name,
-            "base_layer": base_layer,
+            "source_assay": resolved_assay_name,
+            "source_layer": base_layer,
+            "target_assay": new_assay_name,
             "n_components": n_components,
             "perplexity": perplexity,
             "early_exaggeration": early_exaggeration,
@@ -175,7 +178,7 @@ def reduce_tsne(
             "method": method,
             "max_iter": max_iter,
         },
-        description=f"t-SNE on {assay_name}/{base_layer} (perplexity={perplexity}).",
+        description=f"t-SNE on {resolved_assay_name}/{base_layer} (perplexity={perplexity}).",
     )
 
     return new_container

@@ -11,10 +11,15 @@ from scptensor.core.exceptions import ScpValueError, ValidationError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
 
-def _make_container(x: np.ndarray, layer_name: str = "imputed") -> ScpContainer:
+def _make_container(
+    x: np.ndarray,
+    layer_name: str = "imputed",
+    *,
+    mask: np.ndarray | None = None,
+) -> ScpContainer:
     obs = pl.DataFrame({"_index": [f"s{i}" for i in range(x.shape[0])]})
     var = pl.DataFrame({"_index": [f"p{j}" for j in range(x.shape[1])]})
-    assay = Assay(var=var, layers={layer_name: ScpMatrix(X=x)})
+    assay = Assay(var=var, layers={layer_name: ScpMatrix(X=x, M=mask)})
     return ScpContainer(obs=obs, assays={"protein": assay})
 
 
@@ -54,3 +59,83 @@ def test_zscore_rejects_invalid_axis() -> None:
 
 def test_zscore_exported_from_top_level() -> None:
     assert callable(zscore)
+
+
+def test_zscore_runs_on_complete_raw_layer_without_logged_gate() -> None:
+    x = np.array(
+        [
+            [10.0, 100.0],
+            [20.0, 120.0],
+            [40.0, 140.0],
+        ]
+    )
+    container = _make_container(x, layer_name="raw")
+
+    result = zscore(container, assay_name="protein", source_layer="raw", new_layer_name="z_raw")
+    z = result.assays["protein"].layers["z_raw"].X
+
+    assert np.allclose(np.mean(z, axis=0), 0.0, atol=1e-12)
+    assert np.allclose(np.std(z, axis=0, ddof=1), 1.0, atol=1e-12)
+    assert result.history[-1].action == "standardization_zscore"
+    assert result.history[-1].params["source_layer"] == "raw"
+
+
+def test_zscore_only_checks_x_for_completeness_and_copies_mask() -> None:
+    x = np.array([[1.0, 5.0], [2.0, 6.0], [3.0, 7.0]])
+    mask = np.array([[0, 1], [2, 0], [0, 0]], dtype=np.int8)
+    container = _make_container(x, mask=mask)
+
+    result = zscore(container, assay_name="protein", source_layer="imputed", new_layer_name="z")
+    source_layer = result.assays["protein"].layers["imputed"]
+    z_layer = result.assays["protein"].layers["z"]
+
+    assert z_layer.M is not None
+    assert np.array_equal(z_layer.M, mask)
+    assert z_layer.M is not source_layer.M
+
+
+def test_zscore_same_name_target_overwrites_source_layer_entry() -> None:
+    x = np.array([[1.0, 5.0], [2.0, 6.0], [3.0, 7.0]])
+    mask = np.array([[0, 1], [2, 0], [0, 0]], dtype=np.int8)
+    container = _make_container(x, mask=mask)
+    source_layer = container.assays["protein"].layers["imputed"]
+
+    result = zscore(
+        container,
+        assay_name="protein",
+        source_layer="imputed",
+        new_layer_name="imputed",
+    )
+    overwritten = result.assays["protein"].layers["imputed"]
+
+    assert overwritten is not source_layer
+    assert overwritten.M is not None
+    assert np.array_equal(overwritten.M, mask)
+    assert overwritten.M is not source_layer.M
+    assert np.allclose(np.mean(overwritten.X, axis=0), 0.0, atol=1e-12)
+    assert np.allclose(np.std(overwritten.X, axis=0, ddof=1), 1.0, atol=1e-12)
+    assert result.history[-1].params["new_layer_name"] == "imputed"
+
+
+def test_zscore_logs_stable_provenance_fields() -> None:
+    x = np.array([[1.0, 2.0], [3.0, 4.0]])
+    container = _make_container(x)
+
+    result = zscore(
+        container,
+        assay_name="protein",
+        source_layer="imputed",
+        new_layer_name="z_custom",
+        axis=1,
+        ddof=0,
+    )
+    log = result.history[-1]
+
+    assert log.action == "standardization_zscore"
+    assert log.params == {
+        "assay": "protein",
+        "source_layer": "imputed",
+        "new_layer_name": "z_custom",
+        "axis": 1,
+        "ddof": 0,
+    }

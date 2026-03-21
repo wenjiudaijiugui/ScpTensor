@@ -80,3 +80,52 @@ def test_reduce_pca_invalid_solver_raises() -> None:
             n_components=5,
             svd_solver="invalid",  # type: ignore[arg-type]
         )
+
+
+def test_reduce_pca_resolves_alias_without_creating_duplicate_source_assay() -> None:
+    X = np.random.default_rng(3).normal(size=(20, 10))
+    container = _make_container(X)
+
+    result = reduce_pca(
+        container,
+        assay_name="protein",
+        base_layer="imputed",
+        n_components=5,
+    )
+
+    assert "protein" not in result.assays
+    assert "proteins" in result.assays
+    assert result.assays["proteins"] is not container.assays["proteins"]
+    assert "pca_PC1_loading" in result.assays["proteins"].var.columns
+
+    params = result.history[-1].params
+    assert params["source_assay"] == "proteins"
+    assert params["source_layer"] == "imputed"
+    assert params["target_assay"] == "pca"
+
+
+def test_reduce_pca_freezes_copy_and_source_mutation_contract() -> None:
+    X = np.random.default_rng(4).normal(size=(20, 10))
+    container = _make_container(X)
+
+    result = reduce_pca(
+        container,
+        assay_name="proteins",
+        base_layer="imputed",
+        n_components=5,
+    )
+
+    assert result is not container
+    assert result.obs is container.obs
+    assert result.history is not container.history
+    assert result.assays is not container.assays
+
+    assert result.assays["proteins"] is not container.assays["proteins"]
+    assert result.assays["proteins"].layers is not container.assays["proteins"].layers
+    assert (
+        result.assays["proteins"].layers["imputed"]
+        is container.assays["proteins"].layers["imputed"]
+    )
+    assert result.assays["proteins"].var is not container.assays["proteins"].var
+    assert "pca_PC1_loading" not in container.assays["proteins"].var.columns
+    assert "pca_PC1_loading" in result.assays["proteins"].var.columns

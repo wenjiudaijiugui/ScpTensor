@@ -2,6 +2,12 @@
 
 本目录用于比较 `scptensor.aggregation.aggregate_to_protein` 中多种聚合方法在公开已知混样数据上的表现。
 
+## Current Entry
+
+- `benchmark/aggregation/run_benchmark.py`
+
+## Boundary
+
 当前实现边界：
 
 - 已落地的是 `precursor-to-protein auxiliary board`：
@@ -10,11 +16,11 @@
 - 当前脚本尚未输出 state-aware completeness、`DE consistency` 与 `ambiguous mapping burden`。
 - 当前文档合同下，主排名只能依据最终 `protein-level` endpoint；`peptide/protein mapping`、`.n` 或覆盖率类指标仅用于解释方法行为，不单独决定胜负。
 
-经二次核查的来源性细节：
+## Review Links
 
-- `OpenMS ProteinQuantifier` 官方文档明确支持 `top` / `iBAQ`，并允许 `median / mean / weighted_mean / sum` 作为 peptide abundance 到 protein abundance 的聚合方式，这与当前方法池的主体部分直接对齐：<https://openms.de/documentation/html/TOPP_ProteinQuantifier.html>
-- `QFeatures` 教程把 aggregation 放在 `peptides_norm -> proteins` 这一步，并显式保留每个 protein 由多少条 peptide 聚合而成的 `.n` 变量；这支持把 peptide 数量与映射负担当作解释性指标，而不仅仅是最终分数：<https://bioconductor.org/packages/release/bioc/vignettes/QFeatures/inst/doc/Processing.html>
-- `DIA-ME` 的定量分析显示，在 directLFQ 归一化下，protein CV、重复相关性和 ratio accuracy 可以同时维持稳定；这支持把 `precision + ratio preservation` 视为 aggregation-adjacent 的关键评价轴，而不是只看覆盖率：<https://www.nature.com/articles/s41467-024-52605-x>
+- `docs/review_aggregation_benchmark_20260312.md`
+- `docs/review_public_benchmark_data_20260312.md`
+- `docs/aggregation_contract.md`
 
 ## Resource Roles
 
@@ -27,9 +33,15 @@
 - `资源包`
   - 当前 README 不把 package/tutorial 页面当作主数据入口
 
-## 1. 当前基准数据（已实现）
+经二次核查的来源性细节：
 
-当前首个 benchmark 使用 LFQbench 的 HYE124 Spectronaut 示例数据（小体量，适合快速复现）：
+- `OpenMS ProteinQuantifier` 官方文档明确支持 `top` / `iBAQ`，并允许 `median / mean / weighted_mean / sum` 作为 peptide abundance 到 protein abundance 的聚合方式，这与当前方法池的主体部分直接对齐：<http://www.openms.de/doxygen/release/3.4.1/html/TOPP_ProteinQuantifier.html>
+- `QFeatures` 教程把 aggregation 放在 `peptides_norm -> proteins` 这一步，并显式保留每个 protein 由多少条 peptide 聚合而成的 `.n` 变量；这支持把 peptide 数量与映射负担当作解释性指标，而不仅仅是最终分数：<https://bioconductor.org/packages/release/bioc/vignettes/QFeatures/inst/doc/Processing.html>
+- `DIA-ME` 的定量分析显示，在 directLFQ 归一化下，protein CV、重复相关性和 ratio accuracy 可以同时维持稳定；这支持把 `precision + ratio preservation` 视为 aggregation-adjacent 的关键评价轴，而不是只看覆盖率：<https://www.nature.com/articles/s41467-024-52605-x>
+
+## 1. 当前默认示例数据入口（实现事实，不构成合同）
+
+当前脚本默认使用 LFQbench 的 HYE124 Spectronaut 示例数据，原因是体量小、真值清晰、便于快速复现。但这只是当前 auxiliary board 的默认数据入口，不等于 aggregation benchmark 的完整合同边界：
 
 - 数据文件：`Spectronaut_TTOF6600_64w_example.tsv`
 - 来源仓库：<https://github.com/IFIproteomics/LFQbench>
@@ -42,6 +54,11 @@
 - ECOLI: `log2FC = -2`（A:B = 1:4）
 
 参考：<https://github.com/IFIproteomics/LFQbench/blob/master/vignettes/LFQbench.Rmd>
+
+解释：
+
+- 这里的 LFQbench 示例输入只说明“当前脚本拿什么做快速可复核 replay”。
+- 若后续补上 `protein-direct main board` 或新增更合适的公共数据面板，README 应把它们并列写成实现现状，而不是让当前示例数据反向定义 benchmark 合同。
 
 ## 2. 方法范围
 

@@ -1,12 +1,25 @@
 # ScpTensor Benchmarks
 
-- `aggregation/`: 肽段->蛋白聚合方法基准测试（LFQbench HYE124 数据）
-- `normalization/`: 蛋白层归一化方法基准测试（LFQbench + DIA-NN 数据）
-- `imputation/`: 蛋白层缺失值填充方法基准测试（DIA-NN 单细胞数据 + 可选 LFQbench）
-- `integration/`: 蛋白层去批次方法基准测试（DIA-NN 单细胞真实数据 + confounding 场景）
-- `autoselect/`: AutoSelect 相关评测脚本与报告资产
-  - 当前主入口脚本：`run_normalization_literature_score.py`、`run_synthetic_normalization_stress.py`、`run_strategy_comparison.py`
-  - 结果目录为自动生成资产，默认不跟踪
+`benchmark/` stores executable benchmark scripts, stage-specific benchmark notes,
+and generated benchmark assets that are not source-of-truth implementation
+contracts.
+
+## Current Directories
+
+- [`aggregation/README.md`](aggregation/README.md): 肽段->蛋白聚合 benchmark（当前主线是 `precursor-to-protein auxiliary board`）
+- [`normalization/README.md`](normalization/README.md): 蛋白层归一化 benchmark
+- [`imputation/README.md`](imputation/README.md): 蛋白层缺失值填充 benchmark
+- [`integration/README.md`](integration/README.md): 蛋白层去批次 / batch confounding benchmark
+- [`autoselect/README.md`](autoselect/README.md): AutoSelect 评测脚本与报告资产
+
+## Boundary
+
+- `benchmark/` 负责可执行 benchmark 协议、脚本与报告资产，不替代 `docs/` 中的冻结实现合同。
+- benchmark 的数据入口、任务分型与证据边界，优先回到 `docs/review_*.md` 与 `docs/review_manifest_20260312.json`。
+- 若 benchmark README 与 contract 文档表述不同，应以仓库 `AGENTS.md` 和 `docs/*_contract.md` 为准。
+- benchmark 输出里出现的实现局部 layer / assay / key 名，只用于脚本比较与产物追踪；它们不重定义仓库 canonical `raw / log / norm / imputed / zscore` 命名。
+- `reduce / cluster` 之类 experimental downstream helper 即使被某些 benchmark 当作评估终点或敏感性面板，也不构成 stable preprocessing release 的验收边界。
+- README 中任何带日期的“运行快照 / 示例结果”都只应视为 archival audit trail，不得盖过当前合同、当前默认输入和当前待补项。
 
 ## Evidence Taxonomy
 
@@ -27,6 +40,8 @@ Read boundary:
 Machine-readable manifest:
 
 - [`review_manifest_20260312.json`](../docs/review_manifest_20260312.json)
+- [`citations.json`](../docs/references/citations.json)
+- [`citation_usage.json`](../docs/references/citation_usage.json)
 
 ## Benchmark Architecture
 
@@ -46,6 +61,7 @@ ScpTensor 的 benchmark 不再只是一组脚本，而是三层结构：
 
 - [`review_public_benchmark_data_20260312.md`](../docs/review_public_benchmark_data_20260312.md)
 - [`review_manifest_20260312.json`](../docs/review_manifest_20260312.json)
+- [`docs/README.md`](../docs/README.md)
 
 对应文献整理：
 
@@ -60,13 +76,15 @@ ScpTensor 的 benchmark 不再只是一组脚本，而是三层结构：
 - `MSstats` 工作流把预处理明确拆成 `log transformation -> normalization -> feature selection -> missing value imputation -> summarization`：<https://www.bioconductor.org/packages/release/bioc/vignettes/MSstats/inst/doc/MSstatsWorkflow.html>
 - `QFeatures` 教程也把 `logTransform()`、`normalize()`、`aggregateFeatures()` 明确拆层，并且聚合发生在已标准化的 peptide assay 上：<https://bioconductor.org/packages/release/bioc/vignettes/QFeatures/inst/doc/Processing.html>
 - `scIB` 把 integration 评估拆成 `batch removal` 与 `bio-conservation` 两轴，另行报告 usability / scalability：<https://www.nature.com/articles/s41592-021-01336-8>
+- `Gong et al.`（Analytical Chemistry 2025）直接在 single-cell proteomics integration benchmark 中把评价拆成 `batch correction`、`biology preservation` 与 `marker consistency` 三类，说明 SCP integration 不应被单一总分压平：<https://doi.org/10.1021/acs.analchem.4c04933>
 - `NAguideR` 与 `PIMMS` 都支持“恢复误差 + 额外 proteomic/downstream 证据”而不是单一重建误差：<https://pmc.ncbi.nlm.nih.gov/articles/PMC7641313/>，<https://www.nature.com/articles/s41467-024-48711-5>
+- `Karuppanan et al.`（JPR 2025）表明 normalization 与 imputation 的最优组合具有明显数据依赖性，因此 stage-specific benchmark 必须明确边界，组合结论应单独报告：<https://doi.org/10.1021/acs.jproteome.4c00552>
 
 ## Stage Contracts
 
 ### Normalization
 
-- 当前 `benchmark/normalization` 在脚本层固定执行 `raw -> log_transform(base=2, offset=1) -> normalization`，因此 `quantile` / `trqn` 的比较发生在显式 `logged` layer 上。
+- 当前 `benchmark/normalization` 在脚本层固定执行 `raw -> log_transform(base=2, offset=1) -> normalization`，因此 `quantile` / `trqn` 的比较发生在显式 `log` layer 上。
 - 这一点与 `docs/review_log_scale_20260312.md` 一致，不应把 `quantile` / `trqn` 解释为对线性 vendor 输出层的直接默认比较。
 - 当前实现方法池是：
   - `none`
@@ -83,6 +101,7 @@ ScpTensor 的 benchmark 不再只是一组脚本，而是三层结构：
 - 待补：
   - state-aware completeness / uncertainty burden
   - 与 batch/confounding 设计联动的 normalization 主榜
+  - normalization × imputation 组合敏感性 panel；当前单阶段 normalization 榜单不应被扩大解释成完整 preprocessing 组合最优
 
 ### Aggregation
 
@@ -150,12 +169,15 @@ ScpTensor 的 benchmark 不再只是一组脚本，而是三层结构：
 - 指标必须同时覆盖：
   - `batch removal`
   - `biological conservation`
+- `Gong 2025` 进一步支持长期补充：
+  - `marker / feature consistency`
 - 当前脚本已输出双轴数值指标和 `guardrail_checks.csv`，但尚未输出 state-aware uncertainty burden。
 - 当前 `overall_scores.png` 仍属于 legacy 聚合可视化；解释时必须回到按场景分开的 `metrics_scores.csv`，不能把它当作官方主榜。
 
 ### AutoSelect
 
 - `benchmark/autoselect` 保存的是策略对比和选择合同验证资产，不是单一“社区总榜”。
+- 当前目录的主资产仍聚焦 stable preprocessing 阶段的选择合同；`reduce / cluster` 若后续进入 benchmark，也只能按 exploratory downstream 解释。
 - 输出中应持续区分：
   - `overall_score`：方法质量本身
   - `selection_score`：叠加 `quality / balanced / speed` 策略后的选择分
@@ -167,6 +189,7 @@ ScpTensor 的 benchmark 不再只是一组脚本，而是三层结构：
 - 待补：
   - state-aware completeness / uncertainty penalty
   - 真实公共数据 panel 上的统一 AutoSelect 评分
+  - normalization × imputation 组合敏感性结果在统一报告中的显式位置
 
 ## State-Aware Metric Contract
 

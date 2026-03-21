@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import polars as pl
 
+from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.dim_reduction.base import (
     _check_no_nan_inf,
@@ -102,7 +103,8 @@ def reduce_umap(
         raise ValueError(f"min_dist must be in [0, 1], got {min_dist}")
 
     # Validate assay and layer
-    assay, X = _validate_assay_layer(container, assay_name, base_layer)
+    resolved_assay_name = resolve_assay_name(container, assay_name)
+    _, X = _validate_assay_layer(container, resolved_assay_name, base_layer)
 
     # Check data completeness
     _check_no_nan_inf(X)
@@ -163,14 +165,15 @@ def reduce_umap(
     new_container.log_operation(
         action="reduce_umap",
         params={
-            "assay_name": assay_name,
-            "base_layer": base_layer,
+            "source_assay": resolved_assay_name,
+            "source_layer": base_layer,
+            "target_assay": new_assay_name,
             "n_components": n_components,
             "n_neighbors": n_neighbors,
             "min_dist": min_dist,
             "metric": metric,
         },
-        description=f"UMAP on {assay_name}/{base_layer} (n_neighbors={n_neighbors}).",
+        description=f"UMAP on {resolved_assay_name}/{base_layer} (n_neighbors={n_neighbors}).",
     )
 
     return new_container

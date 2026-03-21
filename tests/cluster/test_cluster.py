@@ -231,6 +231,37 @@ class TestClusterKmeans:
         assert "kmeans_k3" in result.obs.columns
         assert result.history[-1].params["backend"] == "sklearn"
 
+    def test_kmeans_resolves_assay_alias_and_uses_unified_history_keys(self, sample_obs):
+        """Clustering should resolve aliases and record unified provenance keys."""
+        X = np.random.default_rng(0).normal(size=(len(sample_obs), 4))
+        var = pl.DataFrame({"_index": [f"F{i}" for i in range(4)]})
+        assay = Assay(var=var, layers={"X": ScpMatrix(X=X)})
+        container = ScpContainer(obs=sample_obs, assays={"proteins": assay})
+
+        result = cluster_kmeans(container, assay_name="protein", base_layer="X", n_clusters=3)
+
+        assert "kmeans_k3" in result.obs.columns
+        assert result.assays["proteins"] is container.assays["proteins"]
+
+        params = result.history[-1].params
+        assert params["source_assay"] == "proteins"
+        assert params["source_layer"] == "X"
+        assert params["output_key"] == "kmeans_k3"
+        assert "assay" not in params
+        assert "layer" not in params
+
+    def test_kmeans_freezes_copy_contract(self, pca_container):
+        """Clustering keeps assays shared but creates fresh obs/history containers."""
+        result = cluster_kmeans(pca_container, assay_name="reduce_pca", n_clusters=3)
+
+        assert result is not pca_container
+        assert result.obs is not pca_container.obs
+        assert result.history is not pca_container.history
+        assert result.assays is pca_container.assays
+        assert result.assays["reduce_pca"] is pca_container.assays["reduce_pca"]
+        assert "kmeans_k3" not in pca_container.obs.columns
+        assert "kmeans_k3" in result.obs.columns
+
 
 # =============================================================================
 # cluster_leiden tests
@@ -288,6 +319,20 @@ class TestClusterLeiden:
         """Test Leiden with resolution=0 raises error."""
         with pytest.raises(ScpValueError):
             cluster_leiden(pca_container, resolution=0)
+
+    @pytest.mark.skipif(
+        not LEIDEN_AVAILABLE, reason="Requires optional dependencies: leidenalg and python-igraph"
+    )
+    def test_leiden_uses_unified_history_keys(self, pca_container):
+        """Leiden provenance should use the same source/output key schema."""
+        result = cluster_leiden(pca_container, resolution=1.0)
+
+        params = result.history[-1].params
+        assert params["source_assay"] == "reduce_pca"
+        assert params["source_layer"] == "X"
+        assert params["output_key"] == "leiden_r1.0"
+        assert "assay" not in params
+        assert "layer" not in params
 
 
 # =============================================================================

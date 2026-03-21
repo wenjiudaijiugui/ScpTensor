@@ -148,6 +148,23 @@ def qc_container_with_contaminants(qc_obs, qc_var_with_contaminants, qc_dense_X,
     return ScpContainer(obs=qc_obs, assays={"protein": assay})
 
 
+@pytest.fixture
+def qc_psm_container(qc_obs):
+    """Create a peptide/PSM-level container with alias-sensitive assay naming."""
+    obs = qc_obs.head(4)
+    var = pl.DataFrame(
+        {
+            "_index": [str(i) for i in range(4)],
+            "gene_names": ["KRT1", "PEP_A", "PEP_B", "PEP_C"],
+            "pif": [0.95, 0.60, 0.82, 0.40],
+            "qvalue": [0.001, 0.020, 0.200, 0.005],
+        }
+    )
+    X = np.arange(16, dtype=np.float64).reshape(4, 4) + 1.0
+    assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
+    return ScpContainer(obs=obs, assays={"peptides": assay})
+
+
 # =============================================================================
 # Tests for qc_sample module
 # =============================================================================
@@ -218,6 +235,29 @@ class TestCalculateSampleQCMetrics:
         result.assays["protein"].add_layer("tmp", ScpMatrix(X=np.ones((20, 20))))
         assert "tmp" not in qc_container.assays["protein"].layers
 
+    def test_calculate_sample_qc_metrics_requires_raw_by_default(self, qc_obs, qc_var):
+        """Default sample QC keeps the explicit raw-layer requirement."""
+        X = np.array([[1.0, 2.0], [3.0, 4.0]])
+        M = np.full(X.shape, MaskCode.VALID.value, dtype=np.int8)
+        container = ScpContainer(
+            obs=qc_obs.head(2),
+            assays={
+                "protein": Assay(var=qc_var.head(2), layers={"normalized": ScpMatrix(X=X, M=M)})
+            },
+        )
+
+        with pytest.raises(LayerNotFoundError):
+            qc_sample.calculate_sample_qc_metrics(container)
+
+        result = qc_sample.calculate_sample_qc_metrics(container, layer_name="normalized")
+        assert "n_features_protein" in result.obs.columns
+
+    def test_calculate_sample_qc_metrics_does_not_log_history(self, qc_container):
+        """Metric calculation remains history-free by contract."""
+        result = qc_sample.calculate_sample_qc_metrics(qc_container)
+        assert len(qc_container.history) == 0
+        assert len(result.history) == 0
+
 
 class TestFilterLowQualitySamples:
     """Tests for filter_low_quality_samples function."""
@@ -248,6 +288,58 @@ class TestFilterLowQualitySamples:
         with pytest.raises(AssayNotFoundError):
             qc_sample.filter_low_quality_samples(qc_container, assay_name="nonexistent")
 
+    def test_filter_low_quality_samples_prefers_raw_when_present(self):
+        """Sample filters should use raw when available, even if it is not the first layer."""
+        obs = pl.DataFrame({"_index": ["S1", "S2"]})
+        var = pl.DataFrame({"_index": ["F1", "F2"]})
+        raw_X = np.array([[1.0, 0.0], [1.0, 1.0]])
+        raw_M = np.array(
+            [
+                [MaskCode.VALID.value, MaskCode.LOD.value],
+                [MaskCode.VALID.value, MaskCode.VALID.value],
+            ],
+            dtype=np.int8,
+        )
+        normalized_X = np.ones((2, 2))
+        normalized_M = np.full((2, 2), MaskCode.VALID.value, dtype=np.int8)
+        assay = Assay(
+            var=var,
+            layers={
+                "normalized": ScpMatrix(X=normalized_X, M=normalized_M),
+                "raw": ScpMatrix(X=raw_X, M=raw_M),
+            },
+        )
+        container = ScpContainer(obs=obs, assays={"protein": assay})
+
+        result = qc_sample.filter_low_quality_samples(container, min_features=2, use_mad=False)
+        assert result.obs["_index"].to_list() == ["S2"]
+
+    def test_filter_low_quality_samples_falls_back_to_first_layer_without_raw(self):
+        """Sample filters should fall back to the first layer when raw is absent."""
+        obs = pl.DataFrame({"_index": ["S1", "S2"]})
+        var = pl.DataFrame({"_index": ["F1", "F2"]})
+        normalized_X = np.array([[1.0, 0.0], [1.0, 1.0]])
+        normalized_M = np.array(
+            [
+                [MaskCode.VALID.value, MaskCode.LOD.value],
+                [MaskCode.VALID.value, MaskCode.VALID.value],
+            ],
+            dtype=np.int8,
+        )
+        assay = Assay(var=var, layers={"normalized": ScpMatrix(X=normalized_X, M=normalized_M)})
+        container = ScpContainer(obs=obs, assays={"protein": assay})
+
+        result = qc_sample.filter_low_quality_samples(container, min_features=2, use_mad=False)
+        assert result.obs["_index"].to_list() == ["S2"]
+
+    def test_filter_low_quality_samples_preserves_filter_provenance(self, qc_container):
+        """Filtering should keep both the structural and entrypoint-specific provenance."""
+        result = qc_sample.filter_low_quality_samples(qc_container, min_features=5, use_mad=False)
+        assert [log.action for log in result.history[-2:]] == [
+            "filter_samples",
+            "filter_low_quality_samples",
+        ]
+
 
 class TestFilterDoubletsMAD:
     """Tests for filter_doublets_mad function."""
@@ -267,6 +359,26 @@ class TestFilterDoubletsMAD:
         """Test that invalid assay raises error."""
         with pytest.raises(AssayNotFoundError):
             qc_sample.filter_doublets_mad(qc_container, assay_name="nonexistent")
+
+    def test_filter_doublets_mad_prefers_raw_when_present(self):
+        """Doublet filtering should prefer raw over earlier non-raw layers."""
+        obs = pl.DataFrame({"_index": [f"S{i}" for i in range(5)]})
+        var = pl.DataFrame({"_index": ["F1", "F2"]})
+        raw_X = np.array([[1.0, 0.0], [1.0, 0.0], [1.0, 0.0], [1.0, 0.0], [1000.0, 0.0]])
+        raw_M = np.full(raw_X.shape, MaskCode.VALID.value, dtype=np.int8)
+        normalized_X = np.ones((5, 2))
+        normalized_M = np.full((5, 2), MaskCode.VALID.value, dtype=np.int8)
+        assay = Assay(
+            var=var,
+            layers={
+                "normalized": ScpMatrix(X=normalized_X, M=normalized_M),
+                "raw": ScpMatrix(X=raw_X, M=raw_M),
+            },
+        )
+        container = ScpContainer(obs=obs, assays={"protein": assay})
+
+        result = qc_sample.filter_doublets_mad(container, nmads=1.0)
+        assert result.obs["_index"].to_list() == ["S0", "S1", "S2", "S3"]
 
 
 class TestAssessBatchEffects:
@@ -292,6 +404,38 @@ class TestAssessBatchEffects:
             qc_sample.assess_batch_effects(
                 qc_container, batch_col="batch", assay_name="nonexistent"
             )
+
+    def test_assess_batch_effects_prefers_raw_when_present(self):
+        """Batch summaries should use raw when both raw and non-raw layers are present."""
+        obs = pl.DataFrame({"_index": ["S1", "S2"], "batch": ["A", "A"]})
+        var = pl.DataFrame({"_index": ["F1", "F2"]})
+        raw_X = np.array([[1.0, 0.0], [5.0, 0.0]])
+        raw_M = np.full(raw_X.shape, MaskCode.VALID.value, dtype=np.int8)
+        normalized_X = np.full((2, 2), 10.0)
+        normalized_M = np.full((2, 2), MaskCode.VALID.value, dtype=np.int8)
+        assay = Assay(
+            var=var,
+            layers={
+                "normalized": ScpMatrix(X=normalized_X, M=normalized_M),
+                "raw": ScpMatrix(X=raw_X, M=raw_M),
+            },
+        )
+        container = ScpContainer(obs=obs, assays={"protein": assay})
+
+        result = qc_sample.assess_batch_effects(container, batch_col="batch")
+        assert result["median_intensity"].to_list() == pytest.approx([3.0])
+
+    def test_assess_batch_effects_falls_back_to_first_layer_without_raw(self):
+        """Batch summaries should still work when only a non-raw layer exists."""
+        obs = pl.DataFrame({"_index": ["S1", "S2"], "batch": ["A", "B"]})
+        var = pl.DataFrame({"_index": ["F1", "F2"]})
+        normalized_X = np.array([[1.0, 0.0], [2.0, 2.0]])
+        normalized_M = np.full(normalized_X.shape, MaskCode.VALID.value, dtype=np.int8)
+        assay = Assay(var=var, layers={"normalized": ScpMatrix(X=normalized_X, M=normalized_M)})
+        container = ScpContainer(obs=obs, assays={"protein": assay})
+
+        result = qc_sample.assess_batch_effects(container, batch_col="batch")
+        assert result["median_intensity"].to_list() == pytest.approx([1.0, 4.0])
 
 
 # =============================================================================
@@ -367,6 +511,29 @@ class TestCalculateFeatureQCMetrics:
         assert len(qc_container.history) == 0
         assert len(result.history) == 1
 
+    def test_calculate_feature_qc_metrics_uses_first_layer_when_unspecified(self):
+        """Feature QC should use the first layer when layer_name is None."""
+        obs = pl.DataFrame({"_index": ["S1", "S2", "S3"]})
+        var = pl.DataFrame({"_index": ["F1", "F2"]})
+        normalized_X = np.ones((3, 2))
+        normalized_M = np.full(normalized_X.shape, MaskCode.VALID.value, dtype=np.int8)
+        raw_X = np.array([[1.0, 1.0], [10.0, 10.0], [20.0, 20.0]])
+        raw_M = np.full(raw_X.shape, MaskCode.VALID.value, dtype=np.int8)
+        assay = Assay(
+            var=var,
+            layers={
+                "normalized": ScpMatrix(X=normalized_X, M=normalized_M),
+                "raw": ScpMatrix(X=raw_X, M=raw_M),
+            },
+        )
+        container = ScpContainer(obs=obs, assays={"protein": assay})
+
+        result_default = qc_feature.calculate_feature_qc_metrics(container)
+        result_raw = qc_feature.calculate_feature_qc_metrics(container, layer_name="raw")
+
+        assert result_default.assays["protein"].var["cv"].to_list() == pytest.approx([0.0, 0.0])
+        assert result_raw.assays["protein"].var["cv"].to_list()[0] > 0.0
+
 
 class TestFilterFeaturesByMissingness:
     """Tests for filter_features_by_missingness function."""
@@ -434,6 +601,40 @@ class TestFilterFeaturesByMissingness:
         )
         assert isinstance(result, ScpContainer)
 
+    def test_filter_features_by_missingness_uses_first_layer_when_unspecified(self):
+        """Missingness filtering should use the first layer when layer_name is None."""
+        obs = pl.DataFrame({"_index": ["S1", "S2"]})
+        var = pl.DataFrame({"_index": ["F1", "F2"]})
+        normalized_X = np.array([[1.0, 0.0], [1.0, 0.0]])
+        normalized_M = np.array(
+            [
+                [MaskCode.VALID.value, MaskCode.LOD.value],
+                [MaskCode.VALID.value, MaskCode.LOD.value],
+            ],
+            dtype=np.int8,
+        )
+        raw_X = np.ones((2, 2))
+        raw_M = np.full((2, 2), MaskCode.VALID.value, dtype=np.int8)
+        assay = Assay(
+            var=var,
+            layers={
+                "normalized": ScpMatrix(X=normalized_X, M=normalized_M),
+                "raw": ScpMatrix(X=raw_X, M=raw_M),
+            },
+        )
+        container = ScpContainer(obs=obs, assays={"protein": assay})
+
+        result = qc_feature.filter_features_by_missingness(container, max_missing_rate=0.0)
+        assert result.assays["protein"].var["_index"].to_list() == ["F1"]
+
+    def test_filter_features_by_missingness_preserves_filter_provenance(self, qc_container):
+        """Feature filtering should keep both generic and entrypoint-specific logs."""
+        result = qc_feature.filter_features_by_missingness(qc_container, max_missing_rate=0.5)
+        assert [log.action for log in result.history[-2:]] == [
+            "filter_features",
+            "filter_features_by_missingness",
+        ]
+
 
 class TestFilterFeaturesByCV:
     """Tests for filter_features_by_cv function."""
@@ -464,10 +665,53 @@ class TestFilterFeaturesByCV:
         with pytest.raises(AssayNotFoundError):
             qc_feature.filter_features_by_cv(qc_container, assay_name="nonexistent")
 
+    def test_filter_features_by_cv_uses_first_layer_when_unspecified(self):
+        """CV filtering should use the first layer when layer_name is None."""
+        obs = pl.DataFrame({"_index": ["S1", "S2", "S3"]})
+        var = pl.DataFrame({"_index": ["F1", "F2"]})
+        normalized_X = np.ones((3, 2))
+        normalized_M = np.full(normalized_X.shape, MaskCode.VALID.value, dtype=np.int8)
+        raw_X = np.array([[1.0, 1.0], [10.0, 10.0], [20.0, 20.0]])
+        raw_M = np.full(raw_X.shape, MaskCode.VALID.value, dtype=np.int8)
+        assay = Assay(
+            var=var,
+            layers={
+                "normalized": ScpMatrix(X=normalized_X, M=normalized_M),
+                "raw": ScpMatrix(X=raw_X, M=raw_M),
+            },
+        )
+        container = ScpContainer(obs=obs, assays={"protein": assay})
+
+        result_default = qc_feature.filter_features_by_cv(container, max_cv=0.1)
+        result_raw = qc_feature.filter_features_by_cv(container, layer_name="raw", max_cv=0.1)
+
+        assert result_default.assays["protein"].n_features == 2
+        assert result_raw.assays["protein"].n_features == 0
+
 
 # =============================================================================
 # Tests for qc_psm module
 # =============================================================================
+
+
+class TestQCPsmModuleSurface:
+    """Tests for qc_psm module-level export boundaries."""
+
+    def test_qc_psm_module_all_explicitly_freezes_public_surface(self):
+        """Module-level __all__ should freeze helpers and exclude imported implementation details."""
+        assert qc_psm.__all__ == [
+            "filter_psms_by_pif",
+            "filter_contaminants",
+            "pep_to_qvalue",
+            "filter_psms_by_qvalue",
+            "compute_sample_cv",
+            "compute_median_cv",
+        ]
+        assert "_DEFAULT_CONTAMINANT_PATTERNS" not in qc_psm.__all__
+        assert "np" not in qc_psm.__all__
+        assert "pl" not in qc_psm.__all__
+        assert "warnings" not in qc_psm.__all__
+        assert "ScpContainer" not in qc_psm.__all__
 
 
 class TestFilterContaminants:
@@ -499,6 +743,197 @@ class TestFilterContaminants:
         """Test that invalid assay raises error."""
         with pytest.raises(AssayNotFoundError):
             qc_psm.filter_contaminants(qc_container, assay_name="nonexistent")
+
+    def test_filter_contaminants_uses_canonical_default_assay_name(self, qc_psm_container):
+        """Default assay selection should now target the canonical `peptides` assay."""
+        result = qc_psm.filter_contaminants(
+            qc_psm_container,
+            feature_col="gene_names",
+            patterns=[r"^KRT"],
+        )
+
+        assert result.assays["peptides"].n_features == 3
+        assert result.history[-1].params["assay"] == "peptides"
+
+    def test_filter_contaminants_accepts_peptide_alias(self, qc_psm_container):
+        """Contaminant filtering should apply alias resolution through execution."""
+        result = qc_psm.filter_contaminants(
+            qc_psm_container,
+            assay_name="peptide",
+            feature_col="gene_names",
+            patterns=[r"^KRT"],
+        )
+
+        assert "peptides" in result.assays
+        assert "peptide" not in result.assays
+        assert result.assays["peptides"].n_features == 3
+        assert result.history[-1].params["assay"] == "peptides"
+
+
+class TestFilterPsmsByPif:
+    """Tests for filter_psms_by_pif function."""
+
+    def test_filter_psms_by_pif_uses_canonical_default_assay_name(self, qc_psm_container):
+        """Default assay selection should no longer rely on the legacy singular alias."""
+        result = qc_psm.filter_psms_by_pif(qc_psm_container, min_pif=0.8)
+
+        assert result.assays["peptides"].n_features == 2
+        assert result.history[-1].params["assay"] == "peptides"
+
+    def test_filter_psms_by_pif_accepts_alias_and_logs_resolved_assay(self, qc_psm_container):
+        """PIF filtering should not fail after alias validation succeeds."""
+        result = qc_psm.filter_psms_by_pif(qc_psm_container, assay_name="peptide", min_pif=0.8)
+
+        assert result.assays["peptides"].n_features == 2
+        assert [log.action for log in result.history[-2:]] == [
+            "filter_features",
+            "filter_psms_by_pif",
+        ]
+        assert result.history[-1].params["assay"] == "peptides"
+
+    @pytest.mark.parametrize("min_pif", [-0.1, 1.1])
+    def test_filter_psms_by_pif_enforces_unit_interval(self, qc_psm_container, min_pif):
+        """PIF threshold must be validated against the documented [0, 1] range."""
+        with pytest.raises(ScpValueError, match="min_pif"):
+            qc_psm.filter_psms_by_pif(qc_psm_container, assay_name="peptide", min_pif=min_pif)
+
+
+class TestFilterPsmsByQValue:
+    """Tests for filter_psms_by_qvalue function."""
+
+    def test_filter_psms_by_qvalue_uses_canonical_default_assay_name(self, qc_psm_container):
+        """Default assay selection should point at the canonical plural assay name."""
+        result = qc_psm.filter_psms_by_qvalue(qc_psm_container, qvalue_threshold=0.01)
+
+        assert result.assays["peptides"].n_features == 2
+        assert result.history[-1].params["assay"] == "peptides"
+
+    def test_filter_psms_by_qvalue_accepts_alias_and_logs_resolved_assay(self, qc_psm_container):
+        """Q-value filtering should reuse the resolved assay name for execution/logging."""
+        result = qc_psm.filter_psms_by_qvalue(
+            qc_psm_container,
+            assay_name="peptide",
+            qvalue_threshold=0.01,
+        )
+
+        assert result.assays["peptides"].n_features == 2
+        assert [log.action for log in result.history[-2:]] == [
+            "filter_features",
+            "filter_psms_by_qvalue",
+        ]
+        assert result.history[-1].params["assay"] == "peptides"
+
+    @pytest.mark.parametrize("qvalue_threshold", [-0.01, 1.01])
+    def test_filter_psms_by_qvalue_enforces_unit_interval(self, qc_psm_container, qvalue_threshold):
+        """Q-value threshold must be validated against the documented [0, 1] range."""
+        with pytest.raises(ScpValueError, match="qvalue_threshold"):
+            qc_psm.filter_psms_by_qvalue(
+                qc_psm_container,
+                assay_name="peptide",
+                qvalue_threshold=qvalue_threshold,
+            )
+
+
+class TestPepToQValue:
+    """Tests for pep_to_qvalue helper."""
+
+    def test_pep_to_qvalue_bh_matches_expected_adjustment(self):
+        """BH mode should produce monotone adjusted q-values on sorted inputs."""
+        pep = np.array([0.01, 0.02, 0.03], dtype=np.float64)
+
+        result = qc_psm.pep_to_qvalue(pep, method="bh")
+
+        np.testing.assert_allclose(result, np.array([0.03, 0.03, 0.03]))
+
+    def test_pep_to_qvalue_preserves_nan_and_clips_to_unit_interval(self):
+        """NaN should round-trip while finite outputs stay in [0, 1]."""
+        pep = np.array([0.0, 0.2, np.nan, 1.5, -0.1], dtype=np.float64)
+
+        result = qc_psm.pep_to_qvalue(pep, method="storey", lambda_param=0.5)
+
+        assert np.isnan(result[2])
+        finite = result[~np.isnan(result)]
+        assert np.all(finite >= 0.0)
+        assert np.all(finite <= 1.0)
+
+    def test_pep_to_qvalue_validates_method(self):
+        """Only documented methods should be accepted."""
+        with pytest.raises(ValueError, match="method must be 'storey' or 'bh'"):
+            qc_psm.pep_to_qvalue(np.array([0.1, 0.2]), method="invalid")
+
+    @pytest.mark.parametrize("lambda_param", [-0.1, 1.0])
+    def test_pep_to_qvalue_validates_lambda_param(self, lambda_param):
+        """Storey lambda must stay within the documented [0, 1) range."""
+        with pytest.raises(ValueError, match="lambda_param"):
+            qc_psm.pep_to_qvalue(np.array([0.1, 0.2]), lambda_param=lambda_param)
+
+    def test_pep_to_qvalue_empty_input_returns_empty_float_array(self):
+        """Empty inputs should return an empty float array rather than failing."""
+        result = qc_psm.pep_to_qvalue(np.array([], dtype=np.float64))
+
+        assert result.dtype == np.float64
+        assert result.shape == (0,)
+
+
+class TestComputeSampleCV:
+    """Tests for compute_sample_cv helper."""
+
+    def test_compute_sample_cv_uses_canonical_default_assay_name(self, qc_psm_container):
+        """Default assay selection should use the canonical plural assay name."""
+        result = qc_psm.compute_sample_cv(qc_psm_container, layer_name="raw", cv_threshold=0.3)
+
+        assert result.history[-1].action == "compute_sample_cv"
+        assert result.history[-1].params["assay"] == "peptides"
+
+    def test_compute_sample_cv_accepts_alias_and_writes_sample_qc_columns(self, qc_psm_container):
+        """Alias resolution and sample-level obs outputs should stay aligned."""
+        result = qc_psm.compute_sample_cv(
+            qc_psm_container,
+            assay_name="peptide",
+            layer_name="raw",
+            cv_threshold=0.3,
+        )
+
+        expected_cv = compute_cv(qc_psm_container.assays["peptides"].layers["raw"].X.T, axis=0)
+
+        assert result is not qc_psm_container
+        assert "sample_cv" not in qc_psm_container.obs.columns
+        assert "is_high_sample_cv" not in qc_psm_container.obs.columns
+        assert result.obs["sample_cv"].to_list() == pytest.approx(expected_cv.tolist())
+        assert result.obs["is_high_sample_cv"].to_list() == list(expected_cv > 0.3)
+        assert result.history[-1].action == "compute_sample_cv"
+        assert result.history[-1].params["assay"] == "peptides"
+        assert result.history[-1].params["layer"] == "raw"
+        assert result.history[-1].params["cv_threshold"] == 0.3
+
+    def test_compute_sample_cv_missing_layer_raises_scpvalueerror(self, qc_psm_container):
+        """The current handwritten layer check raises ScpValueError, not LayerNotFoundError."""
+        with pytest.raises(ScpValueError, match="Layer 'norm' not found"):
+            qc_psm.compute_sample_cv(qc_psm_container, assay_name="peptide", layer_name="norm")
+
+
+class TestComputeMedianCVCompatibilityAlias:
+    """Tests for the legacy compute_median_cv compatibility alias."""
+
+    def test_compute_median_cv_warns_and_preserves_legacy_columns(self, qc_psm_container):
+        """Legacy alias should warn, point callers to migration, and keep old outputs."""
+        expected_cv = compute_cv(qc_psm_container.assays["peptides"].layers["raw"].X.T, axis=0)
+
+        with pytest.warns(
+            FutureWarning,
+            match="compute_sample_cv.*future contract update.*repository-wide migration",
+        ):
+            result = qc_psm.compute_median_cv(
+                qc_psm_container,
+                assay_name="peptide",
+                layer_name="raw",
+                cv_threshold=0.3,
+            )
+
+        assert result.obs["median_cv"].to_list() == pytest.approx(expected_cv.tolist())
+        assert result.obs["is_high_cv"].to_list() == list(expected_cv > 0.3)
+        assert result.history[-1].action == "compute_median_cv"
+        assert result.history[-1].params["assay"] == "peptides"
 
 
 # =============================================================================

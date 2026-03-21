@@ -19,6 +19,7 @@ from scptensor.cluster.base import (
     _prepare_matrix,
     _validate_assay_layer,
 )
+from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import ScpValueError
 from scptensor.core.jit_ops import NUMBA_AVAILABLE, kmeans_core_numba, kmeans_plusplus_init_numba
 from scptensor.core.structures import ScpContainer
@@ -99,7 +100,8 @@ def cluster_kmeans(
         )
 
     # Get and prepare data
-    assay, X = _validate_assay_layer(container, assay_name, base_layer)
+    resolved_assay_name = resolve_assay_name(container, assay_name)
+    _, X = _validate_assay_layer(container, resolved_assay_name, base_layer)
     X_dense = _prepare_matrix(X)
 
     # Run clustering
@@ -131,12 +133,15 @@ def cluster_kmeans(
     new_container.log_operation(
         action="cluster_kmeans",
         params={
-            "assay": assay_name,
-            "layer": base_layer,
+            "source_assay": resolved_assay_name,
+            "source_layer": base_layer,
+            "output_key": key_added,
             "n_clusters": n_clusters,
             "backend": backend,
         },
-        description=f"K-Means (k={n_clusters}, backend={backend}) on {assay_name}/{base_layer}.",
+        description=(
+            f"K-Means (k={n_clusters}, backend={backend}) on {resolved_assay_name}/{base_layer}."
+        ),
     )
 
     return new_container
