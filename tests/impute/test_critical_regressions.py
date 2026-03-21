@@ -6,7 +6,8 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp_sparse
 
-from scptensor.core import Assay, ScpContainer, ScpMatrix
+from scptensor.core import Assay, MaskCode, ScpContainer, ScpMatrix
+from scptensor.impute import impute_zero
 from scptensor.impute.bpca import bpca_impute
 from scptensor.impute.knn import impute_knn, knn_impute
 from scptensor.impute.minprob import minprob_impute
@@ -150,3 +151,68 @@ def test_qrilc_no_missing_fast_path_still_logs_history() -> None:
 
     assert len(out.history) == initial_len + 1
     assert out.history[-1].action == "impute_qrilc"
+
+
+def test_imputation_targets_only_nan_and_preserves_finite_masked_entries() -> None:
+    """Regression: wrapper selection remains NaN-driven, not state-code-driven."""
+    x = np.array(
+        [
+            [10.0, np.nan, 30.0],
+            [40.0, 50.0, 60.0],
+        ],
+        dtype=np.float64,
+    )
+    m = np.array(
+        [
+            [MaskCode.LOD, MaskCode.LOD, MaskCode.FILTERED],
+            [MaskCode.OUTLIER, MaskCode.MBR, MaskCode.VALID],
+        ],
+        dtype=np.int8,
+    )
+    assay = Assay(var=pl.DataFrame({"_index": ["p1", "p2", "p3"]}))
+    assay.add_layer("raw", ScpMatrix(X=x, M=m))
+    container = ScpContainer(
+        obs=pl.DataFrame({"_index": ["s1", "s2"]}),
+        assays={"protein": assay},
+    )
+
+    out = impute_zero(container, assay_name="protein", source_layer="raw")
+    x_out = out.assays["protein"].layers["imputed_zero"].X
+    m_out = out.assays["protein"].layers["imputed_zero"].M
+
+    assert m_out is not None
+    assert x_out[0, 0] == 10.0
+    assert x_out[0, 2] == 30.0
+    assert x_out[1, 0] == 40.0
+    assert x_out[1, 1] == 50.0
+    assert m_out[0, 0] == MaskCode.LOD
+    assert m_out[0, 2] == MaskCode.FILTERED
+    assert m_out[1, 0] == MaskCode.OUTLIER
+    assert m_out[1, 1] == MaskCode.MBR
+    assert x_out[0, 1] == 0.0
+    assert m_out[0, 1] == MaskCode.IMPUTED
+
+
+def test_imputation_layer_name_collision_overwrites_existing_layer() -> None:
+    """Regression: layer-name collisions currently overwrite existing assay layers."""
+    x = np.array(
+        [
+            [1.0, np.nan],
+            [2.0, 3.0],
+        ],
+        dtype=np.float64,
+    )
+    sentinel = np.full_like(x, -999.0)
+    assay = Assay(var=pl.DataFrame({"_index": ["p1", "p2"]}))
+    assay.add_layer("raw", ScpMatrix(X=x, M=None))
+    assay.add_layer("imputed_zero", ScpMatrix(X=sentinel, M=None))
+    container = ScpContainer(
+        obs=pl.DataFrame({"_index": ["s1", "s2"]}),
+        assays={"protein": assay},
+    )
+
+    out = impute_zero(container, assay_name="protein", source_layer="raw")
+    x_out = out.assays["protein"].layers["imputed_zero"].X
+
+    assert not np.array_equal(x_out, sentinel)
+    assert not np.any(np.isnan(x_out))

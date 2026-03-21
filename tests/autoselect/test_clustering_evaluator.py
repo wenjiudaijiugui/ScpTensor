@@ -257,3 +257,51 @@ class TestClusteringEvaluatorRunAll:
             assert report.best_result is not None
             assert report.best_result.error is None
             assert report.best_result.overall_score >= 0
+
+    def test_run_all_keep_all_uses_unified_obs_attachment(self, container_for_clustering):
+        """Obs outputs should be preserved for every successful method when keep_all=True."""
+        evaluator = ClusteringEvaluator(n_clusters=3)
+
+        def method_a(container, assay_name, source_layer, **kwargs):
+            del assay_name, source_layer, kwargs
+            labels = np.tile(np.array([0, 1, 2]), len(container.obs) // 3 + 1)[: len(container.obs)]
+            container.obs = container.obs.with_columns(
+                pl.Series(name="method_a_result", values=labels)
+            )
+            return container
+
+        def method_b(container, assay_name, source_layer, **kwargs):
+            del assay_name, source_layer, kwargs
+            labels = np.tile(np.array([0, 0, 1, 1]), len(container.obs) // 4 + 1)[
+                : len(container.obs)
+            ]
+            container.obs = container.obs.with_columns(
+                pl.Series(name="method_b_result", values=labels)
+            )
+            return container
+
+        evaluator._available_methods = {"method_a": method_a, "method_b": method_b}
+
+        def fake_compute_metrics(self, container, original_container, layer_name):
+            del container, original_container
+            score = 0.9 if layer_name == "method_a_result" else 0.8
+            return {
+                "silhouette": score,
+                "calinski_harabasz": score,
+                "davies_bouldin": score,
+                "stability": score,
+            }
+
+        evaluator.compute_metrics = fake_compute_metrics.__get__(evaluator, ClusteringEvaluator)
+
+        result_container, report = evaluator.run_all(
+            container=container_for_clustering,
+            assay_name="pca",
+            source_layer="X",
+            keep_all=True,
+            selection_strategy="quality",
+        )
+
+        assert report.best_method == "method_a"
+        assert "method_a_result" in result_container.obs.columns
+        assert "method_b_result" in result_container.obs.columns

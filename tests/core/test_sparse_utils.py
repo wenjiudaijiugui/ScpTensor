@@ -8,7 +8,9 @@ from scptensor.core.sparse_utils import (
     get_memory_usage,
     get_sparsity_ratio,
     is_sparse_matrix,
+    sparse_col_operation,
     sparse_copy,
+    sparse_row_operation,
     to_sparse_if_beneficial,
 )
 
@@ -110,3 +112,36 @@ def test_sparse_vs_dense_memory():
     compression_ratio = stats_dense["nbytes"] / stats_sparse["nbytes"]
 
     assert compression_ratio > 2, "Sparse should use significantly less memory"
+
+
+def test_sparse_col_operation_sum_and_mean():
+    """Column reductions should use explicit stored values only."""
+    X = sp.csr_matrix([[1.0, 0.0, 2.0], [0.0, 0.0, 3.0], [4.0, 5.0, 0.0]])
+
+    result_sum = sparse_col_operation(X, np.sum)
+    result_mean = sparse_col_operation(X, np.mean)
+
+    np.testing.assert_allclose(result_sum, np.array([5.0, 5.0, 5.0]))
+    np.testing.assert_allclose(result_mean, np.array([2.5, 5.0, 2.5]))
+
+
+def test_sparse_col_operation_empty_columns_return_zero():
+    """Empty sparse columns should follow the stable 0.0 fallback convention."""
+    X = sp.csr_matrix([[0.0, 0.0, 2.0], [0.0, 0.0, 0.0], [4.0, 0.0, 0.0]])
+
+    result_sum = sparse_col_operation(X, np.sum)
+    result_mean = sparse_col_operation(X, np.mean)
+
+    np.testing.assert_allclose(result_sum, np.array([4.0, 0.0, 2.0]))
+    np.testing.assert_allclose(result_mean, np.array([4.0, 0.0, 2.0]))
+
+
+def test_sparse_row_and_col_custom_functions_still_use_fallback_semantics():
+    """Custom reducers should still see only explicit stored values."""
+    X = sp.csr_matrix([[1.0, 0.0, 2.0], [0.0, 7.0, 0.0], [4.0, 5.0, 0.0]])
+
+    row_max = sparse_row_operation(X, np.max)
+    col_max = sparse_col_operation(X, np.max)
+
+    np.testing.assert_allclose(row_max, np.array([2.0, 7.0, 5.0]))
+    np.testing.assert_allclose(col_max, np.array([4.0, 7.0, 2.0]))

@@ -8,16 +8,14 @@ Handles QC for proteins/features including:
 
 import numpy as np
 import polars as pl
-import scipy.sparse as sp
 
-from scptensor.core.filtering import FilterCriteria
 from scptensor.core.structures import ScpContainer
 from scptensor.qc._utils import (
     compute_detection_stats,
     count_detected,
-    log_filtering_operation,
+    filter_features_with_provenance,
     resolve_assay,
-    validate_layer,
+    resolve_layer,
     validate_threshold,
 )
 from scptensor.qc.metrics import compute_cv
@@ -56,21 +54,19 @@ def calculate_feature_qc_metrics(
     >>> result.assays['protein'].var[['missing_rate', 'detection_rate', 'cv']]
     """
     resolved_assay_name, assay = resolve_assay(container, assay_name)
-
-    layer_name = layer_name or next(iter(assay.layers.keys()))
-    validate_layer(assay, layer_name, assay_name=resolved_assay_name)
-    layer = assay.layers[layer_name]
-    X = layer.X
-    if sp.issparse(X):
-        X = X.toarray()  # type: ignore[union-attr]
-    X = np.asarray(X, dtype=np.float64)
+    layer_name, layer = resolve_layer(
+        assay,
+        assay_name=resolved_assay_name,
+        layer_name=layer_name,
+        fallback_to_first=True,
+    )
 
     # Compute detection statistics
     n_detected, detection_rate, means = compute_detection_stats(layer.X, M=layer.M)
     missing_rate = 1.0 - detection_rate
 
     # Compute CV
-    cv = compute_cv(X, axis=0)
+    cv = compute_cv(layer.X, axis=0)
 
     # Create new metrics DataFrame
     new_metrics = pl.DataFrame(
@@ -146,9 +142,12 @@ def filter_features_by_missingness(
     validate_threshold(max_missing_rate, "max_missing_rate", min_val=0.0, max_val=1.0)
     resolved_assay_name, assay = resolve_assay(container, assay_name)
 
-    layer_name = layer_name or next(iter(assay.layers.keys()))
-    validate_layer(assay, layer_name, assay_name=resolved_assay_name)
-    layer = assay.layers[layer_name]
+    _, layer = resolve_layer(
+        assay,
+        assay_name=resolved_assay_name,
+        layer_name=layer_name,
+        fallback_to_first=True,
+    )
 
     n_samples = layer.X.shape[0]
 
@@ -160,14 +159,11 @@ def filter_features_by_missingness(
     keep_mask = missing_rate <= max_missing_rate
     keep_indices = np.where(keep_mask)[0]
 
-    # Apply filtering
-    criteria = FilterCriteria.by_indices(keep_indices)
-    new_container = container.filter_features(resolved_assay_name, criteria)
-
-    # Log provenance
     n_removed = assay.n_features - len(keep_indices)
-    new_container = log_filtering_operation(
-        new_container,
+    return filter_features_with_provenance(
+        container,
+        resolved_assay_name,
+        keep_indices,
         action="filter_features_by_missingness",
         params={
             "assay": resolved_assay_name,
@@ -181,8 +177,6 @@ def filter_features_by_missingness(
             f"(max_missing_rate={max_missing_rate})."
         ),
     )
-
-    return new_container
 
 
 def filter_features_by_cv(
@@ -233,9 +227,12 @@ def filter_features_by_cv(
 
     resolved_assay_name, assay = resolve_assay(container, assay_name)
 
-    layer_name = layer_name or next(iter(assay.layers.keys()))
-    validate_layer(assay, layer_name, assay_name=resolved_assay_name)
-    layer = assay.layers[layer_name]
+    _, layer = resolve_layer(
+        assay,
+        assay_name=resolved_assay_name,
+        layer_name=layer_name,
+        fallback_to_first=True,
+    )
 
     X = layer.X
     cv = compute_cv(X, axis=0, min_mean=min_mean)
@@ -244,14 +241,11 @@ def filter_features_by_cv(
     keep_mask = (cv <= max_cv) & (~np.isnan(cv))
     keep_indices = np.where(keep_mask)[0]
 
-    # Apply filtering
-    criteria = FilterCriteria.by_indices(keep_indices)
-    new_container = container.filter_features(resolved_assay_name, criteria)
-
-    # Log provenance
     n_removed = assay.n_features - len(keep_indices)
-    new_container = log_filtering_operation(
-        new_container,
+    return filter_features_with_provenance(
+        container,
+        resolved_assay_name,
+        keep_indices,
         action="filter_features_by_cv",
         params={
             "assay": resolved_assay_name,
@@ -265,5 +259,3 @@ def filter_features_by_cv(
             f"{resolved_assay_name} by CV (max_cv={max_cv})."
         ),
     )
-
-    return new_container

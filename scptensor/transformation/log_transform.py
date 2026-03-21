@@ -8,6 +8,12 @@ import warnings
 import numpy as np
 import scipy.sparse as sp
 
+from scptensor.core._layer_processing import (
+    add_result_layer,
+    clone_matrix_data,
+    log_container_operation,
+    resolve_layer_context,
+)
 from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import ScpValueError
 from scptensor.core.sparse_utils import (
@@ -16,8 +22,6 @@ from scptensor.core.sparse_utils import (
     sparse_safe_log1p_with_scale,
 )
 from scptensor.core.structures import ScpContainer
-
-from .base import create_result_layer, validate_assay_and_layer
 
 _LAYER_LOG_PATTERN = re.compile(r"(^|[_\-])(log|log2|log10|ln)([_\-]|$)")
 
@@ -123,13 +127,6 @@ def _detect_already_logged(
     return _data_suggests_logged(values)
 
 
-def _clone_matrix_data(x: np.ndarray | sp.spmatrix) -> np.ndarray | sp.spmatrix:
-    """Clone matrix data for safe passthrough layer creation."""
-    if is_sparse_matrix(x):
-        return x.copy()  # type: ignore[union-attr]
-    return np.array(x, copy=True)
-
-
 def log_transform(
     container: ScpContainer,
     assay_name: str = "protein",
@@ -192,8 +189,10 @@ def log_transform(
             value=offset,
         )
 
-    assay, input_layer = validate_assay_and_layer(container, assay_name, source_layer)
-    resolved_assay_name = resolve_assay_name(container, assay_name)
+    ctx = resolve_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_layer = ctx.layer
+    resolved_assay_name = ctx.resolved_assay_name
 
     x = input_layer.X
     log_scale = np.log(base)
@@ -224,9 +223,10 @@ def log_transform(
 
         if skip_if_logged:
             if new_layer_name != source_layer:
-                passthrough = _clone_matrix_data(input_layer.X)
-                assay.add_layer(new_layer_name, create_result_layer(passthrough, input_layer))
-            container.log_operation(
+                passthrough = clone_matrix_data(input_layer.X)
+                add_result_layer(assay, new_layer_name, passthrough, input_layer)
+            log_container_operation(
+                container,
                 action="log_transform_skipped",
                 params={
                     "assay": resolved_assay_name,
@@ -274,10 +274,10 @@ def log_transform(
     else:
         x_log = np.log(x + offset) / log_scale
 
-    new_matrix = create_result_layer(x_log, input_layer)
-    assay.add_layer(new_layer_name, new_matrix)
+    add_result_layer(assay, new_layer_name, x_log, input_layer)
 
-    container.log_operation(
+    log_container_operation(
+        container,
         action="log_transform",
         params={
             "assay": resolved_assay_name,

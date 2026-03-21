@@ -84,13 +84,17 @@ def _weighted_row_mean(values: np.ndarray, weights: np.ndarray) -> np.ndarray:
     """Row-wise weighted mean ignoring missing values."""
     out = np.full(values.shape[0], np.nan, dtype=np.float64)
     safe_weights = np.where(np.isfinite(weights) & (weights > 0), weights, 0.0)
+    if not np.any(safe_weights > 0):
+        return out
 
-    for i in range(values.shape[0]):
-        finite = np.isfinite(values[i]) & (safe_weights > 0)
-        if not np.any(finite):
-            continue
-        w = safe_weights[finite]
-        out[i] = float(np.sum(values[i, finite] * w) / np.sum(w))
+    weighted_mask = np.isfinite(values) & (safe_weights > 0)[None, :]
+    if not np.any(weighted_mask):
+        return out
+
+    weighted_sums = np.where(weighted_mask, values * safe_weights, 0.0).sum(axis=1)
+    weight_sums = np.where(weighted_mask, safe_weights, 0.0).sum(axis=1)
+    valid_rows = weight_sums > 0
+    out[valid_rows] = weighted_sums[valid_rows] / weight_sums[valid_rows]
     return out
 
 
@@ -296,6 +300,20 @@ def _resolve_ibaq_denominator(
     return denom
 
 
+def _group_indices_by_protein(protein_ids: np.ndarray) -> tuple[np.ndarray, list[np.ndarray]]:
+    """Group feature indices by sorted protein identifier."""
+    unique_proteins, inverse, counts = np.unique(
+        np.asarray(protein_ids), return_inverse=True, return_counts=True
+    )
+    if unique_proteins.size == 0:
+        return unique_proteins, []
+
+    order = np.argsort(inverse, kind="stable")
+    split_points = np.cumsum(counts[:-1], dtype=np.int64)
+    grouped = np.split(order, split_points.tolist())
+    return unique_proteins, grouped
+
+
 def _aggregate_protein_values(
     values: np.ndarray,
     *,
@@ -415,7 +433,7 @@ def aggregate_to_protein(
         m_src = m_src[:, valid_idx]
         source_ids = source_ids[valid_idx]
 
-    unique_proteins = np.unique(protein_ids)
+    unique_proteins, grouped_indices = _group_indices_by_protein(protein_ids)
     if unique_proteins.size == 0:
         raise ValidationError("No protein groups found to aggregate.")
 
@@ -424,15 +442,13 @@ def aggregate_to_protein(
     linkage_source: list[str] = []
     linkage_target: list[str] = []
 
-    for j, protein_id in enumerate(unique_proteins):
-        idx = np.where(protein_ids == protein_id)[0]
-        if idx.size == 0:
-            continue
-
+    for j, (protein_id, idx) in enumerate(zip(unique_proteins, grouped_indices, strict=True)):
         vals = x_src[:, idx]
         masks = m_src[:, idx]
 
-        denom = _resolve_ibaq_denominator(str(protein_id), idx.size, ibaq_denominator)
+        denom = 1.0
+        if method == "ibaq":
+            denom = _resolve_ibaq_denominator(str(protein_id), idx.size, ibaq_denominator)
         agg_vals, used = _aggregate_protein_values(
             vals,
             method=method,
@@ -444,10 +460,12 @@ def aggregate_to_protein(
         )
 
         x_protein[:, j] = agg_vals
-        m_protein[:, j] = np.max(masks[:, used], axis=1)
+        used_masks = masks if used.size == masks.shape[1] else masks[:, used]
+        m_protein[:, j] = np.max(used_masks, axis=1)
 
-        linkage_source.extend(source_ids[idx].tolist())
-        linkage_target.extend([str(protein_id)] * idx.size)
+        group_source_ids = source_ids[idx]
+        linkage_source.extend(group_source_ids.tolist())
+        linkage_target.extend([str(protein_id)] * group_source_ids.size)
 
     protein_var = pl.DataFrame({"_index": unique_proteins.astype(str).tolist()})
     if protein_col != "_index":

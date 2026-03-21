@@ -198,6 +198,47 @@ def test_trqn_and_quantile_scores_are_not_identical() -> None:
     assert "compared on logged source layer 'log'" in report.recommendation_reason
 
 
+def test_log_transform_skipped_passthrough_still_counts_as_logged_provenance() -> None:
+    """Skipped passthrough layers should still reopen quantile-family candidates."""
+    evaluator = NormalizationEvaluator()
+    container = _build_structured_container(
+        include_batch=True,
+        include_group=True,
+        n_samples=120,
+        n_features=180,
+        batch_scale=2.5,
+        seed=321,
+    )
+    container = log_transform(
+        container,
+        assay_name="proteins",
+        source_layer="raw",
+        new_layer_name="log",
+    )
+
+    with pytest.warns(UserWarning, match="already log-transformed"):
+        container = log_transform(
+            container,
+            assay_name="proteins",
+            source_layer="log",
+            new_layer_name="logged_checked",
+        )
+
+    _, report = evaluator.run_all(
+        container=container,
+        assay_name="proteins",
+        source_layer="logged_checked",
+        keep_all=True,
+        selection_strategy="quality",
+    )
+
+    assert "norm_quantile" in report.method_contracts
+    assert "norm_trqn" in report.method_contracts
+    assert report.method_contracts["norm_quantile"]["source_layer_logged"] is True
+    assert report.method_contracts["norm_trqn"]["comparison_scale"] == "logged"
+    assert "compared on logged source layer 'logged_checked'" in report.recommendation_reason
+
+
 def test_missing_batch_metadata_uses_neutral_batch_scores() -> None:
     """When batch labels are absent, batch-specific metrics should be neutral."""
     evaluator = NormalizationEvaluator()

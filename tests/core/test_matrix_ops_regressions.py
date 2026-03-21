@@ -19,6 +19,28 @@ def test_get_mask_statistics_sparse_uses_full_shape():
     assert stats["IMPUTED"]["count"] == 0
 
 
+def test_get_mask_statistics_dense_counts_each_code_once() -> None:
+    """Dense statistics should count all codes with full-matrix percentages."""
+    X = np.arange(12, dtype=float).reshape(3, 4)
+    M = np.array(
+        [
+            [0, 1, 2, 3],
+            [4, 5, 6, 0],
+            [0, 0, 5, 2],
+        ],
+        dtype=np.int8,
+    )
+    matrix = ScpMatrix(X=X, M=M)
+
+    stats = MatrixOps.get_mask_statistics(matrix)
+
+    assert stats["VALID"]["count"] == 4
+    assert stats["LOD"]["count"] == 2
+    assert stats["IMPUTED"]["count"] == 2
+    assert stats["UNCERTAIN"]["count"] == 1
+    assert stats["VALID"]["percentage"] == (4 / 12) * 100.0
+
+
 def test_apply_mask_to_values_sparse_zero_only_invalid_entries():
     """Sparse zeroing should not clear valid entries."""
     X = sp.csr_matrix(np.array([[1.0, 0.0, 2.0], [0.0, 3.0, 0.0]]))

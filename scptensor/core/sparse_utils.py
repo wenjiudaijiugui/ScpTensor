@@ -320,6 +320,35 @@ def _preserve_sparsity_format(
     return result
 
 
+def _is_named_reduction(func: Callable[..., Any], name: str) -> bool:
+    """Return whether a callable represents a named reduction."""
+    return func is getattr(np, name) or getattr(func, "__name__", "") == name
+
+
+def _compressed_segment_reduction(
+    indptr: np.ndarray,
+    data: np.ndarray,
+    n_segments: int,
+    reduction: str,
+) -> np.ndarray:
+    """Vectorized reduction over compressed sparse segments."""
+    lengths = np.diff(indptr)
+    result = np.zeros(n_segments, dtype=np.float64)
+    nonempty = lengths > 0
+
+    if not np.any(nonempty):
+        return result
+
+    starts = indptr[:-1][nonempty]
+    reduced = np.add.reduceat(data, starts)
+
+    if reduction == "mean":
+        reduced = reduced / lengths[nonempty]
+
+    result[nonempty] = reduced
+    return result
+
+
 def sparse_safe_operation(
     X: np.ndarray | sp.spmatrix,
     operation: Callable[..., np.ndarray | sp.spmatrix | Any],
@@ -511,16 +540,22 @@ def sparse_row_operation(
     # Fast path: use JIT kernels for common operations
     if _ensure_numba():
         # Check for sum operation
-        if func is np.sum or (hasattr(func, "__name__") and func.__name__ == "sum"):
+        if _is_named_reduction(func, "sum"):
             from scptensor.core.jit_ops import _sparse_row_sum_jit
 
             return _sparse_row_sum_jit(X_csr.indptr, X_csr.data, n_rows)
 
         # Check for mean operation
-        if func is np.mean or (hasattr(func, "__name__") and func.__name__ == "mean"):
+        if _is_named_reduction(func, "mean"):
             from scptensor.core.jit_ops import _sparse_row_mean_jit
 
             return _sparse_row_mean_jit(X_csr.indptr, X_csr.data, n_rows)
+
+    if _is_named_reduction(func, "sum"):
+        return _compressed_segment_reduction(X_csr.indptr, X_csr.data, n_rows, "sum")
+
+    if _is_named_reduction(func, "mean"):
+        return _compressed_segment_reduction(X_csr.indptr, X_csr.data, n_rows, "mean")
 
     # Fallback: vectorized approach for custom functions
     result = np.empty(n_rows, dtype=np.float64)
@@ -562,6 +597,12 @@ def sparse_col_operation(
     """
     X_csc = X.tocsc() if is_sparse_matrix(X) else X
     n_cols = X_csc.shape[1]
+
+    if _is_named_reduction(func, "sum"):
+        return _compressed_segment_reduction(X_csc.indptr, X_csc.data, n_cols, "sum")
+
+    if _is_named_reduction(func, "mean"):
+        return _compressed_segment_reduction(X_csc.indptr, X_csc.data, n_cols, "mean")
 
     result = np.empty(n_cols, dtype=np.float64)
     for j in range(n_cols):

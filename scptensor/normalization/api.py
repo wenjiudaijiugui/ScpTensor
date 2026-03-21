@@ -5,24 +5,20 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-import numpy as np
-import scipy.sparse as sp
-
+from scptensor.core._layer_processing import clone_matrix_data
 from scptensor.core.exceptions import ScpValueError
 from scptensor.core.structures import ScpContainer
 
-from .base import create_result_layer, get_layer_name, log_operation, validate_assay_and_layer
+from .base import (
+    add_result_layer,
+    get_layer_name,
+    log_operation,
+    validate_assay_and_layer,
+)
 from .mean_normalization import norm_mean
 from .median_normalization import norm_median
 from .quantile_normalization import norm_quantile
 from .trqn_normalization import norm_trqn
-
-
-def _clone_matrix_data(x: np.ndarray | sp.spmatrix) -> np.ndarray | sp.spmatrix:
-    """Clone matrix data for safe passthrough layer creation."""
-    if sp.issparse(x):
-        return x.copy()
-    return np.array(x, copy=True)
 
 
 def norm_none(
@@ -36,8 +32,8 @@ def norm_none(
     layer_name = get_layer_name(new_layer_name, "no_norm")
 
     if layer_name != source_layer:
-        passthrough = _clone_matrix_data(input_layer.X)
-        assay.add_layer(layer_name, create_result_layer(passthrough, input_layer))
+        passthrough = clone_matrix_data(input_layer.X)
+        add_result_layer(assay, layer_name, passthrough, input_layer)
 
     log_operation(
         container,

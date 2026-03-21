@@ -7,7 +7,10 @@ Optimized for sparse matrix operations - preserves sparsity when possible.
 import numpy as np
 import scipy.sparse as sp
 
+from .jit_ops import count_mask_codes
 from .structures import MaskCode, ScpMatrix
+
+_N_MASK_CODES = max(code.value for code in MaskCode) + 1
 
 
 def sparse_filter_mask(M: sp.spmatrix, keep_values: list[int]) -> sp.spmatrix:
@@ -36,6 +39,62 @@ def sparse_filter_mask(M: sp.spmatrix, keep_values: list[int]) -> sp.spmatrix:
     result = sp.coo_matrix((keep_mask, (M_coo.row, M_coo.col)), shape=M.shape, dtype=bool)
 
     return result.tocsr()
+
+
+def _mask_code_counts(M: np.ndarray | sp.spmatrix | None, shape: tuple[int, int]) -> np.ndarray:
+    """Count mask codes while respecting sparse implicit-VALID semantics."""
+    total_elements = shape[0] * shape[1]
+    counts = np.zeros(_N_MASK_CODES, dtype=np.int64)
+
+    if M is None:
+        counts[MaskCode.VALID.value] = total_elements
+        return counts
+
+    if isinstance(M, sp.spmatrix):
+        nonzero_entries = int(np.count_nonzero(M.data))
+        counts[MaskCode.VALID.value] = total_elements - nonzero_entries
+        for code in MaskCode:
+            if code is MaskCode.VALID:
+                continue
+            counts[code.value] = int(np.count_nonzero(M.data == code.value))
+        return counts
+
+    if isinstance(M, np.ndarray):
+        return count_mask_codes(M)
+
+    return np.bincount(np.asarray(M).ravel(), minlength=_N_MASK_CODES)[:_N_MASK_CODES]
+
+
+def _sparse_mask_coordinates(M: sp.spmatrix) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return coordinate-form sparse mask entries."""
+    M_coo = M.tocoo()
+    return (
+        np.asarray(M_coo.row, dtype=np.int64),
+        np.asarray(M_coo.col, dtype=np.int64),
+        np.asarray(M_coo.data),
+    )
+
+
+def _write_values_at_indices(
+    X: np.ndarray | sp.spmatrix,
+    rows: np.ndarray,
+    cols: np.ndarray,
+    fill_value: float,
+) -> np.ndarray | sp.spmatrix:
+    """Write a scalar value into dense or sparse matrices at explicit coordinates."""
+    if rows.size == 0:
+        return X
+
+    if isinstance(X, sp.spmatrix):
+        X_lil = X.tolil()
+        X_lil[rows, cols] = fill_value
+        X_out = X_lil.tocsr()
+        if fill_value == 0.0:
+            X_out.eliminate_zeros()
+        return X_out
+
+    X[rows, cols] = fill_value
+    return X
 
 
 class MatrixOps:
@@ -269,26 +328,14 @@ class MatrixOps:
             Dictionary with statistics for each mask code.
             Keys are MaskCode names, values are dicts with 'count' and 'percentage'
         """
-        M = matrix.get_m()
-        total_elements = M.shape[0] * M.shape[1]
+        total_elements = matrix.X.shape[0] * matrix.X.shape[1]
+        counts = _mask_code_counts(matrix.M, matrix.X.shape)
 
         stats = {}
-        if isinstance(M, sp.spmatrix):
-            # In sparse M, implicit entries are VALID (code 0).
-            nonzero_entries = int(np.count_nonzero(M.data))
-            for code in MaskCode:
-                if code is MaskCode.VALID:
-                    count = total_elements - nonzero_entries
-                else:
-                    count = int(np.count_nonzero(M.data == code.value))
-                percentage = 0.0 if total_elements == 0 else (count / total_elements) * 100
-                stats[code.name] = {"count": int(count), "percentage": float(percentage)}
-        else:
-            for code in MaskCode:
-                count = int(np.sum(code.value == M))
-                percentage = 0.0 if total_elements == 0 else (count / total_elements) * 100
-                stats[code.name] = {"count": int(count), "percentage": float(percentage)}
-
+        for code in MaskCode:
+            count = int(counts[code.value])
+            percentage = 0.0 if total_elements == 0 else (count / total_elements) * 100.0
+            stats[code.name] = {"count": count, "percentage": float(percentage)}
         return stats
 
     @staticmethod
@@ -314,37 +361,31 @@ class MatrixOps:
         """
         new_matrix = matrix.copy()
         M = new_matrix.get_m()
-        X = new_matrix.X.copy()
+        X = new_matrix.X
 
         keep_values = [code.value for code in keep_codes]
 
         # Handle sparse masks
         if isinstance(M, sp.spmatrix):
-            M_coo = M.tocoo()
+            mask_rows, mask_cols, mask_data = _sparse_mask_coordinates(M)
 
             if MaskCode.VALID.value in keep_values:
                 # Implicit sparse entries remain VALID and are kept.
-                filter_indices = ~np.isin(M_coo.data, keep_values)
-                filter_rows = M_coo.row[filter_indices]
-                filter_cols = M_coo.col[filter_indices]
+                filter_indices = ~np.isin(mask_data, keep_values)
+                if not np.any(filter_indices):
+                    return new_matrix
 
-                M_new_data = M_coo.data.copy()
+                filter_rows = mask_rows[filter_indices]
+                filter_cols = mask_cols[filter_indices]
+                M_new_data = mask_data.astype(np.int8, copy=True)
                 M_new_data[filter_indices] = MaskCode.FILTERED.value
                 new_matrix.M = sp.coo_matrix(
-                    (M_new_data, (M_coo.row, M_coo.col)),
+                    (M_new_data, (mask_rows, mask_cols)),
                     shape=M.shape,
                     dtype=np.int8,
                 ).tocsr()
 
-                if isinstance(X, sp.spmatrix):
-                    X_lil = X.tolil()
-                    if filter_rows.size > 0:
-                        X_lil[filter_rows, filter_cols] = np.nan
-                    new_matrix.X = X_lil.tocsr()
-                else:
-                    if filter_rows.size > 0:
-                        X[filter_rows, filter_cols] = np.nan
-                    new_matrix.X = X
+                new_matrix.X = _write_values_at_indices(X, filter_rows, filter_cols, np.nan)
             else:
                 # VALID is not kept: implicit sparse entries must also be filtered.
                 # This requires materializing full masks for correctness.
@@ -364,15 +405,16 @@ class MatrixOps:
         else:
             # Dense matrix operations (already efficient)
             keep_mask = np.isin(M, keep_values)
+            if np.all(keep_mask):
+                new_matrix.M = M
+                return new_matrix
+
             filter_mask = ~keep_mask
             M[filter_mask] = MaskCode.FILTERED.value
 
             if isinstance(X, sp.spmatrix):
                 filter_rows, filter_cols = np.where(filter_mask)
-                X_lil = X.tolil()
-                if filter_rows.size > 0:
-                    X_lil[filter_rows, filter_cols] = np.nan
-                new_matrix.X = X_lil.tocsr()
+                new_matrix.X = _write_values_at_indices(X, filter_rows, filter_cols, np.nan)
             else:
                 X[filter_mask] = np.nan
                 new_matrix.X = X
@@ -409,37 +451,29 @@ class MatrixOps:
             raise ValueError(f"Unknown operation: {operation}")
 
         new_matrix = matrix.copy()
-        X = new_matrix.X.copy()
+        if operation == "keep" or matrix.M is None:
+            return new_matrix
+
+        X = new_matrix.X
         M = new_matrix.get_m()
 
         # Handle sparse mask matrix (implicit entries are VALID).
         if isinstance(M, sp.spmatrix):
-            if operation == "keep":
-                new_matrix.X = X
-                return new_matrix
-
-            M_coo = M.tocoo()
-            invalid_indices = M_coo.data != MaskCode.VALID.value
-            invalid_rows = M_coo.row[invalid_indices]
-            invalid_cols = M_coo.col[invalid_indices]
+            mask_rows, mask_cols, mask_data = _sparse_mask_coordinates(M)
+            invalid_indices = mask_data != MaskCode.VALID.value
+            invalid_rows = mask_rows[invalid_indices]
+            invalid_cols = mask_cols[invalid_indices]
 
             if invalid_rows.size == 0:
-                new_matrix.X = X
                 return new_matrix
 
             fill_value = 0.0 if operation == "zero" else np.nan
-
-            if isinstance(X, sp.spmatrix):
-                X_lil = X.tolil()
-                X_lil[invalid_rows, invalid_cols] = fill_value
-                X = X_lil.tocsr()
-                if operation == "zero":
-                    X.eliminate_zeros()
-            else:
-                X[invalid_rows, invalid_cols] = fill_value
+            X = _write_values_at_indices(X, invalid_rows, invalid_cols, fill_value)
         else:
             # Dense matrix operations (original code)
             valid_mask = M == MaskCode.VALID
+            if np.all(valid_mask):
+                return new_matrix
 
             if operation == "zero":
                 X[~valid_mask] = 0.0

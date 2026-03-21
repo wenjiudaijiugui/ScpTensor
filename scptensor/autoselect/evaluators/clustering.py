@@ -10,11 +10,12 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import numpy as np
+import polars as pl
 
 from scptensor.autoselect.evaluators.base import BaseEvaluator
 
 if TYPE_CHECKING:
-    from scptensor.autoselect.core import EvaluationResult, StageReport
+    from scptensor.autoselect.core import EvaluationResult
     from scptensor.core.structures import ScpContainer
 
 
@@ -378,6 +379,29 @@ class ClusteringEvaluator(BaseEvaluator):
         except Exception:
             return 0.5
 
+    def _collect_success_artifact(
+        self,
+        result_container: ScpContainer,
+        assay_name: str,
+        result_name: str,
+    ):
+        """Return the clustering labels stored in obs for a successful method."""
+        del assay_name
+        return result_container.obs[result_name]
+
+    def _attach_success_artifact(
+        self,
+        result_container: ScpContainer,
+        assay_name: str,
+        result_name: str,
+        artifact,
+    ) -> None:
+        """Attach clustering labels to the final container obs."""
+        del assay_name
+        result_container.obs = result_container.obs.with_columns(
+            pl.Series(name=result_name, values=artifact)
+        )
+
     def evaluate_method(
         self,
         container: ScpContainer,
@@ -477,121 +501,6 @@ class ClusteringEvaluator(BaseEvaluator):
         )
 
         return result_container, eval_result
-
-    def run_all(
-        self,
-        container: ScpContainer,
-        assay_name: str = "pca",
-        source_layer: str = "X",
-        keep_all: bool = False,
-        **kwargs,
-    ) -> tuple[ScpContainer, StageReport]:
-        """Run all clustering methods and select the best one.
-
-        Overrides base method to handle obs-based results.
-
-        Parameters
-        ----------
-        container : ScpContainer
-            Input container to process
-        assay_name : str, optional
-            Name of assay to process, by default "pca"
-        source_layer : str, optional
-            Name of source layer, by default "X"
-        keep_all : bool, optional
-            If True, keep all clustering results; if False, keep only best
-        **kwargs
-            Additional parameters passed to all methods
-
-        Returns
-        -------
-        tuple[ScpContainer, StageReport]
-            Tuple of (result_container, stage_report).
-        """
-        import polars as pl
-
-        from scptensor.autoselect.core import StageReport
-
-        n_repeats, confidence_level, strategy, method_kwargs = self._extract_eval_controls(kwargs)
-
-        # Initialize report
-        report = StageReport(
-            stage_name=self.stage_name,
-            stage_key=self.stage_name,
-            metric_weights=self.get_metric_weights(),
-            selection_strategy=strategy,
-            n_repeats=n_repeats,
-            confidence_level=confidence_level,
-        )
-        results: list = []
-
-        # Store successful results: method_name -> (obs_column_name, labels_series)
-        successful_results: dict[str, tuple[str, pl.Series]] = {}
-
-        # Evaluate each method
-        for method_name, method_func in self.methods.items():
-            result_container, eval_result = self.evaluate_method_repeated(
-                container=container,
-                method_name=method_name,
-                method_func=method_func,
-                assay_name=assay_name,
-                source_layer=source_layer,
-                n_repeats=n_repeats,
-                confidence_level=confidence_level,
-                **method_kwargs,
-            )
-
-            results.append(eval_result)
-
-            # Store successful result
-            if result_container is not None and eval_result.error is None:
-                obs_column = eval_result.layer_name
-                labels = result_container.obs[obs_column]
-                successful_results[method_name] = (obs_column, labels)
-
-        # Update report with all results
-        report.results = results
-        self._apply_selection_scores(report.results, strategy)
-
-        # Find best method
-        successful = [r for r in results if r.error is None]
-
-        if successful:
-            best_result = self._select_best_result(successful)
-            report.best_method = best_result.method_name
-            report.best_result = best_result
-            report.recommendation_reason = (
-                f"Best '{strategy}' selection score "
-                f"({best_result.selection_score if best_result.selection_score is not None else best_result.overall_score:.4f}) "
-                f"from {len(successful)} successful methods (n_repeats={n_repeats})."
-            )
-
-            # Create result container with appropriate obs columns
-            result_container = container.copy()
-
-            if keep_all:
-                # Add all successful clustering results
-                for method_name, (obs_column, labels) in successful_results.items():
-                    if method_name != best_result.method_name:
-                        result_container.obs = result_container.obs.with_columns(
-                            pl.Series(name=obs_column, values=labels)
-                        )
-
-            # Add the best clustering result
-            best_obs_column = best_result.layer_name
-            best_labels = successful_results[best_result.method_name][1]
-            result_container.obs = result_container.obs.with_columns(
-                pl.Series(name=best_obs_column, values=best_labels)
-            )
-
-            return result_container, report
-        else:
-            # All methods failed
-            report.best_method = ""
-            report.best_result = None
-            report.recommendation_reason = "All methods failed"
-
-            return container.copy(), report
 
 
 __all__ = ["ClusteringEvaluator"]

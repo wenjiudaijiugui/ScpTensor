@@ -15,7 +15,7 @@ from scptensor.autoselect.evaluators.base import BaseEvaluator
 from scptensor.core.assay_alias import resolve_assay_name
 
 if TYPE_CHECKING:
-    from scptensor.autoselect.core import EvaluationResult, StageReport
+    from scptensor.autoselect.core import EvaluationResult
     from scptensor.core.structures import ScpContainer
 
 
@@ -574,117 +574,6 @@ class DimReductionEvaluator(BaseEvaluator):
         )
 
         return result_container, eval_result
-
-    def run_all(
-        self,
-        container: ScpContainer,
-        assay_name: str = "proteins",
-        source_layer: str = "raw",
-        keep_all: bool = False,
-        **kwargs,
-    ) -> tuple[ScpContainer, StageReport]:
-        """Run all dimensionality reduction methods and select the best one.
-
-        Overrides base method to handle assay-based results.
-
-        Parameters
-        ----------
-        container : ScpContainer
-            Input container to process
-        assay_name : str, optional
-            Name of assay to process, by default "proteins"
-        source_layer : str, optional
-            Name of source layer, by default "raw"
-        keep_all : bool, optional
-            If True, keep all result assays; if False, keep only best
-        **kwargs
-            Additional parameters passed to all methods
-
-        Returns
-        -------
-        tuple[ScpContainer, StageReport]
-            Tuple of (result_container, stage_report).
-        """
-        from scptensor.autoselect.core import StageReport
-
-        n_repeats, confidence_level, strategy, method_kwargs = self._extract_eval_controls(kwargs)
-
-        # Initialize report
-        report = StageReport(
-            stage_name=self.stage_name,
-            stage_key=self.stage_name,
-            metric_weights=self.get_metric_weights(),
-            selection_strategy=strategy,
-            n_repeats=n_repeats,
-            confidence_level=confidence_level,
-        )
-        results: list = []
-
-        # Store successful results: method_name -> (assay_name, assay_object)
-        from scptensor.core.structures import Assay
-
-        successful_assays: dict[str, tuple[str, Assay]] = {}
-
-        # Evaluate each method
-        for method_name, method_func in self.methods.items():
-            result_container, eval_result = self.evaluate_method_repeated(
-                container=container,
-                method_name=method_name,
-                method_func=method_func,
-                assay_name=assay_name,
-                source_layer=source_layer,
-                n_repeats=n_repeats,
-                confidence_level=confidence_level,
-                **method_kwargs,
-            )
-
-            results.append(eval_result)
-
-            # Store successful result assay
-            if result_container is not None and eval_result.error is None:
-                assay_name_result = eval_result.layer_name
-                assay_obj = result_container.assays[assay_name_result]
-                successful_assays[method_name] = (assay_name_result, assay_obj)
-
-        # Update report with all results
-        report.results = results
-        self._apply_selection_scores(report.results, strategy)
-
-        # Find best method
-        successful_results = [r for r in results if r.error is None]
-
-        if successful_results:
-            best_result = self._select_best_result(successful_results)
-            report.best_method = best_result.method_name
-            report.best_result = best_result
-            report.recommendation_reason = (
-                f"Best '{strategy}' selection score "
-                f"({best_result.selection_score if best_result.selection_score is not None else best_result.overall_score:.4f}) "
-                f"from {len(successful_results)} successful methods (n_repeats={n_repeats})."
-            )
-
-            # Create result container with appropriate assays
-            result_container = container.copy()
-
-            if keep_all:
-                # Add all successful result assays
-                for method_name, (assay_name_result, assay_obj) in successful_assays.items():
-                    if method_name != best_result.method_name:
-                        result_container.assays[assay_name_result] = assay_obj
-
-            # Add the best assay
-            best_assay_name = best_result.layer_name
-            best_assay = successful_assays[best_result.method_name][1]
-            result_container.assays[best_assay_name] = best_assay
-
-            return result_container, report
-        else:
-            # All methods failed
-            report.best_method = ""
-            report.best_result = None
-            report.recommendation_reason = "All methods failed"
-
-            return container.copy(), report
 
 
 __all__ = ["DimReductionEvaluator"]

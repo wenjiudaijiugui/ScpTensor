@@ -387,6 +387,7 @@ class AutoSelector:
         self.selection_strategy = strategy_name
         self.n_repeats = n_repeats
         self.confidence_level = confidence_level
+        self._evaluator_cache: dict[str, BaseEvaluator] = {}
 
     def _get_evaluator(self, stage: str) -> BaseEvaluator:
         """Get evaluator for a specific stage (lazy import).
@@ -406,6 +407,10 @@ class AutoSelector:
         ValueError
             If stage is not in the evaluator map
         """
+        cached = self._evaluator_cache.get(stage)
+        if cached is not None:
+            return cached
+
         if stage not in self._EVALUATOR_MAP:
             raise ValueError(f"Unknown stage: {stage}")
 
@@ -415,7 +420,9 @@ class AutoSelector:
 
         module = importlib.import_module(module_path)
         evaluator_class = getattr(module, class_name)
-        return evaluator_class()
+        evaluator = evaluator_class()
+        self._evaluator_cache[stage] = evaluator
+        return evaluator
 
     def _validate_stage_inputs(
         self,
@@ -541,9 +548,7 @@ class AutoSelector:
 
         # Get evaluator
         evaluator = self._get_evaluator(stage)
-
-        if stage in self.weights:
-            evaluator.set_metric_weights(self.weights[stage])
+        evaluator.set_metric_weights(self.weights.get(stage))
 
         # Run evaluator
         eval_kwargs = {

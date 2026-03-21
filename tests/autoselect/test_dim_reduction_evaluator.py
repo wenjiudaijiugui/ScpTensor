@@ -259,3 +259,47 @@ class TestDimReductionEvaluatorRunAll:
         assert report.best_result is not None
         assert report.best_result.error is None
         assert "protein" in result_container.assays
+
+    def test_run_all_keep_all_uses_unified_artifact_attachment(self, container_for_reduction):
+        """Assay outputs should be preserved for every successful method when keep_all=True."""
+        evaluator = DimReductionEvaluator(n_components=2)
+
+        def method_a(container, assay_name, source_layer, **kwargs):
+            base = np.asarray(container.assays[assay_name].layers[source_layer].X)
+            assay = Assay(var=pl.DataFrame({"_index": ["C1", "C2"]}))
+            assay.add_layer("X", ScpMatrix(X=base[:, :2]))
+            container.assays["method_a"] = assay
+            return container
+
+        def method_b(container, assay_name, source_layer, **kwargs):
+            base = np.asarray(container.assays[assay_name].layers[source_layer].X)
+            assay = Assay(var=pl.DataFrame({"_index": ["C1", "C2"]}))
+            assay.add_layer("X", ScpMatrix(X=base[:, -2:]))
+            container.assays["method_b"] = assay
+            return container
+
+        evaluator._available_methods = {"method_a": method_a, "method_b": method_b}
+
+        def fake_compute_metrics(self, container, original_container, layer_name):
+            del container, original_container
+            score = 0.9 if layer_name == "method_a" else 0.8
+            return {
+                "variance_explained": score,
+                "reconstruction_error": score,
+                "local_structure": score,
+                "clustering_potential": score,
+            }
+
+        evaluator.compute_metrics = fake_compute_metrics.__get__(evaluator, DimReductionEvaluator)
+
+        result_container, report = evaluator.run_all(
+            container=container_for_reduction,
+            assay_name="proteins",
+            source_layer="raw",
+            keep_all=True,
+            selection_strategy="quality",
+        )
+
+        assert report.best_method == "method_a"
+        assert "method_a" in result_container.assays
+        assert "method_b" in result_container.assays

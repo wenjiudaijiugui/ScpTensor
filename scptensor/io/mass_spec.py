@@ -79,6 +79,16 @@ class _ImportProfile:
     metadata_candidates: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class _ResolvedLongColumns:
+    """Resolved long-table columns used by a single import run."""
+
+    feature: str
+    quantity: str
+    sample: str
+    fdr: str | None
+
+
 _PROFILES: dict[tuple[ResolvedSoftware, Level], _ImportProfile] = {
     ("diann", "protein"): _ImportProfile(
         feature_candidates=("Protein.Group", "Protein.Groups", "Protein.Ids"),
@@ -359,6 +369,23 @@ def _resolve_sample_column_long(
     )
 
 
+def _resolve_long_columns(
+    columns: list[str],
+    profile: _ImportProfile,
+    *,
+    feature_column: str,
+    quantity_column: str,
+    sample_column: str,
+) -> _ResolvedLongColumns:
+    """Resolve all required long-format columns once per import."""
+    return _ResolvedLongColumns(
+        feature=_resolve_feature_column(columns, profile, feature_column),
+        quantity=_resolve_quantity_column(columns, profile, quantity_column),
+        sample=_resolve_sample_column_long(columns, profile, sample_column),
+        fdr=_resolve_fdr_column(columns, profile),
+    )
+
+
 def _numeric_like_columns(df: pl.DataFrame, candidates: list[str]) -> list[str]:
     """Keep columns that can hold numeric quant values."""
     keep: list[str] = []
@@ -410,19 +437,18 @@ def _resolve_matrix_sample_columns(
 
     metadata_like = set(profile.metadata_candidates) | {feature_col}
     generic_candidates = [col for col in columns if col not in metadata_like]
-    numeric_candidates = _numeric_like_columns(df, generic_candidates)
-
-    pattern_columns: list[str] = []
+    pattern_candidates: list[str] = []
     if software == "diann" and level == "peptide":
-        pattern_columns = [
-            col for col in numeric_candidates if _DIANN_PEPTIDE_MATRIX_RE.search(col)
+        pattern_candidates = [
+            col for col in generic_candidates if _DIANN_PEPTIDE_MATRIX_RE.search(col)
         ]
     elif software == "spectronaut":
-        pattern_columns = [
-            col for col in numeric_candidates if col.endswith(_SPECTRONAUT_MATRIX_SUFFIXES)
+        pattern_candidates = [
+            col for col in generic_candidates if col.endswith(_SPECTRONAUT_MATRIX_SUFFIXES)
         ]
 
-    sample_cols = pattern_columns if pattern_columns else numeric_candidates
+    candidates_to_check = pattern_candidates if pattern_candidates else generic_candidates
+    sample_cols = _numeric_like_columns(df, candidates_to_check)
     if not sample_cols:
         raise ValidationError(
             "No quantitative sample columns detected for matrix input. "
@@ -490,18 +516,12 @@ def _matrix_to_assay(
 def _load_matrix_table(
     df: pl.DataFrame,
     *,
-    software: ResolvedSoftware,
-    level: Level,
     assay_name: str,
-    feature_column: str,
-    profile: _ImportProfile,
+    feature_col: str,
+    sample_cols: list[str],
+    sample_ids: list[str],
     layer_name: str,
 ) -> ScpContainer:
-    feature_col = _resolve_feature_column(df.columns, profile, feature_column)
-    sample_cols, sample_ids = _resolve_matrix_sample_columns(
-        df, software, level, feature_col, profile
-    )
-
     var_cols = [col for col in df.columns if col not in sample_cols]
     if feature_col not in var_cols:
         var_cols = [feature_col, *var_cols]
@@ -536,16 +556,14 @@ def _load_long_table(
     df: pl.DataFrame,
     *,
     assay_name: str,
-    feature_column: str,
-    quantity_column: str,
-    sample_column: str,
     profile: _ImportProfile,
+    resolved_cols: _ResolvedLongColumns,
     fdr_threshold: float | None,
     layer_name: str,
 ) -> ScpContainer:
-    feature_col = _resolve_feature_column(df.columns, profile, feature_column)
-    qty_col = _resolve_quantity_column(df.columns, profile, quantity_column)
-    sample_col = _resolve_sample_column_long(df.columns, profile, sample_column)
+    feature_col = resolved_cols.feature
+    qty_col = resolved_cols.quantity
+    sample_col = resolved_cols.sample
 
     work = df.with_columns(
         pl.col(feature_col).cast(pl.Utf8, strict=False),
@@ -571,7 +589,7 @@ def _load_long_table(
             "Check feature/sample columns and file content."
         )
 
-    matrix_df = work.pivot(
+    matrix_df = work.select([feature_col, "_sample_id", qty_col]).pivot(
         index=feature_col,
         on="_sample_id",
         values=qty_col,
@@ -666,22 +684,23 @@ def load_quant_table(
     )
 
     if is_long:
-        resolved_feature_column = _resolve_feature_column(full_df.columns, profile, feature_column)
-        resolved_quantity_column = _resolve_quantity_column(
-            full_df.columns, profile, quantity_column
+        resolved_long = _resolve_long_columns(
+            full_df.columns,
+            profile,
+            feature_column=feature_column,
+            quantity_column=quantity_column,
+            sample_column=sample_column,
         )
-        resolved_sample_column = _resolve_sample_column_long(
-            full_df.columns, profile, sample_column
-        )
-        used_fdr_column = _resolve_fdr_column(full_df.columns, profile)
+        resolved_feature_column = resolved_long.feature
+        resolved_quantity_column = resolved_long.quantity
+        resolved_sample_column = resolved_long.sample
+        used_fdr_column = resolved_long.fdr
         vendor_normalized_input = _is_vendor_normalized_column(resolved_quantity_column)
         container = _load_long_table(
             full_df,
             assay_name=resolved_assay,
-            feature_column=feature_column,
-            quantity_column=quantity_column,
-            sample_column=sample_column,
             profile=profile,
+            resolved_cols=resolved_long,
             fdr_threshold=fdr_threshold,
             layer_name=layer_name,
         )
@@ -696,7 +715,7 @@ def load_quant_table(
             raise ValidationError("No rows remain in matrix-format input after preprocessing.")
 
         resolved_feature_column = _resolve_feature_column(full_df.columns, profile, feature_column)
-        sample_cols, _ = _resolve_matrix_sample_columns(
+        sample_cols, sample_ids = _resolve_matrix_sample_columns(
             full_df,
             resolved_software,
             level,
@@ -708,11 +727,10 @@ def load_quant_table(
         )
         container = _load_matrix_table(
             full_df,
-            software=resolved_software,
-            level=level,
             assay_name=resolved_assay,
-            feature_column=feature_column,
-            profile=profile,
+            feature_col=resolved_feature_column,
+            sample_cols=sample_cols,
+            sample_ids=sample_ids,
             layer_name=layer_name,
         )
 

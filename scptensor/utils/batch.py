@@ -18,6 +18,35 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 
+def _merge_batch_results(
+    results: list[Any],
+    axis: int,
+    *,
+    flatten_lists: bool,
+) -> Any:
+    """Merge batch results while preserving the public list asymmetry."""
+    if not results:
+        return None
+
+    first = results[0]
+    if isinstance(first, np.ndarray):
+        return np.concatenate(results, axis=axis)
+    if sp.issparse(first):
+        return sp.vstack(results)
+    if flatten_lists and isinstance(first, list):
+        return [item for batch_result in results for item in batch_result]
+    return results
+
+
+def _count_batch_items(batch: NDArray[np.float64] | sp.spmatrix | Any, axis: int) -> int:
+    """Count processed items using the existing per-type semantics."""
+    if sp.issparse(batch):
+        return batch.shape[0]
+    if isinstance(batch, np.ndarray):
+        return batch.shape[axis]
+    return len(batch)
+
+
 class batch_iterator:
     """Iterator for processing data in batches.
 
@@ -167,18 +196,9 @@ def apply_by_batch(
     """
     results = [func(batch, **kwargs) for batch in batch_iterator(data, batch_size, axis)]
 
-    if not concat or not results:
-        return results if not concat else None
-
-    # Concatenate results based on type
-    first = results[0]
-    if isinstance(first, np.ndarray):
-        return np.concatenate(results, axis=axis)
-    if sp.issparse(first):
-        return sp.vstack(results)
-    if isinstance(first, list):
-        return [item for r in results for item in r]
-    return results
+    if not concat:
+        return results
+    return _merge_batch_results(results, axis, flatten_lists=True)
 
 
 def batch_apply_along_axis(
@@ -347,13 +367,7 @@ class BatchProcessor:
             results.append(func(batch, **kwargs))
 
             # Track statistics
-            n_items = (
-                batch.shape[0]
-                if sp.issparse(batch)
-                else batch.shape[axis]
-                if isinstance(batch, np.ndarray)
-                else len(batch)
-            )
+            n_items = _count_batch_items(batch, axis)
             batch_count += 1
             sample_count += n_items
 
@@ -368,13 +382,7 @@ class BatchProcessor:
             }
         )
 
-        if not results:
-            return None
-        if isinstance(results[0], np.ndarray):
-            return np.concatenate(results, axis=axis)
-        if sp.issparse(results[0]):
-            return sp.vstack(results)
-        return results
+        return _merge_batch_results(results, axis, flatten_lists=False)
 
     def reset_stats(self) -> None:
         """Reset processing statistics."""

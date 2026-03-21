@@ -8,7 +8,7 @@ import pytest
 
 from scptensor.core.exceptions import ScpValueError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
-from scptensor.normalization import norm_none, normalize
+from scptensor.normalization import norm_mean, norm_none, normalize
 
 
 def _make_container() -> ScpContainer:
@@ -46,6 +46,49 @@ def test_norm_none_creates_passthrough_layer() -> None:
     assert container.history[-1].action == "normalization_none"
 
 
+def test_norm_none_preserves_mask_reference() -> None:
+    container = _make_container()
+    source_m = container.assays["protein"].layers["raw"].M
+
+    norm_none(container, assay_name="protein", source_layer="raw", new_layer_name="passthrough")
+
+    assert container.assays["protein"].layers["passthrough"].M is source_m
+
+
+def test_norm_none_same_name_only_logs_without_replacing_source_layer() -> None:
+    container = _make_container()
+    raw_layer = container.assays["protein"].layers["raw"]
+
+    norm_none(container, assay_name="protein", source_layer="raw", new_layer_name="raw")
+
+    assert list(container.assays["protein"].layers.keys()) == ["raw"]
+    assert container.assays["protein"].layers["raw"] is raw_layer
+    assert container.history[-1].action == "normalization_none"
+    assert container.history[-1].params["new_layer_name"] == "raw"
+
+
+def test_norm_mean_same_name_overwrites_source_layer_entry() -> None:
+    container = _make_container()
+    raw_layer = container.assays["protein"].layers["raw"]
+    raw_x_before = raw_layer.X.copy()
+
+    norm_mean(container, assay_name="protein", source_layer="raw", new_layer_name="raw")
+
+    raw_after = container.assays["protein"].layers["raw"]
+    assert raw_after is not raw_layer
+    assert not np.allclose(raw_after.X, raw_x_before)
+    assert container.history[-1].action == "normalization_sample_mean"
+
+
+def test_norm_mean_output_shares_mask_reference_under_current_helper_contract() -> None:
+    container = _make_container()
+    source_m = container.assays["protein"].layers["raw"].M
+
+    norm_mean(container, assay_name="protein", source_layer="raw", new_layer_name="mean")
+
+    assert container.assays["protein"].layers["mean"].M is source_m
+
+
 def test_normalize_dispatch_median_default_layer() -> None:
     container = _make_container()
     normalize(container, method="median", assay_name="protein", source_layer="raw")
@@ -74,3 +117,30 @@ def test_normalize_invalid_method() -> None:
     container = _make_container()
     with pytest.raises(ScpValueError, match="Unsupported normalization method"):
         normalize(container, method="unsupported", assay_name="protein", source_layer="raw")
+
+
+def test_normalize_history_preserves_input_assay_alias() -> None:
+    container = _make_container()
+
+    normalize(container, method="median", assay_name="proteins", source_layer="raw")
+
+    assert "median_centered" in container.assays["protein"].layers
+    assert container.history[-1].params["assay"] == "proteins"
+
+
+def test_vendor_normalized_raw_input_warns_before_normalization() -> None:
+    container = _make_container()
+    container.assays = {"proteins": container.assays.pop("protein")}
+    container.log_operation(
+        action="load_quant_table",
+        params={
+            "assay_name": "proteins",
+            "layer_name": "raw",
+            "input_quantity_is_vendor_normalized": True,
+            "resolved_quantity_column": "PG.Quantity",
+        },
+        description="load vendor-normalized quantity",
+    )
+
+    with pytest.warns(UserWarning, match="vendor-normalized intensities"):
+        norm_mean(container, assay_name="protein", source_layer="raw", new_layer_name="mean")

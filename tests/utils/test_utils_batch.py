@@ -314,6 +314,16 @@ class TestApplyByBatch:
         # Just verify shape and no errors
         assert result.shape == sample_data.shape
 
+    def test_apply_by_batch_flattens_list_results_when_concat_true(self):
+        """apply_by_batch should keep its public list-flattening behavior."""
+        data = list(range(4))
+
+        def pair_items(x):
+            return [(i, i + 1) for i in x]
+
+        result = apply_by_batch(data, pair_items, batch_size=2)
+        assert result == [(0, 1), (1, 2), (2, 3), (3, 4)]
+
 
 class TestBatchApplyAlongAxis:
     """Tests for batch_apply_along_axis function."""
@@ -581,6 +591,17 @@ class TestBatchProcessor:
         processor.reset_stats()
 
         assert len(processor._history) == 0
+
+    def test_batch_processor_keeps_list_results_grouped_by_batch(self):
+        """BatchProcessor should preserve list results as per-batch groups."""
+        data = list(range(4))
+
+        def pair_items(x):
+            return [(i, i + 1) for i in x]
+
+        processor = BatchProcessor(batch_size=2)
+        result = processor.process(data, pair_items)
+        assert result == [[(0, 1), (1, 2)], [(2, 3), (3, 4)]]
 
 
 class TestIntegration:

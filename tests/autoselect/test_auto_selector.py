@@ -186,6 +186,15 @@ class TestAutoSelectorGetEvaluator:
         assert evaluator is not None
         assert hasattr(evaluator, "stage_name")
 
+    def test_get_evaluator_reuses_cached_instance(self):
+        """Same selector should reuse evaluator instances per stage."""
+        selector = AutoSelector(stages=["normalize"])
+
+        first = selector._get_evaluator("normalize")
+        second = selector._get_evaluator("normalize")
+
+        assert first is second
+
 
 class TestAutoSelectorRunStage:
     """Test run_stage method."""
@@ -321,6 +330,37 @@ class TestAutoSelectorRunStage:
                 assay_name="proteins",
                 source_layer="missing_layer",
             )
+
+    def test_run_stage_clears_cached_weight_override(self, simple_container):
+        """Cached evaluators should reset metric-weight overrides when removed."""
+        selector = AutoSelector(
+            stages=["normalize"],
+            weights={
+                "normalize": {
+                    "batch_removal": 1.0,
+                    "bio_conservation": 0.0,
+                    "technical_quality": 0.0,
+                    "balance_score": 0.0,
+                }
+            },
+        )
+
+        _, weighted_report = selector.run_stage(
+            container=simple_container,
+            stage="normalize",
+            assay_name="proteins",
+            source_layer="raw",
+        )
+        assert weighted_report.metric_weights["batch_removal"] == pytest.approx(1.0)
+
+        selector.weights = {}
+        _, default_report = selector.run_stage(
+            container=simple_container,
+            stage="normalize",
+            assay_name="proteins",
+            source_layer="raw",
+        )
+        assert default_report.metric_weights["batch_removal"] == pytest.approx(0.30)
 
     def test_run_stage_integrate_missing_batch_key_raises(self, simple_container):
         """Test actionable error when integrate stage has no batch key."""

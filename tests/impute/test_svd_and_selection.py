@@ -105,6 +105,52 @@ def test_impute_auto_with_explicit_mechanism_selects_recommended_method(
     assert "imputed_qrilc" in result.assays["protein"].layers
 
 
+def test_impute_auto_logs_selection_before_method_action(
+    svd_container: tuple[ScpContainer, np.ndarray, np.ndarray],
+) -> None:
+    container, _, _ = svd_container
+    initial_len = len(container.history)
+
+    result = impute(
+        container,
+        method="auto",
+        missing_mechanism="mnar",
+        assay_name="protein",
+        source_layer="raw",
+        random_state=11,
+    )
+
+    assert len(result.history) == initial_len + 2
+    assert result.history[-2].action == "impute_method_selection"
+    assert result.history[-1].action == "impute_qrilc"
+    assert result.history[-2].params["selected_method"] == "qrilc"
+    assert result.history[-2].params["requested_method"] == "auto"
+    assert result.history[-2].params["missing_mechanism"] == "mnar"
+
+
+def test_impute_explicit_mechanism_mismatch_logs_warning_before_method_action(
+    svd_container: tuple[ScpContainer, np.ndarray, np.ndarray],
+) -> None:
+    container, _, _ = svd_container
+    initial_len = len(container.history)
+
+    result = impute(
+        container,
+        method="knn",
+        missing_mechanism="mnar",
+        assay_name="protein",
+        source_layer="raw",
+        k=3,
+    )
+
+    assert len(result.history) == initial_len + 2
+    assert result.history[-2].action == "impute_mechanism_warning"
+    assert result.history[-1].action == "impute_knn"
+    assert result.history[-2].params["requested_method"] == "knn"
+    assert result.history[-2].params["missing_mechanism"] == "mnar"
+    assert result.history[-2].params["recommended_method"] == "qrilc"
+
+
 def test_impute_auto_requires_assay_and_source_layer(
     svd_container: tuple[ScpContainer, np.ndarray, np.ndarray],
 ) -> None:

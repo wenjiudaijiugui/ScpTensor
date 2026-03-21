@@ -29,7 +29,7 @@ from scipy.stats import rankdata
 
 from scptensor.core.structures import ScpContainer
 
-from .base import create_result_layer, ensure_dense, log_operation, validate_assay_and_layer
+from .base import ensure_dense, finalize_normalization_layer, validate_assay_and_layer
 
 
 def _quantile_normalize_rows(X: np.ndarray) -> np.ndarray:  # noqa: N803
@@ -207,13 +207,12 @@ def norm_quantile(
     X = ensure_dense(input_layer.X).copy()
     X_normalized = _quantile_normalize_rows(X)
 
-    # Create and add new layer
-    new_matrix = create_result_layer(X_normalized, input_layer)
-    assay.add_layer(new_layer_name, new_matrix)
-
-    # Log operation
-    log_operation(
+    return finalize_normalization_layer(
         container,
+        assay,
+        input_layer,
+        X=X_normalized,
+        new_layer_name=new_layer_name,
         action="normalization_quantile",
         params={
             "assay": assay_name,
@@ -222,8 +221,6 @@ def norm_quantile(
         },
         description=f"Quantile normalization on layer '{source_layer}' -> '{new_layer_name}'.",
     )
-
-    return container
 
 
 __all__ = ["norm_quantile"]

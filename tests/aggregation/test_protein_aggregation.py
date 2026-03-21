@@ -10,6 +10,7 @@ import scipy.sparse as sp
 from scptensor.aggregation import aggregate_to_protein
 from scptensor.core.exceptions import ValidationError
 from scptensor.core.structures import Assay, MaskCode, ScpContainer, ScpMatrix
+from scptensor.io import aggregate_to_protein as io_aggregate_to_protein
 
 
 def _build_container(
@@ -57,6 +58,22 @@ def test_aggregate_to_protein_sum_basic() -> None:
     assert out.links[-1].target_assay == "proteins"
     assert out.links[-1].linkage.height == 3
     assert out.history[-1].action == "aggregate_to_protein"
+    assert out.history[-1].params["source_assay"] == "peptides"
+    assert out.history[-1].params["target_assay"] == "proteins"
+    assert out.history[-1].params["method"] == "sum"
+
+
+def test_aggregate_to_protein_returns_new_container_but_reuses_source_assay_object() -> None:
+    container = _build_container(np.array([[1.0, 3.0, 5.0], [2.0, 4.0, 6.0]], dtype=np.float64))
+    peptide_assay = container.assays["peptides"]
+
+    out = aggregate_to_protein(container)
+
+    assert out is not container
+    assert out.obs is not container.obs
+    assert out.assays["peptides"] is peptide_assay
+    assert "proteins" not in container.assays
+    assert "proteins" in out.assays
 
 
 @pytest.mark.parametrize(
@@ -94,6 +111,44 @@ def test_aggregate_to_protein_drop_unmapped() -> None:
     assert out.links[-1].linkage.height == 2
 
 
+def test_aggregate_to_protein_existing_target_assay_is_silently_overwritten() -> None:
+    container = _build_container(np.array([[1.0, 3.0, 5.0], [2.0, 4.0, 6.0]], dtype=np.float64))
+    existing = Assay(
+        var=pl.DataFrame({"_index": ["old_protein"]}),
+        layers={"raw": ScpMatrix(X=np.array([[9.0], [8.0]], dtype=np.float64), M=None)},
+    )
+    container.assays["proteins"] = existing
+
+    out = aggregate_to_protein(container, target_assay="proteins")
+
+    assert out.assays["proteins"] is not existing
+    assert out.assays["proteins"].var["_index"].to_list() == ["P1", "P2"]
+
+
+def test_aggregate_to_protein_same_source_and_target_assay_currently_errors() -> None:
+    container = _build_container(np.array([[1.0, 3.0, 5.0], [2.0, 4.0, 6.0]], dtype=np.float64))
+
+    with pytest.raises(ValueError, match="Link source_id values not found in assay 'peptides'"):
+        aggregate_to_protein(container, source_assay="peptides", target_assay="peptides")
+
+
+def test_aggregate_to_protein_noncontiguous_mapping_groups_correctly() -> None:
+    container = _build_container(
+        np.array([[1.0, 10.0, 3.0], [2.0, 20.0, 4.0]], dtype=np.float64),
+        protein_ids=["P2", "P1", "P2"],
+    )
+
+    out = aggregate_to_protein(container, method="sum")
+    protein = out.assays["proteins"]
+
+    assert protein.var["_index"].to_list() == ["P1", "P2"]
+    np.testing.assert_allclose(
+        protein.layers["raw"].X,
+        np.array([[10.0, 4.0], [20.0, 6.0]], dtype=np.float64),
+    )
+    assert out.links[-1].linkage.height == 3
+
+
 def test_aggregate_to_protein_sparse_input_supported() -> None:
     x_sparse = sp.csr_matrix(np.array([[1.0, 3.0, 5.0], [2.0, 4.0, 6.0]], dtype=np.float64))
     container = _build_container(x_sparse)
@@ -103,6 +158,7 @@ def test_aggregate_to_protein_sparse_input_supported() -> None:
         out.assays["proteins"].layers["raw"].X,
         np.array([[4.0, 5.0], [6.0, 6.0]], dtype=np.float64),
     )
+    assert not sp.issparse(out.assays["proteins"].layers["raw"].X)
 
 
 def test_aggregate_to_protein_median_and_weighted_mean() -> None:
@@ -215,3 +271,34 @@ def test_aggregate_to_protein_missing_mapping_column_error() -> None:
 
     with pytest.raises(ValidationError, match="No protein mapping column"):
         aggregate_to_protein(container)
+
+
+def test_io_aggregate_wrapper_matches_core_for_shared_parameters() -> None:
+    container = _build_container(np.array([[1.0, 3.0, 5.0], [2.0, 4.0, 6.0]], dtype=np.float64))
+
+    out_core = aggregate_to_protein(
+        container,
+        source_assay="peptides",
+        source_layer="raw",
+        target_assay="proteins_core",
+        method="top_n",
+        top_n=1,
+        top_n_aggregate="mean",
+        keep_unmapped=True,
+    )
+    out_io = io_aggregate_to_protein(
+        container,
+        source_assay="peptides",
+        source_layer="raw",
+        target_assay="proteins_io",
+        method="top_n",
+        top_n=1,
+        top_n_aggregate="mean",
+        keep_unmapped=True,
+    )
+
+    np.testing.assert_allclose(
+        out_core.assays["proteins_core"].layers["raw"].X,
+        out_io.assays["proteins_io"].layers["raw"].X,
+    )
+    assert out_io.history[-1].params["target_assay"] == "proteins_io"

@@ -28,7 +28,7 @@ from scptensor.autoselect.strategy import get_strategy_preset
 from scptensor.core.assay_alias import resolve_assay_name
 
 if TYPE_CHECKING:
-    from scptensor.core.structures import ScpContainer, ScpMatrix
+    from scptensor.core.structures import ScpContainer
 
 
 def create_wrapper(
@@ -357,6 +357,89 @@ class BaseEvaluator(ABC):
         resolved_assay_name = self._resolve_metric_assay_name(result_container, assay_name)
         result_container.assays[resolved_assay_name].add_layer(result_name, artifact)
 
+    def _create_stage_report(
+        self,
+        *,
+        strategy: str,
+        n_repeats: int,
+        confidence_level: float,
+    ) -> StageReport:
+        """Create a stage report with the current scoring configuration."""
+        return StageReport(
+            stage_name=self.stage_name,
+            stage_key=self.stage_name,
+            metric_weights=self.get_metric_weights(),
+            selection_strategy=strategy,
+            n_repeats=n_repeats,
+            confidence_level=confidence_level,
+        )
+
+    def _evaluate_methods(
+        self,
+        *,
+        container: ScpContainer,
+        assay_name: str,
+        source_layer: str,
+        n_repeats: int,
+        confidence_level: float,
+        method_kwargs: dict[str, Any],
+    ) -> tuple[list[EvaluationResult], dict[str, tuple[str, Any]]]:
+        """Evaluate all candidate methods and collect successful artifacts."""
+        results: list[EvaluationResult] = []
+        successful_artifacts: dict[str, tuple[str, Any]] = {}
+
+        for method_name, method_func in self.methods.items():
+            result_container, eval_result = self.evaluate_method_repeated(
+                container=container,
+                method_name=method_name,
+                method_func=method_func,
+                assay_name=assay_name,
+                source_layer=source_layer,
+                n_repeats=n_repeats,
+                confidence_level=confidence_level,
+                **method_kwargs,
+            )
+            results.append(eval_result)
+
+            if result_container is not None and eval_result.error is None:
+                result_name = eval_result.layer_name
+                successful_artifacts[method_name] = (
+                    result_name,
+                    self._collect_success_artifact(result_container, assay_name, result_name),
+                )
+
+        return results, successful_artifacts
+
+    def _build_result_container(
+        self,
+        *,
+        container: ScpContainer,
+        assay_name: str,
+        keep_all: bool,
+        successful_artifacts: dict[str, tuple[str, Any]],
+        best_result: EvaluationResult,
+    ) -> ScpContainer:
+        """Build the final container from collected successful artifacts."""
+        result_container = container.copy()
+
+        if keep_all:
+            for method_name, (result_name, artifact) in successful_artifacts.items():
+                if method_name != best_result.method_name:
+                    self._attach_success_artifact(
+                        result_container,
+                        assay_name,
+                        result_name,
+                        artifact,
+                    )
+
+        self._attach_success_artifact(
+            result_container,
+            assay_name,
+            best_result.layer_name,
+            successful_artifacts[best_result.method_name][1],
+        )
+        return result_container
+
     def _compute_confidence_interval(
         self,
         values: list[float],
@@ -636,43 +719,23 @@ class BaseEvaluator(ABC):
         >>> print(f"Best score: {report.best_result.overall_score}")
         """
         n_repeats, confidence_level, strategy, method_kwargs = self._extract_eval_controls(kwargs)
-        report = StageReport(
-            stage_name=self.stage_name,
-            stage_key=self.stage_name,
-            metric_weights=self.get_metric_weights(),
-            selection_strategy=strategy,
+        report = self._create_stage_report(
+            strategy=strategy,
             n_repeats=n_repeats,
             confidence_level=confidence_level,
         )
-        successful_layers: dict[str, tuple[str, ScpMatrix]] = {}
-
-        # Evaluate all methods and store successful results
-        results = []
-        for method_name, method_func in self.methods.items():
-            result_container, eval_result = self.evaluate_method_repeated(
-                container=container,
-                method_name=method_name,
-                method_func=method_func,
-                assay_name=assay_name,
-                source_layer=source_layer,
-                n_repeats=n_repeats,
-                confidence_level=confidence_level,
-                **method_kwargs,
-            )
-            results.append(eval_result)
-
-            if result_container and not eval_result.error:
-                layer_name = eval_result.layer_name
-                successful_layers[method_name] = (
-                    layer_name,
-                    self._collect_success_artifact(result_container, assay_name, layer_name),
-                )
-
-        report.results = results
+        report.results, successful_artifacts = self._evaluate_methods(
+            container=container,
+            assay_name=assay_name,
+            source_layer=source_layer,
+            n_repeats=n_repeats,
+            confidence_level=confidence_level,
+            method_kwargs=method_kwargs,
+        )
         self._apply_selection_scores(report.results, strategy)
 
         # Find best method
-        successful_results = [r for r in results if not r.error]
+        successful_results = [r for r in report.results if not r.error]
 
         if not successful_results:
             report.best_method = ""
@@ -689,25 +752,16 @@ class BaseEvaluator(ABC):
             f"({best_result.selection_score if best_result.selection_score is not None else best_result.overall_score:.4f}) "
             f"from {len(successful_results)} successful methods (n_repeats={n_repeats})."
         )
-
-        result_container = container.copy()
-        # Add layers: all if keep_all, otherwise only best
-        if keep_all:
-            for method_name, (layer_name, layer_matrix) in successful_layers.items():
-                if method_name != best_result.method_name:
-                    self._attach_success_artifact(
-                        result_container, assay_name, layer_name, layer_matrix
-                    )
-
-        # Always add best layer
-        self._attach_success_artifact(
-            result_container,
-            assay_name,
-            best_result.layer_name,
-            successful_layers[best_result.method_name][1],
+        return (
+            self._build_result_container(
+                container=container,
+                assay_name=assay_name,
+                keep_all=keep_all,
+                successful_artifacts=successful_artifacts,
+                best_result=best_result,
+            ),
+            report,
         )
-
-        return result_container, report
 
 
 __all__ = ["BaseEvaluator", "create_wrapper"]

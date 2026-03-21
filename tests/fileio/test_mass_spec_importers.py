@@ -189,6 +189,35 @@ def test_load_spectronaut_peptide_matrix_quantity_suffix(tmp_path: Path) -> None
     assert int(m[1, 0]) == MaskCode.LOD.value
 
 
+def test_load_spectronaut_matrix_prefers_suffix_sample_columns_over_other_numeric_columns(
+    tmp_path: Path,
+) -> None:
+    path = _write_tsv(
+        tmp_path,
+        "spectronaut_matrix_suffix_priority.tsv",
+        pl.DataFrame(
+            {
+                "PG.ProteinGroups": ["P1", "P2"],
+                "ExtraNumeric": [999.0, 888.0],
+                "S1.raw_Quantity": [1.5, 2.5],
+                "S2.raw_Quantity": [None, 3.5],
+            }
+        ),
+    )
+
+    container = load_spectronaut(
+        path, assay_name="proteins", level="protein", table_format="matrix"
+    )
+    assay = container.assays["proteins"]
+
+    assert container.obs["_index"].to_list() == ["S1", "S2"]
+    np.testing.assert_allclose(
+        assay.layers["raw"].X,
+        np.array([[1.5, 2.5], [np.nan, 3.5]]),
+        equal_nan=True,
+    )
+
+
 def test_load_peptide_pivot_with_protein_aggregation(tmp_path: Path) -> None:
     path = _write_tsv(
         tmp_path,

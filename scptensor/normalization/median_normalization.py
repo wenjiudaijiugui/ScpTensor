@@ -30,10 +30,9 @@ import numpy as np
 from scptensor.core.structures import ScpContainer
 
 from .base import (
-    create_result_layer,
     ensure_dense,
+    finalize_normalization_layer,
     get_layer_name,
-    log_operation,
     validate_assay_and_layer,
 )
 
@@ -134,13 +133,12 @@ def norm_median(
     # Get layer name
     layer_name = get_layer_name(new_layer_name, "median_centered")
 
-    # Create and add new layer
-    new_matrix = create_result_layer(X_centered, input_layer)
-    assay.add_layer(layer_name, new_matrix)
-
-    # Log operation
-    log_operation(
+    return finalize_normalization_layer(
         container,
+        assay,
+        input_layer,
+        X=X_centered,
+        new_layer_name=layer_name,
         action="normalization_median_centering",
         params={
             "assay": assay_name,
@@ -151,5 +149,3 @@ def norm_median(
         description=f"Median centering on layer '{source_layer}' -> '{layer_name}' "
         f"({'scaling mode' if add_global_median else 'centering mode'}).",
     )
-
-    return container

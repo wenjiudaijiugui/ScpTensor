@@ -9,8 +9,14 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import scipy.sparse as sp
 
-from scptensor.core.assay_alias import resolve_assay_name
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
+from scptensor.core._layer_processing import (
+    add_result_layer as _add_result_layer,
+)
+from scptensor.core._layer_processing import (
+    create_result_layer,
+    log_container_operation,
+    resolve_layer_context,
+)
 from scptensor.core.structures import ScpMatrix
 
 if TYPE_CHECKING:
@@ -45,27 +51,9 @@ def validate_assay_and_layer(
     LayerNotFoundError
         If layer not found.
     """
-    resolved_assay_name = resolve_assay_name(container, assay_name)
-
-    if resolved_assay_name not in container.assays:
-        available = list(container.assays.keys())
-        raise AssayNotFoundError(
-            assay_name=assay_name,
-            available_assays=available,
-        )
-
-    assay = container.assays[resolved_assay_name]
-
-    if layer_name not in assay.layers:
-        available = list(assay.layers.keys())
-        raise LayerNotFoundError(
-            layer_name=layer_name,
-            assay_name=resolved_assay_name,
-            available_layers=available,
-        )
-
-    _warn_if_vendor_normalized_input(container, resolved_assay_name, layer_name)
-    return assay, assay.layers[layer_name]
+    ctx = resolve_layer_context(container, assay_name, layer_name)
+    _warn_if_vendor_normalized_input(container, ctx.resolved_assay_name, layer_name)
+    return ctx.assay, ctx.layer
 
 
 def _warn_if_vendor_normalized_input(
@@ -98,7 +86,7 @@ def _warn_if_vendor_normalized_input(
         return
 
 
-def create_result_layer(
+def create_result_layer_with_optional_mask(
     X: np.ndarray | sp.spmatrix,
     source_layer: str | ScpMatrix = "",
     mask: np.ndarray | sp.spmatrix | None = None,
@@ -121,7 +109,7 @@ def create_result_layer(
     """
     # If source_layer is a ScpMatrix, extract its mask
     if isinstance(source_layer, ScpMatrix):
-        mask = source_layer.M
+        return create_result_layer(X, source_layer)
     return ScpMatrix(X=X, M=mask)
 
 
@@ -190,8 +178,43 @@ def log_operation(
     ScpContainer
         Updated container.
     """
-    container.log_operation(action=action, params=params, description=description)
-    return container
+    return log_container_operation(
+        container,
+        action=action,
+        params=params,
+        description=description,
+    )
+
+
+def add_result_layer(
+    assay: Assay,
+    layer_name: str,
+    X: np.ndarray | sp.spmatrix,
+    source_layer: ScpMatrix,
+) -> ScpMatrix:
+    """Write a derived layer while preserving current mask semantics."""
+    return _add_result_layer(assay, layer_name, X, source_layer)
+
+
+def finalize_normalization_layer(
+    container: ScpContainer,
+    assay: Assay,
+    input_layer: ScpMatrix,
+    *,
+    X: np.ndarray | sp.spmatrix,
+    new_layer_name: str,
+    action: str,
+    params: dict[str, Any],
+    description: str,
+) -> ScpContainer:
+    """Write a normalized layer and append the matching history record."""
+    add_result_layer(assay, new_layer_name, X, input_layer)
+    return log_operation(
+        container,
+        action=action,
+        params=params,
+        description=description,
+    )
 
 
 def apply_normalization(
@@ -228,8 +251,7 @@ def apply_normalization(
     X_dense = ensure_dense(layer.X)
     X_transformed = transform_func(X_dense)
 
-    new_layer = create_result_layer(X_transformed, layer)
-    assay.layers[new_layer_name] = new_layer
+    add_result_layer(assay, new_layer_name, X_transformed, layer)
 
     return log_operation(
         container,
@@ -242,8 +264,11 @@ def apply_normalization(
 __all__ = [
     "validate_assay_and_layer",
     "create_result_layer",
+    "create_result_layer_with_optional_mask",
     "ensure_dense",
     "get_layer_name",
     "log_operation",
+    "add_result_layer",
+    "finalize_normalization_layer",
     "apply_normalization",
 ]
