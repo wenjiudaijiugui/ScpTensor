@@ -5,6 +5,9 @@ Markdown, JSON, and CSV formats.
 """
 
 import json
+import os
+import subprocess
+import sys
 import tempfile
 from csv import DictReader
 from pathlib import Path
@@ -130,7 +133,7 @@ class TestSaveMarkdown:
             filepath = Path(tmpdir) / "report.md"
             save_markdown(sample_report, filepath)
 
-            content = filepath.read_text()
+            content = filepath.read_text(encoding="utf-8")
 
             # Check for expected sections
             assert "AutoSelect Report" in content
@@ -154,10 +157,64 @@ class TestSaveMarkdown:
             filepath = Path(tmpdir) / "empty_report.md"
             save_markdown(report, filepath)
 
-            content = filepath.read_text()
+            content = filepath.read_text(encoding="utf-8")
             assert "AutoSelect Report" in content
             # Empty report should have indication of no stages
             assert "no stages" in content.lower() or len(content) > 0
+
+    def test_save_markdown_handles_non_utf8_default_encoding(self, tmp_path):
+        """Test markdown export succeeds even when the default locale is not UTF-8."""
+        output_path = tmp_path / "report.md"
+        script = f"""
+from pathlib import Path
+from scptensor.autoselect import AutoSelectReport, EvaluationResult, StageReport
+from scptensor.autoselect.report import save_markdown
+
+success = EvaluationResult(
+    method_name="ok",
+    scores={{}},
+    overall_score=1.0,
+    execution_time=0.1,
+    layer_name="ok_layer",
+)
+failed = EvaluationResult(
+    method_name="bad",
+    scores={{}},
+    overall_score=0.0,
+    execution_time=0.1,
+    layer_name="bad_layer",
+    error="boom",
+)
+report = AutoSelectReport(
+    stages={{
+        "imputation": StageReport(
+            stage_name="imputation",
+            results=[success, failed],
+            best_method="ok",
+            best_result=success,
+            selection_strategy="balanced",
+        )
+    }}
+)
+save_markdown(report, Path({str(output_path)!r}))
+"""
+        env = os.environ.copy()
+        env["LC_ALL"] = "C"
+        env["PYTHONUTF8"] = "0"
+
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=Path(__file__).resolve().parents[2],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 0, result.stderr
+        content = output_path.read_text(encoding="utf-8")
+        assert "✓ Success" in content
+        assert "✗ Failed: boom" in content
 
 
 class TestSaveJson:
@@ -183,7 +240,7 @@ class TestSaveJson:
             save_json(sample_report, filepath)
 
             # Should not raise JSONDecodeError
-            with open(filepath) as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
 
             assert isinstance(data, dict)
@@ -196,7 +253,7 @@ class TestSaveJson:
             filepath = Path(tmpdir) / "report.json"
             save_json(sample_report, filepath)
 
-            with open(filepath) as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Check for expected keys
@@ -226,7 +283,7 @@ class TestSaveJson:
             filepath = Path(tmpdir) / "empty_report.json"
             save_json(report, filepath)
 
-            with open(filepath) as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
 
             assert data["stages"] == {}
@@ -256,7 +313,7 @@ class TestSaveCsv:
             filepath = Path(tmpdir) / "report.csv"
             save_csv(sample_report, filepath)
 
-            content = filepath.read_text()
+            content = filepath.read_text(encoding="utf-8")
             lines = content.strip().split("\n")
 
             # Check header
@@ -280,7 +337,7 @@ class TestSaveCsv:
             filepath = Path(tmpdir) / "report.csv"
             save_csv(sample_report, filepath)
 
-            content = filepath.read_text()
+            content = filepath.read_text(encoding="utf-8")
             lines = content.strip().split("\n")
 
             # 1 header + 2 normalization methods + 3 imputation methods = 6 lines
@@ -294,7 +351,7 @@ class TestSaveCsv:
             filepath = Path(tmpdir) / "report.csv"
             save_csv(sample_report, filepath)
 
-            with open(filepath, newline="") as handle:
+            with open(filepath, encoding="utf-8", newline="") as handle:
                 rows = list(DictReader(handle))
 
             assert len(rows) == 5
@@ -315,7 +372,7 @@ class TestSaveCsv:
             filepath = Path(tmpdir) / "report.csv"
             save_csv(sample_report, filepath)
 
-            content = filepath.read_text()
+            content = filepath.read_text(encoding="utf-8")
             lines = content.strip().split("\n")
 
             # Find best methods (should have is_best=True or similar)
@@ -333,7 +390,7 @@ class TestAutoSelectReportSave:
             sample_report.save(filepath, format="markdown")
 
             assert filepath.exists()
-            content = filepath.read_text()
+            content = filepath.read_text(encoding="utf-8")
             assert "AutoSelect Report" in content
 
     def test_save_json_format(self, sample_report):
@@ -343,7 +400,7 @@ class TestAutoSelectReportSave:
             sample_report.save(filepath, format="json")
 
             assert filepath.exists()
-            with open(filepath) as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
             assert isinstance(data, dict)
 
@@ -354,7 +411,7 @@ class TestAutoSelectReportSave:
             sample_report.save(filepath, format="csv")
 
             assert filepath.exists()
-            content = filepath.read_text()
+            content = filepath.read_text(encoding="utf-8")
             assert "stage_name" in content
 
     def test_save_default_markdown(self, sample_report):
@@ -364,7 +421,7 @@ class TestAutoSelectReportSave:
             sample_report.save(filepath)  # No format specified
 
             assert filepath.exists()
-            content = filepath.read_text()
+            content = filepath.read_text(encoding="utf-8")
             assert "AutoSelect Report" in content
 
     def test_save_invalid_format_raises(self, sample_report):

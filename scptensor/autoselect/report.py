@@ -170,7 +170,7 @@ def save_markdown(report: AutoSelectReport, filepath: str | Path) -> None:
     lines.append("")
 
     # Write to file
-    filepath.write_text("\n".join(lines))
+    filepath.write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
 
 def save_json(report: AutoSelectReport, filepath: str | Path) -> None:
@@ -206,7 +206,7 @@ def save_json(report: AutoSelectReport, filepath: str | Path) -> None:
         data["stages"][stage_name] = stage_data
 
     # Write to file
-    with open(filepath, "w") as f:
+    with filepath.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
 
@@ -291,12 +291,12 @@ def save_csv(report: AutoSelectReport, filepath: str | Path) -> None:
         "is_best",
     ]
     if rows:
-        with open(filepath, "w", newline="") as f:
+        with filepath.open("w", encoding="utf-8", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(rows)
     else:
         # Write empty CSV with header
-        with open(filepath, "w", newline="") as f:
+        with filepath.open("w", encoding="utf-8", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
