@@ -10,11 +10,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.experimental import enable_iterative_imputer  # noqa: F401
 from sklearn.impute import IterativeImputer
 
-from scptensor.core.exceptions import (
-    AssayNotFoundError,
-    LayerNotFoundError,
-    ScpValueError,
-)
+from scptensor.core.exceptions import ScpValueError
 from scptensor.core.jit_ops import impute_missing_with_col_means_jit
 from scptensor.core.structures import ScpContainer
 from scptensor.impute._utils import (
@@ -23,7 +19,7 @@ from scptensor.impute._utils import (
     preserve_observed_values,
     to_dense_float_copy,
 )
-from scptensor.impute.base import ImputeMethod, register_impute_method
+from scptensor.impute.base import ImputeMethod, register_impute_method, validate_layer_context
 
 # =============================================================================
 # Core MissForest algorithm (pure function for registry)
@@ -182,31 +178,30 @@ def impute_mf(
             value=max_depth,
         )
 
-    # Validate assay and layer
-    if assay_name not in container.assays:
-        available = ", ".join(f"'{k}'" for k in container.assays)
-        raise AssayNotFoundError(
-            assay_name,
-            hint=f"Available assays: {available}.",
-        )
-
-    assay = container.assays[assay_name]
-    if source_layer not in assay.layers:
-        available = ", ".join(f"'{k}'" for k in assay.layers)
-        raise LayerNotFoundError(
-            source_layer,
-            assay_name,
-            hint=f"Available layers: {available}.",
-        )
-
-    input_matrix = assay.layers[source_layer]
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_matrix = ctx.layer
     X_in = to_dense_float_copy(input_matrix.X)
     missing_mask_original = np.isnan(X_in)
     layer_name = new_layer_name or "imputed_missforest"
 
     if not np.any(missing_mask_original):
         add_imputed_layer(assay, layer_name, X_in.copy(), input_matrix, missing_mask_original)
-        return container
+        return log_imputation_operation(
+            container,
+            action="impute_missforest",
+            params={
+                "assay": ctx.resolved_assay_name,
+                "source_layer": source_layer,
+                "new_layer_name": layer_name,
+                "max_iter": max_iter,
+                "n_estimators": n_estimators,
+            },
+            description=(
+                f"MissForest imputation on assay '{ctx.resolved_assay_name}': "
+                "no missing values found."
+            ),
+        )
 
     # Apply MissForest imputation
     try:
@@ -237,13 +232,13 @@ def impute_mf(
         container,
         action="impute_missforest",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": layer_name,
             "max_iter": max_iter,
             "n_estimators": n_estimators,
         },
-        description=f"MissForest imputation on assay '{assay_name}'.",
+        description=f"MissForest imputation on assay '{ctx.resolved_assay_name}'.",
     )
 
 

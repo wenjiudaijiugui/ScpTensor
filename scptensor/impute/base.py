@@ -12,10 +12,12 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 import scipy.sparse as sp
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
+from scptensor.core._layer_processing import resolve_layer_context
+from scptensor.core.exceptions import ScpValueError
 
 if TYPE_CHECKING:
-    from scptensor.core.structures import ScpContainer
+    from scptensor.core._layer_processing import LayerContext
+    from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
 # Registry for imputation methods
 _IMPUTE_METHODS: dict[str, ImputeMethod] = {}
@@ -148,6 +150,25 @@ def _to_dense_float(x_data: Any) -> np.ndarray:
     return np.asarray(x_data, dtype=np.float64)
 
 
+def validate_layer_context(
+    container: ScpContainer,
+    assay_name: str,
+    layer_name: str,
+) -> LayerContext:
+    """Resolve assay aliases and return the validated imputation context."""
+    return resolve_layer_context(container, assay_name, layer_name)
+
+
+def validate_layer_params(
+    container: ScpContainer,
+    assay_name: str,
+    layer_name: str,
+) -> tuple[Assay, ScpMatrix]:
+    """Validate and return the assay/layer objects for imputation."""
+    ctx = validate_layer_context(container, assay_name, layer_name)
+    return ctx.assay, ctx.layer
+
+
 def infer_missing_mechanism(
     container: ScpContainer,
     assay_name: str,
@@ -162,13 +183,8 @@ def infer_missing_mechanism(
        Strongly uneven sample missingness suggests MAR.
     3. Low correlation + relatively uniform missingness falls back to MCAR.
     """
-    if assay_name not in container.assays:
-        raise AssayNotFoundError(assay_name, available_assays=container.assays.keys())
-    assay = container.assays[assay_name]
-    if source_layer not in assay.layers:
-        raise LayerNotFoundError(source_layer, assay_name, available_layers=assay.layers.keys())
-
-    x = _to_dense_float(assay.layers[source_layer].X)
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    x = _to_dense_float(ctx.layer.X)
     missing_mask = np.isnan(x)
     missing_rate = float(np.mean(missing_mask))
 

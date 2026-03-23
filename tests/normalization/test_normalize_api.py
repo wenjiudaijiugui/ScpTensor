@@ -119,12 +119,22 @@ def test_normalize_invalid_method() -> None:
         normalize(container, method="unsupported", assay_name="protein", source_layer="raw")
 
 
-def test_normalize_history_preserves_input_assay_alias() -> None:
+def test_normalize_history_uses_resolved_assay_name_for_aliases() -> None:
     container = _make_container()
 
     normalize(container, method="median", assay_name="proteins", source_layer="raw")
 
     assert "median_centered" in container.assays["protein"].layers
+    assert container.history[-1].params["assay"] == "protein"
+
+
+def test_norm_none_history_uses_resolved_container_assay_key() -> None:
+    container = _make_container()
+    container.assays = {"proteins": container.assays.pop("protein")}
+
+    norm_none(container, assay_name="protein", source_layer="raw", new_layer_name="passthrough")
+
+    assert "passthrough" in container.assays["proteins"].layers
     assert container.history[-1].params["assay"] == "proteins"
 
 

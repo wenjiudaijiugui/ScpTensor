@@ -13,11 +13,13 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
+from scptensor.core._layer_processing import resolve_layer_context
 from scptensor.core.assay_alias import resolve_assay_name
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
+from scptensor.core.exceptions import ScpValueError
 from scptensor.core.structures import ScpMatrix
 
 if TYPE_CHECKING:
+    from scptensor.core._layer_processing import LayerContext
     from scptensor.core.structures import Assay, ScpContainer
 
 # Type alias for integrate method
@@ -189,26 +191,17 @@ def validate_layer_params(
     LayerNotFoundError
         If layer not found.
     """
-    resolved_assay_name = resolve_assay_name(container, assay_name)
+    ctx = validate_layer_context(container, assay_name, layer_name)
+    return ctx.assay, ctx.layer
 
-    if resolved_assay_name not in container.assays:
-        available = list(container.assays.keys())
-        raise AssayNotFoundError(
-            assay_name=assay_name,
-            available_assays=available,
-        )
 
-    assay = container.assays[resolved_assay_name]
-
-    if layer_name not in assay.layers:
-        available = list(assay.layers.keys())
-        raise LayerNotFoundError(
-            layer_name=layer_name,
-            assay_name=resolved_assay_name,
-            available_layers=available,
-        )
-
-    return assay, assay.layers[layer_name]
+def validate_layer_context(
+    container: ScpContainer,
+    assay_name: str,
+    layer_name: str,
+) -> LayerContext:
+    """Resolve assay aliases and return the validated integration context."""
+    return resolve_layer_context(container, assay_name, layer_name)
 
 
 def clone_layer_matrix(layer: ScpMatrix) -> ScpMatrix:
@@ -463,6 +456,7 @@ __all__ = [
     "list_integrate_methods",
     "list_integrate_method_info",
     "integrate",
+    "validate_layer_context",
     "validate_layer_params",
     "clone_layer_matrix",
     "add_integrated_layer",

@@ -14,7 +14,7 @@ import numpy as np
 from scptensor.core.exceptions import ScpValueError
 from scptensor.core.structures import ScpContainer
 
-from .base import ensure_dense, finalize_normalization_layer, validate_assay_and_layer
+from .base import ensure_dense, finalize_normalization_layer, validate_layer_context
 from .quantile_normalization import _quantile_normalize_rows
 
 
@@ -43,32 +43,30 @@ def _rank_invariance_frequency(
     if qn_feature_sample is None:
         qn_feature_sample = _quantile_normalize_rows(feature_sample.T).T
 
-    rank_positions = np.zeros((n_features, n_samples), dtype=int)
+    rank_positions = np.zeros((n_features, n_samples), dtype=np.int32)
     for j in range(n_samples):
         col = qn_feature_sample[:, j]
         valid_idx = np.where(np.isfinite(col))[0]
-        invalid_idx = np.where(~np.isfinite(col))[0]
         if valid_idx.size == 0:
             continue
 
-        # Descending order (top-down ranking), NAs assigned to zero rank.
+        # Descending order (top-down ranking). Missing entries remain at zero,
+        # so we do not need to build an extra invalid-index concatenation.
         order_valid = valid_idx[np.argsort(-col[valid_idx], kind="mergesort")]
-        ordered_idx = np.concatenate([order_valid, invalid_idx])
-        rank_positions[ordered_idx, j] = np.arange(1, n_features + 1, dtype=int)
+        rank_positions[order_valid, j] = np.arange(1, valid_idx.size + 1, dtype=np.int32)
 
     frequencies = np.zeros(n_features, dtype=float)
     for i in range(n_features):
-        valid_cols = np.isfinite(feature_sample[i, :])
-        n_valid = int(np.sum(valid_cols))
+        row_ranks = rank_positions[i, :]
+        positive = row_ranks > 0
+        n_valid = int(np.sum(positive))
         if n_valid == 0:
             continue
 
-        row_ranks = rank_positions[i, valid_cols]
-        row_ranks = row_ranks[row_ranks > 0]
-        if row_ranks.size == 0:
-            continue
-
-        _, counts = np.unique(row_ranks, return_counts=True)
+        # Rank positions are positive contiguous integers per valid sample.
+        # Counting directly from the assigned positions avoids re-scanning the
+        # original matrix for finiteness and is faster than np.unique here.
+        counts = np.bincount(row_ranks[positive])
         frequencies[i] = counts.max() / n_valid
 
     return frequencies
@@ -151,13 +149,16 @@ def norm_trqn(
             value=balance_stat,
         )
 
-    assay, input_layer = validate_assay_and_layer(container, assay_name, source_layer)
-    x_sample_feature = ensure_dense(input_layer.X).astype(float, copy=True)
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_layer = ctx.layer
+    x_sample_feature = np.asarray(ensure_dense(input_layer.X), dtype=float)
     feature_sample = x_sample_feature.T
     n_features = feature_sample.shape[0]
 
     # Baseline quantile normalization for all features.
-    qn_feature_sample = _quantile_normalize_rows(feature_sample.T).T
+    qn_sample_feature = _quantile_normalize_rows(x_sample_feature)
+    qn_feature_sample = qn_sample_feature.T
 
     if feature_indices is None:
         ri_freq = _rank_invariance_frequency(feature_sample, qn_feature_sample=qn_feature_sample)
@@ -167,17 +168,18 @@ def norm_trqn(
         selected_idx = _validate_feature_indices(feature_indices, n_features)
 
     if selected_idx.size > 0:
-        subset = feature_sample[selected_idx, :]
+        subset = np.array(feature_sample[selected_idx, :], dtype=float, copy=True)
         if balance_key == "median":
             feature_offsets = np.nanmedian(subset, axis=1)
         else:
             feature_offsets = np.nanmean(subset, axis=1)
 
-        balanced_subset = subset - feature_offsets[:, None]
-        balanced_norm = _quantile_normalize_rows(balanced_subset.T).T + feature_offsets[:, None]
+        np.subtract(subset, feature_offsets[:, None], out=subset)
+        balanced_norm = _quantile_normalize_rows(subset.T).T
+        np.add(balanced_norm, feature_offsets[:, None], out=balanced_norm)
         qn_feature_sample[selected_idx, :] = balanced_norm
 
-    x_trqn = qn_feature_sample.T
+    x_trqn = qn_sample_feature if selected_idx.size == 0 else qn_feature_sample.T
     return finalize_normalization_layer(
         container,
         assay,
@@ -186,7 +188,7 @@ def norm_trqn(
         new_layer_name=new_layer_name,
         action="normalization_trqn",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": new_layer_name,
             "low_thr": low_thr,

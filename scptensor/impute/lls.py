@@ -10,11 +10,7 @@ Reference:
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 
-from scptensor.core.exceptions import (
-    AssayNotFoundError,
-    LayerNotFoundError,
-    ScpValueError,
-)
+from scptensor.core.exceptions import ScpValueError
 from scptensor.core.structures import ScpContainer
 from scptensor.impute._utils import (
     add_imputed_layer,
@@ -22,7 +18,7 @@ from scptensor.impute._utils import (
     preserve_observed_values,
     to_dense_float_copy,
 )
-from scptensor.impute.base import ImputeMethod, register_impute_method
+from scptensor.impute.base import ImputeMethod, register_impute_method, validate_layer_context
 
 # =============================================================================
 # Core LLS algorithm (pure function for registry)
@@ -216,10 +212,6 @@ def impute_lls(
     ------
     ScpValueError
         If parameters are invalid.
-    AssayNotFoundError
-        If the assay does not exist.
-    LayerNotFoundError
-        If the layer does not exist.
 
     Examples
     --------
@@ -248,24 +240,9 @@ def impute_lls(
             value=tol,
         )
 
-    # Validate assay and layer
-    if assay_name not in container.assays:
-        available = ", ".join(f"'{k}'" for k in container.assays)
-        raise AssayNotFoundError(
-            assay_name,
-            hint=f"Available assays: {available}.",
-        )
-
-    assay = container.assays[assay_name]
-    if source_layer not in assay.layers:
-        available = ", ".join(f"'{k}'" for k in assay.layers)
-        raise LayerNotFoundError(
-            source_layer,
-            assay_name,
-            hint=f"Available layers: {available}.",
-        )
-
-    input_matrix = assay.layers[source_layer]
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_matrix = ctx.layer
     X_original = to_dense_float_copy(input_matrix.X)
 
     missing_mask = np.isnan(X_original)
@@ -275,8 +252,15 @@ def impute_lls(
         return log_imputation_operation(
             container,
             action="impute_lls",
-            params={"assay": assay_name, "source_layer": source_layer, "k": k},
-            description=f"LLS imputation on assay '{assay_name}': no missing values found.",
+            params={
+                "assay": ctx.resolved_assay_name,
+                "source_layer": source_layer,
+                "new_layer_name": layer_name,
+                "k": k,
+            },
+            description=(
+                f"LLS imputation on assay '{ctx.resolved_assay_name}': no missing values found."
+            ),
         )
 
     # Apply LLS imputation
@@ -297,13 +281,15 @@ def impute_lls(
         container,
         action="impute_lls",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": layer_name,
             "k": k,
             "n_iterations": iterations,
         },
-        description=f"LLS imputation (k={k}, iterations={iterations}) on assay '{assay_name}'.",
+        description=(
+            f"LLS imputation (k={k}, iterations={iterations}) on assay '{ctx.resolved_assay_name}'."
+        ),
     )
 
 

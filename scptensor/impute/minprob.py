@@ -10,11 +10,7 @@ missingness is due to low abundance - values below detection limit.
 
 import numpy as np
 
-from scptensor.core.exceptions import (
-    AssayNotFoundError,
-    LayerNotFoundError,
-    ScpValueError,
-)
+from scptensor.core.exceptions import ScpValueError
 from scptensor.core.structures import ScpContainer
 from scptensor.impute._utils import (
     add_imputed_layer,
@@ -22,7 +18,7 @@ from scptensor.impute._utils import (
     preserve_observed_values,
     to_dense_float_copy,
 )
-from scptensor.impute.base import ImputeMethod, register_impute_method
+from scptensor.impute.base import ImputeMethod, register_impute_method, validate_layer_context
 
 # =============================================================================
 # Core MinProb algorithm (pure function for registry)
@@ -46,7 +42,7 @@ def minprob_impute(
     random_state : int, optional
         Random seed.
     q : float, default=0.01
-        Low quantile used to estimate per-feature low-abundance center.
+        Low quantile used to estimate each sample row's low-abundance center.
 
     Returns
     -------
@@ -54,11 +50,17 @@ def minprob_impute(
         Data with imputed values.
     """
     X = np.asarray(data, dtype=np.float64).copy()
-    n_samples, n_features = X.shape
+    n_samples, _ = X.shape
     missing_mask = np.isnan(X)
 
     if not np.any(missing_mask):
         return X
+    if sigma <= 0:
+        raise ScpValueError(
+            f"sigma must be positive, got {sigma}.",
+            parameter="sigma",
+            value=sigma,
+        )
     if not 0 < q < 1:
         raise ScpValueError(
             f"q must be between 0 and 1, got {q}.",
@@ -66,17 +68,24 @@ def minprob_impute(
             value=q,
         )
 
+    invalid_observed = (~missing_mask) & ~np.isfinite(X)
+    if np.any(invalid_observed):
+        raise ScpValueError(
+            "MinProb requires observed values to be finite; use NaN to mark missing entries.",
+            parameter="data",
+        )
+
     rng = np.random.default_rng(random_state)
     global_detected = X[np.isfinite(X)]
     global_non_negative = global_detected.size == 0 or bool(np.all(global_detected >= 0))
     global_q = float(np.quantile(global_detected, q)) if global_detected.size > 0 else 0.0
-    global_std = float(np.std(global_detected, ddof=0)) if global_detected.size > 1 else 0.0
+    global_std = float(np.std(global_detected, ddof=1)) if global_detected.size > 1 else 0.0
 
     # imputeLCMD MinProb estimates one shared SD from sufficiently observed features.
     observed_fraction = np.mean(~missing_mask, axis=0)
     filtered_cols = np.where(observed_fraction > 0.5)[0]
-    if filtered_cols.size > 0:
-        prot_sd = np.nanstd(X[:, filtered_cols], axis=0, ddof=0)
+    if filtered_cols.size > 0 and n_samples > 1:
+        prot_sd = np.nanstd(X[:, filtered_cols], axis=0, ddof=1)
         finite_sd = prot_sd[np.isfinite(prot_sd) & (prot_sd > 0)]
         if finite_sd.size > 0:
             sd_temp = float(np.median(finite_sd)) * sigma
@@ -85,28 +94,27 @@ def minprob_impute(
     else:
         sd_temp = global_std * sigma
     if not np.isfinite(sd_temp) or sd_temp <= 0:
-        sd_temp = max(global_std, 1e-8)
+        sd_temp = max(global_std * sigma, 1e-8)
 
-    # Feature-wise q-th quantile estimate under ScpTensor matrix convention
-    # (rows: observations/cells, columns: protein features).
-    min_features = np.full(n_features, global_q, dtype=np.float64)
-    upper_bounds = np.full(n_features, global_q, dtype=np.float64)
-    for j in range(n_features):
-        observed = X[~missing_mask[:, j], j]
+    # imputeLCMD::impute.MinProb is sample-wise. Under ScpTensor's
+    # (n_samples, n_features) convention, that means iterating over rows.
+    min_samples = np.full(n_samples, global_q, dtype=np.float64)
+    row_non_negative = np.full(n_samples, global_non_negative, dtype=bool)
+    for sample_idx in range(n_samples):
+        observed = X[sample_idx, ~missing_mask[sample_idx]]
         if observed.size > 0:
-            min_features[j] = float(np.quantile(observed, q))
-            upper_bounds[j] = float(np.min(observed))
+            min_samples[sample_idx] = float(np.quantile(observed, q))
+            row_non_negative[sample_idx] = bool(np.all(observed >= 0))
 
-    for j in range(n_features):
-        miss_idx = np.where(missing_mask[:, j])[0]
+    for sample_idx in range(n_samples):
+        miss_idx = np.where(missing_mask[sample_idx])[0]
         if miss_idx.size == 0:
             continue
-        draws = rng.normal(loc=min_features[j], scale=sd_temp, size=miss_idx.size)
-        # Left-censored MNAR: imputed values should not exceed the lowest detected value.
-        draws = np.minimum(draws, upper_bounds[j])
-        if global_non_negative:
+
+        draws = rng.normal(loc=min_samples[sample_idx], scale=sd_temp, size=miss_idx.size)
+        if row_non_negative[sample_idx]:
             draws = np.maximum(draws, 0.0)
-        X[miss_idx, j] = draws
+        X[sample_idx, miss_idx] = draws
 
     return X
 
@@ -185,24 +193,9 @@ def impute_minprob(
             value=q,
         )
 
-    # Validate assay and layer
-    if assay_name not in container.assays:
-        available = ", ".join(f"'{k}'" for k in container.assays)
-        raise AssayNotFoundError(
-            assay_name,
-            hint=f"Available assays: {available}.",
-        )
-
-    assay = container.assays[assay_name]
-    if source_layer not in assay.layers:
-        available = ", ".join(f"'{k}'" for k in assay.layers)
-        raise LayerNotFoundError(
-            source_layer,
-            assay_name,
-            hint=f"Available layers: {available}.",
-        )
-
-    input_matrix = assay.layers[source_layer]
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_matrix = ctx.layer
     X_dense = to_dense_float_copy(input_matrix.X)
 
     missing_mask = np.isnan(X_dense)
@@ -212,8 +205,16 @@ def impute_minprob(
         return log_imputation_operation(
             container,
             action="impute_minprob",
-            params={"assay": assay_name, "source_layer": source_layer, "sigma": sigma},
-            description=f"MinProb imputation on assay '{assay_name}': no missing values found.",
+            params={
+                "assay": ctx.resolved_assay_name,
+                "source_layer": source_layer,
+                "new_layer_name": layer_name,
+                "sigma": sigma,
+                "q": q,
+            },
+            description=(
+                f"MinProb imputation on assay '{ctx.resolved_assay_name}': no missing values found."
+            ),
         )
 
     # Apply MinProb imputation
@@ -228,13 +229,15 @@ def impute_minprob(
         container,
         action="impute_minprob",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": layer_name,
             "sigma": sigma,
             "q": q,
         },
-        description=f"MinProb imputation (sigma={sigma}, q={q}) on assay '{assay_name}'.",
+        description=(
+            f"MinProb imputation (sigma={sigma}, q={q}) on assay '{ctx.resolved_assay_name}'."
+        ),
     )
 
 

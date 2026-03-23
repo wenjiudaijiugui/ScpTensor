@@ -1,18 +1,27 @@
 """Tests for sparse utilities module."""
 
 import numpy as np
+import polars as pl
 import scipy.sparse as sp
 
+import scptensor.core.sparse_utils as sparse_utils_mod
 from scptensor.core.sparse_utils import (
+    auto_convert_for_operation,
+    cleanup_layers,
     ensure_sparse_format,
+    get_format_recommendation,
     get_memory_usage,
     get_sparsity_ratio,
     is_sparse_matrix,
+    sparse_center_rows,
     sparse_col_operation,
     sparse_copy,
     sparse_row_operation,
+    sparse_safe_log1p,
+    sparse_safe_log1p_with_scale,
     to_sparse_if_beneficial,
 )
+from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
 
 def test_is_sparse_matrix():
@@ -145,3 +154,154 @@ def test_sparse_row_and_col_custom_functions_still_use_fallback_semantics():
 
     np.testing.assert_allclose(row_max, np.array([2.0, 7.0, 5.0]))
     np.testing.assert_allclose(col_max, np.array([4.0, 7.0, 2.0]))
+
+
+def test_sparse_center_rows_returns_csr_and_explicit_nonzero_means():
+    """sparse_center_rows should keep CSR storage and use explicit non-zero means."""
+    X = sp.csc_matrix([[1.0, 0.0, 3.0], [0.0, 0.0, 0.0], [4.0, 8.0, 0.0]])
+
+    centered, means = sparse_center_rows(X)
+
+    assert isinstance(centered, sp.csr_matrix)
+    np.testing.assert_allclose(centered.toarray(), X.toarray())
+    np.testing.assert_allclose(means, np.array([2.0, 0.0, 6.0]))
+
+
+def test_sparse_center_rows_uses_supplied_row_means_without_recomputing():
+    """Providing row_means should preserve the supplied parameter contract."""
+    X = sp.csr_matrix([[1.0, 0.0], [0.0, 2.0]])
+    supplied = np.array([10.0, 20.0], dtype=np.float64)
+
+    centered, means = sparse_center_rows(X, row_means=supplied)
+
+    assert isinstance(centered, sp.csr_matrix)
+    np.testing.assert_allclose(centered.toarray(), X.toarray())
+    assert means is supplied
+
+
+def test_sparse_safe_log1p_preserves_structural_zeros_and_input():
+    """Sparse log1p should only transform explicit data and leave input untouched."""
+    X = sp.csr_matrix(np.array([[1.0, 0.0], [0.0, 4.0]]))
+    X_before = X.copy()
+
+    out = sparse_safe_log1p(X, offset=1.0, use_jit=False)
+
+    assert sp.isspmatrix_csr(out)
+    np.testing.assert_allclose(
+        out.toarray(), np.array([[np.log1p(1.0), 0.0], [0.0, np.log1p(4.0)]])
+    )
+    np.testing.assert_array_equal(X.toarray(), X_before.toarray())
+
+
+def test_sparse_safe_log1p_with_scale_matches_dense_formula_on_all_entries():
+    """Non-unit offsets must densify because structural zeros become non-zero."""
+    X = sp.csr_matrix(np.array([[2.0, 0.0, 3.0], [0.0, 5.0, 0.0]]))
+    out = sparse_safe_log1p_with_scale(X, offset=2.0, scale=np.log(2), use_jit=False)
+
+    expected = np.log(np.array([[2.0, 0.0, 3.0], [0.0, 5.0, 0.0]]) + 2.0) / np.log(2)
+    assert isinstance(out, np.ndarray)
+    np.testing.assert_allclose(out, expected)
+
+
+def test_sparse_safe_log1p_with_scale_casts_integer_sparse_data_to_float():
+    """Integer sparse inputs should still produce floating transformed outputs."""
+    X = sp.csr_matrix(np.array([[1, 0], [0, 3]], dtype=np.int32))
+
+    out = sparse_safe_log1p_with_scale(X, offset=1.0, scale=2.0, use_jit=False)
+
+    assert out.dtype.kind == "f"
+    np.testing.assert_allclose(
+        out.toarray(), np.array([[np.log1p(1.0) / 2.0, 0.0], [0.0, np.log1p(3.0) / 2.0]])
+    )
+
+
+def test_sparse_safe_log1p_skips_kernel_below_threshold(monkeypatch):
+    """use_jit=True should still stay on NumPy path below the auto-JIT threshold."""
+    X = sp.csr_matrix(np.array([[1.0, 0.0], [0.0, 4.0]]))
+    calls = {"count": 0}
+
+    def fake_kernel_factory():
+        calls["count"] += 1
+        raise AssertionError("JIT kernel should not be requested below threshold")
+
+    monkeypatch.setattr(sparse_utils_mod, "_JIT_THRESHOLD", X.nnz + 10)
+    monkeypatch.setattr(sparse_utils_mod, "_get_jit_log_with_scale_kernel", fake_kernel_factory)
+
+    out = sparse_safe_log1p(X, offset=1.0, use_jit=True)
+
+    assert calls["count"] == 0
+    np.testing.assert_allclose(
+        out.toarray(), np.array([[np.log1p(1.0), 0.0], [0.0, np.log1p(4.0)]])
+    )
+
+
+def test_sparse_safe_log1p_with_scale_uses_kernel_above_threshold(monkeypatch):
+    """Above threshold, sparse log helpers should honor the available JIT kernel."""
+    X = sp.csr_matrix(np.array([[1.0, 0.0], [0.0, 4.0]]))
+    calls = {"count": 0}
+
+    def fake_kernel_factory():
+        calls["count"] += 1
+
+        def fake_kernel(data: np.ndarray, offset: float, inv_scale: float) -> np.ndarray:
+            return np.full(data.shape, 10.0 + offset + inv_scale, dtype=np.float64)
+
+        return fake_kernel
+
+    monkeypatch.setattr(sparse_utils_mod, "_JIT_THRESHOLD", 0)
+    monkeypatch.setattr(sparse_utils_mod, "_get_jit_log_with_scale_kernel", fake_kernel_factory)
+
+    out = sparse_safe_log1p_with_scale(X, offset=1.0, scale=2.0, use_jit=True)
+
+    assert calls["count"] == 1
+    np.testing.assert_allclose(out.toarray(), np.array([[10.5, 0.0], [0.0, 10.5]]))
+
+
+def test_sparse_safe_log1p_with_scale_falls_back_when_kernel_unavailable(monkeypatch):
+    """Even above threshold, sparse log helpers must fall back when no JIT kernel exists."""
+    X = sp.csr_matrix(np.array([[1.0, 0.0], [0.0, 4.0]]))
+
+    monkeypatch.setattr(sparse_utils_mod, "_JIT_THRESHOLD", 0)
+    monkeypatch.setattr(sparse_utils_mod, "_get_jit_log_with_scale_kernel", lambda: None)
+
+    out = sparse_safe_log1p_with_scale(X, offset=1.0, scale=2.0, use_jit=True)
+
+    assert sp.isspmatrix_csr(out)
+    np.testing.assert_allclose(
+        out.toarray(),
+        np.array([[np.log1p(1.0) / 2.0, 0.0], [0.0, np.log1p(4.0) / 2.0]]),
+    )
+
+
+def test_cleanup_layers_removes_only_unlisted_layers() -> None:
+    """cleanup_layers should mutate only the target assay's layer mapping."""
+    obs = pl.DataFrame({"_index": ["s1", "s2"]})
+    var = pl.DataFrame({"_index": ["p1", "p2"]})
+    assay = Assay(
+        var=var,
+        layers={
+            "raw": ScpMatrix(X=np.ones((2, 2))),
+            "norm": ScpMatrix(X=np.full((2, 2), 2.0)),
+            "imputed": ScpMatrix(X=np.full((2, 2), 3.0)),
+        },
+    )
+    container = ScpContainer(obs=obs, assays={"proteins": assay})
+
+    cleanup_layers(container, assay_name="proteins", keep_layers=["raw", "imputed"])
+
+    assert list(container.assays["proteins"].layers.keys()) == ["raw", "imputed"]
+
+
+def test_auto_convert_for_operation_keeps_dense_inputs_under_current_contract() -> None:
+    """Dense inputs should pass through unchanged instead of being sparsified implicitly."""
+    X = np.array([[1.0, 0.0], [0.0, 2.0]])
+
+    out = auto_convert_for_operation(X, operation="row_wise")
+
+    assert isinstance(out, np.ndarray)
+    np.testing.assert_array_equal(out, X)
+
+
+def test_get_format_recommendation_prefers_dense_for_low_sparsity() -> None:
+    """Low-sparsity matrices should stay dense under the current recommendation contract."""
+    assert get_format_recommendation(10, 10, nnz=90, operations=["row_wise"]) == "dense"

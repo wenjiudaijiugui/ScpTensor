@@ -13,19 +13,14 @@ import numpy as np
 import numpy.typing as npt
 from scipy.sparse.linalg import svds
 
-from scptensor.core.exceptions import (
-    AssayNotFoundError,
-    DimensionError,
-    LayerNotFoundError,
-    ScpValueError,
-)
+from scptensor.core.exceptions import DimensionError, ScpValueError
 from scptensor.core.structures import ScpContainer
 from scptensor.impute._utils import (
     add_imputed_layer,
     log_imputation_operation,
     to_dense_float_copy,
 )
-from scptensor.impute.base import ImputeMethod, register_impute_method
+from scptensor.impute.base import ImputeMethod, register_impute_method, validate_layer_context
 
 # =============================================================================
 # Internal utility functions
@@ -297,24 +292,9 @@ def impute_bpca(
             value=max_iter,
         )
 
-    # Validate assay and layer
-    if assay_name not in container.assays:
-        available = ", ".join(f"'{k}'" for k in container.assays)
-        raise AssayNotFoundError(
-            assay_name,
-            hint=f"Available assays: {available}.",
-        )
-
-    assay = container.assays[assay_name]
-    if source_layer not in assay.layers:
-        available = ", ".join(f"'{k}'" for k in assay.layers)
-        raise LayerNotFoundError(
-            source_layer,
-            assay_name,
-            hint=f"Available layers: {available}.",
-        )
-
-    input_matrix = assay.layers[source_layer]
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_matrix = ctx.layer
     X_original = input_matrix.X.copy()
     n_samples, n_features = X_original.shape
 
@@ -352,12 +332,14 @@ def impute_bpca(
             container,
             action="impute_bpca",
             params={
-                "assay": assay_name,
+                "assay": ctx.resolved_assay_name,
                 "source_layer": source_layer,
                 "new_layer_name": layer_name,
                 "n_components": n_components,
             },
-            description=f"BPCA imputation on assay '{assay_name}': no missing values found.",
+            description=(
+                f"BPCA imputation on assay '{ctx.resolved_assay_name}': no missing values found."
+            ),
         )
 
     # Apply BPCA imputation
@@ -382,13 +364,15 @@ def impute_bpca(
         container,
         action="impute_bpca",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": layer_name,
             "n_components": n_components,
             "effective_components": effective_components,
         },
-        description=f"BPCA imputation (n_components={n_components}) on assay '{assay_name}'.",
+        description=(
+            f"BPCA imputation (n_components={n_components}) on assay '{ctx.resolved_assay_name}'."
+        ),
     )
 
 

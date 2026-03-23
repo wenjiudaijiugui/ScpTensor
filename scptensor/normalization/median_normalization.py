@@ -27,13 +27,14 @@ Reference:
 
 import numpy as np
 
+from scptensor.core.exceptions import ValidationError
 from scptensor.core.structures import ScpContainer
 
 from .base import (
     ensure_dense,
     finalize_normalization_layer,
     get_layer_name,
-    validate_assay_and_layer,
+    validate_layer_context,
 )
 
 
@@ -122,13 +123,25 @@ def norm_median(
     - The median is less affected by extreme values than the mean.
     """
     # Validate and get objects
-    assay, input_layer = validate_assay_and_layer(container, assay_name, source_layer)
-    x_dense = ensure_dense(input_layer.X)
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_layer = ctx.layer
+    x_dense = np.asarray(ensure_dense(input_layer.X), dtype=float)
+    if np.any(np.isinf(x_dense)):
+        raise ValidationError(
+            "Median normalization does not accept Inf values. "
+            "Use NaN for missing entries or clean infinite intensities first.",
+            field="X",
+        )
+    row_medians = np.nanmedian(x_dense, axis=1, keepdims=True)
+    global_median = float(np.nanmedian(x_dense)) if add_global_median else 0.0
 
-    # Apply median normalization
-    X_centered = x_dense - np.nanmedian(x_dense, axis=1, keepdims=True)
+    # Densify is part of the stable contract for this method, but keep the
+    # dense working set to one output buffer instead of chaining temporaries.
+    X_centered = np.array(x_dense, dtype=float, copy=True)
+    np.subtract(X_centered, row_medians, out=X_centered)
     if add_global_median:
-        X_centered = X_centered + np.nanmedian(x_dense)
+        np.add(X_centered, global_median, out=X_centered)
 
     # Get layer name
     layer_name = get_layer_name(new_layer_name, "median_centered")
@@ -141,7 +154,7 @@ def norm_median(
         new_layer_name=layer_name,
         action="normalization_median_centering",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": layer_name,
             "add_global_median": add_global_median,

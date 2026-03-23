@@ -13,7 +13,7 @@ from .base import (
     add_result_layer,
     get_layer_name,
     log_operation,
-    validate_assay_and_layer,
+    validate_layer_context,
 )
 from .mean_normalization import norm_mean
 from .median_normalization import norm_median
@@ -28,7 +28,9 @@ def norm_none(
     new_layer_name: str | None = "no_norm",
 ) -> ScpContainer:
     """Create a passthrough layer without applying normalization."""
-    assay, input_layer = validate_assay_and_layer(container, assay_name, source_layer)
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_layer = ctx.layer
     layer_name = get_layer_name(new_layer_name, "no_norm")
 
     if layer_name != source_layer:
@@ -39,7 +41,7 @@ def norm_none(
         container,
         action="normalization_none",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": layer_name,
         },

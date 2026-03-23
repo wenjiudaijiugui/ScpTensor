@@ -27,13 +27,14 @@ Reference:
 
 import numpy as np
 
+from scptensor.core.exceptions import ValidationError
 from scptensor.core.structures import ScpContainer
 
 from .base import (
     ensure_dense,
     finalize_normalization_layer,
     get_layer_name,
-    validate_assay_and_layer,
+    validate_layer_context,
 )
 
 
@@ -121,13 +122,25 @@ def norm_mean(
     - Centering mode is useful for removing technical bias between samples.
     """
     # Validate and get objects
-    assay, input_layer = validate_assay_and_layer(container, assay_name, source_layer)
-    x_dense = ensure_dense(input_layer.X)
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_layer = ctx.layer
+    x_dense = np.asarray(ensure_dense(input_layer.X), dtype=float)
+    if np.any(np.isinf(x_dense)):
+        raise ValidationError(
+            "Sample mean normalization does not accept Inf values. "
+            "Use NaN for missing entries or clean infinite intensities first.",
+            field="X",
+        )
+    row_means = np.nanmean(x_dense, axis=1, keepdims=True)
+    global_mean = float(np.nanmean(x_dense)) if add_global_mean else 0.0
 
-    # Apply mean normalization
-    X_centered = x_dense - np.nanmean(x_dense, axis=1, keepdims=True)
+    # Densify is part of the stable contract for this method, but keep the
+    # dense working set to one output buffer instead of chaining temporaries.
+    X_centered = np.array(x_dense, dtype=float, copy=True)
+    np.subtract(X_centered, row_means, out=X_centered)
     if add_global_mean:
-        X_centered = X_centered + np.nanmean(x_dense)
+        np.add(X_centered, global_mean, out=X_centered)
 
     # Get layer name
     layer_name = get_layer_name(new_layer_name, "sample_mean_norm")
@@ -140,7 +153,7 @@ def norm_mean(
         new_layer_name=layer_name,
         action="normalization_sample_mean",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": layer_name,
             "add_global_mean": add_global_mean,

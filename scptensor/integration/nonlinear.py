@@ -27,6 +27,8 @@ single-cell data with Harmony. Nature Methods (2019).
 
 from __future__ import annotations
 
+import inspect
+
 from scptensor.core.exceptions import MissingDependencyError
 from scptensor.core.structures import ScpContainer
 from scptensor.integration.base import (
@@ -137,14 +139,23 @@ def integrate_harmony(
         "sigma": sigma,
         "nclust": nclust,
         "max_iter_harmony": max_iter_harmony,
-        "max_iter_cluster": max_iter_cluster,
         "epsilon_cluster": epsilon_cluster,
         "epsilon_harmony": epsilon_harmony,
     }
 
+    # harmonypy versions disagree on the clustering-iteration kwarg name:
+    # older releases expose ``max_iter_kmeans``, while newer wrappers may use
+    # ``max_iter_cluster``. Detect the installed signature instead of pinning
+    # this wrapper to one harmonypy release line.
+    run_harmony_params = inspect.signature(hm.run_harmony).parameters
+    if "max_iter_cluster" in run_harmony_params:
+        harmony_params["max_iter_cluster"] = max_iter_cluster
+    elif "max_iter_kmeans" in run_harmony_params:
+        harmony_params["max_iter_kmeans"] = max_iter_cluster
+
     ho = hm.run_harmony(X_dense, meta_data, batch_key, **harmony_params)
 
-    res = ho.Z_corr.T
+    res = ho.Z_corr
     res = preserve_sparsity(res, input_was_sparse)
 
     add_integrated_layer(assay, new_layer_name or "harmony", res, layer)

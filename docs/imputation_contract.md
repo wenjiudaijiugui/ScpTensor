@@ -250,7 +250,7 @@
 
 - `row_mean` / `row_median` / `half_row_min` 是 **按样本行** 计算；
 - `knn` / `lls` 也是以样本行为邻域对象；
-- `qrilc` / `minprob` 以特征列为单位估计低丰度分布；
+- `qrilc` / `minprob` 继承 `imputeLCMD` 的 **sample-wise** 语义，因此在 ScpTensor 的矩阵约定下按样本行估计低丰度分布；
 - `bpca` / `iterative_svd` / `softimpute` 作用于整张样本 × 特征矩阵。
 
 后续优化不能通过隐式转置改变这些轴语义。
@@ -263,8 +263,29 @@
 - `container.assays[assay_name].layers[source_layer]` 存在
 - `source_layer.X` 可转为浮点矩阵
 - 缺失值用 `NaN` 表示
+- 除 `NaN` 外，observed 值必须是 finite；`Inf/-Inf` 不被视为合法观测值
 
-### 7.3 对输入状态完整性的当前假设
+### 7.3 assay alias 与 resolved assay key 语义
+
+当前实现已通过共享 layer resolver 对 assay 名做别名解析。
+
+当前稳定支持的 alias 组只有：
+
+- `protein` <-> `proteins`
+- `peptide` <-> `peptides`
+
+因此冻结合同应写成两层：
+
+1. 调用方传入 `protein` 或 `proteins` 都可能工作。
+2. 真正执行时使用的是容器中实际存在的 resolved assay key。
+3. `history.params["assay"]` 记录的也是这个 resolved assay key，而不是调用方传入的原始别名字符串。
+
+这意味着：
+
+- 文档级 canonical naming 仍应写 `proteins / peptides`
+- provenance 必须反映“容器实际使用了哪个 assay key”
+
+### 7.4 对输入状态完整性的当前假设
 
 当前实现不强制检查：
 
@@ -279,7 +300,7 @@
 - `qrilc` / `minprob` / `half_row_min` 更适合“较低值更接近低丰度”的场景
 - 但当前代码不会主动验证这些前提
 
-### 7.4 稀疏输入边界
+### 7.5 稀疏输入边界
 
 当前注册表中，只有 `none` 标记为 `supports_sparse=True`。其余方法都被注册为 `supports_sparse=False`，并在包装层普遍执行 dense conversion。
 
@@ -446,11 +467,16 @@
 
 - `impute_mechanism_warning`
 
-但需要冻结一个当前现实：
+当前实现已把 no-missing fast path 收敛为：
 
-- 部分方法在“无缺失 fast path”下不会统一追加 history。
+- 仍写出结果层
+- 仍追加对应 `impute_*` history
+- 且 no-missing 日志同样保留 `source_layer / new_layer_name` 与方法关键参数
 
-因此当前下游代码 **不能假设** “只要调用过 imputation，就一定新增一条 history”。后续可以统一这一行为，但那应被视为明确的行为收敛，而不是静默优化。
+因此当前下游代码可以依赖：
+
+- 只要公开包装函数成功返回，就会留下对应的 imputation provenance 记录。
+- 若输入 assay 名通过 alias 解析，`history.params["assay"]` 记录的是 resolved assay key，而不是调用时的别名写法。
 
 ## 11. 失败合同
 
@@ -593,8 +619,7 @@
 如果后续要把 `scptensor.impute` 继续工程化收敛，最安全的方向是：
 
 1. 保留 registry 名与方法家族边界不变。
-2. 在不改数值合同的前提下统一 no-missing fast path 的 history 行为。
-3. 把文档级主输出层逐步收敛到 `imputed`，但保留当前方法特异层名作为兼容层。
-4. 若要新增 state-aware imputation，应作为新能力显式引入，而不是悄悄改变“所有 `NaN` 都会被填补”的现有语义。
+2. 把文档级主输出层逐步收敛到 `imputed`，但保留当前方法特异层名作为兼容层。
+3. 若要新增 state-aware imputation，应作为新能力显式引入，而不是悄悄改变“所有 `NaN` 都会被填补”的现有语义。
 
 在此之前，`docs`、benchmark 与核心实现都应继续把本文件视为当前 imputation 模块的冻结实现边界。

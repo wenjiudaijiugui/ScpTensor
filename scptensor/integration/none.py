@@ -12,7 +12,7 @@ from scptensor.integration.base import (
     clone_layer_matrix,
     log_integration_operation,
     register_integrate_method,
-    validate_layer_params,
+    validate_layer_context,
 )
 
 
@@ -40,7 +40,9 @@ def integrate_none(
     new_layer_name : str | None, default="none"
         Target layer name for copied values.
     """
-    assay, layer = validate_layer_params(container, assay_name, base_layer)
+    ctx = validate_layer_context(container, assay_name, base_layer)
+    assay = ctx.assay
+    layer = ctx.layer
 
     if batch_key not in container.obs.columns:
         raise ScpValueError(
@@ -57,7 +59,7 @@ def integrate_none(
         method_name="none",
         params={
             "batch_key": batch_key,
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "base_layer": base_layer,
         },
         description="No batch correction baseline (layer copy).",

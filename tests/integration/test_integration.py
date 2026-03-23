@@ -17,6 +17,8 @@ Tests cover:
 """
 
 import importlib.util
+import sys
+import types
 
 import numpy as np
 import polars as pl
@@ -38,6 +40,11 @@ from scptensor.integration import integrate_limma as limma_correct
 from scptensor.integration import integrate_mnn as mnn_correct
 from scptensor.integration import integrate_scanorama as scanorama_integrate
 from scptensor.integration.combat import _solve_eb
+from scptensor.integration.mnn import (
+    _adjust_shift_variance,
+    _compute_smoothed_correction,
+    _subtract_biological_components,
+)
 
 HARMONYPY_AVAILABLE = importlib.util.find_spec("harmonypy") is not None
 SCANORAMA_AVAILABLE = importlib.util.find_spec("scanorama") is not None
@@ -243,6 +250,86 @@ def compute_biological_signal_retention(
 class TestMNNCorrection:
     """Test Mutual Nearest Neighbors batch correction."""
 
+    def test_mnn_subtracts_biological_components_from_correction(self):
+        """svd_dim helper should remove correction components parallel to biological spans."""
+        correction = np.array([[1.0, 1.0], [2.0, -3.0]], dtype=np.float64)
+        span_x = np.array([[1.0], [0.0]], dtype=np.float64)
+        span_y = np.array([[0.0], [1.0]], dtype=np.float64)
+
+        adjusted = _subtract_biological_components(correction, span_x, span_y)
+        np.testing.assert_allclose(adjusted, np.zeros_like(correction))
+
+    def test_mnn_variance_adjustment_matches_reference_formula(self):
+        """Variance adjustment should match the batchelor test reference implementation."""
+        rng = np.random.default_rng(100032)
+        reference = rng.normal(scale=0.1, size=(40, 25))
+        target = rng.normal(scale=0.1, size=(100, 25))
+        correction = rng.random(size=target.shape)
+
+        def ref_adjust_shift_variance(
+            data1: np.ndarray,
+            data2: np.ndarray,
+            cell_vect: np.ndarray,
+            sigma: float,
+        ) -> np.ndarray:
+            scaling = np.empty(cell_vect.shape[0], dtype=np.float64)
+            for cell in range(cell_vect.shape[0]):
+                cur_cor_vect = cell_vect[cell]
+                l2norm = np.sqrt(np.sum(cur_cor_vect**2))
+                cur_cor_vect = cur_cor_vect / l2norm
+                coords2 = data2 @ cur_cor_vect
+                coords1 = data1 @ cur_cor_vect
+
+                dist2 = data2[cell] - data2
+                dist2 = dist2 - np.outer(dist2 @ cur_cor_vect, cur_cor_vect)
+                dist2 = np.sum(dist2**2, axis=1)
+                weight2 = np.exp(-dist2 / sigma)
+
+                dist1 = data2[cell] - data1
+                dist1 = dist1 - np.outer(dist1 @ cur_cor_vect, cur_cor_vect)
+                dist1 = np.sum(dist1**2, axis=1)
+                weight1 = np.exp(-dist1 / sigma)
+
+                rank2 = np.empty(coords2.shape[0], dtype=np.int64)
+                rank2[np.argsort(coords2, kind="mergesort")] = np.arange(1, coords2.shape[0] + 1)
+                prob2 = np.sum(weight2[rank2 <= rank2[cell]]) / np.sum(weight2)
+
+                ord1 = np.argsort(coords1, kind="mergesort")
+                ecdf1 = np.cumsum(weight1[ord1]) / np.sum(weight1)
+                quantile_idx = int(np.searchsorted(ecdf1, prob2, side="left"))
+                quantile_idx = min(quantile_idx, len(ord1) - 1)
+                quan1 = coords1[ord1[quantile_idx]]
+                quan2 = coords2[cell]
+                scaling[cell] = max((quan1 - quan2) / l2norm, 1.0)
+
+            return cell_vect * scaling[:, None]
+
+        expected = ref_adjust_shift_variance(reference, target, correction, sigma=1.0)
+        observed = _adjust_shift_variance(
+            reference_data=reference,
+            target_data=target,
+            correction=correction,
+            sigma=1.0,
+        )
+        np.testing.assert_allclose(observed, expected)
+
+    def test_mnn_smoothed_correction_updates_all_target_cells(self):
+        """Full MNN should smooth batch vectors onto all target cells, not only paired ones."""
+        reference = np.array([[0.0, 0.0], [0.0, 1.0]], dtype=np.float64)
+        target = np.array([[10.0, 0.0], [10.0, 1.0], [10.0, 2.0]], dtype=np.float64)
+
+        correction = _compute_smoothed_correction(
+            reference_data=reference,
+            target_data=target,
+            kernel_space=target,
+            mnn_pairs=[(0, 0), (1, 1)],
+            sigma=1.0,
+        )
+
+        assert correction.shape == target.shape
+        assert np.allclose(correction[:, 0], -10.0)
+        assert not np.allclose(correction[2], np.zeros(2))
+
     def test_mnn_basic_two_batches(self):
         """Test MNN correction with two batches."""
         container = create_batch_container(
@@ -290,7 +377,7 @@ class TestMNNCorrection:
         assert result.assays["protein"].layers["mnn_corrected"].M is None
 
     def test_mnn_three_batches_anchor_correction(self):
-        """Test MNN correction with three batches (uses anchor-based correction)."""
+        """Test multi-batch MNN uses progressive merging by default."""
         container = create_batch_container(
             n_samples_per_batch=30, n_features=50, n_batches=3, random_state=42
         )
@@ -311,6 +398,36 @@ class TestMNNCorrection:
         # Check all three batches are still present
         batches = result.obs["batch"].to_numpy()
         assert len(np.unique(batches)) == 3
+
+    def test_mnn_validates_merge_order(self):
+        """Explicit merge order must list each observed batch exactly once."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=20, n_batches=3, random_state=42
+        )
+
+        with pytest.raises(ScpValueError, match="merge_order must contain each batch exactly once"):
+            mnn_correct(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                merge_order=["batch1", "batch2"],
+            )
+
+    def test_mnn_rejects_legacy_pairwise_mode_for_multibatch(self):
+        """Regression: multi-batch full MNN no longer supports pairwise-only mode."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=20, n_batches=3, random_state=42
+        )
+
+        with pytest.raises(ScpValueError, match="Full MNN now uses progressive merging"):
+            mnn_correct(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                use_anchor_correction=False,
+            )
 
     def test_mnn_with_sparse_input(self):
         """Test MNN correction with sparse input matrix."""
@@ -351,6 +468,26 @@ class TestMNNCorrection:
         container.assays["protein"].layers["raw"] = ScpMatrix(X=X, M=None)
 
         with pytest.raises(ScpValueError, match="requires a complete matrix"):
+            mnn_correct(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                new_layer_name="mnn_corrected",
+                k=10,
+            )
+
+    def test_mnn_with_inf_values(self):
+        """Full MNN should reject Inf values under the complete-finite input contract."""
+        container = create_batch_container(
+            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+        )
+
+        X = container.assays["protein"].layers["raw"].X
+        X[0, 0] = np.inf
+        container.assays["protein"].layers["raw"] = ScpMatrix(X=X, M=None)
+
+        with pytest.raises(ScpValueError, match="only finite values"):
             mnn_correct(
                 container,
                 batch_key="batch",
@@ -407,6 +544,8 @@ class TestMNNCorrection:
             sigma=2.0,
             n_pcs=20,
             use_pca=True,
+            svd_dim=2,
+            var_adj=False,
         )
 
         assert "mnn_corrected" in result.assays["protein"].layers
@@ -488,6 +627,10 @@ class TestMNNCorrection:
         assert last_log.action == "integration_mnn"
         assert "batch_key" in last_log.params
         assert last_log.params["batch_key"] == "batch"
+        assert last_log.params["cos_norm_in"] is True
+        assert last_log.params["cos_norm_out"] is True
+        assert last_log.params["svd_dim"] == 0
+        assert last_log.params["var_adj"] is True
 
     # -------------------------------------------------------------------------
     # Error handling tests
@@ -539,6 +682,21 @@ class TestMNNCorrection:
                 assay_name="protein",
                 base_layer="raw",
                 sigma=-1.0,
+            )
+
+    def test_mnn_error_invalid_svd_dim(self):
+        """Test MNN validates svd_dim values."""
+        container = create_batch_container(
+            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+        )
+
+        with pytest.raises(ScpValueError, match="svd_dim must be >= 0"):
+            mnn_correct(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                svd_dim=-1,
             )
 
     def test_mnn_error_missing_assay(self):
@@ -828,6 +986,155 @@ class TestHarmonyIntegration:
 class TestScanoramaIntegration:
     """Test Scanorama batch correction (requires scanorama)."""
 
+    def test_scanorama_wrapper_passes_genes_and_aligns_output_with_fake_module(self, monkeypatch):
+        """Wrapper should realign features and restore original sample order after per-batch correction."""
+        obs = pl.DataFrame(
+            {
+                "_index": ["s1", "s2", "s3", "s4"],
+                "batch": ["A", "B", "A", "B"],
+            }
+        )
+        X = np.array(
+            [
+                [1.0, 2.0, 3.0],
+                [10.0, 20.0, 30.0],
+                [4.0, 5.0, 6.0],
+                [40.0, 50.0, 60.0],
+            ],
+            dtype=np.float64,
+        )
+        var = pl.DataFrame({"_index": ["g1", "g2", "g3"]})
+        container = ScpContainer(
+            obs=obs,
+            assays={"protein": Assay(var=var, layers={"raw": ScpMatrix(X=X, M=None)})},
+        )
+
+        captured: dict[str, object] = {}
+        fake_scanorama = types.ModuleType("scanorama")
+
+        def fake_correct(datasets_full, genes_list, **kwargs):
+            captured["datasets_full"] = datasets_full
+            captured["genes_list"] = genes_list
+            captured["kwargs"] = kwargs
+            corrected = [dataset[:, ::-1] + 100.0 for dataset in datasets_full]
+            return corrected, list(reversed(genes_list[0]))
+
+        fake_scanorama.correct = fake_correct  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "scanorama", fake_scanorama)
+
+        result = scanorama_integrate(
+            container,
+            batch_key="batch",
+            assay_name="protein",
+            base_layer="raw",
+            new_layer_name="scanorama",
+        )
+
+        assert captured["genes_list"] == [["g1", "g2", "g3"], ["g1", "g2", "g3"]]
+        assert captured["kwargs"]["return_dense"] is True
+        assert captured["kwargs"]["ds_names"] == ["A", "B"]
+        assert "dimred" not in captured["kwargs"]
+        np.testing.assert_allclose(result.assays["protein"].layers["scanorama"].X, X + 100.0)
+
+    def test_scanorama_explicit_dimred_is_forwarded_with_fake_module(self, monkeypatch):
+        """Explicit dimred should be forwarded, while None should use Scanorama's own default."""
+        container = create_batch_container(
+            n_samples_per_batch=5, n_features=3, n_batches=2, random_state=42
+        )
+
+        captured: dict[str, object] = {}
+        fake_scanorama = types.ModuleType("scanorama")
+
+        def fake_correct(datasets_full, genes_list, **kwargs):
+            captured["kwargs"] = kwargs
+            return [dataset.copy() for dataset in datasets_full], genes_list[0]
+
+        fake_scanorama.correct = fake_correct  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "scanorama", fake_scanorama)
+
+        scanorama_integrate(
+            container,
+            batch_key="batch",
+            assay_name="protein",
+            base_layer="raw",
+            new_layer_name="scanorama",
+            dimred=17,
+        )
+
+        assert captured["kwargs"]["dimred"] == 17
+
+    def test_scanorama_rejects_feature_mismatch_with_fake_module(self, monkeypatch):
+        """Wrapper should fail if Scanorama returns a different feature set than the assay."""
+        container = create_batch_container(
+            n_samples_per_batch=5, n_features=3, n_batches=2, random_state=42
+        )
+        fake_scanorama = types.ModuleType("scanorama")
+
+        def fake_correct(datasets_full, genes_list, **kwargs):
+            corrected = [dataset[:, :2] for dataset in datasets_full]
+            return corrected, genes_list[0][:2]
+
+        fake_scanorama.correct = fake_correct  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "scanorama", fake_scanorama)
+
+        with pytest.raises(ScpValueError, match="corrected feature set that does not match"):
+            scanorama_integrate(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+            )
+
+    def test_scanorama_rejects_return_dimred_before_external_call(self, monkeypatch):
+        """Wrapper should fail before calling Scanorama when low-dimensional output cannot be stored."""
+        container = create_batch_container(
+            n_samples_per_batch=5, n_features=3, n_batches=2, random_state=42
+        )
+        fake_scanorama = types.ModuleType("scanorama")
+
+        def fake_correct(*args, **kwargs):
+            raise AssertionError("scanorama.correct should not be called")
+
+        fake_scanorama.correct = fake_correct  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "scanorama", fake_scanorama)
+
+        with pytest.raises(
+            ScpValueError, match="cannot store low-dimensional Scanorama embeddings"
+        ):
+            scanorama_integrate(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                return_dimred=True,
+                dimred=2,
+            )
+
+    def test_scanorama_rejects_inf_values_with_fake_module(self, monkeypatch):
+        """Scanorama should reject Inf under the complete-finite matrix contract."""
+        container = create_batch_container(
+            n_samples_per_batch=5, n_features=3, n_batches=2, random_state=42
+        )
+        x = container.assays["protein"].layers["raw"].X.copy()
+        x[0, 0] = np.inf
+        container.assays["protein"].layers["raw"] = ScpMatrix(X=x, M=None)
+
+        fake_scanorama = types.ModuleType("scanorama")
+
+        def fake_correct(*args, **kwargs):
+            raise AssertionError("scanorama.correct should not be called")
+
+        fake_scanorama.correct = fake_correct  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "scanorama", fake_scanorama)
+
+        with pytest.raises(ScpValueError, match="only finite values"):
+            scanorama_integrate(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+            )
+
     @pytest.mark.skipif(not SCANORAMA_AVAILABLE, reason="scanorama is optional dependency")
     def test_scanorama_basic_two_batches(self):
         """Test Scanorama integration with two batches."""
@@ -892,24 +1199,23 @@ class TestScanoramaIntegration:
 
     @pytest.mark.skipif(not SCANORAMA_AVAILABLE, reason="scanorama is optional dependency")
     def test_scanorama_with_dimensionality_reduction(self):
-        """Test Scanorama with dimensionality reduction."""
+        """Current wrapper should reject low-dimensional Scanorama output on assay layers."""
         container = create_batch_container(
             n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
         )
 
-        result = scanorama_integrate(
-            container,
-            batch_key="batch",
-            assay_name="protein",
-            base_layer="raw",
-            new_layer_name="scanorama_dr",
-            return_dimred=True,
-            dimred=15,
-        )
-
-        assert "scanorama_dr" in result.assays["protein"].layers
-        X_dr = result.assays["protein"].layers["scanorama_dr"].X
-        assert X_dr.shape[1] == 15  # Reduced dimension
+        with pytest.raises(
+            ScpValueError, match="cannot store low-dimensional Scanorama embeddings"
+        ):
+            scanorama_integrate(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                new_layer_name="scanorama_dr",
+                return_dimred=True,
+                dimred=15,
+            )
 
     @pytest.mark.skipif(not SCANORAMA_AVAILABLE, reason="scanorama is optional dependency")
     def test_scanorama_custom_parameters(self):
@@ -1152,7 +1458,29 @@ class TestComBatAdditional:
 
         with pytest.raises(
             ValidationError,
-            match="requires a complete matrix.*prefer integrate_limma\\(\\)",
+            match="requires a complete finite matrix.*prefer integrate_limma\\(\\)",
+        ):
+            combat(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                new_layer_name="combat",
+            )
+
+    def test_combat_with_inf_values(self):
+        """Test ComBat rejects Inf values under the complete-finite matrix contract."""
+        container = create_batch_container(
+            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+        )
+
+        X = container.assays["protein"].layers["raw"].X
+        X[0, 0] = np.inf
+        container.assays["protein"].layers["raw"] = ScpMatrix(X=X, M=None)
+
+        with pytest.raises(
+            ValidationError,
+            match="requires a complete finite matrix.*prefer integrate_limma\\(\\)",
         ):
             combat(
                 container,
@@ -1199,6 +1527,43 @@ class TestComBatAdditional:
         )
 
         assert "combat" in result.assays["protein"].layers
+
+    def test_combat_with_covariates_matches_reference_stand_mean(self):
+        """Reference: grand mean must exclude the average covariate effect."""
+        base = np.array([0.0, 1.0, 10.0, 11.0], dtype=np.float64)[:, None]
+        X = np.hstack([base, base + 100.0, base + 200.0])
+        obs = pl.DataFrame(
+            {
+                "_index": ["s1", "s2", "s3", "s4"],
+                "batch": ["A", "A", "B", "B"],
+                "group": ["g1", "g2", "g1", "g2"],
+            }
+        )
+        var = pl.DataFrame({"_index": ["p1", "p2", "p3"]})
+        container = ScpContainer(
+            obs=obs,
+            assays={"protein": Assay(var=var, layers={"raw": ScpMatrix(X=X, M=None)})},
+        )
+
+        result = combat(
+            container,
+            batch_key="batch",
+            assay_name="protein",
+            base_layer="raw",
+            new_layer_name="combat",
+            covariates=["group"],
+        )
+
+        expected = np.array(
+            [
+                [5.0, 105.0, 205.0],
+                [6.0, 106.0, 206.0],
+                [5.0, 105.0, 205.0],
+                [6.0, 106.0, 206.0],
+            ],
+            dtype=np.float64,
+        )
+        np.testing.assert_allclose(result.assays["protein"].layers["combat"].X, expected)
 
     def test_combat_error_singleton_batch(self):
         """Test ComBat raises error with singleton batch."""
@@ -1305,6 +1670,24 @@ class TestComBatAdditional:
                 covariates=["missing_group"],
             )
 
+    def test_combat_rejects_nonfinite_covariates(self):
+        """ComBat should fail clearly when covariates contain NaN/Inf values."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+        )
+        container.obs = container.obs.with_columns(
+            pl.Series("score", [0.0] * 10 + [1.0] * 10 + [float("nan")] * 20)
+        )
+
+        with pytest.raises(ScpValueError, match="design matrix containing missing or non-finite"):
+            combat(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                covariates=["score"],
+            )
+
     def test_combat_solve_eb_matches_reference_postvar_denominator(self):
         """ComBat d* update should use denominator a + n/2 - 1 (reference implementation)."""
         g_hat = np.array([[0.5], [-0.2]])
@@ -1333,9 +1716,107 @@ class TestComBatAdditional:
         assert np.allclose(g_new, expected_g)
         assert np.allclose(d_new, expected_d)
 
+    def test_combat_single_feature_falls_back_without_nan(self):
+        """With one feature, EB priors are not estimable; correction should still stay finite."""
+        X = np.array([[0.0], [1.0], [10.0], [11.0]], dtype=np.float64)
+        obs = pl.DataFrame(
+            {
+                "_index": ["s1", "s2", "s3", "s4"],
+                "batch": ["A", "A", "B", "B"],
+                "group": ["g1", "g2", "g1", "g2"],
+            }
+        )
+        var = pl.DataFrame({"_index": ["p1"]})
+        container = ScpContainer(
+            obs=obs,
+            assays={"protein": Assay(var=var, layers={"raw": ScpMatrix(X=X, M=None)})},
+        )
+
+        result = combat(
+            container,
+            batch_key="batch",
+            assay_name="protein",
+            base_layer="raw",
+            new_layer_name="combat",
+            covariates=["group"],
+        )
+        np.testing.assert_allclose(
+            result.assays["protein"].layers["combat"].X.ravel(),
+            np.array([5.0, 6.0, 5.0, 6.0], dtype=np.float64),
+        )
+
 
 class TestLimmaIntegration:
     """Tests for limma-style matrix-level batch correction."""
+
+    def test_limma_default_matches_remove_batch_effect_grand_mean(self):
+        """Default limma behavior should remove batch effects to the centered mean, not batch1."""
+        base = np.array([0.0, 1.0, 10.0, 11.0], dtype=np.float64)[:, None]
+        X = np.hstack([base, base + 100.0, base + 200.0])
+        obs = pl.DataFrame(
+            {
+                "_index": ["s1", "s2", "s3", "s4"],
+                "batch": ["A", "A", "B", "B"],
+            }
+        )
+        var = pl.DataFrame({"_index": ["p1", "p2", "p3"]})
+        container = ScpContainer(
+            obs=obs,
+            assays={"protein": Assay(var=var, layers={"raw": ScpMatrix(X=X, M=None)})},
+        )
+
+        result = limma_correct(
+            container,
+            batch_key="batch",
+            assay_name="protein",
+            base_layer="raw",
+            new_layer_name="limma",
+        )
+        expected = np.array(
+            [
+                [5.0, 105.0, 205.0],
+                [6.0, 106.0, 206.0],
+                [5.0, 105.0, 205.0],
+                [6.0, 106.0, 206.0],
+            ],
+            dtype=np.float64,
+        )
+        np.testing.assert_allclose(result.assays["protein"].layers["limma"].X, expected, atol=1e-12)
+
+    def test_limma_reference_batch_is_scptensor_extension(self):
+        """reference_batch should shift corrected values so the chosen batch remains unchanged."""
+        base = np.array([0.0, 1.0, 10.0, 11.0], dtype=np.float64)[:, None]
+        X = np.hstack([base, base + 100.0, base + 200.0])
+        obs = pl.DataFrame(
+            {
+                "_index": ["s1", "s2", "s3", "s4"],
+                "batch": ["A", "A", "B", "B"],
+            }
+        )
+        var = pl.DataFrame({"_index": ["p1", "p2", "p3"]})
+        container = ScpContainer(
+            obs=obs,
+            assays={"protein": Assay(var=var, layers={"raw": ScpMatrix(X=X, M=None)})},
+        )
+
+        result = limma_correct(
+            container,
+            batch_key="batch",
+            assay_name="protein",
+            base_layer="raw",
+            new_layer_name="limma",
+            reference_batch="A",
+        )
+        expected = np.array(
+            [
+                [0.0, 100.0, 200.0],
+                [1.0, 101.0, 201.0],
+                [0.0, 100.0, 200.0],
+                [1.0, 101.0, 201.0],
+            ],
+            dtype=np.float64,
+        )
+        np.testing.assert_allclose(result.assays["protein"].layers["limma"].X, expected, atol=1e-12)
 
     def test_limma_basic_two_batches(self):
         """Test limma correction adds output layer with preserved shape."""
@@ -1478,6 +1959,36 @@ class TestLimmaIntegration:
 
         assert np.isnan(x_out[0:5, 0]).all()
         assert np.isnan(x_out[20:24, 1]).all()
+
+    def test_limma_rejects_inf_values(self):
+        """Limma-style batch correction should allow NaN but reject Inf inputs."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+        )
+        x = container.assays["protein"].layers["raw"].X.copy()
+        x[0, 0] = np.inf
+        container.assays["protein"].layers["raw"] = ScpMatrix(X=x, M=None)
+
+        with pytest.raises(ScpValueError, match="supports NaN missing values but not Inf"):
+            limma_correct(container, batch_key="batch", assay_name="protein", base_layer="raw")
+
+    def test_limma_rejects_nonfinite_covariates(self):
+        """Covariates must be fully observed and finite for the design matrix."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+        )
+        container.obs = container.obs.with_columns(
+            pl.Series("score", [0.0] * 10 + [1.0] * 10 + [float("nan")] * 20)
+        )
+
+        with pytest.raises(ScpValueError, match="design matrix containing missing or non-finite"):
+            limma_correct(
+                container,
+                batch_key="batch",
+                assay_name="protein",
+                base_layer="raw",
+                covariates=["score"],
+            )
 
     def test_mnn_rejects_nan_values_without_explicit_imputation(self):
         """Embedding-level integration should require complete input."""
@@ -1767,6 +2278,24 @@ class TestHistoryLogging:
         assert len(result.history) == initial_len + 1
         assert result.history[-1].action == "integration_mnn"
 
+    def test_mnn_history_uses_resolved_assay_name_for_aliases(self):
+        """MNN provenance should record the resolved assay key, not the caller alias."""
+        container = create_batch_container(
+            n_samples_per_batch=10, n_features=12, n_batches=2, random_state=42
+        )
+        container.assays["proteins"] = container.assays.pop("protein")
+
+        result = mnn_correct(
+            container,
+            batch_key="batch",
+            assay_name="protein",
+            base_layer="raw",
+            k=3,
+            sigma=1.0,
+        )
+
+        assert result.history[-1].params["assay"] == "proteins"
+
     def test_combat_logs_to_history(self):
         """Test ComBat logs operation to history."""
         container = create_batch_container(
@@ -1822,6 +2351,63 @@ class TestIntegrationBaselineAndMetadata:
         assert log_entry.action == "integration_none"
         assert log_entry.params["integration_level"] == "matrix"
         assert log_entry.params["recommended_for_de"] is True
+
+    def test_integrate_none_history_uses_resolved_assay_name_for_aliases(self):
+        """No-op integration should log the resolved assay key used by the container."""
+        container = create_batch_container(
+            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+        )
+        container.assays["proteins"] = container.assays.pop("protein")
+
+        result = integrate_none(
+            container,
+            batch_key="batch",
+            assay_name="protein",
+            base_layer="raw",
+            new_layer_name="none",
+        )
+
+        assert "none" in result.assays["proteins"].layers
+        assert result.history[-1].params["assay"] == "proteins"
+
+
+def test_harmony_runs_with_stub_dependency_and_logs_metadata(monkeypatch):
+    """Harmony optional path should stay testable without a real harmonypy install."""
+    container = create_batch_container(
+        n_samples_per_batch=8, n_features=10, n_batches=2, random_state=42
+    )
+    add_pca_layer_to_protein_assay(container)
+
+    fake_module = types.ModuleType("harmonypy")
+
+    def fake_run_harmony(X, meta_data, batch_key, **kwargs):
+        assert batch_key == "batch"
+        assert meta_data.shape[0] == X.shape[0]
+        return types.SimpleNamespace(Z_corr=(X + 1.0))
+
+    fake_module.run_harmony = fake_run_harmony
+    monkeypatch.setitem(sys.modules, "harmonypy", fake_module)
+
+    result = harmony(
+        container,
+        batch_key="batch",
+        assay_name="protein",
+        base_layer="pca",
+        new_layer_name="harmony_stub",
+        theta=3.0,
+        lamb=0.5,
+        max_iter_harmony=2,
+        max_iter_cluster=4,
+    )
+
+    input_x = container.assays["protein"].layers["pca"].X
+    output_x = result.assays["protein"].layers["harmony_stub"].X
+    assert np.allclose(output_x, input_x + 1.0)
+    assert result.history[-1].action == "integration_harmony"
+    assert result.history[-1].params["integration_level"] == "embedding"
+    assert result.history[-1].params["recommended_for_de"] is False
+    assert result.history[-1].params["theta"] == 3.0
+    assert result.history[-1].params["lamb"] == 0.5
 
     def test_integrate_none_preserves_missing_values_verbatim(self):
         """No-op integration should copy incomplete matrices without filling NaN."""

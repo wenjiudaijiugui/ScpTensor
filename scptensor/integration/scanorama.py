@@ -27,7 +27,7 @@ from __future__ import annotations
 import numpy as np
 
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import ScpContainer
+from scptensor.core.structures import Assay, ScpContainer
 from scptensor.core.utils import requires_dependency
 from scptensor.integration.base import (
     add_integrated_layer,
@@ -36,7 +36,7 @@ from scptensor.integration.base import (
     preserve_sparsity,
     register_integrate_method,
     validate_batch_integration_params,
-    validate_layer_params,
+    validate_layer_context,
 )
 
 
@@ -103,40 +103,72 @@ def integrate_scanorama(
         )
     if knn is not None and knn <= 0:
         raise ScpValueError(f"knn must be positive or None, got {knn}.", parameter="knn", value=knn)
+    if return_dimred:
+        raise ScpValueError(
+            "ScpTensor's Scanorama wrapper currently cannot store low-dimensional "
+            "Scanorama embeddings back into an assay layer because assay layers "
+            "must preserve the assay feature width. Use return_dimred=False to "
+            "write the batch-corrected matrix, or add a dedicated embedding assay "
+            "workflow before exposing low-dimensional Scanorama output.",
+            parameter="return_dimred",
+            value=return_dimred,
+        )
 
     # Validate assay and layer
-    assay, layer = validate_layer_params(container, assay_name, base_layer)
+    ctx = validate_layer_context(container, assay_name, base_layer)
+    assay = ctx.assay
+    layer = ctx.layer
     _, batches, unique_batches, _ = validate_batch_integration_params(
-        container, batch_key, assay_name, min_batches=2
+        container, batch_key, ctx.resolved_assay_name, min_batches=2
     )
 
     # Get and prepare data
     X, input_was_sparse = prepare_integration_input(layer, context="Scanorama integration")
+    if not np.isfinite(X).all():
+        raise ScpValueError(
+            "Scanorama integration requires a complete matrix with only finite values "
+            "(no NaN/Inf values). Please impute or filter missing values before "
+            "batch integration.",
+            parameter="X",
+        )
 
-    # Prepare data list for scanorama
-    datasets_list = [X[batches == b] for b in unique_batches]
+    # Split by batch for Scanorama, but preserve original sample indices so the
+    # corrected matrix can be restored to the container's sample order.
+    datasets_list, batch_sample_indices = _split_scanorama_datasets(
+        X=X,
+        batches=batches,
+        unique_batches=unique_batches,
+    )
+    genes_list = _build_scanorama_genes_list(assay, len(unique_batches))
 
     # Set default knn based on data size
-    knn = knn or max(5, min(20, X.shape[0] // len(unique_batches) - 1))
+    if knn is None:
+        knn = min(20, max(1, min(dataset.shape[0] for dataset in datasets_list) - 1))
 
     # Integrate using scanorama
-    integrated = scanorama.correct(
+    corrected_datasets, corrected_genes = scanorama.correct(
         datasets_list,
-        ds_names=[str(b) for b in unique_batches],
-        return_dimred=return_dimred,
-        return_dense=True,
-        sigma=sigma,
-        alpha=alpha,
-        knn=knn,
-        approx=approx,
-        dimred=dimred,
+        genes_list,
+        **_build_scanorama_correct_kwargs(
+            unique_batches=unique_batches,
+            return_dimred=return_dimred,
+            sigma=sigma,
+            alpha=alpha,
+            knn=knn,
+            approx=approx,
+            dimred=dimred,
+        ),
+    )
+    X_corrected = _stack_scanorama_corrected_datasets(
+        corrected_datasets=corrected_datasets,
+        corrected_genes=corrected_genes,
+        feature_ids=genes_list[0],
+        batch_sample_indices=batch_sample_indices,
+        n_samples=X.shape[0],
     )
 
-    X_corrected = np.vstack(integrated)
-
     # Preserve sparsity if appropriate
-    if not return_dimred:
-        X_corrected = preserve_sparsity(X_corrected, input_was_sparse)
+    X_corrected = preserve_sparsity(X_corrected, input_was_sparse)
 
     # Create new layer
     add_integrated_layer(assay, new_layer_name or "scanorama", X_corrected, layer)
@@ -148,7 +180,7 @@ def integrate_scanorama(
         method_name="scanorama",
         params={
             "batch_key": batch_key,
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "sigma": sigma,
             "alpha": alpha,
             "knn": knn,
@@ -156,8 +188,87 @@ def integrate_scanorama(
             "return_dimred": return_dimred,
             "n_batches": len(unique_batches),
         },
-        description=f"Scanorama integration (sigma={sigma}, alpha={alpha}) on assay '{assay_name}'.",
+        description=(
+            f"Scanorama integration (sigma={sigma}, alpha={alpha}) "
+            f"on assay '{ctx.resolved_assay_name}'."
+        ),
     )
+
+
+def _build_scanorama_genes_list(assay: Assay, n_batches: int) -> list[list[str]]:
+    """Build per-batch feature-id lists for Scanorama's required genes_list argument."""
+    feature_ids = [str(feature_id) for feature_id in assay.feature_ids.to_list()]
+    return [list(feature_ids) for _ in range(n_batches)]
+
+
+def _split_scanorama_datasets(
+    *,
+    X: np.ndarray,
+    batches: np.ndarray,
+    unique_batches: np.ndarray,
+) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    """Split the matrix by batch and remember original sample positions."""
+    datasets: list[np.ndarray] = []
+    sample_indices: list[np.ndarray] = []
+    for batch in unique_batches:
+        idx = np.flatnonzero(batches == batch)
+        sample_indices.append(idx)
+        datasets.append(X[idx])
+    return datasets, sample_indices
+
+
+def _build_scanorama_correct_kwargs(
+    *,
+    unique_batches: np.ndarray,
+    return_dimred: bool,
+    sigma: float,
+    alpha: float,
+    knn: int,
+    approx: bool,
+    dimred: int | None,
+) -> dict[str, object]:
+    """Build kwargs while preserving Scanorama defaults for omitted options."""
+    kwargs: dict[str, object] = {
+        "ds_names": [str(batch) for batch in unique_batches],
+        "return_dimred": return_dimred,
+        "return_dense": True,
+        "sigma": sigma,
+        "alpha": alpha,
+        "knn": knn,
+        "approx": approx,
+    }
+    if dimred is not None:
+        kwargs["dimred"] = dimred
+    return kwargs
+
+
+def _stack_scanorama_corrected_datasets(
+    *,
+    corrected_datasets: list[np.ndarray],
+    corrected_genes: list[str],
+    feature_ids: list[str],
+    batch_sample_indices: list[np.ndarray],
+    n_samples: int,
+) -> np.ndarray:
+    """Align Scanorama outputs to assay features and restore original sample order."""
+    corrected_gene_names = [str(gene) for gene in corrected_genes]
+    feature_name_set = set(feature_ids)
+    corrected_name_set = set(corrected_gene_names)
+    if corrected_name_set != feature_name_set:
+        raise ScpValueError(
+            "Scanorama returned a corrected feature set that does not match the "
+            "current assay feature IDs. ScpTensor's current Scanorama wrapper "
+            "requires all batches to share the same assay feature space so the "
+            "corrected matrices can be written back to the existing assay.",
+            parameter="feature_ids",
+        )
+
+    corrected_positions = {gene: idx for idx, gene in enumerate(corrected_gene_names)}
+    reordered_indices = [corrected_positions[feature_id] for feature_id in feature_ids]
+    corrected_matrix = np.empty((n_samples, len(feature_ids)), dtype=float)
+    for dataset, sample_idx in zip(corrected_datasets, batch_sample_indices, strict=True):
+        corrected_matrix[sample_idx] = np.asarray(dataset)[:, reordered_indices]
+    return corrected_matrix
 
 
 __all__ = ["integrate_scanorama"]

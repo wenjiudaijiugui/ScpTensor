@@ -20,7 +20,19 @@ from scptensor.core._layer_processing import (
 from scptensor.core.structures import ScpMatrix
 
 if TYPE_CHECKING:
+    from scptensor.core._layer_processing import LayerContext
     from scptensor.core.structures import Assay, ScpContainer
+
+
+def validate_layer_context(
+    container: ScpContainer,
+    assay_name: str,
+    layer_name: str,
+) -> LayerContext:
+    """Resolve assay aliases and return the validated normalization context."""
+    ctx = resolve_layer_context(container, assay_name, layer_name)
+    _warn_if_vendor_normalized_input(container, ctx.resolved_assay_name, layer_name)
+    return ctx
 
 
 def validate_assay_and_layer(
@@ -51,8 +63,7 @@ def validate_assay_and_layer(
     LayerNotFoundError
         If layer not found.
     """
-    ctx = resolve_layer_context(container, assay_name, layer_name)
-    _warn_if_vendor_normalized_input(container, ctx.resolved_assay_name, layer_name)
+    ctx = validate_layer_context(container, assay_name, layer_name)
     return ctx.assay, ctx.layer
 
 
@@ -247,7 +258,9 @@ def apply_normalization(
     ScpContainer
         Container with new layer.
     """
-    assay, layer = validate_assay_and_layer(container, assay_name, source_layer)
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    layer = ctx.layer
     X_dense = ensure_dense(layer.X)
     X_transformed = transform_func(X_dense)
 
@@ -256,12 +269,17 @@ def apply_normalization(
     return log_operation(
         container,
         action=operation_name,
-        params={"assay": assay_name, "source": source_layer, "target": new_layer_name},
-        description=f"{operation_name} on {assay_name}/{source_layer}",
+        params={
+            "assay": ctx.resolved_assay_name,
+            "source": source_layer,
+            "target": new_layer_name,
+        },
+        description=f"{operation_name} on {ctx.resolved_assay_name}/{source_layer}",
     )
 
 
 __all__ = [
+    "validate_layer_context",
     "validate_assay_and_layer",
     "create_result_layer",
     "create_result_layer_with_optional_mask",

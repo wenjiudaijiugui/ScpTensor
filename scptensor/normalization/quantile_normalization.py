@@ -25,11 +25,49 @@ Mathematical Formulation:
 """
 
 import numpy as np
-from scipy.stats import rankdata
 
+from scptensor.core.exceptions import ValidationError
 from scptensor.core.structures import ScpContainer
 
-from .base import ensure_dense, finalize_normalization_layer, validate_assay_and_layer
+from .base import ensure_dense, finalize_normalization_layer, validate_layer_context
+
+
+def _map_reference_by_average_rank(
+    row_valid: np.ndarray,
+    reference_dist: np.ndarray,
+) -> np.ndarray:
+    """Map one valid row to the shared reference using average-rank ties."""
+    n_valid = row_valid.size
+    order = np.argsort(row_valid, kind="mergesort")
+    mapped = np.empty(n_valid, dtype=float)
+
+    if n_valid <= 1:
+        mapped[order] = reference_dist[:n_valid]
+        return mapped
+
+    sorted_vals = row_valid[order]
+    if not np.any(sorted_vals[1:] == sorted_vals[:-1]):
+        mapped[order] = reference_dist[:n_valid]
+        return mapped
+
+    group_starts_mask = np.empty(n_valid, dtype=bool)
+    group_starts_mask[0] = True
+    group_starts_mask[1:] = sorted_vals[1:] != sorted_vals[:-1]
+
+    group_starts = np.flatnonzero(group_starts_mask)
+    group_ends = np.empty_like(group_starts)
+    group_ends[:-1] = group_starts[1:] - 1
+    group_ends[-1] = n_valid - 1
+
+    avg_ranks = 0.5 * (group_starts + group_ends)
+    left = avg_ranks.astype(np.intp)
+    right = np.ceil(avg_ranks).astype(np.intp)
+    weights = avg_ranks - left
+    group_values = reference_dist[left] + weights * (reference_dist[right] - reference_dist[left])
+
+    normalized_sorted = np.repeat(group_values, group_ends - group_starts + 1)
+    mapped[order] = normalized_sorted
+    return mapped
 
 
 def _quantile_normalize_rows(X: np.ndarray) -> np.ndarray:  # noqa: N803
@@ -46,56 +84,54 @@ def _quantile_normalize_rows(X: np.ndarray) -> np.ndarray:  # noqa: N803
     np.ndarray
         Quantile-normalized matrix with NaN positions preserved.
     """
+    X = np.asarray(X, dtype=float)
+    if np.any(np.isinf(X)):
+        raise ValidationError(
+            "Quantile normalization does not accept Inf values. "
+            "Use NaN for missing entries or clean infinite intensities first.",
+            field="X",
+        )
+
     n_rows, n_cols = X.shape
 
-    # Step 1: Sort each row independently (ignoring NaN)
-    X_sorted = np.empty_like(X)
-    nan_mask = np.isnan(X)
+    # Step 1: Accumulate the rank-wise shared reference without materializing
+    # a full sorted matrix. This keeps the stable dense-output contract while
+    # avoiding an extra X-sized temporary.
+    rank_sums = np.zeros(n_cols, dtype=float)
+    valid_counts = np.zeros(n_cols, dtype=np.int32)
 
     for i in range(n_rows):
         row = X[i, :]
-        non_nan = ~nan_mask[i, :]
+        row_valid = row[~np.isnan(row)]
+        n_valid = row_valid.size
 
-        if non_nan.sum() == 0:
-            X_sorted[i, :] = np.nan
+        if n_valid == 0:
             continue
 
-        row_valid = row[non_nan]
         sorted_row = np.sort(row_valid)
-        X_sorted[i, :] = np.nan
-        X_sorted[i, : sorted_row.size] = sorted_row
+        rank_sums[:n_valid] += sorted_row
+        valid_counts[:n_valid] += 1
 
     # Step 2: Compute rank-wise shared reference
-    valid_counts = np.sum(~np.isnan(X_sorted), axis=0)
-    rank_sums = np.nansum(X_sorted, axis=0)
     reference_dist = np.divide(
         rank_sums,
         valid_counts,
         out=np.zeros_like(rank_sums, dtype=float),
         where=valid_counts > 0,
     )
-
     # Step 3: Map row values back by rank
-    X_normalized = np.empty_like(X)
+    X_normalized = np.empty(X.shape, dtype=float)
 
     for i in range(n_rows):
         row = X[i, :]
-        non_nan = ~nan_mask[i, :]
+        non_nan = ~np.isnan(row)
 
-        if non_nan.sum() == 0:
+        if not np.any(non_nan):
             X_normalized[i, :] = np.nan
             continue
 
         row_valid = row[non_nan]
-        ranks = rankdata(row_valid, method="average") - 1  # 0-indexed
-
-        normalized_values = np.interp(
-            ranks,
-            np.arange(len(reference_dist)),
-            reference_dist,
-        )
-
-        X_normalized[i, non_nan] = normalized_values
+        X_normalized[i, non_nan] = _map_reference_by_average_rank(row_valid, reference_dist)
         X_normalized[i, ~non_nan] = np.nan
 
     return X_normalized
@@ -138,8 +174,7 @@ def norm_quantile(
             x_{i,j}^{normalized} = q_{r_{i,j}}
 
     **Tie Handling:**
-        Tied values receive the average of their corresponding quantiles using
-        ``scipy.stats.rankdata(method="average")``.
+        Tied values receive the average-rank interpolated quantile value.
 
     **Missing Value Handling:**
         Only non-missing observations are used for computing quantiles.
@@ -189,8 +224,8 @@ def norm_quantile(
 
     Notes
     -----
-    - This implementation uses scipy.stats.rankdata for efficient rank
-      computation with proper tie handling.
+    - This implementation preserves average-rank tie semantics while
+      optimizing the common no-tie path for continuous intensities.
     - The algorithm is applied per-row (each row is a sample) to align all
       sample distributions.
     - Quantile normalization assumes most features are not differentially
@@ -202,9 +237,11 @@ def norm_quantile(
       :func:`scptensor.transformation.log_transform`).
     """
     # Validate and get objects
-    assay, input_layer = validate_assay_and_layer(container, assay_name, source_layer)
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_layer = ctx.layer
 
-    X = ensure_dense(input_layer.X).copy()
+    X = np.asarray(ensure_dense(input_layer.X), dtype=float)
     X_normalized = _quantile_normalize_rows(X)
 
     return finalize_normalization_layer(
@@ -215,7 +252,7 @@ def norm_quantile(
         new_layer_name=new_layer_name,
         action="normalization_quantile",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": new_layer_name,
         },

@@ -427,18 +427,19 @@ warning 语义是：
   - `selected_features`
   - `feature_indices_provided`
 
-### 7.4 当前 assay 名记录的一个实现细节
+### 7.4 当前 assay 名记录合同
 
-当前 normalization 方法在写 history 时，记录的是调用者传入的 `assay_name` 字符串，而不是统一 canonicalized 后的 assay 名。
+当前 normalization 方法在写 history 时，`params["assay"]` 记录的是
+**解析后的 assay key**，也就是容器里实际被使用的 assay 名。
 
 这意味着：
 
 - `validate_assay_and_layer()` 会先做 alias 解析来找到 assay
-- 但 history 里的 `params["assay"]` 目前不保证总是 `proteins` 这种 canonical 值
+- history 中的 `params["assay"]` 与真正读写的 assay key 一致
+- 若容器里 assay 名是 `protein`，传入 `proteins` 后 history 仍写 `protein`
+- 若容器里 assay 名是 `proteins`，传入 `protein` 后 history 仍写 `proteins`
 
-这和 `log_transform()` 当前会记录 resolved assay name 的行为并不完全一致。
-
-因此，后续若要统一这件事，必须作为显式合同收敛处理，不能在不通知的情况下直接修改。
+这一点现在与 `log_transform()` 的 resolved assay name 语义保持一致。
 
 ### 7.5 不要用 `apply_normalization()` 直接替换现有公开路径
 
@@ -479,6 +480,7 @@ warning 语义是：
 
 - sparse 输入
 - NaN 存在
+- `Inf` 以外的有限异常分布
 - 单样本矩阵
 - 全零行
 - quantile 场景中的全 NaN 行
@@ -488,6 +490,7 @@ warning 语义是：
 
 - sparse：除 `norm_none` 外会 densify 后继续
 - NaN：`mean` / `median` 使用 `np.nanmean` / `np.nanmedian`，`quantile` 保持 NaN 位置
+- `Inf`：`mean` / `median` / `quantile` / `trqn` 当前会显式报错，不再静默继续
 - vendor-normalized `raw`：发 warning 但继续
 
 如果未来要把这些场景升级成 error，属于显式合同变化。

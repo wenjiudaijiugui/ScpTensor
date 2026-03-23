@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
-from scptensor.core.structures import ScpContainer, ScpMatrix
+from scptensor.core.exceptions import ScpValueError
+from scptensor.core.structures import ScpContainer
 from scptensor.impute._utils import (
     add_imputed_layer,
     clone_layer_matrix,
@@ -13,7 +13,7 @@ from scptensor.impute._utils import (
     preserve_observed_values,
     to_dense_float_copy,
 )
-from scptensor.impute.base import ImputeMethod, register_impute_method
+from scptensor.impute.base import ImputeMethod, register_impute_method, validate_layer_context
 
 
 def impute_none_core(data: np.ndarray) -> np.ndarray:
@@ -95,23 +95,6 @@ def impute_half_row_min_core(data: np.ndarray, fraction: float = 0.5) -> np.ndar
     return x
 
 
-def _validate_and_get_matrix(
-    container: ScpContainer,
-    assay_name: str,
-    source_layer: str,
-) -> ScpMatrix:
-    if assay_name not in container.assays:
-        available = ", ".join(f"'{k}'" for k in container.assays)
-        raise AssayNotFoundError(assay_name, hint=f"Available assays: {available}.")
-
-    assay = container.assays[assay_name]
-    if source_layer not in assay.layers:
-        available = ", ".join(f"'{k}'" for k in assay.layers)
-        raise LayerNotFoundError(source_layer, assay_name, hint=f"Available layers: {available}.")
-
-    return assay.layers[source_layer]
-
-
 def impute_none(
     container: ScpContainer,
     assay_name: str,
@@ -119,19 +102,20 @@ def impute_none(
     new_layer_name: str = "imputed_none",
 ) -> ScpContainer:
     """Add a passthrough layer without filling missing values."""
-    matrix = _validate_and_get_matrix(container, assay_name, source_layer)
-    assay = container.assays[assay_name]
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    matrix = ctx.layer
 
     assay.add_layer(new_layer_name, clone_layer_matrix(matrix))
     return log_imputation_operation(
         container,
         action="impute_none",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": new_layer_name,
         },
-        description=f"Passthrough imputation (no-op) on assay '{assay_name}'.",
+        description=f"Passthrough imputation (no-op) on assay '{ctx.resolved_assay_name}'.",
     )
 
 
@@ -142,8 +126,9 @@ def impute_zero(
     new_layer_name: str = "imputed_zero",
 ) -> ScpContainer:
     """Fill missing values with zeros."""
-    input_matrix = _validate_and_get_matrix(container, assay_name, source_layer)
-    assay = container.assays[assay_name]
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_matrix = ctx.layer
 
     x_dense = to_dense_float_copy(input_matrix.X)
     missing_mask = np.isnan(x_dense)
@@ -154,11 +139,11 @@ def impute_zero(
         container,
         action="impute_zero",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": new_layer_name,
         },
-        description=f"Zero imputation on assay '{assay_name}'.",
+        description=f"Zero imputation on assay '{ctx.resolved_assay_name}'.",
     )
 
 
@@ -169,8 +154,9 @@ def impute_row_mean(
     new_layer_name: str = "imputed_row_mean",
 ) -> ScpContainer:
     """Fill missing values with sample-wise row means."""
-    input_matrix = _validate_and_get_matrix(container, assay_name, source_layer)
-    assay = container.assays[assay_name]
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_matrix = ctx.layer
 
     x_dense = to_dense_float_copy(input_matrix.X)
     missing_mask = np.isnan(x_dense)
@@ -181,11 +167,11 @@ def impute_row_mean(
         container,
         action="impute_row_mean",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": new_layer_name,
         },
-        description=f"Row-mean imputation on assay '{assay_name}'.",
+        description=f"Row-mean imputation on assay '{ctx.resolved_assay_name}'.",
     )
 
 
@@ -196,8 +182,9 @@ def impute_row_median(
     new_layer_name: str = "imputed_row_median",
 ) -> ScpContainer:
     """Fill missing values with sample-wise row medians."""
-    input_matrix = _validate_and_get_matrix(container, assay_name, source_layer)
-    assay = container.assays[assay_name]
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_matrix = ctx.layer
 
     x_dense = to_dense_float_copy(input_matrix.X)
     missing_mask = np.isnan(x_dense)
@@ -208,11 +195,11 @@ def impute_row_median(
         container,
         action="impute_row_median",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": new_layer_name,
         },
-        description=f"Row-median imputation on assay '{assay_name}'.",
+        description=f"Row-median imputation on assay '{ctx.resolved_assay_name}'.",
     )
 
 
@@ -231,8 +218,9 @@ def impute_half_row_min(
             value=fraction,
         )
 
-    input_matrix = _validate_and_get_matrix(container, assay_name, source_layer)
-    assay = container.assays[assay_name]
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_matrix = ctx.layer
 
     x_dense = to_dense_float_copy(input_matrix.X)
     missing_mask = np.isnan(x_dense)
@@ -247,12 +235,14 @@ def impute_half_row_min(
         container,
         action="impute_half_row_min",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": new_layer_name,
             "fraction": fraction,
         },
-        description=f"Half-row-min imputation (fraction={fraction}) on assay '{assay_name}'.",
+        description=(
+            f"Half-row-min imputation (fraction={fraction}) on assay '{ctx.resolved_assay_name}'."
+        ),
     )
 
 

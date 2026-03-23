@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import numpy as np
+import polars as pl
+
 import scptensor as scp
 import scptensor.impute as stable_impute
+from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.impute import (
     impute,
     impute_bpca,
@@ -40,6 +44,22 @@ from scptensor.impute.missforest import impute_mf as impute_mf_core
 from scptensor.impute.qrilc import impute_qrilc as impute_qrilc_core
 from scptensor.impute.svd import impute_iterative_svd as impute_iterative_svd_core
 from scptensor.impute.svd import impute_softimpute as impute_softimpute_core
+
+
+def _make_container(assay_key: str = "protein") -> ScpContainer:
+    obs = pl.DataFrame({"_index": ["s1", "s2", "s3", "s4"]})
+    var = pl.DataFrame({"_index": ["p1", "p2", "p3"]})
+    x = np.array(
+        [
+            [1.0, np.nan, 3.0],
+            [1.1, 2.0, 3.1],
+            [10.0, 11.0, np.nan],
+            [9.9, 11.2, 12.0],
+        ],
+        dtype=np.float64,
+    )
+    assay = Assay(var=var, layers={"raw": ScpMatrix(X=x, M=None)})
+    return ScpContainer(obs=obs, assays={assay_key: assay})
 
 
 def test_stable_impute_namespace_all_freezes_package_surface() -> None:
@@ -123,3 +143,32 @@ def test_only_individual_imputation_wrappers_are_reexported_from_top_level_packa
         "recommend_impute_method",
     ):
         assert name not in scp.__all__
+
+
+def test_impute_none_history_uses_resolved_container_assay_key() -> None:
+    container = _make_container(assay_key="proteins")
+
+    impute_none(container, assay_name="protein", source_layer="raw", new_layer_name="passthrough")
+
+    assert "passthrough" in container.assays["proteins"].layers
+    assert container.history[-1].params["assay"] == "proteins"
+
+
+def test_impute_knn_history_uses_resolved_assay_name_for_aliases() -> None:
+    container = _make_container(assay_key="protein")
+
+    impute_knn(
+        container, assay_name="proteins", source_layer="raw", new_layer_name="knn_alias", k=1
+    )
+
+    assert "knn_alias" in container.assays["protein"].layers
+    assert container.history[-1].params["assay"] == "protein"
+
+
+def test_infer_missing_mechanism_resolves_assay_alias() -> None:
+    container = _make_container(assay_key="proteins")
+
+    mechanism, reason = infer_missing_mechanism(container, assay_name="protein", source_layer="raw")
+
+    assert mechanism in {"mcar", "mar", "mnar"}
+    assert "missing_rate=" in reason

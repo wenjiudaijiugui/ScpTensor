@@ -15,12 +15,7 @@ import numpy as np
 import sklearn.utils
 from sklearn.decomposition import TruncatedSVD
 
-from scptensor.core.exceptions import (
-    AssayNotFoundError,
-    LayerNotFoundError,
-    MissingDependencyError,
-    ScpValueError,
-)
+from scptensor.core.exceptions import MissingDependencyError, ScpValueError
 from scptensor.core.structures import ScpContainer
 from scptensor.impute._utils import (
     add_imputed_layer,
@@ -28,7 +23,7 @@ from scptensor.impute._utils import (
     preserve_observed_values,
     to_dense_float_copy,
 )
-from scptensor.impute.base import ImputeMethod, register_impute_method
+from scptensor.impute.base import ImputeMethod, register_impute_method, validate_layer_context
 
 
 def _initial_fill_with_column_means(data: np.ndarray) -> np.ndarray:
@@ -211,19 +206,30 @@ def impute_iterative_svd(
             value=tol,
         )
 
-    if assay_name not in container.assays:
-        raise AssayNotFoundError(assay_name, available_assays=container.assays.keys())
-    assay = container.assays[assay_name]
-    if source_layer not in assay.layers:
-        raise LayerNotFoundError(source_layer, assay_name, available_layers=assay.layers.keys())
-
-    input_matrix = assay.layers[source_layer]
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_matrix = ctx.layer
     x_original = to_dense_float_copy(input_matrix.X)
     missing_mask = np.isnan(x_original)
 
     if not np.any(missing_mask):
         add_imputed_layer(assay, new_layer_name, x_original.copy(), input_matrix, missing_mask)
-        return container
+        return log_imputation_operation(
+            container,
+            action="impute_iterative_svd",
+            params={
+                "assay": ctx.resolved_assay_name,
+                "source_layer": source_layer,
+                "new_layer_name": new_layer_name,
+                "n_components": n_components,
+                "max_iter": max_iter,
+                "tol": tol,
+            },
+            description=(
+                "Iterative SVD imputation "
+                f"on assay '{ctx.resolved_assay_name}': no missing values found."
+            ),
+        )
 
     x_imputed, n_iterations = iterative_svd_impute(
         x_original,
@@ -240,7 +246,7 @@ def impute_iterative_svd(
         container,
         action="impute_iterative_svd",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": new_layer_name,
             "n_components": n_components,
@@ -250,7 +256,8 @@ def impute_iterative_svd(
         },
         description=(
             "Iterative SVD imputation "
-            f"(n_components={n_components}, iterations={n_iterations}) on assay '{assay_name}'."
+            f"(n_components={n_components}, iterations={n_iterations}) "
+            f"on assay '{ctx.resolved_assay_name}'."
         ),
     )
 
@@ -292,19 +299,30 @@ def impute_softimpute(
             value=convergence_threshold,
         )
 
-    if assay_name not in container.assays:
-        raise AssayNotFoundError(assay_name, available_assays=container.assays.keys())
-    assay = container.assays[assay_name]
-    if source_layer not in assay.layers:
-        raise LayerNotFoundError(source_layer, assay_name, available_layers=assay.layers.keys())
-
-    input_matrix = assay.layers[source_layer]
+    ctx = validate_layer_context(container, assay_name, source_layer)
+    assay = ctx.assay
+    input_matrix = ctx.layer
     x_original = to_dense_float_copy(input_matrix.X)
     missing_mask = np.isnan(x_original)
 
     if not np.any(missing_mask):
         add_imputed_layer(assay, new_layer_name, x_original.copy(), input_matrix, missing_mask)
-        return container
+        return log_imputation_operation(
+            container,
+            action="impute_softimpute",
+            params={
+                "assay": ctx.resolved_assay_name,
+                "source_layer": source_layer,
+                "new_layer_name": new_layer_name,
+                "rank": rank,
+                "shrinkage_value": shrinkage_value,
+                "max_iter": max_iter,
+                "convergence_threshold": convergence_threshold,
+            },
+            description=(
+                f"SoftImpute on assay '{ctx.resolved_assay_name}': no missing values found."
+            ),
+        )
 
     try:
         x_imputed = softimpute_impute(
@@ -329,7 +347,7 @@ def impute_softimpute(
         container,
         action="impute_softimpute",
         params={
-            "assay": assay_name,
+            "assay": ctx.resolved_assay_name,
             "source_layer": source_layer,
             "new_layer_name": new_layer_name,
             "rank": rank,
@@ -337,7 +355,7 @@ def impute_softimpute(
             "max_iter": max_iter,
             "convergence_threshold": convergence_threshold,
         },
-        description=f"SoftImpute imputation on assay '{assay_name}'.",
+        description=f"SoftImpute imputation on assay '{ctx.resolved_assay_name}'.",
     )
 
 
