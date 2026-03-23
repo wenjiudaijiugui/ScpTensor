@@ -314,6 +314,51 @@ def _group_indices_by_protein(protein_ids: np.ndarray) -> tuple[np.ndarray, list
     return unique_proteins, grouped
 
 
+def _make_unmapped_group_id(unmapped_label: str, source_id: str) -> str:
+    """Create a collision-resistant pseudo-feature ID for explicitly retained unmapped peptides."""
+    return f"__UNMAPPED__:{unmapped_label}:{source_id}"
+
+
+def _prepare_protein_groups(
+    protein_map: pl.Series,
+    source_ids: np.ndarray,
+    *,
+    keep_unmapped: bool,
+    unmapped_label: str,
+) -> tuple[np.ndarray, np.ndarray, dict[str, str | None]]:
+    """Resolve group IDs and labels for peptide->protein aggregation."""
+    map_values = protein_map.cast(pl.Utf8, strict=False).str.strip_chars().to_list()
+
+    group_ids: list[str] = []
+    valid_idx: list[int] = []
+    label_by_group: dict[str, str | None] = {}
+
+    for idx, value in enumerate(map_values):
+        is_mapped = value is not None and value != ""
+        if is_mapped:
+            group_id = str(value)
+            label_by_group[group_id] = str(value)
+            group_ids.append(group_id)
+            valid_idx.append(idx)
+            continue
+
+        if not keep_unmapped:
+            continue
+
+        group_id = _make_unmapped_group_id(unmapped_label, str(source_ids[idx]))
+        label_by_group[group_id] = None
+        group_ids.append(group_id)
+        valid_idx.append(idx)
+
+    valid_idx_arr = np.asarray(valid_idx, dtype=np.int64)
+    if valid_idx_arr.size == 0:
+        raise ValidationError(
+            "No mapped peptides available after removing null or empty protein mapping values."
+        )
+
+    return np.asarray(group_ids, dtype=object), valid_idx_arr, label_by_group
+
+
 def _aggregate_protein_values(
     values: np.ndarray,
     *,
@@ -353,7 +398,7 @@ def aggregate_to_protein(
     target_assay: str = "proteins",
     method: AggMethod = "sum",
     protein_column: str = "auto",
-    keep_unmapped: bool = True,
+    keep_unmapped: bool = False,
     unmapped_label: str = "NA",
     top_n: int = 3,
     top_n_aggregate: BasicAggMethod = "median",
@@ -410,19 +455,12 @@ def aggregate_to_protein(
         .to_numpy()
     )
 
-    if keep_unmapped:
-        protein_ids = protein_map.fill_null(unmapped_label).to_numpy()
-        valid_idx = np.arange(len(protein_ids), dtype=np.int64)
-    else:
-        map_values = protein_map.to_numpy()
-        valid_idx = np.array(
-            [i for i, value in enumerate(map_values) if value is not None], dtype=np.int64
-        )
-        if valid_idx.size == 0:
-            raise ValidationError(
-                "No mapped peptides available after removing null protein mapping values."
-            )
-        protein_ids = map_values[valid_idx]
+    protein_ids, valid_idx, protein_label_by_group = _prepare_protein_groups(
+        protein_map,
+        source_ids,
+        keep_unmapped=keep_unmapped,
+        unmapped_label=unmapped_label,
+    )
 
     layer = peptide_assay.layers[source_layer]
     x_src = _to_dense_float64(layer.X)
@@ -467,9 +505,14 @@ def aggregate_to_protein(
         linkage_source.extend(group_source_ids.tolist())
         linkage_target.extend([str(protein_id)] * group_source_ids.size)
 
-    protein_var = pl.DataFrame({"_index": unique_proteins.astype(str).tolist()})
+    protein_index = unique_proteins.astype(str).tolist()
+    protein_var = pl.DataFrame({"_index": protein_index})
     if protein_col != "_index":
-        protein_var = protein_var.with_columns(pl.col("_index").alias(protein_col))
+        protein_var = protein_var.with_columns(
+            pl.Series(
+                protein_col, [protein_label_by_group[protein_id] for protein_id in protein_index]
+            )
+        )
 
     protein_assay = Assay(
         var=protein_var,

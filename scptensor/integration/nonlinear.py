@@ -29,7 +29,9 @@ from __future__ import annotations
 
 import inspect
 
-from scptensor.core.exceptions import MissingDependencyError
+import numpy as np
+
+from scptensor.core.exceptions import MissingDependencyError, ScpValueError
 from scptensor.core.structures import ScpContainer
 from scptensor.integration.base import (
     add_integrated_layer,
@@ -40,6 +42,48 @@ from scptensor.integration.base import (
     validate_batch_integration_params,
     validate_embedding_input,
 )
+
+
+def _resolve_harmony_nclust(n_samples: int, nclust: int | None) -> int:
+    """Mirror harmonypy auto-cluster selection while avoiding invalid zero clusters."""
+    if nclust is None:
+        return max(1, int(min(round(n_samples / 30.0), 100)))
+    if nclust < 1:
+        raise ScpValueError(
+            f"nclust must be positive or None, got {nclust}.",
+            parameter="nclust",
+            value=nclust,
+        )
+    return int(nclust)
+
+
+def _normalize_harmony_sigma(sigma: float | list[float] | np.ndarray, nclust: int) -> np.ndarray:
+    """Return a per-cluster sigma vector accepted by current harmonypy releases."""
+    if not isinstance(sigma, list | np.ndarray):
+        sigma_value = float(sigma)
+        if sigma_value <= 0:
+            raise ScpValueError(
+                f"sigma must be positive, got {sigma_value}.",
+                parameter="sigma",
+                value=sigma,
+            )
+        return np.repeat(sigma_value, nclust).astype(np.float64)
+
+    sigma_arr = np.asarray(sigma, dtype=np.float64).reshape(-1)
+    if sigma_arr.size != nclust:
+        raise ScpValueError(
+            "Harmony sigma must be a positive scalar or have exactly one value per cluster. "
+            f"Got len(sigma)={sigma_arr.size}, nclust={nclust}.",
+            parameter="sigma",
+            value=sigma,
+        )
+    if np.any(sigma_arr <= 0):
+        raise ScpValueError(
+            "Harmony sigma values must all be positive.",
+            parameter="sigma",
+            value=sigma,
+        )
+    return sigma_arr
 
 
 @register_integrate_method("harmony", integration_level="embedding", recommended_for_de=False)
@@ -132,12 +176,19 @@ def integrate_harmony(
         context="Harmony integration",
     )
     meta_data = container.obs.to_pandas()
+    resolved_nclust = _resolve_harmony_nclust(meta_data.shape[0], nclust)
+    sigma_vector = _normalize_harmony_sigma(sigma, resolved_nclust)
+    logged_sigma: float | list[float]
+    if not isinstance(sigma, list | np.ndarray):
+        logged_sigma = float(sigma)
+    else:
+        logged_sigma = sigma_vector.tolist()
 
     harmony_params = {
         "theta": theta if theta is not None else 2.0,
         "lamb": lamb if lamb is not None else 1.0,
-        "sigma": sigma,
-        "nclust": nclust,
+        "sigma": sigma_vector,
+        "nclust": resolved_nclust,
         "max_iter_harmony": max_iter_harmony,
         "epsilon_cluster": epsilon_cluster,
         "epsilon_harmony": epsilon_harmony,
@@ -168,8 +219,8 @@ def integrate_harmony(
             "batch_key": batch_key,
             "theta": harmony_params["theta"],
             "lamb": harmony_params["lamb"],
-            "sigma": harmony_params["sigma"],
-            "nclust": harmony_params["nclust"],
+            "sigma": logged_sigma,
+            "nclust": resolved_nclust,
             "n_batches": len(unique_batches),
         },
         description=(

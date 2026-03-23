@@ -2383,6 +2383,10 @@ def test_harmony_runs_with_stub_dependency_and_logs_metadata(monkeypatch):
     def fake_run_harmony(X, meta_data, batch_key, **kwargs):
         assert batch_key == "batch"
         assert meta_data.shape[0] == X.shape[0]
+        sigma = np.asarray(kwargs["sigma"], dtype=np.float64)
+        assert kwargs["nclust"] == 1
+        assert sigma.shape == (1,)
+        assert sigma[0] == pytest.approx(0.1)
         return types.SimpleNamespace(Z_corr=(X + 1.0))
 
     fake_module.run_harmony = fake_run_harmony

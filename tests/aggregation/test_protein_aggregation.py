@@ -111,6 +111,48 @@ def test_aggregate_to_protein_drop_unmapped() -> None:
     assert out.links[-1].linkage.height == 2
 
 
+def test_aggregate_to_protein_default_drops_unmapped_for_protein_level_output() -> None:
+    container = _build_container(
+        np.array([[10.0, 2.0, 5.0], [1.0, 7.0, 3.0]], dtype=np.float64),
+        protein_ids=["P1", None, "P2"],
+    )
+
+    out = aggregate_to_protein(container)
+    assert out.assays["proteins"].var["_index"].to_list() == ["P1", "P2"]
+
+
+def test_aggregate_to_protein_keep_unmapped_preserves_each_peptide_separately() -> None:
+    container = _build_container(
+        np.array([[10.0, 2.0, 5.0], [1.0, 7.0, 3.0]], dtype=np.float64),
+        protein_ids=["P1", None, None],
+    )
+
+    out = aggregate_to_protein(container, keep_unmapped=True)
+    protein = out.assays["proteins"]
+
+    feature_ids = protein.var["_index"].to_list()
+    feature_to_col = {feature_id: idx for idx, feature_id in enumerate(feature_ids)}
+
+    assert "P1" in feature_to_col
+    unmapped_ids = [
+        feature_id for feature_id in feature_ids if feature_id.startswith("__UNMAPPED__:")
+    ]
+    assert len(unmapped_ids) == 2
+
+    np.testing.assert_allclose(
+        protein.layers["raw"].X[:, feature_to_col["P1"]], np.array([10.0, 1.0])
+    )
+    np.testing.assert_allclose(
+        protein.layers["raw"].X[:, feature_to_col["__UNMAPPED__:NA:pep2"]],
+        np.array([2.0, 7.0]),
+    )
+    np.testing.assert_allclose(
+        protein.layers["raw"].X[:, feature_to_col["__UNMAPPED__:NA:pep3"]],
+        np.array([5.0, 3.0]),
+    )
+    assert protein.var["PG.ProteinGroups"].to_list().count(None) == 2
+
+
 def test_aggregate_to_protein_existing_target_assay_is_silently_overwritten() -> None:
     container = _build_container(np.array([[1.0, 3.0, 5.0], [2.0, 4.0, 6.0]], dtype=np.float64))
     existing = Assay(

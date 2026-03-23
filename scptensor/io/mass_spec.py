@@ -500,13 +500,34 @@ def _matrix_to_assay(
     var_df: pl.DataFrame,
     assay_name: str,
     layer_name: str,
+    *,
+    feature_col: str | None = None,
+    filtered_pairs: pl.DataFrame | None = None,
 ) -> ScpContainer:
     x_t = matrix_df.select(
         [pl.col(col).cast(pl.Float64, strict=False).alias(col) for col in sample_cols]
     ).to_numpy()
     x = np.asarray(x_t, dtype=np.float64).T
 
-    m = np.where(np.isfinite(x), MaskCode.VALID.value, MaskCode.UNCERTAIN.value).astype(np.int8)
+    m_t = np.where(np.isfinite(x_t), MaskCode.VALID.value, MaskCode.UNCERTAIN.value).astype(np.int8)
+    if filtered_pairs is not None and feature_col is not None and filtered_pairs.height > 0:
+        feature_values = (
+            matrix_df[feature_col]
+            .cast(pl.Utf8, strict=False)
+            .fill_null("__MISSING_FEATURE_ID__")
+            .to_list()
+        )
+        feature_index = {str(feature_id): idx for idx, feature_id in enumerate(feature_values)}
+        sample_index = {sample_id: idx for idx, sample_id in enumerate(sample_cols)}
+        for feature_id, sample_id in filtered_pairs.iter_rows():
+            feature_idx = feature_index.get(str(feature_id))
+            sample_idx = sample_index.get(str(sample_id))
+            if feature_idx is None or sample_idx is None:
+                continue
+            if not np.isfinite(x_t[feature_idx, sample_idx]):
+                m_t[feature_idx, sample_idx] = MaskCode.FILTERED.value
+
+    m = m_t.T
     obs = pl.DataFrame({"_index": sample_ids})
 
     assay = Assay(var=var_df, layers={layer_name: ScpMatrix(X=x, M=m)}, feature_id_col="_index")
@@ -552,6 +573,29 @@ def _apply_fdr_filter(
     return df.filter(metric.is_null() | (metric <= threshold)), fdr_col
 
 
+def _collect_fdr_filtered_pairs(
+    df: pl.DataFrame,
+    *,
+    feature_col: str,
+    sample_col: str,
+    fdr_col: str,
+    threshold: float,
+) -> pl.DataFrame:
+    """Return feature-sample pairs that exist upstream but are fully removed by FDR filtering."""
+    metric = pl.col(fdr_col).cast(pl.Float64, strict=False)
+    return (
+        df.select(
+            pl.col(feature_col).cast(pl.Utf8, strict=False).alias(feature_col),
+            pl.col(sample_col).cast(pl.Utf8, strict=False).alias(sample_col),
+            (metric.is_null() | (metric <= threshold)).alias("_passes_fdr"),
+        )
+        .group_by([feature_col, sample_col])
+        .agg(pl.col("_passes_fdr").any().alias("_has_pass"))
+        .filter(~pl.col("_has_pass"))
+        .select([feature_col, sample_col])
+    )
+
+
 def _load_long_table(
     df: pl.DataFrame,
     *,
@@ -577,6 +621,17 @@ def _load_long_table(
     )
 
     before_rows = work.height
+    filtered_pairs: pl.DataFrame | None = None
+    resolved_fdr_col = _resolve_fdr_column(work.columns, profile)
+    if resolved_fdr_col is not None and fdr_threshold is not None:
+        filtered_pairs = _collect_fdr_filtered_pairs(
+            work,
+            feature_col=feature_col,
+            sample_col="_sample_id",
+            fdr_col=resolved_fdr_col,
+            threshold=fdr_threshold,
+        )
+
     work, used_fdr_col = _apply_fdr_filter(work, profile, fdr_threshold)
     if work.is_empty():
         if used_fdr_col is not None:
@@ -613,7 +668,16 @@ def _load_long_table(
         aligned.select([col for col in aligned.columns if col not in sample_cols]), feature_col
     )
     sample_ids = _make_unique([_clean_sample_name(col) for col in sample_cols])
-    return _matrix_to_assay(aligned, sample_cols, sample_ids, var_df, assay_name, layer_name)
+    return _matrix_to_assay(
+        aligned,
+        sample_cols,
+        sample_ids,
+        var_df,
+        assay_name,
+        layer_name,
+        feature_col=feature_col,
+        filtered_pairs=filtered_pairs,
+    )
 
 
 def _resolve_software(software: Software, columns: list[str]) -> ResolvedSoftware:
@@ -769,7 +833,7 @@ def aggregate_to_protein(
     target_assay: str = "proteins",
     method: AggMethod = "sum",
     protein_column: str = "auto",
-    keep_unmapped: bool = True,
+    keep_unmapped: bool = False,
     top_n: int = 3,
     top_n_aggregate: TopNAggregate = "median",
     lfq_min_ratio_count: int = 1,

@@ -23,6 +23,7 @@ from scptensor.core.exceptions import (
     ScpValueError,
 )
 from scptensor.impute import impute_lls
+from scptensor.impute.lls import lls_impute
 
 # =============================================================================
 # Fixtures
@@ -462,6 +463,23 @@ class TestLLSImputation:
 
         # Should achieve reasonable correlation for correlated data
         assert correlation > 0.5, f"Expected correlation > 0.5, got {correlation:.3f}"
+
+    def test_lls_uses_feature_neighbors_under_sample_by_feature_contract(self):
+        """LLS should infer missing values from similar features, not similar samples."""
+        X = np.array(
+            [
+                [np.nan, 5.0, 100.0],
+                [1.0, 1.0, 0.0],
+                [2.0, 2.0, 0.0],
+                [3.0, 3.0, 0.0],
+                [4.0, 4.0, 0.0],
+                [6.0, 6.0, 0.0],
+            ],
+            dtype=np.float64,
+        )
+
+        X_imputed = lls_impute(X, k=1, max_iter=5, tol=1e-9)
+        assert X_imputed[0, 0] == pytest.approx(5.0, abs=1e-8)
 
 
 # =============================================================================

@@ -129,6 +129,8 @@ def test_load_spectronaut_protein_long_with_fdr_filter(tmp_path: Path) -> None:
         np.array([[100.0, 50.0], [120.0, np.nan]]),
         equal_nan=True,
     )
+    m = assay.layers["raw"].get_m()
+    assert int(m[1, 1]) == MaskCode.FILTERED.value
 
 
 def test_load_spectronaut_protein_long_with_pg_qvalue_filter(tmp_path: Path) -> None:
