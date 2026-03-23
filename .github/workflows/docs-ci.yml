@@ -34,6 +34,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -41,4 +46,4 @@ jobs:
 
       - name: Validate review manifest contracts
         run: |
-          python scripts/docs/validate_review_manifest.py
+          uv run python scripts/docs/validate_review_manifest.py

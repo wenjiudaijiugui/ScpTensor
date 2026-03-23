@@ -17,6 +17,7 @@ This directory contains the GitHub Actions workflows for the ScpTensor project.
 |-----|---------|--------|
 | `quality` | Ruff lint, format check, mypy type check | Ubuntu |
 | `test` | Pytest with coverage | Ubuntu/macOS/Windows × Python 3.12/3.13 |
+| `experimental-graph` | Install graph extras and run Leiden clustering regressions | Ubuntu Python 3.12 |
 | `build` | Build package verification | Ubuntu |
 | `security` | Bandit security scanning | Ubuntu |
 
@@ -37,6 +38,7 @@ This directory contains the GitHub Actions workflows for the ScpTensor project.
 
 | Job | Purpose | Condition |
 |-----|---------|-----------|
+| `release-quality-gate` | Full release gate: lint, format, mypy, and pytest with release extras installed | Release publish or manual publish/tag flow |
 | `pre-deploy` | Version verification | Always |
 | `build` | Build distribution packages | If publishing |
 | `publish-test` | Publish to Test PyPI | Manual trigger only |
@@ -50,6 +52,9 @@ This directory contains the GitHub Actions workflows for the ScpTensor project.
 **Required Environments (GitHub):**
 - `pypi`: For production PyPI publishing
 - `test-pypi`: For Test PyPI publishing
+
+**Notes:**
+- `pre-deploy` depends on `release-quality-gate`, so publish/tag flows must pass the full release validation job first.
 
 ---
 
@@ -95,7 +100,7 @@ This directory contains the GitHub Actions workflows for the ScpTensor project.
 | `docs-contracts` | Validate `review_manifest_20260312.json`, review coverage, taxonomy markers, and benchmark README contracts |
 
 **Notes:**
-- `docs-contracts` is repo-local and uses `scripts/docs/validate_review_manifest.py` only.
+- `docs-contracts` is repo-local and runs `uv run python scripts/docs/validate_review_manifest.py`.
 - External documentation links are intentionally not enforced in GitHub CI. Those checks are non-deterministic because public sites can rate-limit, time out, or change redirect behavior.
 - Link stability should be validated locally before merge or release using a local checker such as `lychee` or the team's preferred link-check workflow.
 
@@ -133,7 +138,7 @@ The workflows use OpenID Connect (OIDC) for trusted publishing. No tokens needed
 2. Add rule for `main` branch:
    - Require status checks to pass
    - Require branches to be up to date
-   - Select required checks: `quality`, `build`, `security`, `docs-contracts`
+   - Select required checks: `quality`, `experimental-graph`, `build`, `security`, `docs-contracts`
 
 ---
 
@@ -181,7 +186,13 @@ The CI workflow tests across:
 | macOS | ✅ | ✅ |
 | Windows | ✅ | ❌ (excluded to reduce CI time) |
 
-Total: 5 test jobs per run
+Plus one dedicated Ubuntu graph-clustering regression job:
+
+| Job | Python |
+|-----|--------|
+| `experimental-graph` | 3.12 |
+
+Total: 6 CI jobs that execute tests or test-like validation per run
 
 ---
 
@@ -238,4 +249,4 @@ Notes:
 
 ---
 
-**Last Updated:** 2026-03-12
+**Last Updated:** 2026-03-23

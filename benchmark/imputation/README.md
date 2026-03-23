@@ -128,7 +128,12 @@
 
 说明：
 
-- 当前实现已经有 `DE consistency` 指标，但尚未输出 review 目标中的 `DE pAUC / F1` 与 `retained proteins`。
+- 当前实现除 `DE consistency` 外，已额外输出：
+  - `de_topk_f1`
+  - `de_pauc_01 / 05 / 10`
+  - `retained_proteins_ratio`
+  - `fully_observed_proteins_ratio`
+- 这些 `DE pAUC / F1` 当前仍是 **pre-holdout truth vs imputed contrast** 的 task proxy，不应被过度解释成外部金标准 DEA benchmark。
 - `cluster_*` 与 `DE_*` 指标在这里是下游评估终点，用于判断插补是否破坏后续分析；它们不把 `cluster` 本身提升为 stable preprocessing contract。
 - `Nature Communications 2024` 的 DEA workflow benchmark 明确把 `pAUC(0.01/0.05/0.1) + nMCC + G-mean` 组合用于 workflow ranking；因此如果后续扩展 imputation benchmark 的 DE 终点，优先补 `pAUC / confusion-matrix` 一类指标比继续堆更多相关系数更有文献依据：<https://www.nature.com/articles/s41467-024-47899-w>
 
@@ -137,14 +142,14 @@
 - 按 `LOD / MBR / FILTERED / UNCERTAIN` 分层的 holdout 协议
 - state-aware completeness / uncertainty burden
 - `precursor-to-protein` 辅榜
-- `DE pAUC / F1` 与 `retained proteins`
+- 外部 ground-truth 驱动而非 pseudo-truth 驱动的 `DE pAUC / F1`
 
 ## 3. 运行方式（uv）
 
 在仓库根目录执行（推荐路径）：
 
 ```bash
-UV_CACHE_DIR=/tmp/.uv-cache uv run --no-project python benchmark/imputation/run_benchmark.py \
+UV_CACHE_DIR=/tmp/.uv-cache uv run python benchmark/imputation/run_benchmark.py \
   --datasets pxd054343_diann_2x lfqbench_hye124_spectronaut \
   --methods none half_row_min row_mean knn lls iterative_svd softimpute missforest \
   --holdout-rates 0.1 0.3 0.5 \
