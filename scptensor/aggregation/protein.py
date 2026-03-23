@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Literal, cast
+from urllib.parse import quote
 
 import numpy as np
 import polars as pl
@@ -314,9 +315,16 @@ def _group_indices_by_protein(protein_ids: np.ndarray) -> tuple[np.ndarray, list
     return unique_proteins, grouped
 
 
+def _encode_unmapped_component(value: str) -> str:
+    """Percent-encode group components so pseudo IDs stay cross-platform safe."""
+    return quote(value, safe="-._~")
+
+
 def _make_unmapped_group_id(unmapped_label: str, source_id: str) -> str:
     """Create a collision-resistant pseudo-feature ID for explicitly retained unmapped peptides."""
-    return f"__UNMAPPED__:{unmapped_label}:{source_id}"
+    label_part = _encode_unmapped_component(unmapped_label)
+    source_part = _encode_unmapped_component(source_id)
+    return f"__UNMAPPED__--{label_part}--{source_part}"
 
 
 def _prepare_protein_groups(

@@ -17,11 +17,12 @@ def _build_container(
     x: np.ndarray | sp.spmatrix,
     protein_col: str = "PG.ProteinGroups",
     protein_ids: list[str | None] | None = None,
+    feature_ids: list[str] | None = None,
 ) -> ScpContainer:
     obs = pl.DataFrame({"_index": ["S1", "S2"]})
     var = pl.DataFrame(
         {
-            "_index": ["pep1", "pep2", "pep3"],
+            "_index": feature_ids or ["pep1", "pep2", "pep3"],
             protein_col: protein_ids or ["P1", "P1", "P2"],
         }
     )
@@ -135,22 +136,38 @@ def test_aggregate_to_protein_keep_unmapped_preserves_each_peptide_separately() 
 
     assert "P1" in feature_to_col
     unmapped_ids = [
-        feature_id for feature_id in feature_ids if feature_id.startswith("__UNMAPPED__:")
+        feature_id for feature_id in feature_ids if feature_id.startswith("__UNMAPPED__--")
     ]
     assert len(unmapped_ids) == 2
+    assert not any(any(ch in '<>:"/\\\\|?*' for ch in feature_id) for feature_id in unmapped_ids)
 
     np.testing.assert_allclose(
         protein.layers["raw"].X[:, feature_to_col["P1"]], np.array([10.0, 1.0])
     )
     np.testing.assert_allclose(
-        protein.layers["raw"].X[:, feature_to_col["__UNMAPPED__:NA:pep2"]],
+        protein.layers["raw"].X[:, feature_to_col["__UNMAPPED__--NA--pep2"]],
         np.array([2.0, 7.0]),
     )
     np.testing.assert_allclose(
-        protein.layers["raw"].X[:, feature_to_col["__UNMAPPED__:NA:pep3"]],
+        protein.layers["raw"].X[:, feature_to_col["__UNMAPPED__--NA--pep3"]],
         np.array([5.0, 3.0]),
     )
     assert protein.var["PG.ProteinGroups"].to_list().count(None) == 2
+
+
+def test_aggregate_to_protein_keep_unmapped_encodes_reserved_characters() -> None:
+    container = _build_container(
+        np.array([[10.0, 2.0, 5.0], [1.0, 7.0, 3.0]], dtype=np.float64),
+        protein_ids=["P1", None, None],
+        feature_ids=["pep1", "pep:2", "pep/3"],
+    )
+
+    out = aggregate_to_protein(container, keep_unmapped=True, unmapped_label="NA:missing")
+    feature_ids = out.assays["proteins"].var["_index"].to_list()
+
+    assert "__UNMAPPED__--NA%3Amissing--pep%3A2" in feature_ids
+    assert "__UNMAPPED__--NA%3Amissing--pep%2F3" in feature_ids
+    assert not any(any(ch in '<>:"/\\\\|?*' for ch in feature_id) for feature_id in feature_ids)
 
 
 def test_aggregate_to_protein_existing_target_assay_is_silently_overwritten() -> None:
