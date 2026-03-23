@@ -44,8 +44,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --extra io --extra accel --extra integration --extra viz --extra experimental --extra perf --extra benchmark
-          uv sync --group dev
+          uv sync --group dev --extra io --extra accel --extra integration --extra viz --extra experimental --extra perf --extra benchmark
 
       - name: Run ruff linter
         run: |
@@ -102,8 +101,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --extra io --extra accel --extra integration --extra viz --extra experimental --extra perf --extra benchmark
-          uv sync --group dev
+          uv sync --group dev --extra io --extra accel --extra integration --extra viz --extra experimental --extra perf --extra benchmark
 
       - name: Run tests with coverage
         run: |
@@ -160,8 +158,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --extra io --extra accel --extra integration --extra viz --extra experimental --extra graph --extra perf --extra benchmark
-          uv sync --group dev
+          uv sync --group dev --extra io --extra accel --extra integration --extra viz --extra experimental --extra graph --extra perf --extra benchmark
 
       - name: Run Leiden regression tests
         run: |
@@ -226,8 +223,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --extra io --extra accel --extra integration --extra viz --extra experimental --extra perf --extra benchmark
-          uv sync --group dev
+          uv sync --group dev --extra io --extra accel --extra integration --extra viz --extra experimental --extra perf --extra benchmark
 
       - name: Run Bandit security linter
         run: |

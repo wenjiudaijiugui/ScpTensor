@@ -475,7 +475,7 @@ class DimReductionEvaluator(BaseEvaluator):
                     labels = kmeans.fit_predict(x_sample)
                     score = silhouette_score(x_sample, labels)
                     best_score = max(best_score, score)
-                except Exception:
+                except ValueError:
                     continue
 
             return float(np.clip(best_score, 0.0, 1.0))

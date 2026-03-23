@@ -143,7 +143,6 @@ def correlation_matrix(
         else:
             # Pearson correlation
             # Center the data
-            assert isinstance(group_means, np.ndarray), "group_means should be ndarray"
             group_means_centered = group_means - group_means.mean(axis=1, keepdims=True)
 
             # Compute correlation matrix

@@ -40,8 +40,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --extra io --extra accel --extra integration --extra viz --extra experimental --extra perf --extra benchmark
-          uv sync --group dev
+          uv sync --group dev --extra io --extra accel --extra integration --extra viz --extra experimental --extra perf --extra benchmark
 
       - name: Run benchmark CLI smoke checks
         run: |
@@ -72,8 +71,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --extra io --extra accel --extra integration --extra viz --extra experimental --extra perf --extra benchmark
-          uv sync --group dev
+          uv sync --group dev --extra io --extra accel --extra integration --extra viz --extra experimental --extra perf --extra benchmark
 
       - name: Run synthetic benchmark smoke
         run: |

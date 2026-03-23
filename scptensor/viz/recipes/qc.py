@@ -432,7 +432,8 @@ def pca_overview(
 
     # Finalize
     fig = layout.finalize(tight=True)
-    assert fig is not None, "finalize() should never return None"
+    if fig is None:
+        raise RuntimeError("PanelLayout.finalize() returned None for PCA overview")
 
     if show:
         plt.show()
@@ -702,7 +703,8 @@ def missing_value_patterns(
 
     # Finalize
     fig = layout.finalize(tight=True)
-    assert fig is not None, "finalize() should never return None"
+    if fig is None:
+        raise RuntimeError("PanelLayout.finalize() returned None for missing value patterns")
 
     if show:
         plt.show()
