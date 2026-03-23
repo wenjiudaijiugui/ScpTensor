@@ -13,6 +13,7 @@ import argparse
 import csv
 import hashlib
 import json
+import os
 import platform
 import sys
 import threading
@@ -21,12 +22,15 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
+import matplotlib
 import numpy as np
 import polars as pl
 import psutil
 import scipy.sparse as sp
+
+matplotlib.use("Agg")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
@@ -86,7 +90,13 @@ SCENARIOS = (
     "aggregate_peptide_to_protein",
     "stable_chain_dense",
     "stable_chain_quantile",
+    "stable_chain_trqn",
+    "normalize_quantile_only",
+    "normalize_trqn_only",
+    "sparse_log_only",
     "sparse_transform_normalize",
+    "autoselect_integrate_only",
+    "viz_qc_overview",
 )
 
 
@@ -154,7 +164,7 @@ def _matrix_nbytes(matrix: np.ndarray | sp.spmatrix | None) -> int:
     if matrix is None:
         return 0
     if sp.issparse(matrix):
-        sparse_matrix = matrix.tocsr()
+        sparse_matrix = cast(sp.spmatrix, matrix).tocsr()
         return int(
             sparse_matrix.data.nbytes + sparse_matrix.indices.nbytes + sparse_matrix.indptr.nbytes
         )
@@ -172,7 +182,7 @@ def _matrix_signature(matrix: np.ndarray | sp.spmatrix | None) -> str:
 
     hasher = hashlib.sha1()
     if sp.issparse(matrix):
-        sparse_matrix = matrix.tocsr()
+        sparse_matrix = cast(sp.spmatrix, matrix).tocsr()
         hasher.update(b"sparse")
         hasher.update(str(sparse_matrix.shape).encode("utf-8"))
         _hash_bytes(hasher, np.asarray(sparse_matrix.data).tobytes())
@@ -566,6 +576,67 @@ def _profile_container_stage(
     return result, row
 
 
+def _profile_artifact_stage(
+    *,
+    scenario: str,
+    stage: str,
+    note: str,
+    runner: Callable[[], Any],
+    n_samples: int,
+    n_features: int,
+) -> dict[str, Any]:
+    """Profile a read-only or artifact-producing stage."""
+    process = psutil.Process()
+    rss_before = int(process.memory_info().rss)
+    sampler = MemorySampler()
+    sampler.start()
+    started = time.perf_counter()
+    try:
+        runner()
+    finally:
+        elapsed = time.perf_counter() - started
+        sampler.stop()
+    rss_after = int(process.memory_info().rss)
+
+    return {
+        "scenario": scenario,
+        "stage": stage,
+        "status": "ok",
+        "elapsed_s": round(elapsed, 6),
+        "rss_before_mb": _format_mb(rss_before),
+        "rss_after_mb": _format_mb(rss_after),
+        "rss_delta_mb": _format_mb(rss_after - rss_before),
+        "rss_peak_mb": _format_mb(sampler.peak_rss),
+        "rss_peak_delta_mb": _format_mb(sampler.peak_rss - rss_before),
+        "returned_same_object": "",
+        "source_assay_same_object": "",
+        "source_layer_same_object": "",
+        "source_x_same_object": "",
+        "source_m_same_object": "",
+        "source_x_unchanged": "",
+        "source_m_unchanged": "",
+        "input_x_storage": "",
+        "input_m_storage": "",
+        "input_x_bytes": "",
+        "input_m_bytes": "",
+        "output_kind": "artifact",
+        "output_assay": "",
+        "output_layer": "",
+        "output_x_storage": "",
+        "output_m_storage": "",
+        "output_x_bytes": "",
+        "output_m_bytes": "",
+        "output_shares_x_with_source": "",
+        "output_shares_m_with_source": "",
+        "densified_output": "",
+        "obs_cols_added": "",
+        "var_cols_added": "",
+        "n_samples": n_samples,
+        "n_features": n_features,
+        "note": note,
+    }
+
+
 def _run_import_diann_protein_long(
     *,
     output_dir: Path,
@@ -658,9 +729,9 @@ def _run_stable_chain_dense(
     seed: int,
     normalization_method: str,
     scenario_name: str,
+    size_prefix: str,
 ) -> tuple[list[dict[str, Any]], ScenarioSummary]:
     cfg = PROFILE_CONFIG[profile]
-    size_prefix = "dense" if scenario_name == "stable_chain_dense" else "quantile"
     container = _build_dense_protein_container(
         n_samples=int(cfg[f"{size_prefix}_samples"]),
         n_features=int(cfg[f"{size_prefix}_features"]),
@@ -794,6 +865,66 @@ def _run_stable_chain_dense(
     return rows, summary
 
 
+def _run_logged_normalization_only(
+    *,
+    profile: str,
+    seed: int,
+    normalization_method: str,
+    scenario_name: str,
+) -> tuple[list[dict[str, Any]], ScenarioSummary]:
+    cfg = PROFILE_CONFIG[profile]
+    container = _build_dense_protein_container(
+        n_samples=int(cfg["quantile_samples"]),
+        n_features=int(cfg["quantile_features"]),
+        missing_rate=float(cfg["quantile_missing_rate"]),
+        seed=seed,
+    )
+    container = log_transform(
+        container,
+        assay_name="proteins",
+        source_layer="raw",
+        new_layer_name="log",
+        base=2.0,
+        offset=1.0,
+    )
+
+    _, row = _profile_container_stage(
+        scenario=scenario_name,
+        stage=f"normalize_{normalization_method}",
+        container=container,
+        source_assay="proteins",
+        source_layer="log",
+        runner=lambda: normalize(
+            container,
+            method=normalization_method,
+            assay_name="proteins",
+            source_layer="log",
+            new_layer_name="norm",
+        ),
+        output_kind="layer",
+        target_assay="proteins",
+        target_layer="norm",
+        note=(
+            "Isolated logged normalization baseline on precomputed log layer "
+            f"using method={normalization_method}."
+        ),
+    )
+    rows = [row]
+    summary = ScenarioSummary(
+        scenario=scenario_name,
+        status="ok",
+        n_stage_rows=1,
+        total_elapsed_s=float(row["elapsed_s"]),
+        max_peak_delta_mb=float(row["rss_peak_delta_mb"]),
+        densify_stages=[row["stage"]] if row["densified_output"] == "true" else [],
+        note=(
+            "Measures logged normalization stage only; "
+            "log-transform setup is excluded from timed stages."
+        ),
+    )
+    return rows, summary
+
+
 def _run_sparse_transform_normalize(
     *,
     profile: str,
@@ -861,6 +992,278 @@ def _run_sparse_transform_normalize(
     return rows, summary
 
 
+def _run_sparse_log_only(
+    *,
+    profile: str,
+    seed: int,
+) -> tuple[list[dict[str, Any]], ScenarioSummary]:
+    cfg = PROFILE_CONFIG[profile]
+    container = _build_sparse_protein_container(
+        n_samples=int(cfg["sparse_samples"]),
+        n_features=int(cfg["sparse_features"]),
+        zero_rate=float(cfg["sparse_zero_rate"]),
+        seed=seed,
+    )
+
+    _, row = _profile_container_stage(
+        scenario="sparse_log_only",
+        stage="log_transform_sparse",
+        container=container,
+        source_assay="proteins",
+        source_layer="raw",
+        runner=lambda: log_transform(
+            container,
+            assay_name="proteins",
+            source_layer="raw",
+            new_layer_name="log",
+            base=2.0,
+            offset=1.0,
+        ),
+        output_kind="layer",
+        target_assay="proteins",
+        target_layer="log",
+        note=(
+            "Isolated sparse log-transform baseline for JIT/NumPy branch alignment; "
+            "normalization is intentionally excluded."
+        ),
+    )
+    rows = [row]
+    summary = ScenarioSummary(
+        scenario="sparse_log_only",
+        status="ok",
+        n_stage_rows=1,
+        total_elapsed_s=float(row["elapsed_s"]),
+        max_peak_delta_mb=float(row["rss_peak_delta_mb"]),
+        densify_stages=[row["stage"]] if row["densified_output"] == "true" else [],
+        note="Isolated sparse log-transform baseline.",
+    )
+    return rows, summary
+
+
+def _run_autoselect_integrate_only(
+    *,
+    profile: str,
+    seed: int,
+) -> tuple[list[dict[str, Any]], ScenarioSummary]:
+    from scptensor.autoselect import AutoSelector
+
+    cfg = PROFILE_CONFIG[profile]
+    source_container = _build_dense_protein_container(
+        n_samples=int(cfg["dense_samples"]),
+        n_features=int(cfg["dense_features"]),
+        missing_rate=float(cfg["dense_missing_rate"]),
+        seed=seed,
+    )
+    source_container = log_transform(
+        source_container,
+        assay_name="proteins",
+        source_layer="raw",
+        new_layer_name="log",
+        base=2.0,
+        offset=1.0,
+    )
+    source_container = normalize(
+        source_container,
+        method="median",
+        assay_name="proteins",
+        source_layer="log",
+        new_layer_name="norm",
+    )
+    source_container = impute(
+        source_container,
+        method="row_median",
+        assay_name="proteins",
+        source_layer="norm",
+        new_layer_name="imputed",
+    )
+
+    process = psutil.Process()
+    rss_before = int(process.memory_info().rss)
+    before_assay = source_container.assays["proteins"]
+    before_layer = before_assay.layers["imputed"]
+    before_x = before_layer.X
+    before_m = before_layer.M
+    before_x_sig = _matrix_signature(before_x)
+    before_m_sig = _matrix_signature(before_m)
+
+    selector = AutoSelector(
+        stages=["integrate"],
+        keep_all=False,
+        selection_strategy="balanced",
+        n_repeats=1,
+    )
+
+    sampler = MemorySampler()
+    sampler.start()
+    started = time.perf_counter()
+    try:
+        result_container, report = selector.run_stage(
+            container=source_container.copy(),
+            stage="integrate",
+            assay_name="proteins",
+            source_layer="imputed",
+            batch_key="batch",
+            bio_key="group",
+        )
+    finally:
+        elapsed = time.perf_counter() - started
+        sampler.stop()
+    rss_after = int(process.memory_info().rss)
+
+    output_layer = "imputed"
+    if report.best_result is not None:
+        output_layer = report.best_result.layer_name
+    elif report.output_layer:
+        output_layer = report.output_layer
+
+    output_matrix = result_container.assays["proteins"].layers[output_layer]
+
+    row = {
+        "scenario": "autoselect_integrate_only",
+        "stage": "autoselect_integrate",
+        "status": "ok",
+        "elapsed_s": round(elapsed, 6),
+        "rss_before_mb": _format_mb(rss_before),
+        "rss_after_mb": _format_mb(rss_after),
+        "rss_delta_mb": _format_mb(rss_after - rss_before),
+        "rss_peak_mb": _format_mb(sampler.peak_rss),
+        "rss_peak_delta_mb": _format_mb(sampler.peak_rss - rss_before),
+        "returned_same_object": _bool_flag(result_container is source_container),
+        "source_assay_same_object": _bool_flag(result_container.assays["proteins"] is before_assay),
+        "source_layer_same_object": _bool_flag(
+            result_container.assays["proteins"].layers["imputed"] is before_layer
+        ),
+        "source_x_same_object": _bool_flag(
+            result_container.assays["proteins"].layers["imputed"].X is before_x
+        ),
+        "source_m_same_object": _bool_flag(
+            None
+            if before_m is None
+            else result_container.assays["proteins"].layers["imputed"].M is before_m
+        ),
+        "source_x_unchanged": _bool_flag(
+            _matrix_signature(result_container.assays["proteins"].layers["imputed"].X)
+            == before_x_sig
+        ),
+        "source_m_unchanged": _bool_flag(
+            _matrix_signature(result_container.assays["proteins"].layers["imputed"].M)
+            == before_m_sig
+        ),
+        "input_x_storage": _matrix_storage_kind(before_x),
+        "input_m_storage": _matrix_storage_kind(before_m),
+        "input_x_bytes": _matrix_nbytes(before_x),
+        "input_m_bytes": _matrix_nbytes(before_m),
+        "output_kind": "layer",
+        "output_assay": "proteins",
+        "output_layer": output_layer,
+        "output_x_storage": _matrix_storage_kind(output_matrix.X),
+        "output_m_storage": _matrix_storage_kind(output_matrix.M),
+        "output_x_bytes": _matrix_nbytes(output_matrix.X),
+        "output_m_bytes": _matrix_nbytes(output_matrix.M),
+        "output_shares_x_with_source": _bool_flag(output_matrix.X is before_x),
+        "output_shares_m_with_source": _bool_flag(
+            None if output_matrix.M is None or before_m is None else output_matrix.M is before_m
+        ),
+        "densified_output": _bool_flag(sp.issparse(before_x) and not sp.issparse(output_matrix.X)),
+        "obs_cols_added": "",
+        "var_cols_added": "",
+        "n_samples": result_container.n_samples,
+        "n_features": result_container.assays["proteins"].n_features,
+        "note": (
+            "Profiles AutoSelect integrate stage only on a preprocessed stable input. "
+            f"best_method={report.best_method or 'none'}"
+        ),
+    }
+
+    rows = [row]
+    summary = ScenarioSummary(
+        scenario="autoselect_integrate_only",
+        status="ok",
+        n_stage_rows=1,
+        total_elapsed_s=float(row["elapsed_s"]),
+        max_peak_delta_mb=float(row["rss_peak_delta_mb"]),
+        densify_stages=[row["stage"]] if row["densified_output"] == "true" else [],
+        note="Profiles stable AutoSelect integration selection only.",
+    )
+    return rows, summary
+
+
+def _run_viz_qc_overview(
+    *,
+    profile: str,
+    seed: int,
+) -> tuple[list[dict[str, Any]], ScenarioSummary]:
+    from matplotlib import pyplot as plt
+
+    from scptensor.viz import plot_data_overview, plot_qc_completeness, plot_qc_matrix_spy
+
+    cfg = PROFILE_CONFIG[profile]
+    container = _build_dense_protein_container(
+        n_samples=int(cfg["dense_samples"]),
+        n_features=int(cfg["dense_features"]),
+        missing_rate=float(cfg["dense_missing_rate"]),
+        seed=seed,
+    )
+
+    rows = [
+        _profile_artifact_stage(
+            scenario="viz_qc_overview",
+            stage="plot_data_overview",
+            note="Read-only visualization baseline for workflow overview panels.",
+            n_samples=container.n_samples,
+            n_features=container.assays["proteins"].n_features,
+            runner=lambda: (lambda axes: plt.close(axes[0].figure))(
+                plot_data_overview(
+                    container,
+                    assay_name="proteins",
+                    layer="raw",
+                    groupby="batch",
+                )
+            ),
+        ),
+        _profile_artifact_stage(
+            scenario="viz_qc_overview",
+            stage="plot_qc_completeness",
+            note="Read-only QC completeness visualization baseline.",
+            n_samples=container.n_samples,
+            n_features=container.assays["proteins"].n_features,
+            runner=lambda: (lambda ax: plt.close(ax.figure))(
+                plot_qc_completeness(
+                    container,
+                    assay_name="proteins",
+                    layer="raw",
+                    group_by="batch",
+                )
+            ),
+        ),
+        _profile_artifact_stage(
+            scenario="viz_qc_overview",
+            stage="plot_qc_matrix_spy",
+            note="Read-only missingness matrix visualization baseline.",
+            n_samples=container.n_samples,
+            n_features=container.assays["proteins"].n_features,
+            runner=lambda: (lambda ax: plt.close(ax.figure))(
+                plot_qc_matrix_spy(
+                    container,
+                    assay_name="proteins",
+                    layer="raw",
+                )
+            ),
+        ),
+    ]
+
+    summary = ScenarioSummary(
+        scenario="viz_qc_overview",
+        status="ok",
+        n_stage_rows=len(rows),
+        total_elapsed_s=round(sum(float(r["elapsed_s"]) for r in rows), 6),
+        max_peak_delta_mb=max(float(r["rss_peak_delta_mb"]) for r in rows),
+        densify_stages=[],
+        note="Read-only visualization baseline for stable QC/workflow overview plots.",
+    )
+    return rows, summary
+
+
 def _write_stage_runs(rows: list[dict[str, Any]], destination: Path) -> None:
     if not rows:
         raise ValueError("No stage rows available to write.")
@@ -901,16 +1304,42 @@ def _run_suite(
             seed=seed + 202,
             normalization_method="median",
             scenario_name="stable_chain_dense",
+            size_prefix="dense",
         ),
         "stable_chain_quantile": lambda: _run_stable_chain_dense(
             profile=profile,
             seed=seed + 303,
             normalization_method="quantile",
             scenario_name="stable_chain_quantile",
+            size_prefix="quantile",
         ),
+        "stable_chain_trqn": lambda: _run_stable_chain_dense(
+            profile=profile,
+            seed=seed + 353,
+            normalization_method="trqn",
+            scenario_name="stable_chain_trqn",
+            size_prefix="quantile",
+        ),
+        "normalize_quantile_only": lambda: _run_logged_normalization_only(
+            profile=profile,
+            seed=seed + 373,
+            normalization_method="quantile",
+            scenario_name="normalize_quantile_only",
+        ),
+        "normalize_trqn_only": lambda: _run_logged_normalization_only(
+            profile=profile,
+            seed=seed + 383,
+            normalization_method="trqn",
+            scenario_name="normalize_trqn_only",
+        ),
+        "sparse_log_only": lambda: _run_sparse_log_only(profile=profile, seed=seed + 393),
         "sparse_transform_normalize": lambda: _run_sparse_transform_normalize(
             profile=profile, seed=seed + 404
         ),
+        "autoselect_integrate_only": lambda: _run_autoselect_integrate_only(
+            profile=profile, seed=seed + 454
+        ),
+        "viz_qc_overview": lambda: _run_viz_qc_overview(profile=profile, seed=seed + 505),
     }
 
     for scenario in scenarios:
@@ -969,6 +1398,7 @@ def _run_suite(
             "platform": platform.platform(),
             "processor": platform.processor(),
             "scptensor_version": getattr(scptensor, "__version__", "unknown"),
+            "scptensor_jit_threshold": os.getenv("SCPTENSOR_JIT_THRESHOLD", "10000000"),
             "pid": psutil.Process().pid,
             "output_dir": str(output_dir),
             "cwd": str(PROJECT_ROOT),

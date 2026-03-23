@@ -355,15 +355,15 @@ ScpTensor 当前已经依赖这条合同来区分：
 当前文档语义与实现之间，仍有一个需要显式记录的差距：
 
 - 对 long-format importer，部分状态仍有机会结合列语义、FDR 与 vendor 文档做较强解释。
-- 对 matrix/pivot importer，当前实现采用更保守、更简单的基线映射：
+- 对 matrix/pivot importer，当前实现采用更保守的基线映射：
   - 有限值 -> `VALID`
-  - 非有限值 -> `LOD`
+  - 非有限值 -> `UNCERTAIN`
 
 这条基线映射可以接受为当前工程起点，但它不是“完整恢复上游状态语义”的证明。文档层必须继续明确：
 
-- matrix-only 输入中的 `LOD`，在解释上更接近 `matrix-missing baseline`，而不是已经被证明的 left-censored missing。
+- matrix-only 输入中的 `UNCERTAIN`，表示“缺失单元格存在，但来源语义无法可靠恢复”。
 - 仅凭最终 pivot matrix，不应把缺失单元格自动解释成 `MBR`、真实 `LOD` 或 vendor-filtered failure。
-- 当来源语义确实无法恢复时，`UNCERTAIN` 仍然是更严格的目标语义桶；只是当前实现尚未在 matrix importer 中全面落地。
+- 当前 matrix importer 已把这类缺失单元格优先落到 `UNCERTAIN`；后续若要进一步细分 `LOD` / `FILTERED` / `MBR`，必须依赖更强 source evidence，而不是仅凭 pivot matrix 猜测。
 
 因此，后续 core / io 优化的收敛顺序应是：
 
@@ -440,6 +440,47 @@ AnnData 官方支持 backed mode 与 on-disk arrays。ScpTensor 当前 stable co
 
 - 单列新的 collection/backed API
 - 而不是把当前 `ScpContainer` 静默扩成半兼容 AnnData backed object
+
+### 9.3 模块家族的 mutability 语义冻结
+
+当前仓库已经形成三类不同的对象写回语义，后续文档与重构都应按家族区分，而不是混写成“所有 API 都 copy-return”。
+
+第一类，stable preprocessing 写回式 API：
+
+- `transformation`
+- `normalization`
+- `impute`
+- `integration`
+- `standardization`
+
+它们当前的共同合同是：
+
+- 读取已有 `assay + source/base layer`
+- 在同一个 `container` / `assay` 上新增或覆盖结果 layer
+- 追加 `history`
+- 返回同一个逻辑容器对象
+
+第二类，stable filtering / selection API：
+
+- 例如 `filter_samples()` / `filter_features()`
+
+这类 API 当前以“返回新容器”作为稳定、安全语义，不应被表述成原位写回族。
+
+第三类，experimental downstream helper：
+
+- `dim_reduction`
+- `cluster`
+- `experimental` namespace 下的相关 facade
+
+这类 API 当前没有统一的 copy 语义；有的重建 container mapping，有的共享 assay 对象，有的直接把结果写进 `obs`。其边界以 [experimental_downstream_contract.md](/home/shenshang/projects/ScpTensor/docs/experimental_downstream_contract.md) 为准。
+
+因此后续若做 API 收敛，至少要先明确“改变的是哪一个模块家族”，不能把：
+
+- preprocessing 的原位 layer 写回
+- filtering 的新容器返回
+- experimental downstream 的混合共享语义
+
+混成同一条笼统规则。
 
 ## 10. 面向核心代码优化的直接指导
 

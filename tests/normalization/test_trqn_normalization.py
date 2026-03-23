@@ -5,11 +5,12 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 import pytest
+import scipy.sparse as sp
 
-from scptensor.core.exceptions import ScpValueError
+from scptensor.core.exceptions import ScpValueError, ValidationError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.normalization import norm_quantile
-from scptensor.normalization.trqn_normalization import norm_trqn
+from scptensor.normalization.trqn_normalization import _rank_invariance_frequency, norm_trqn
 
 
 def _make_container() -> ScpContainer:
@@ -50,6 +51,17 @@ def test_trqn_preserves_mask() -> None:
     norm_trqn(container, assay_name="protein", source_layer="raw", new_layer_name="trqn")
     out_m = container.assays["protein"].layers["trqn"].M
     assert np.array_equal(source_m, out_m)
+
+
+def test_trqn_sparse_input_still_returns_dense_output() -> None:
+    container = _make_container()
+    container.assays["protein"].layers["raw"].X = sp.csr_matrix(
+        container.assays["protein"].layers["raw"].X
+    )
+
+    norm_trqn(container, assay_name="protein", source_layer="raw", new_layer_name="trqn")
+
+    assert not sp.issparse(container.assays["protein"].layers["trqn"].X)
 
 
 def test_trqn_feature_indices_empty_matches_quantile() -> None:
@@ -104,3 +116,36 @@ def test_trqn_invalid_feature_indices_raises() -> None:
             source_layer="raw",
             feature_indices=[0, 99],
         )
+
+
+def test_rank_invariance_frequency_uses_assigned_positive_ranks_only() -> None:
+    feature_sample = np.array(
+        [
+            [10.0, 11.0, 12.0, np.nan],
+            [1.0, 2.0, 3.0, 4.0],
+            [7.0, 8.0, 9.0, 10.0],
+        ]
+    )
+    qn_feature_sample = np.array(
+        [
+            [5.0, 5.0, 4.0, np.nan],
+            [4.0, 3.0, 5.0, 2.0],
+            [1.0, 2.0, 1.0, 1.0],
+        ]
+    )
+
+    frequencies = _rank_invariance_frequency(
+        feature_sample,
+        qn_feature_sample=qn_feature_sample,
+    )
+
+    expected = np.array([2.0 / 3.0, 0.5, 0.75])
+    assert np.allclose(frequencies, expected)
+
+
+def test_trqn_rejects_inf_input() -> None:
+    container = _make_container()
+    container.assays["protein"].layers["raw"].X[0, 0] = np.inf
+
+    with pytest.raises(ValidationError, match="does not accept Inf values"):
+        norm_trqn(container, assay_name="protein", source_layer="raw")

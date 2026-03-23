@@ -127,6 +127,8 @@ class TestIntegrationEvaluatorComputeMetrics:
         for key in evaluator.metric_weights:
             assert key in scores
             assert 0.0 <= scores[key] <= 1.0
+        assert 0.0 <= scores["batch_kbet"] <= 1.0
+        assert 0.0 <= scores["batch_ilisi"] <= 1.0
 
     def test_compute_metrics_missing_layer(self, container_with_batches):
         """Test compute_metrics with missing layer."""
@@ -139,6 +141,8 @@ class TestIntegrationEvaluatorComputeMetrics:
 
         for key in evaluator.metric_weights:
             assert scores[key] == 0.0
+        assert scores["batch_kbet"] == 0.0
+        assert scores["batch_ilisi"] == 0.0
 
     def test_compute_metrics_missing_batch_key(self):
         """Test compute_metrics with missing batch key."""
@@ -162,6 +166,8 @@ class TestIntegrationEvaluatorComputeMetrics:
 
         for key in evaluator.metric_weights:
             assert scores[key] == 0.0
+        assert scores["batch_kbet"] == 0.0
+        assert scores["batch_ilisi"] == 0.0
 
 
 class TestIntegrationEvaluatorRunAll:
@@ -186,6 +192,12 @@ class TestIntegrationEvaluatorRunAll:
             contract["integration_level"] == "matrix"
             and contract["recommended_for_de"] is True
             and contract["candidate_scope"] == "stable"
+            for contract in report.method_contracts.values()
+        )
+        assert all(
+            contract["selection_batch_metric"] == "batch_mixing"
+            and contract["selection_batch_metric_kind"] == "heuristic_proxy"
+            and contract["standardized_batch_metrics"] == ["batch_kbet", "batch_ilisi"]
             for contract in report.method_contracts.values()
         )
         assert report.recommendation_reason.startswith(

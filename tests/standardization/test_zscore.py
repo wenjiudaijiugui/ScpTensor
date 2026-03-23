@@ -16,11 +16,12 @@ def _make_container(
     layer_name: str = "imputed",
     *,
     mask: np.ndarray | None = None,
+    assay_name: str = "protein",
 ) -> ScpContainer:
     obs = pl.DataFrame({"_index": [f"s{i}" for i in range(x.shape[0])]})
     var = pl.DataFrame({"_index": [f"p{j}" for j in range(x.shape[1])]})
     assay = Assay(var=var, layers={layer_name: ScpMatrix(X=x, M=mask)})
-    return ScpContainer(obs=obs, assays={"protein": assay})
+    return ScpContainer(obs=obs, assays={assay_name: assay})
 
 
 def test_zscore_feature_wise_standardization() -> None:
@@ -47,6 +48,22 @@ def test_zscore_rejects_nan_input() -> None:
 
     with pytest.raises(ValidationError, match="requires a complete matrix"):
         zscore(container)
+
+
+def test_zscore_rejects_inf_input() -> None:
+    x = np.array([[1.0, np.inf], [2.0, 3.0]])
+    container = _make_container(x)
+
+    with pytest.raises(ValidationError, match="does not accept Inf values"):
+        zscore(container)
+
+
+def test_zscore_rejects_ddof_too_large_for_axis() -> None:
+    x = np.array([[1.0, 2.0]])
+    container = _make_container(x)
+
+    with pytest.raises(ValidationError, match="requires at least 2 values along axis 0"):
+        zscore(container, axis=0, ddof=1)
 
 
 def test_zscore_rejects_invalid_axis() -> None:
@@ -78,6 +95,16 @@ def test_zscore_runs_on_complete_raw_layer_without_logged_gate() -> None:
     assert np.allclose(np.std(z, axis=0, ddof=1), 1.0, atol=1e-12)
     assert result.history[-1].action == "standardization_zscore"
     assert result.history[-1].params["source_layer"] == "raw"
+
+
+def test_zscore_resolves_protein_aliases_and_uses_canonical_default_name() -> None:
+    x = np.array([[1.0, 3.0], [2.0, 4.0], [3.0, 5.0]])
+    container = _make_container(x, assay_name="proteins")
+
+    result = zscore(container)
+
+    assert "zscore" in result.assays["proteins"].layers
+    assert result.history[-1].params["assay"] == "proteins"
 
 
 def test_zscore_only_checks_x_for_completeness_and_copies_mask() -> None:

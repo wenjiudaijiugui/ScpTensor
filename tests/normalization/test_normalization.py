@@ -15,7 +15,7 @@ import polars as pl
 import pytest
 import scipy.sparse as sp
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ValidationError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.normalization.mean_normalization import (
     norm_mean as sample_mean_normalization,
@@ -159,6 +159,7 @@ class TestMedianCentering:
         # Check that layer was created
         assert "median_centered" in result.assays["protein"].layers
         X_norm = result.assays["protein"].layers["median_centered"].X
+        assert not sp.issparse(X_norm)
         assert X_norm.shape == (10, 20)
 
     def test_median_centering_custom_layer_names(self):
@@ -236,6 +237,24 @@ class TestMedianCentering:
         if sp.issparse(result_X):
             result_X = result_X.toarray()
         assert np.array_equal(original_X, result_X)
+
+
+@pytest.mark.parametrize(
+    ("method", "match"),
+    [
+        (sample_mean_normalization, "Sample mean normalization does not accept Inf values"),
+        (median_centering, "Median normalization does not accept Inf values"),
+    ],
+)
+def test_centering_methods_reject_inf_values(
+    method,
+    match: str,
+) -> None:
+    container = create_normalization_test_container(n_samples=3, n_features=4, seed=42)
+    container.assays["protein"].layers["raw"].X[0, 0] = np.inf
+
+    with pytest.raises(ValidationError, match=match):
+        method(container)
 
     def test_median_centering_single_sample(self):
         """Test median centering with a single sample."""
@@ -335,6 +354,7 @@ class TestSampleMeanNormalization:
         # Check that layer was created
         assert "sample_mean_norm" in result.assays["protein"].layers
         X_norm = result.assays["protein"].layers["sample_mean_norm"].X
+        assert not sp.issparse(X_norm)
         assert X_norm.shape == (10, 20)
 
     def test_sample_mean_custom_layer_names(self):

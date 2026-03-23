@@ -87,7 +87,8 @@
 
 1. 文档级 canonical 输出层是 `log`。
 2. 当前 API 默认开启显式 logged 检测，但默认不启用 distribution heuristic。
-3. `log_transform` 是 transformation 唯一的顶层 stable API；helper 不升格到顶层 `scptensor`。
+3. `use_jit=True` 表示允许底层 sparse helper 按阈值判断是否尝试 JIT，不保证一定进入 numba 分支。
+4. `log_transform` 是 transformation 唯一的顶层 stable API；helper 不升格到顶层 `scptensor`。
 
 ## 5. assay / layer 输入合同
 
@@ -219,8 +220,12 @@ log(x + offset) / log(base)
 
 若输入是 sparse matrix：
 
-- 使用 `sparse_safe_log1p_with_scale(...)`
-- 再通过 `ensure_sparse_format(..., "csr")` 强制转成 `csr`
+- 仅当 `offset == 1.0` 时，使用 `sparse_safe_log1p_with_scale(...)`
+- 且再通过 `ensure_sparse_format(..., "csr")` 强制转成 `csr`
+- 若 `offset != 1.0`，为了满足
+  - `log(x + offset) / log(base)`
+  - 以及 structural zeros 也必须变成 `log(offset) / log(base)`
+  当前实现会 densify 后走 dense NumPy 公式路径
 
 若输入是 dense：
 
@@ -228,18 +233,18 @@ log(x + offset) / log(base)
 
 ### 7.4 `base` 与 `offset` 验证
 
-当前显式参数检查只有：
+当前显式参数检查与定义域检查是：
 
-- `base > 0`
-- `offset >= 0`
+- `base` 必须有限、`> 0` 且 `!= 1`
+- `offset` 必须有限且 `>= 0`
+- 若 `offset == 0`，则输入值必须严格 `> 0`
+  - 否则会因 `log(0)` 进入非法域，当前实现会直接报错，而不是产出 `-inf`
 
 这意味着当前代码事实是：
 
-- `base <= 0` 会抛 `ScpValueError`
-- `offset < 0` 会抛 `ScpValueError`
-- `base == 1` 没有被显式拦截，调用方不应把它当作合法稳定配置
-
-最后这点是当前实现缺口，不应在文档里被包装成“已完整验证所有非法 base”。
+- `base <= 0`、`base == 1`、非有限 `base` 会抛 `ScpValueError`
+- `offset < 0`、非有限 `offset` 会抛 `ScpValueError`
+- `offset == 0` 且输入中存在 `0/负值` 会抛 `ValidationError`
 
 ## 8. 输出层与对象语义合同
 

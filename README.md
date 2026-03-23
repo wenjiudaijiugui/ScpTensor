@@ -38,11 +38,39 @@ cd ScpTensor
 uv venv
 source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
 
+# Stable preprocessing runtime
 uv pip install -e .
 
 # Optional: development tools
 uv pip install -e ".[dev]"
+
+# Optional: JIT acceleration
+uv pip install -e ".[accel]"
+
+# Optional: visualization polish / advanced palettes
+uv pip install -e ".[viz]"
+
+# Optional: experimental downstream helpers (e.g. reduce_umap)
+uv pip install -e ".[experimental]"
+
+# Optional: experimental graph clustering helpers (cluster_leiden)
+uv pip install -e ".[graph]"
+
+# Optional: performance baseline tooling
+uv pip install -e ".[perf]"
+
+# Optional: benchmark replay / download tooling
+uv pip install -e ".[benchmark]"
 ```
+
+Dependency boundary:
+- default install keeps the stable DIA preprocessing runtime intentionally small
+- `.[accel]` adds `numba` JIT acceleration only
+- `.[viz]` adds optional `seaborn` / `scienceplots` styling and advanced palettes
+- `.[experimental]` adds `umap-learn` for experimental downstream `reduce_umap`
+- `.[graph]` adds `igraph` / `leidenalg` for experimental `cluster_leiden`
+- `.[perf]` adds `psutil` for `scripts/perf/run_runtime_baseline.py`
+- `.[benchmark]` adds benchmark-only dataframe/download/plot tooling
 
 ## Quick Start (DIA-NN)
 
@@ -189,6 +217,16 @@ Tutorial:
 ## Development
 
 ```bash
+# CI-parity core matrix (excludes graph clustering extras)
+uv sync --extra io --extra accel --extra integration --extra viz --extra experimental --extra perf --extra benchmark
+uv sync --group dev
+
+# Add graph clustering extras when working on cluster_leiden
+uv sync --extra graph
+
+# Alternative editable install with every optional extra
+uv pip install -e ".[all,dev]"
+
 # Lint
 uv run ruff check scptensor tests
 

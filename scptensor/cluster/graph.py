@@ -26,7 +26,7 @@ from scptensor.core.structures import ScpContainer
 
 def cluster_leiden(
     container: ScpContainer,
-    assay_name: str = "pca",
+    assay_name: str = "reduce_pca",
     base_layer: str = "X",
     n_neighbors: int = 15,
     resolution: float = 1.0,
@@ -42,7 +42,7 @@ def cluster_leiden(
     ----------
     container : ScpContainer
         Input container.
-    assay_name : str, default="pca"
+    assay_name : str, default="reduce_pca"
         Name of assay to use.
     base_layer : str, default="X"
         Name of layer to use.
@@ -94,11 +94,12 @@ def cluster_leiden(
     resolved_assay_name = resolve_assay_name(container, assay_name)
     _, X = _validate_assay_layer(container, resolved_assay_name, base_layer)
     X_dense = _prepare_matrix(X)
+    effective_n_neighbors = min(n_neighbors, X_dense.shape[0])
 
     # Build kNN graph
     adj_matrix = kneighbors_graph(
         X_dense,
-        n_neighbors=n_neighbors,
+        n_neighbors=effective_n_neighbors,
         mode="connectivity",
         include_self=True,
     )
@@ -137,11 +138,12 @@ def cluster_leiden(
             "source_assay": resolved_assay_name,
             "source_layer": base_layer,
             "output_key": key_added,
-            "n_neighbors": n_neighbors,
+            "n_neighbors": effective_n_neighbors,
             "resolution": resolution,
         },
         description=(
-            f"Leiden (k={n_neighbors}, res={resolution}) on {resolved_assay_name}/{base_layer}."
+            f"Leiden (k={effective_n_neighbors}, res={resolution}) on "
+            f"{resolved_assay_name}/{base_layer}."
         ),
     )
 

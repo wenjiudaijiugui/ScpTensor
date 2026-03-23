@@ -66,6 +66,8 @@ from scptensor.integration.combat import integrate_combat
 from scptensor.integration.diagnostics import (
     compute_batch_asw,
     compute_batch_mixing_metric,
+    compute_ilisi,
+    compute_kbet,
     compute_lisi_approx,
     integration_quality_report,
 )
@@ -96,5 +98,7 @@ __all__ = [
     "compute_batch_mixing_metric",
     "compute_batch_asw",
     "compute_lisi_approx",
+    "compute_kbet",
+    "compute_ilisi",
     "integration_quality_report",
 ]

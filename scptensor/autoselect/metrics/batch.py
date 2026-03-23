@@ -1,10 +1,13 @@
-"""Batch effect metrics for automatic method selection.
+"""Batch-effect metrics for automatic method selection.
 
-This module provides functions to compute batch effect related metrics
-for evaluating batch correction effectiveness in DIA-based single-cell proteomics analysis.
+This module intentionally exposes two metric families:
 
-All metrics return values in the range [0, 1], where higher values indicate
-better batch mixing or biological signal preservation.
+- backward-compatible proxy scores used by current selection logic
+- more standardized kBET / iLISI-style scores for diagnostics and reporting
+
+All public scores are normalized to ``[0, 1]`` unless explicitly documented
+otherwise. Higher values indicate better batch mixing or biological signal
+preservation.
 """
 
 from __future__ import annotations
@@ -12,308 +15,340 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
+from scipy.stats import chi2
 from sklearn.neighbors import NearestNeighbors
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 
-# Numerical stability constant
 _EPS = 1e-10
 
 
-def batch_asw(X: NDArray[np.float64], batch_labels: NDArray[np.int_]) -> float:
-    """Calculate batch average silhouette width (lower is better, returns 1-asw).
+def _prepare_labeled_matrix(
+    X: NDArray[np.float64],
+    labels: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Validate shape, drop non-finite rows, and factorize labels."""
+    if len(labels) != X.shape[0]:
+        raise ValueError(
+            f"Shape mismatch: X has {X.shape[0]} samples but "
+            f"batch_labels has {len(labels)} elements"
+        )
 
-    Measures the degree of batch mixing. Lower ASW indicates better batch
-    integration (batches are well-mixed). The function returns 1 - ASW so
-    that higher values indicate better batch mixing.
+    valid_mask = np.isfinite(X).all(axis=1)
+    if not np.any(valid_mask):
+        return (
+            np.empty((0, X.shape[1]), dtype=float),
+            np.empty((0,), dtype=labels.dtype),
+            np.empty((0,), dtype=int),
+        )
 
-    Parameters
-    ----------
-    X : NDArray[np.float64]
-        Input data matrix of shape (n_samples, n_features), typically
-        dimensionality-reduced embeddings.
-    batch_labels : NDArray[np.int_]
-        Batch labels for each sample, shape (n_samples,).
+    x_clean = np.asarray(X[valid_mask], dtype=float)
+    labels_clean = np.asarray(labels)[valid_mask]
+    _, label_codes = np.unique(labels_clean, return_inverse=True)
+    return x_clean, labels_clean, label_codes
 
-    Returns
-    -------
-    float
-        Batch mixing score in range [0, 1]. Higher values indicate better
-        batch mixing (lower batch effect). Returns 0.0 for edge cases.
 
-    Notes
-    -----
-    The silhouette score measures how similar a sample is to its own cluster
-    (batch) compared to other clusters. For batch effect evaluation, we want
-    samples from the same batch to NOT cluster together, so a lower ASW
-    indicates better mixing.
+def _validate_neighbors(n_neighbors: int) -> None:
+    """Validate kNN neighborhood size."""
+    if n_neighbors <= 0:
+        raise ValueError(f"n_neighbors must be positive, got {n_neighbors}")
 
-    The returned value is 1 - ASW, so higher values are better.
 
-    Examples
-    --------
-    >>> import numpy as np
-    >>> np.random.seed(42)
-    >>> X = np.random.randn(100, 10)
-    >>> batch_labels = np.repeat([0, 1], 50)
-    >>> score = batch_asw(X, batch_labels)
-    >>> 0.0 <= score <= 1.0
-    True
+def _validate_alpha(alpha: float) -> None:
+    """Validate kBET acceptance threshold."""
+    if not 0.0 < alpha < 1.0:
+        raise ValueError(f"alpha must be between 0 and 1, got {alpha}")
+
+
+def _validate_perplexity(perplexity: float) -> None:
+    """Validate target perplexity."""
+    if perplexity <= 0:
+        raise ValueError(f"perplexity must be positive, got {perplexity}")
+
+
+def _compute_knn(
+    X: np.ndarray,
+    n_neighbors: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute a self-excluded kNN graph."""
+    local_k = min(n_neighbors, X.shape[0] - 1)
+    if local_k < 1:
+        return (
+            np.empty((X.shape[0], 0), dtype=float),
+            np.empty((X.shape[0], 0), dtype=int),
+        )
+
+    nbrs = NearestNeighbors(n_neighbors=local_k + 1, algorithm="auto").fit(X)
+    distances, indices = nbrs.kneighbors(X)
+
+    return distances[:, 1 : local_k + 1], indices[:, 1 : local_k + 1]
+
+
+def _hbeta(distances: np.ndarray, beta: float) -> tuple[float, np.ndarray]:
+    """Return Shannon entropy and normalized probabilities for one row."""
+    probabilities = np.exp(-distances * beta)
+    sum_probabilities = float(np.sum(probabilities))
+    if sum_probabilities <= 0.0:
+        if distances.size == 0:
+            return 0.0, probabilities
+        uniform = np.full(distances.shape, 1.0 / distances.size, dtype=float)
+        return float(np.log(distances.size)), uniform
+
+    weighted_distance_sum = float(np.sum(distances * probabilities))
+    entropy = np.log(sum_probabilities) + beta * weighted_distance_sum / sum_probabilities
+    return float(entropy), probabilities / sum_probabilities
+
+
+def _compute_perplexity_probabilities(
+    distances: np.ndarray,
+    perplexity: float,
+    *,
+    tol: float = 1e-5,
+    max_iter: int = 50,
+) -> np.ndarray:
+    """Binary-search neighbor probabilities to match a target perplexity."""
+    target_entropy = float(np.log(perplexity))
+    probabilities = np.zeros_like(distances, dtype=float)
+
+    for row_idx, row_distances in enumerate(distances):
+        beta = 1.0
+        beta_min = -np.inf
+        beta_max = np.inf
+        entropy, row_probabilities = _hbeta(row_distances, beta)
+        entropy_diff = entropy - target_entropy
+
+        n_iter = 0
+        while abs(entropy_diff) > tol and n_iter < max_iter:
+            if entropy_diff > 0.0:
+                beta_min = beta
+                beta = 2.0 * beta if np.isinf(beta_max) else 0.5 * (beta + beta_max)
+            else:
+                beta_max = beta
+                beta = 0.5 * beta if np.isinf(beta_min) else 0.5 * (beta + beta_min)
+
+            entropy, row_probabilities = _hbeta(row_distances, beta)
+            entropy_diff = entropy - target_entropy
+            n_iter += 1
+
+        probabilities[row_idx] = row_probabilities
+
+    return probabilities
+
+
+def _compute_inverse_simpson_scores(
+    label_codes: np.ndarray,
+    neighbor_indices: np.ndarray,
+    neighbor_probabilities: np.ndarray,
+    n_labels: int,
+) -> np.ndarray:
+    """Compute weighted inverse Simpson diversity for each sample."""
+    scores = np.ones(neighbor_indices.shape[0], dtype=float)
+    for row_idx, neighbors in enumerate(neighbor_indices):
+        weights = neighbor_probabilities[row_idx]
+        local_probabilities = np.bincount(
+            label_codes[neighbors],
+            weights=weights,
+            minlength=n_labels,
+        )
+        simpson_index = float(np.sum(local_probabilities**2))
+        if simpson_index > 0.0:
+            scores[row_idx] = 1.0 / simpson_index
+    return scores
+
+
+def batch_asw(X: NDArray[np.float64], batch_labels: np.ndarray) -> float:
+    """Calculate 1-ASW batch mixing score.
+
+    Lower raw batch ASW indicates better mixing. This helper keeps the
+    historical AutoSelect convention and returns ``1 - ASW`` clipped to
+    ``[0, 1]`` so higher remains better.
     """
     from sklearn.metrics import silhouette_score
 
-    # Handle edge cases
     if X.size == 0 or X.shape[0] < 2:
         return 0.0
 
-    if len(batch_labels) != X.shape[0]:
-        raise ValueError(
-            f"Shape mismatch: X has {X.shape[0]} samples but "
-            f"batch_labels has {len(batch_labels)} elements"
-        )
-
-    # Check for minimum number of batches
-    unique_batches = np.unique(batch_labels)
-    if len(unique_batches) < 2:
+    x_clean, _, batch_codes = _prepare_labeled_matrix(X, batch_labels)
+    if x_clean.shape[0] < 2 or len(np.unique(batch_codes)) < 2:
         return 0.0
 
-    # Handle NaN values
-    valid_mask = ~np.isnan(X).any(axis=1)
-    if not np.any(valid_mask):
-        return 0.0
-
-    X_clean = X[valid_mask]
-    batch_labels_clean = batch_labels[valid_mask]
-
-    # Check if we still have at least 2 batches after filtering
-    unique_batches_clean = np.unique(batch_labels_clean)
-    if len(unique_batches_clean) < 2:
-        return 0.0
-
-    # Check minimum samples per batch
-    batch_counts = np.bincount(batch_labels_clean)
-    if len(batch_counts) > 0 and np.min(batch_counts[batch_counts > 0]) < 2:
+    _, counts = np.unique(batch_codes, return_counts=True)
+    if counts.size == 0 or int(np.min(counts)) < 2:
         return 0.0
 
     try:
-        # Calculate silhouette score for batch labels
-        asw = silhouette_score(X_clean, batch_labels_clean)
-
-        # Return 1 - ASW so higher is better (better mixing = lower ASW)
-        score = 1.0 - asw
-
-        # Clamp to [0, 1]
-        return float(np.clip(score, 0.0, 1.0))
+        asw = float(silhouette_score(x_clean, batch_codes))
+        return float(np.clip(1.0 - asw, 0.0, 1.0))
     except Exception:
-        # Handle any sklearn errors
         return 0.0
 
 
-def bio_asw(X: NDArray[np.float64], bio_labels: NDArray[np.int_]) -> float:
-    """Calculate biological group average silhouette width (higher is better).
-
-    Measures the preservation of biological signal after batch correction.
-    Higher ASW indicates that biological groups are well-separated,
-    meaning the biological signal is preserved.
-
-    Parameters
-    ----------
-    X : NDArray[np.float64]
-        Input data matrix of shape (n_samples, n_features), typically
-        dimensionality-reduced embeddings.
-    bio_labels : NDArray[np.int_]
-        Biological group labels for each sample (e.g., cell types),
-        shape (n_samples,).
-
-    Returns
-    -------
-    float
-        Biological signal preservation score in range [0, 1]. Higher values
-        indicate better preservation of biological structure.
-        Returns 0.0 for edge cases.
-
-    Notes
-    -----
-    The silhouette score measures how well biological groups are separated.
-    Higher values indicate that samples cluster well with their biological
-    group, which is desirable.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> np.random.seed(42)
-    >>> X = np.random.randn(100, 10)
-    >>> bio_labels = np.repeat([0, 1, 2, 3], 25)
-    >>> score = bio_asw(X, bio_labels)
-    >>> 0.0 <= score <= 1.0
-    True
-    """
+def bio_asw(X: NDArray[np.float64], bio_labels: np.ndarray) -> float:
+    """Calculate biological-group ASW score."""
     from sklearn.metrics import silhouette_score
 
-    # Handle edge cases
     if X.size == 0 or X.shape[0] < 2:
         return 0.0
 
-    if len(bio_labels) != X.shape[0]:
-        raise ValueError(
-            f"Shape mismatch: X has {X.shape[0]} samples but "
-            f"bio_labels has {len(bio_labels)} elements"
-        )
-
-    # Check for minimum number of biological groups
-    unique_bio = np.unique(bio_labels)
-    if len(unique_bio) < 2:
+    x_clean, _, bio_codes = _prepare_labeled_matrix(X, bio_labels)
+    if x_clean.shape[0] < 2 or len(np.unique(bio_codes)) < 2:
         return 0.0
 
-    # Handle NaN values
-    valid_mask = ~np.isnan(X).any(axis=1)
-    if not np.any(valid_mask):
-        return 0.0
-
-    X_clean = X[valid_mask]
-    bio_labels_clean = bio_labels[valid_mask]
-
-    # Check if we still have at least 2 groups after filtering
-    unique_bio_clean = np.unique(bio_labels_clean)
-    if len(unique_bio_clean) < 2:
-        return 0.0
-
-    # Check minimum samples per group
-    group_counts = np.bincount(bio_labels_clean)
-    if len(group_counts) > 0 and np.min(group_counts[group_counts > 0]) < 2:
+    _, counts = np.unique(bio_codes, return_counts=True)
+    if counts.size == 0 or int(np.min(counts)) < 2:
         return 0.0
 
     try:
-        # Calculate silhouette score for biological labels
-        asw = silhouette_score(X_clean, bio_labels_clean)
-
-        # Clamp to [0, 1]
+        asw = float(silhouette_score(x_clean, bio_codes))
         return float(np.clip(asw, 0.0, 1.0))
     except Exception:
-        # Handle any sklearn errors
         return 0.0
 
 
 def batch_mixing_score(
     X: NDArray[np.float64],
-    batch_labels: NDArray[np.int_],
+    batch_labels: np.ndarray,
     n_neighbors: int = 50,
 ) -> float:
-    """Calculate batch mixing score (simplified LISI).
+    """Calculate a heuristic local batch-mixing proxy.
 
-    Evaluates how well samples from different batches are mixed in the
-    local neighborhood of each sample. This is a simplified version of
-    the Local Inverse Simpson's Index (LISI).
-
-    Parameters
-    ----------
-    X : NDArray[np.float64]
-        Input data matrix of shape (n_samples, n_features), typically
-        dimensionality-reduced embeddings.
-    batch_labels : NDArray[np.int_]
-        Batch labels for each sample, shape (n_samples,).
-    n_neighbors : int, optional
-        Number of neighbors to consider, by default 50.
-
-    Returns
-    -------
-    float
-        Batch mixing score in range [0, 1]. Higher values indicate better
-        batch mixing. Returns 0.0 for edge cases.
-
-    Notes
-    -----
-    For each sample, we look at its k nearest neighbors and calculate
-    the Simpson's diversity index based on batch proportions. The score
-    is then averaged across all samples.
-
-    A score of 1.0 indicates perfect mixing (all batches equally represented
-    in each neighborhood), while lower scores indicate batch clustering.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> np.random.seed(42)
-    >>> X = np.random.randn(100, 10)
-    >>> batch_labels = np.repeat([0, 1], 50)
-    >>> score = batch_mixing_score(X, batch_labels, n_neighbors=10)
-    >>> 0.0 <= score <= 1.0
-    True
+    This is the historical AutoSelect proxy score. It is not kBET and not
+    original LISI. It uses normalized Simpson diversity on a fixed-k
+    neighborhood and remains the current batch-mixing score consumed by
+    AutoSelect selection logic.
     """
-    # Handle edge cases
     if X.size == 0 or X.shape[0] < 2:
         return 0.0
 
-    if len(batch_labels) != X.shape[0]:
-        raise ValueError(
-            f"Shape mismatch: X has {X.shape[0]} samples but "
-            f"batch_labels has {len(batch_labels)} elements"
-        )
+    _validate_neighbors(n_neighbors)
+    x_clean, _, batch_codes = _prepare_labeled_matrix(X, batch_labels)
+    n_samples = x_clean.shape[0]
+    n_batches = len(np.unique(batch_codes))
 
-    n_samples = X.shape[0]
-    unique_batches = np.unique(batch_labels)
-    n_batches = len(unique_batches)
-
-    if n_batches < 2:
+    if n_samples < 2 or n_batches < 2:
         return 0.0
 
-    # Adjust n_neighbors if necessary
-    n_neighbors = min(n_neighbors, n_samples - 1)
-    if n_neighbors < 1:
+    neighbor_distances, neighbor_indices = _compute_knn(x_clean, n_neighbors)
+    if neighbor_distances.shape[1] == 0:
         return 0.0
-
-    # Handle NaN values
-    valid_mask = ~np.isnan(X).any(axis=1)
-    if not np.any(valid_mask):
-        return 0.0
-
-    X_clean = X[valid_mask]
-    batch_labels_clean = batch_labels[valid_mask]
-    n_samples_clean = X_clean.shape[0]
-
-    if n_samples_clean < 2:
-        return 0.0
-
-    # Re-check batches after filtering
-    unique_batches_clean = np.unique(batch_labels_clean)
-    if len(unique_batches_clean) < 2:
-        return 0.0
-
-    # Re-adjust n_neighbors
-    n_neighbors = min(n_neighbors, n_samples_clean - 1)
 
     try:
-        # Find nearest neighbors
-        nbrs = NearestNeighbors(n_neighbors=n_neighbors + 1, algorithm="auto").fit(X_clean)
-        distances, indices = nbrs.kneighbors(X_clean)
-
-        # Calculate mixing score for each sample
         scores = []
-        for i in range(n_samples_clean):
-            # Get neighbor batch labels (excluding self)
-            neighbor_indices = indices[i, 1:]  # Exclude self (first neighbor)
-            neighbor_batches = batch_labels_clean[neighbor_indices]
-
-            # Count batch proportions
-            batch_counts = np.bincount(neighbor_batches, minlength=len(unique_batches_clean))
-            proportions = batch_counts / len(neighbor_batches)
-
-            # Simpson's diversity index: 1 - sum(p^2)
-            # Higher value = more diverse (better mixing)
+        for neighbors in neighbor_indices:
+            neighbor_codes = batch_codes[neighbors]
+            batch_counts = np.bincount(neighbor_codes, minlength=n_batches)
+            proportions = batch_counts / len(neighbor_codes)
             simpson = 1.0 - np.sum(proportions**2)
             scores.append(simpson)
 
-        # Average score, normalized to [0, 1]
-        # Simpson's index ranges from 0 (no diversity) to 1 - 1/n_batches (max diversity)
         max_simpson = 1.0 - 1.0 / n_batches
         if max_simpson < _EPS:
             return 0.0
 
-        avg_score = np.mean(scores)
-        normalized_score = avg_score / max_simpson
-
-        return float(np.clip(normalized_score, 0.0, 1.0))
+        avg_score = float(np.mean(scores))
+        return float(np.clip(avg_score / max_simpson, 0.0, 1.0))
     except Exception:
         return 0.0
+
+
+def kbet_score(
+    X: NDArray[np.float64],
+    batch_labels: np.ndarray,
+    n_neighbors: int = 50,
+    alpha: float = 0.05,
+) -> float:
+    """Calculate a fixed-k kBET acceptance rate."""
+    if X.size == 0 or X.shape[0] < 2:
+        return 0.0
+
+    _validate_neighbors(n_neighbors)
+    _validate_alpha(alpha)
+    x_clean, _, batch_codes = _prepare_labeled_matrix(X, batch_labels)
+
+    n_samples = x_clean.shape[0]
+    n_batches = len(np.unique(batch_codes))
+    if n_samples < 2 or n_batches < 2:
+        return 0.0
+
+    _, neighbor_indices = _compute_knn(x_clean, n_neighbors)
+    if neighbor_indices.shape[1] == 0:
+        return 0.0
+
+    local_k = neighbor_indices.shape[1]
+    expected_counts = np.bincount(batch_codes, minlength=n_batches).astype(float)
+    expected_counts = expected_counts / expected_counts.sum() * local_k
+    if np.any(expected_counts <= 0.0):
+        return 0.0
+
+    degrees_of_freedom = n_batches - 1
+    if degrees_of_freedom <= 0:
+        return 0.0
+
+    acceptance = np.ones(neighbor_indices.shape[0], dtype=bool)
+    for row_idx, neighbors in enumerate(neighbor_indices):
+        observed_counts = np.bincount(batch_codes[neighbors], minlength=n_batches).astype(float)
+        chi_square = np.sum((observed_counts - expected_counts) ** 2 / expected_counts)
+        p_value = float(chi2.sf(chi_square, degrees_of_freedom))
+        acceptance[row_idx] = p_value >= alpha
+
+    return float(np.mean(acceptance))
+
+
+def ilisi_score(
+    X: NDArray[np.float64],
+    batch_labels: np.ndarray,
+    n_neighbors: int = 90,
+    perplexity: float = 30.0,
+    *,
+    scale: bool = True,
+) -> float:
+    """Calculate a standardized iLISI summary.
+
+    This follows the perplexity-weighted neighborhood style used by modern
+    LISI implementations more closely than the historical fixed-k proxy.
+    """
+    if X.size == 0 or X.shape[0] < 2:
+        return 0.0
+
+    _validate_neighbors(n_neighbors)
+    _validate_perplexity(perplexity)
+    x_clean, _, batch_codes = _prepare_labeled_matrix(X, batch_labels)
+
+    n_samples = x_clean.shape[0]
+    n_batches = len(np.unique(batch_codes))
+    if n_samples < 2 or n_batches < 2:
+        return 0.0
+
+    neighbor_distances, neighbor_indices = _compute_knn(x_clean, n_neighbors)
+    local_k = neighbor_indices.shape[1]
+    if local_k == 0:
+        return 0.0
+
+    effective_perplexity = min(float(perplexity), float(local_k))
+    neighbor_probabilities = _compute_perplexity_probabilities(
+        neighbor_distances,
+        effective_perplexity,
+    )
+    ilisi_scores = _compute_inverse_simpson_scores(
+        batch_codes,
+        neighbor_indices,
+        neighbor_probabilities,
+        n_batches,
+    )
+    median_ilisi = float(np.median(ilisi_scores))
+
+    if not scale:
+        return median_ilisi
+
+    return float(np.clip((median_ilisi - 1.0) / (n_batches - 1.0), 0.0, 1.0))
+
+
+__all__ = [
+    "batch_asw",
+    "bio_asw",
+    "batch_mixing_score",
+    "kbet_score",
+    "ilisi_score",
+]

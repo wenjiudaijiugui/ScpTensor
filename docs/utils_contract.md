@@ -206,6 +206,7 @@
 - 输出是 feature-feature correlation matrix
 - 支持 `method="pearson" | "spearman"`
 - 稀疏输入先 densify
+- 输入含 non-finite 值 -> `ValueError`
 - 输出 `float64`
 - 对角线强制设为 `1.0`
 - 数值结果会 `clip` 到 `[-1, 1]`
@@ -218,6 +219,8 @@
 
 - `i` / `j` 越界 -> `ValueError`
 - conditioning set 非法 -> `ValueError`
+- 输入含 non-finite 值 -> `ValueError`
+- 样本数不足 2 -> `ValueError`
 - 若协方差矩阵奇异，则加 `_REGULARIZATION_EPS` 后再求逆
 - 若 `conditioning_set` 为空或 `None`，退化为简单 Pearson correlation
 
@@ -232,6 +235,7 @@
   - 但对某些低维输入，底层 `scipy.stats.spearmanr` 可能返回标量
 - `Y is not None` 时：
   - 返回单个相关系数 `float`
+- 任一输入含 non-finite 值 -> `ValueError`
 
 因此它的稳定合同应是：
 
@@ -246,9 +250,12 @@
 - `Y is None` -> 行与行之间的 pairwise cosine similarity
 - `Y is not None` -> `X` 与 `Y` 行之间的 similarity
 - 稀疏/稠密都支持
+- 会先把 `X` / `Y` 解释成 2D row-wise 矩阵
+- 任一输入含 non-finite 值 -> `ValueError`
+- `Y is not None` 且特征维度不一致 -> `ValueError`
 - 零范数通过后处理归一化并 `nan_to_num` 收口到有限值
 
-当前它返回的是数组级 similarity 结果，而不是单个 sklearn-like estimator 对象。
+当前它返回的是数组级 pairwise similarity matrix，而不是单个 sklearn-like estimator 对象。
 
 ## 7. Transform Utilities 合同
 

@@ -191,27 +191,28 @@ class TestMinProbImputation:
         # Check imputed values are positive
         assert np.all(X_imputed >= 0)
 
-    def test_minprob_imputed_values_below_detection(self, minprob_container):
-        """Test that MinProb imputes values below detection limit."""
+    def test_minprob_imputed_values_follow_sample_low_quantiles(self, minprob_container):
+        """Test that MinProb follows the low-intensity tail of each sample row."""
         container, X_true, missing_mask = minprob_container
 
         result = impute_minprob(
             container,
             assay_name="protein",
             source_layer="raw",
-            sigma=2.0,
+            sigma=0.5,
             random_state=42,
         )
 
         X_imputed = result.assays["protein"].layers["imputed_minprob"].X
 
-        # For each feature, check that imputed values are below or near min detected
-        for j in range(X_true.shape[1]):
-            if np.any(missing_mask[:, j]):
-                min_detected = np.min(X_true[~missing_mask[:, j], j])
-                imputed_vals = X_imputed[missing_mask[:, j], j]
-                # Imputed values should be near or below min detected
-                assert np.mean(imputed_vals) <= min_detected * 1.2
+        for i in range(X_true.shape[0]):
+            if np.any(missing_mask[i]):
+                observed = X_true[i, ~missing_mask[i]]
+                imputed_vals = X_imputed[i, missing_mask[i]]
+                sample_q25 = np.quantile(observed, 0.25)
+                sample_median = np.median(observed)
+                assert np.median(imputed_vals) <= sample_median * 1.5
+                assert np.any(imputed_vals <= sample_q25 * 1.5)
 
     def test_minprob_different_missing_rates(self, create_minprob_container):
         """Test MinProb with different missing rates."""

@@ -13,6 +13,8 @@ from scptensor.autoselect.metrics.batch import (
     batch_asw,
     batch_mixing_score,
     bio_asw,
+    ilisi_score,
+    kbet_score,
 )
 
 
@@ -268,6 +270,101 @@ class TestBatchMixingScore:
         result = batch_mixing_score(X, batch_labels, n_neighbors=15)
         assert 0.0 <= result <= 1.0
 
+    def test_string_labels_are_supported(self) -> None:
+        """String-valued batch labels should not require caller-side encoding."""
+        np.random.seed(42)
+        X = np.random.randn(60, 8)
+        batch_labels = np.array(["B1"] * 30 + ["B2"] * 30)
+
+        assert 0.0 <= batch_asw(X, batch_labels) <= 1.0
+        assert 0.0 <= batch_mixing_score(X, batch_labels, n_neighbors=10) <= 1.0
+
+
+class TestStandardizedBatchMetrics:
+    """Tests for standardized kBET / iLISI scores."""
+
+    @staticmethod
+    def _build_mixed_and_segregated() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        mixed_x = np.array([[i // 2, 0.0] for i in range(12)], dtype=float)
+        segregated_x = np.array(
+            [
+                [0.0, 0.0],
+                [0.1, 0.0],
+                [0.2, 0.0],
+                [0.3, 0.0],
+                [0.4, 0.0],
+                [0.5, 0.0],
+                [10.0, 0.0],
+                [10.1, 0.0],
+                [10.2, 0.0],
+                [10.3, 0.0],
+                [10.4, 0.0],
+                [10.5, 0.0],
+            ]
+        )
+        labels = np.array(["A", "B"] * 6)
+        segregated_labels = np.array(["A"] * 6 + ["B"] * 6)
+        return mixed_x, segregated_x, labels, segregated_labels
+
+    def test_kbet_distinguishes_mixed_from_segregated(self) -> None:
+        mixed_x, segregated_x, labels, segregated_labels = self._build_mixed_and_segregated()
+
+        mixed_score = kbet_score(mixed_x, labels, n_neighbors=5, alpha=0.05)
+        segregated_score = kbet_score(
+            segregated_x,
+            segregated_labels,
+            n_neighbors=5,
+            alpha=0.05,
+        )
+
+        assert 0.0 <= mixed_score <= 1.0
+        assert 0.0 <= segregated_score <= 1.0
+        assert mixed_score > segregated_score
+        assert mixed_score > 0.8
+        assert segregated_score < 0.2
+
+    def test_ilisi_distinguishes_mixed_from_segregated(self) -> None:
+        mixed_x, segregated_x, labels, segregated_labels = self._build_mixed_and_segregated()
+
+        mixed_scaled = ilisi_score(mixed_x, labels, n_neighbors=5, perplexity=4.0)
+        mixed_raw = ilisi_score(mixed_x, labels, n_neighbors=5, perplexity=4.0, scale=False)
+        segregated_scaled = ilisi_score(
+            segregated_x,
+            segregated_labels,
+            n_neighbors=5,
+            perplexity=4.0,
+        )
+        segregated_raw = ilisi_score(
+            segregated_x,
+            segregated_labels,
+            n_neighbors=5,
+            perplexity=4.0,
+            scale=False,
+        )
+
+        assert 0.0 <= mixed_scaled <= 1.0
+        assert 0.0 <= segregated_scaled <= 1.0
+        assert 1.0 <= mixed_raw <= 2.0
+        assert 1.0 <= segregated_raw <= 2.0
+        assert mixed_scaled == pytest.approx(mixed_raw - 1.0)
+        assert segregated_scaled == pytest.approx(segregated_raw - 1.0)
+        assert mixed_scaled > segregated_scaled
+        assert mixed_scaled > 0.55
+        assert segregated_scaled < 0.25
+
+    def test_standardized_metrics_validate_inputs(self) -> None:
+        X = np.random.randn(20, 5)
+        batch_labels = np.repeat(["A", "B"], 10)
+
+        with pytest.raises(ValueError, match="n_neighbors must be positive"):
+            kbet_score(X, batch_labels, n_neighbors=0)
+
+        with pytest.raises(ValueError, match="alpha must be between 0 and 1"):
+            kbet_score(X, batch_labels, alpha=1.0)
+
+        with pytest.raises(ValueError, match="perplexity must be positive"):
+            ilisi_score(X, batch_labels, perplexity=0.0)
+
 
 class TestMetricProperties:
     """Test common properties across all batch metrics."""
@@ -283,6 +380,8 @@ class TestMetricProperties:
             batch_asw(X, batch_labels),
             bio_asw(X, bio_labels),
             batch_mixing_score(X, batch_labels),
+            kbet_score(X, batch_labels),
+            ilisi_score(X, batch_labels),
         ]
 
         for metric_value in metrics:
@@ -298,6 +397,8 @@ class TestMetricProperties:
         assert isinstance(batch_asw(X, batch_labels), float)
         assert isinstance(bio_asw(X, bio_labels), float)
         assert isinstance(batch_mixing_score(X, batch_labels), float)
+        assert isinstance(kbet_score(X, batch_labels), float)
+        assert isinstance(ilisi_score(X, batch_labels), float)
 
     def test_reproducibility(self) -> None:
         """Test that metrics are deterministic for same input."""
@@ -314,3 +415,5 @@ class TestMetricProperties:
         assert batch_asw(X1, batch_labels1) == batch_asw(X2, batch_labels2)
         assert bio_asw(X1, bio_labels1) == bio_asw(X2, bio_labels2)
         assert batch_mixing_score(X1, batch_labels1) == batch_mixing_score(X2, batch_labels2)
+        assert kbet_score(X1, batch_labels1) == kbet_score(X2, batch_labels2)
+        assert ilisi_score(X1, batch_labels1) == ilisi_score(X2, batch_labels2)

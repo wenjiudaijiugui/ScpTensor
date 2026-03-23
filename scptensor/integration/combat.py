@@ -90,7 +90,8 @@ def integrate_combat(
     new_layer_name : str | None, default="combat"
         Name for the new layer with corrected data
     covariates : Sequence[str] | None
-        Optional list of covariate column names in obs to preserve
+        Optional list of covariate column names in obs to preserve. Covariates
+        must be fully observed and finite.
     eb_mode : {"parametric", "nonparametric"}, default="parametric"
         Empirical Bayes mode for ComBat shrinkage.
         ``parametric`` uses normal/inverse-gamma priors (classic ComBat).
@@ -142,10 +143,10 @@ def integrate_combat(
     input_was_sparse = is_sparse_matrix(layer.X)
     X_dense = to_dense_array(layer.X, copy=not input_was_sparse)
 
-    if np.isnan(X_dense).any():
+    if not np.isfinite(X_dense).all():
         raise ValidationError(
-            "ScpTensor's ComBat implementation currently requires a complete matrix "
-            "(no NaN values). For high-missing single-cell DIA protein matrices, "
+            "ScpTensor's ComBat implementation currently requires a complete finite matrix "
+            "(no NaN/Inf values). For high-missing single-cell DIA protein matrices, "
             "prefer integrate_limma() to preserve missing values, or perform explicit "
             "filtering/imputation before ComBat."
         )
@@ -226,6 +227,13 @@ def _build_design_matrices(
     mod_for_design = mod.drop("intercept") if "intercept" in mod.columns else mod
     design_matrix = pl.concat([batch_dummies, mod_for_design], how="horizontal")
     X_design = design_matrix.to_numpy().astype(float)
+    if not np.isfinite(X_design).all():
+        raise ScpValueError(
+            "Covariates generated a design matrix containing missing or non-finite values. "
+            "ComBat requires fully observed covariates.",
+            parameter="covariates",
+            value=list(covariates) if covariates is not None else None,
+        )
 
     return X_design, design_matrix.columns, n_batch
 
@@ -241,26 +249,69 @@ def _fit_combat(
     eb_mode: EbMode,
 ) -> np.ndarray:
     """Fit ComBat model and return corrected data."""
+    zero_var_features = _find_zero_variance_features(dat, batches, unique_batches)
+    if np.any(zero_var_features):
+        out = dat.copy()
+        keep = ~zero_var_features
+        if np.any(keep):
+            out[keep] = _fit_combat_core(
+                dat[keep],
+                design_matrix,
+                n_batch,
+                batches,
+                unique_batches,
+                n_sample,
+                eb_mode=eb_mode,
+            )
+        return out
+
+    return _fit_combat_core(
+        dat,
+        design_matrix,
+        n_batch,
+        batches,
+        unique_batches,
+        n_sample,
+        eb_mode=eb_mode,
+    )
+
+
+def _fit_combat_core(
+    dat: np.ndarray,
+    design_matrix: np.ndarray,
+    n_batch: int,
+    batches: np.ndarray,
+    unique_batches: np.ndarray,
+    n_sample: int,
+    *,
+    eb_mode: EbMode,
+) -> np.ndarray:
+    """Core ComBat fit on features that are safe for EB estimation."""
     # Fit model and extract coefficients
     B_hat = np.linalg.lstsq(design_matrix, dat.T, rcond=None)[0].T
-    _B_batch, B_covar = B_hat[:, :n_batch], B_hat[:, n_batch:]
+    B_batch, B_covar = B_hat[:, :n_batch], B_hat[:, n_batch:]
     X_covar = design_matrix[:, n_batch:]
 
-    # Compute grand mean and standardize
-    rank_design = np.linalg.matrix_rank(design_matrix)
+    # Match sva::ComBat: grand mean is the batch-size-weighted average of
+    # batch coefficients, while covariates are added separately in stand.mean.
+    batch_sizes = np.array([np.sum(batches == b) for b in unique_batches], dtype=np.float64)
     fitted_values = (design_matrix @ B_hat.T).T
-    grand_mean = np.dot(fitted_values, np.ones(n_sample)) / n_sample
+    grand_mean = B_batch @ (batch_sizes / n_sample)
+    covar_effect = (X_covar @ B_covar.T).T
+    stand_mean = grand_mean[:, None] + covar_effect
     residuals = dat - fitted_values
-    sigma = np.sqrt(np.sum(residuals**2, axis=1) / (n_sample - rank_design))
-    sigma[sigma == 0] = 1e-8
+    var_pooled = np.sum(residuals**2, axis=1) / n_sample
+    sigma = np.sqrt(np.clip(var_pooled, 1e-8, None))
 
     # Standardize data
-    covar_effect = (X_covar @ B_covar.T).T
-    Z = (dat - grand_mean[:, None] - covar_effect) / sigma[:, None]
+    Z = (dat - stand_mean) / sigma[:, None]
 
     # Empirical Bayes estimation
     gamma_hat, delta_hat = _compute_batch_moments(Z, batches, unique_batches, n_batch)
-    if eb_mode == "parametric":
+    if dat.shape[0] < 2:
+        gamma_star = gamma_hat.copy()
+        delta_star = np.clip(delta_hat, 1e-8, None)
+    elif eb_mode == "parametric":
         gamma_bar, t2, a_prior, b_prior = _compute_eb_priors(gamma_hat, delta_hat)
         gamma_star, delta_star = _solve_eb_for_batches(
             gamma_hat, delta_hat, batches, unique_batches, gamma_bar, t2, a_prior, b_prior
@@ -276,7 +327,20 @@ def _fit_combat(
 
     # Apply correction
     out_data = _apply_combat_correction(Z, batches, unique_batches, gamma_star, delta_star)
-    return out_data * sigma[:, None] + grand_mean[:, None] + covar_effect
+    return out_data * sigma[:, None] + stand_mean
+
+
+def _find_zero_variance_features(
+    dat: np.ndarray,
+    batches: np.ndarray,
+    unique_batches: np.ndarray,
+) -> np.ndarray:
+    """Identify features with zero within-batch variance in any batch."""
+    zero_var = np.zeros(dat.shape[0], dtype=bool)
+    for batch in unique_batches:
+        idx = np.where(batches == batch)[0]
+        zero_var |= np.ptp(dat[:, idx], axis=1) == 0
+    return zero_var
 
 
 def _build_covariate_design(
@@ -330,11 +394,18 @@ def _compute_eb_priors(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Compute empirical Bayes priors using method of moments."""
     gamma_bar = np.mean(gamma_hat, axis=1)
-    t2 = np.var(gamma_hat, axis=1, ddof=1)
+    if gamma_hat.shape[1] > 1:
+        t2 = np.var(gamma_hat, axis=1, ddof=1)
+    else:
+        t2 = np.zeros(gamma_hat.shape[0], dtype=np.float64)
+    t2 = np.where(np.isfinite(t2) & (t2 >= 0), t2, 0.0)
 
     delta_mean = np.mean(delta_hat, axis=1)
-    delta_var = np.var(delta_hat, axis=1, ddof=1)
-    delta_var[delta_var == 0] = 1e-8
+    if delta_hat.shape[1] > 1:
+        delta_var = np.var(delta_hat, axis=1, ddof=1)
+    else:
+        delta_var = np.zeros(delta_hat.shape[0], dtype=np.float64)
+    delta_var = np.where(np.isfinite(delta_var) & (delta_var > 0), delta_var, 1e-8)
 
     a_prior = (delta_mean**2 / delta_var) + 2
     b_prior = delta_mean * (a_prior - 1)
@@ -382,6 +453,8 @@ def _solve_eb(
     conv: float = 1e-4,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Solve empirical Bayes using iterative posterior estimation."""
+    g_hat = np.asarray(g_hat, dtype=np.float64)
+    d_hat = np.clip(np.asarray(d_hat, dtype=np.float64), 1e-8, None)
     g_old, d_old = g_hat.copy(), d_hat.copy()
     denom = max(a + n / 2 - 1, 1e-8)
 

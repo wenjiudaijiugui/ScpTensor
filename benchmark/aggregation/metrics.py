@@ -7,6 +7,7 @@ from itertools import combinations
 
 import numpy as np
 import pandas as pd
+import scipy.sparse as sp
 from sklearn.metrics import roc_auc_score
 
 EXPECTED_LOG2FC_HYE124: dict[str, float] = {
@@ -244,3 +245,110 @@ def summarize_method(
     }
 
     return summary, quantified, species_summary, pairwise_auc
+
+
+def summarize_mapping_burden(protein_assignments: list[str | None]) -> dict[str, float]:
+    """Summarize precursor/peptide -> protein ambiguity burden."""
+    multiplicities: list[int] = []
+
+    for assignment in protein_assignments:
+        if assignment is None:
+            continue
+        tokens = [
+            token.strip()
+            for token in str(assignment).replace("|", ";").replace(",", ";").split(";")
+            if token.strip()
+        ]
+        if not tokens:
+            continue
+        multiplicities.append(len(set(tokens)))
+
+    if not multiplicities:
+        return {
+            "ambiguous_mapping_fraction": float("nan"),
+            "mapping_targets_per_peptide_mean": float("nan"),
+            "mapping_targets_per_peptide_median": float("nan"),
+        }
+
+    values = np.asarray(multiplicities, dtype=np.float64)
+    return {
+        "ambiguous_mapping_fraction": float(np.mean(values > 1)),
+        "mapping_targets_per_peptide_mean": float(np.mean(values)),
+        "mapping_targets_per_peptide_median": float(np.median(values)),
+    }
+
+
+def summarize_state_burden(
+    mask: np.ndarray | sp.spmatrix | None,
+    *,
+    shape: tuple[int, int],
+) -> dict[str, float]:
+    """Summarize aggregated matrix state burden."""
+    total = float(shape[0] * shape[1])
+    if total <= 0:
+        return {
+            "state_valid_fraction": float("nan"),
+            "state_non_valid_fraction": float("nan"),
+            "state_lod_fraction": float("nan"),
+            "state_uncertain_fraction": float("nan"),
+        }
+
+    if mask is None:
+        return {
+            "state_valid_fraction": 1.0,
+            "state_non_valid_fraction": 0.0,
+            "state_lod_fraction": 0.0,
+            "state_uncertain_fraction": 0.0,
+        }
+
+    mask_dense = mask.toarray() if sp.issparse(mask) else np.asarray(mask, dtype=np.int8)
+    valid_fraction = float(np.mean(mask_dense == 0))
+    lod_fraction = float(np.mean(mask_dense == 2))
+    uncertain_fraction = float(np.mean(mask_dense == 6))
+    return {
+        "state_valid_fraction": valid_fraction,
+        "state_non_valid_fraction": float(1.0 - valid_fraction),
+        "state_lod_fraction": lod_fraction,
+        "state_uncertain_fraction": uncertain_fraction,
+    }
+
+
+def summarize_de_consistency_proxy(
+    quantified: pd.DataFrame,
+    *,
+    background_species: str = BACKGROUND_SPECIES,
+    zero_tolerance: float = 0.5,
+) -> dict[str, float]:
+    """Summarize a task-style DE proxy from expected species fold changes."""
+    if quantified.empty:
+        return {
+            "de_changed_direction_accuracy": float("nan"),
+            "de_background_stability_rate": float("nan"),
+            "de_consistency_score": float("nan"),
+        }
+
+    changed = quantified[quantified["species"] != background_species].copy()
+    background = quantified[quantified["species"] == background_species].copy()
+
+    changed_accuracy = float("nan")
+    if not changed.empty:
+        expected = changed["expected_log2_fc_ab"].to_numpy(dtype=np.float64)
+        observed = changed["log2_fc_ab"].to_numpy(dtype=np.float64)
+        valid = np.isfinite(expected) & np.isfinite(observed) & (np.abs(expected) > 1e-12)
+        if np.any(valid):
+            changed_accuracy = float(np.mean(np.sign(observed[valid]) == np.sign(expected[valid])))
+
+    background_stability = float("nan")
+    if not background.empty:
+        observed_bg = background["log2_fc_ab"].to_numpy(dtype=np.float64)
+        valid_bg = np.isfinite(observed_bg)
+        if np.any(valid_bg):
+            background_stability = float(np.mean(np.abs(observed_bg[valid_bg]) <= zero_tolerance))
+
+    components = [value for value in (changed_accuracy, background_stability) if np.isfinite(value)]
+    de_consistency = float(np.mean(components)) if components else float("nan")
+    return {
+        "de_changed_direction_accuracy": changed_accuracy,
+        "de_background_stability_rate": background_stability,
+        "de_consistency_score": de_consistency,
+    }

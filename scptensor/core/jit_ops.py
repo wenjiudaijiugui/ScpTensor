@@ -834,20 +834,47 @@ else:
 
     # Statistical functions
     def mean_no_nan(arr: np.ndarray) -> float:
-        """Fallback mean (pure NumPy)."""
-        return np.nanmean(arr)
+        """Fallback mean aligned to the JIT zero-for-all-NaN convention."""
+        finite = np.isfinite(arr)
+        if not np.any(finite):
+            return 0.0
+        return float(np.nanmean(arr))
 
     def var_no_nan(arr: np.ndarray) -> float:
-        """Fallback variance (pure NumPy)."""
-        return np.nanvar(arr, ddof=1)
+        """Fallback variance aligned to the JIT all-NaN / <2 finite convention."""
+        finite_count = int(np.count_nonzero(np.isfinite(arr)))
+        if finite_count <= 1:
+            return 0.0
+        return float(np.nanvar(arr, ddof=1))
 
     def mean_axis_no_nan(X: np.ndarray, axis: int) -> np.ndarray:
-        """Fallback mean along axis (pure NumPy)."""
-        return np.nanmean(X, axis=axis)
+        """Fallback mean along axis aligned to the JIT zero-for-empty convention."""
+        finite = np.isfinite(X)
+        counts = np.sum(finite, axis=axis)
+        sums = np.where(finite, X, 0.0).sum(axis=axis)
+        return np.divide(
+            sums,
+            counts,
+            out=np.zeros_like(sums, dtype=np.float64),
+            where=counts > 0,
+        )
 
     def var_axis_no_nan(X: np.ndarray, axis: int) -> np.ndarray:
-        """Fallback variance along axis (pure NumPy)."""
-        return np.nanvar(X, axis=axis, ddof=1)
+        """Fallback variance along axis aligned to the JIT zero-for-empty convention."""
+        finite = np.isfinite(X)
+        means = mean_axis_no_nan(X, axis)
+        if axis == 0:
+            diffs = np.where(finite, X - means.reshape(1, -1), 0.0)
+        else:
+            diffs = np.where(finite, X - means.reshape(-1, 1), 0.0)
+        counts = np.sum(finite, axis=axis)
+        sum_sq = np.sum(diffs * diffs, axis=axis)
+        return np.divide(
+            sum_sq,
+            counts - 1,
+            out=np.zeros_like(sum_sq, dtype=np.float64),
+            where=counts > 1,
+        )
 
     # Matrix manipulation
     def fill_missing_with_value(
@@ -1244,6 +1271,19 @@ if NUMBA_AVAILABLE:
             p_val = 0.0
 
         return t_stat, p_val, mean1 - mean2
+
+    def vectorized_mannwhitney_row(
+        x: np.ndarray,
+        y: np.ndarray,
+    ) -> tuple[float, float]:
+        """Mann-Whitney helper available even when Numba kernels are enabled."""
+        from scipy import stats
+
+        try:
+            result = stats.mannwhitneyu(x, y, alternative="two-sided")
+            return float(result.statistic), float(result.pvalue)
+        except ValueError:
+            return 0.0, 1.0
 
 
 # =============================================================================

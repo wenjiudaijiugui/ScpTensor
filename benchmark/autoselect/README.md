@@ -62,6 +62,9 @@
 - `Liu et al.`（Nature Methods 2025）在多任务多模态 integration benchmark 中明确指出不存在“统一最优方法”，且不同输出类型适配的指标与方法不同；这支持把 `selection_score` 约束在具体策略/任务内解释，而不是把它当作跨任务绝对排名：<https://www.nature.com/articles/s41592-025-02856-3>
 - `Karuppanan et al.`（JPR 2025）进一步说明 normalization 与 imputation 的最优组合具有明显数据依赖性；这支持把 AutoSelect 报告继续解释为“当前数据与策略下的选择结果”，而不是脱离场景的永久最佳方法声明：<https://doi.org/10.1021/acs.jproteome.4c00552>
 - 因此，`selection_score` 更适合作为策略层排序分，而不是替代 `overall_score` 成为“方法本体质量”的唯一展示值。
+- 对 integration stage，当前仓库还显式区分：
+  - `batch_mixing`：历史 heuristic proxy，仍是当前排序分的一部分
+  - `batch_kbet` / `batch_ilisi`：standardized batch diagnostics，进入结果分项但尚未接管当前排序权重
 
 ## 2. 当前默认脚本资产（实现事实，不构成合同）
 
@@ -87,15 +90,20 @@ uv run python benchmark/autoselect/run_strategy_comparison.py
 
 该脚本会：
 
-1. 构造带有 batch confounding 的合成 DIA 蛋白矩阵；
+1. 构造可切出 `balanced / partially_confounded / fully_confounded` 三类设计的合成 DIA 蛋白矩阵；
 2. 固定前处理基线为 `log_transform -> median_norm -> row_median impute`；
-3. 分别在 `quality`、`balanced`、`speed` 三种策略下运行 integration 自动选择；
-4. 输出并排对比结果到 `benchmark/autoselect/strategy_compare/`。
+3. 在每个设计场景内，分别以 `quality`、`balanced`、`speed` 三种策略运行 integration 自动选择；
+4. 额外输出基于 baseline mask burden 的 script-local `state_penalized_selection_score` 辅助列；
+5. 输出并排对比结果到 `benchmark/autoselect/strategy_compare/`。
 
 说明：
 
 - 这是策略层对比，不等同于真实公共数据 panel 上的 integration benchmark。
-- 当前数据是单个合成 confounded 容器；`partially confounded` 与 state-aware penalty 尚未在该脚本中落地。
+- 当前脚本已落地：
+  - `balanced_amount_by_sample`
+  - `partially_confounded_bridge_sample`
+  - `confounded_amount_as_batch`
+- `state_penalized_selection_score` 是 benchmark 资产层的辅助列，不改写 `docs/autoselect_contract.md` 中的 `selection_score` 合同。
 - 即使后续为 `reduce / cluster` 增加策略对比，也只能作为 exploratory downstream 资产解释，不能反向定义 stable preprocessing release。
 
 ## 4. 当前默认合成归一化评测脚本（实现事实）
@@ -113,11 +121,11 @@ uv run python benchmark/autoselect/run_synthetic_normalization_stress.py \
 1. `literature_matched`：按条件分层（同批次低差异 / 同批次高差异 / 多批次混杂）评测；
 2. `stress`：广覆盖压力测试模式。
 
-当前未统一落地的 review 合同：
+当前仍未统一落地的 review 合同：
 
-- state-aware completeness / uncertainty penalty
 - 基于真实公共数据 panel 的统一 AutoSelect 报告
-- integration 三场景（`balanced / partially confounded / fully confounded`）的单目录汇总
+- 真正进入 AutoSelect 主评分合同的 state-aware uncertainty 轴
+- normalization × imputation 组合敏感性结果在统一报告中的显式位置
 
 解释：
 

@@ -7,9 +7,12 @@ import polars as pl
 import pytest
 import scipy.sparse as sp
 
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
+from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ValidationError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
-from scptensor.normalization.quantile_normalization import norm_quantile
+from scptensor.normalization.quantile_normalization import (
+    _map_reference_by_average_rank,
+    norm_quantile,
+)
 
 # =============================================================================
 # Helper Functions
@@ -152,6 +155,7 @@ class TestQuantileNormalization:
         # Check that layer was created
         assert "quantile_norm" in result.assays["protein"].layers
         X_norm = result.assays["protein"].layers["quantile_norm"].X
+        assert not sp.issparse(X_norm)
         assert X_norm.shape == (10, 20)
 
     def test_quantile_custom_layer_names(self):
@@ -286,6 +290,41 @@ class TestQuantileNormalization:
         # Tied values should receive the same normalized value
         # (average of their corresponding quantiles)
         assert np.isclose(X_norm[0, 0], X_norm[0, 1])
+
+    def test_quantile_average_rank_tie_mapping_matches_expected_values(self):
+        """Average-rank tie mapping should preserve the current interpolation contract."""
+        row_valid = np.array([4.0, 1.0, 1.0, 3.0, 2.0, 2.0, 2.0])
+        reference_dist = np.linspace(10.0, 70.0, 7)
+
+        mapped = _map_reference_by_average_rank(row_valid, reference_dist)
+
+        expected = np.array([70.0, 15.0, 15.0, 60.0, 40.0, 40.0, 40.0])
+        assert np.allclose(mapped, expected)
+
+    def test_quantile_integer_input_produces_float_reference_values(self):
+        """Integer inputs should not fail or truncate fractional quantiles."""
+        obs = pl.DataFrame({"_index": ["s1", "s2"]})
+        var = pl.DataFrame({"_index": ["p1", "p2", "p3"]})
+        x = np.array([[1, 2, 3], [10, 20, 30]], dtype=np.int64)
+
+        assay = Assay(var=var, layers={"raw": ScpMatrix(X=x)})
+        container = ScpContainer(obs=obs, assays={"protein": assay})
+
+        result = norm_quantile(container)
+        x_norm = result.assays["protein"].layers["quantile_norm"].X
+
+        assert x_norm.dtype.kind == "f"
+        np.testing.assert_allclose(x_norm, np.array([[5.5, 11.0, 16.5], [5.5, 11.0, 16.5]]))
+
+    def test_quantile_rejects_inf_values(self):
+        obs = pl.DataFrame({"_index": ["s1", "s2"]})
+        var = pl.DataFrame({"_index": ["p1", "p2", "p3"]})
+        x = np.array([[1.0, np.inf, 3.0], [2.0, 4.0, 6.0]])
+        assay = Assay(var=var, layers={"raw": ScpMatrix(X=x)})
+        container = ScpContainer(obs=obs, assays={"protein": assay})
+
+        with pytest.raises(ValidationError, match="does not accept Inf values"):
+            norm_quantile(container)
 
     def test_quantile_rank_preservation(self):
         """Test that ranks are preserved within each sample (row)."""

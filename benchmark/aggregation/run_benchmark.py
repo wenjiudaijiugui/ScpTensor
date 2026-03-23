@@ -11,7 +11,14 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import requests
-from metrics import EXPECTED_LOG2FC_HYE124, compute_protein_level_table, summarize_method
+from metrics import (
+    EXPECTED_LOG2FC_HYE124,
+    compute_protein_level_table,
+    summarize_de_consistency_proxy,
+    summarize_mapping_burden,
+    summarize_method,
+    summarize_state_burden,
+)
 from plots import (
     plot_cv_distribution,
     plot_log2fc_distribution,
@@ -224,6 +231,12 @@ def run_benchmark(
         group_a=str(spec["group_a"]),
         group_b=str(spec["group_b"]),
     )
+    mapping_burden = summarize_mapping_burden(
+        peptide_container.assays["peptides"]
+        .var[str(spec["protein_column"])]
+        .cast(pl.Utf8, strict=False)
+        .to_list()
+    )
 
     summary_rows: list[dict[str, object]] = []
     protein_frames: list[pd.DataFrame] = []
@@ -263,6 +276,14 @@ def run_benchmark(
                 expected_log2fc=expected_map,
                 background_species="HUMAN",
             )
+            summary.update(
+                summarize_state_burden(
+                    protein_assay.layers["raw"].M,
+                    shape=matrix.shape,
+                )
+            )
+            summary.update(summarize_de_consistency_proxy(quantified, background_species="HUMAN"))
+            summary.update(mapping_burden)
 
             summary_rows.append(summary)
             protein_frames.append(quantified)

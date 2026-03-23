@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sp
-import seaborn as sns
 from scipy.cluster.hierarchy import leaves_list, linkage
 from scipy.stats import pearsonr
 
@@ -27,6 +26,20 @@ from scptensor.viz.base.style import PlotStyle
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
+
+try:
+    import seaborn as sns
+except ImportError:  # pragma: no cover - exercised via import smoke subprocesses
+    sns = None
+
+
+def _color_palette(n_colors: int) -> list[tuple[float, float, float, float]]:
+    """Return a colorblind-friendly palette without requiring seaborn."""
+    if sns is not None:
+        return list(sns.color_palette("colorblind", n_colors=n_colors))
+
+    cmap = plt.cm.get_cmap("tab10", n_colors)
+    return [cmap(i) for i in range(n_colors)]
 
 
 def plot_imputation_comparison(
@@ -171,7 +184,7 @@ def plot_imputation_comparison(
     n_metrics = len(metrics)
 
     # Set up color palette (colorblind-friendly)
-    colors = sns.color_palette("colorblind", n_colors=n_metrics)
+    colors = _color_palette(n_metrics)
 
     # Set up bar positions
     x = np.arange(n_methods)
@@ -453,7 +466,7 @@ def plot_imputation_metrics(
     n_metrics = len(metric_names)
 
     # Set up color palette
-    colors = sns.color_palette("colorblind", n_colors=n_metrics)
+    colors = _color_palette(n_metrics)
 
     # Set up bar positions
     x = np.arange(n_methods)

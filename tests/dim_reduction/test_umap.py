@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import builtins
+
 import numpy as np
 import polars as pl
 import pytest
 
+from scptensor.core.exceptions import MissingDependencyError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.dim_reduction import reduce_umap
 
@@ -108,3 +111,24 @@ def test_reduce_umap_freezes_copy_contract() -> None:
     assert result.assays["proteins"] is container.assays["proteins"]
     assert "umap" not in container.assays
     assert "umap" in result.assays
+
+
+def test_reduce_umap_raises_clear_error_when_umap_dependency_missing(monkeypatch) -> None:
+    container = _make_container()
+    real_import = builtins.__import__
+
+    def _guarded_import(name, *args, **kwargs):
+        if name == "umap":
+            raise ImportError("blocked for test")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _guarded_import)
+
+    with pytest.raises(MissingDependencyError, match="umap-learn"):
+        reduce_umap(
+            container,
+            assay_name="proteins",
+            base_layer="imputed",
+            n_neighbors=5,
+            random_state=42,
+        )

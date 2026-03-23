@@ -118,7 +118,13 @@
 
 ### 4.3 非原地语义
 
-`MatrixOps` 当前所有对外操作都先 `matrix.copy()`，因此输入 `ScpMatrix` 不应被原地改写。
+`MatrixOps` 当前对外操作保持非原地返回语义，但内部实现不要求一律先 `matrix.copy()`。
+
+当前稳定解释应是：
+
+- 返回新对象
+- 输入 `ScpMatrix` 不应被原地改写
+- 若某些路径为了降低分配成本而直接重建返回对象，也必须保持 metadata 等附属状态与输入解耦
 
 这条语义对后续 provenance、缓存和上游模块非常关键。即使未来内部使用 view、临时 buffer 或 JIT kernel，也必须保持“返回新对象、输入对象不被静默修改”这一稳定合同。
 
@@ -195,7 +201,8 @@
 - 返回新的 `ScpMatrix`
 - 只修改 `M`
 - 不修改 `X`
-- 稀疏 `M` 路径使用 `LIL -> CSR` 转换以完成写入
+- 稀疏 `M` 路径使用 CSR arithmetic replace path 完成写入，不再依赖 `LIL -> CSR`
+- 对原本未显式存储的稀疏坐标，写入后会 materialize 对应 mask entry
 
 因此后续若更换实现，至少要保留：
 
@@ -249,6 +256,12 @@
    - 隐式 `VALID` 也必须一起过滤
    - 当前实现会 materialize 全量 dense mask 以保证正确性
    - 此路径可能导致 `X` 从 sparse 变成 dense
+   - 当前实现允许跳过 densify 前的整份 sparse 预拷贝，以减少无用分配；但返回对象仍必须与输入解耦
+
+补充冻结点：
+
+- 在 “`VALID` 被保留” 的稀疏路径上，`X` 的坐标写入当前走 CSR arithmetic replace path
+- 若被过滤位置在 `X` 中原本是 structural zero，结果里该坐标会被显式 materialize 为 `NaN`
 
 因此，后续优化不能为了“避免 densify”而牺牲这条正确性语义。
 
@@ -380,6 +393,9 @@
 - 结构零仍保持为零，不会 materialize
 - 稠密输入走标准 NumPy 表达式
 - 大矩阵时可按 `_JIT_THRESHOLD` 选择 numba kernel
+- 当前 NumPy sparse 路径允许在“复制后的 `data` buffer”上原位完成变换，以减少中间分配；但不能改写输入对象
+- `use_jit=True` 的稳定解释是“允许 threshold-gated JIT 尝试”，不是“保证进入 numba 分支”
+- 当前默认 `_JIT_THRESHOLD` 采用保守基线，并允许通过 `SCPTENSOR_JIT_THRESHOLD` 环境变量覆盖
 
 因此：
 
@@ -435,19 +451,24 @@
 - `sum` 仅统计显式存储值
 - `mean` 对空行返回 `0.0`
 
-## 9. 当前已知实现不对称点
+## 9. 当前实现注意点
 
-以下问题在当前仓库中真实存在，文档必须如实记录，避免后续重构时误以为这些地方已经一致化：
+以下条目反映当前仓库在低层计算面上需要明确写死的现实边界，避免后续重构时重新引入已收口的不一致。
 
-### 9.1 `jit_ops.__all__` 与定义体不完全对齐
+### 9.1 `jit_ops.__all__` 与定义体当前已对齐
 
-`jit_ops.__all__` 当前包含：
+`jit_ops.__all__` 当前包含的 `vectorized_mannwhitney_row` 已在：
 
-- `vectorized_mannwhitney_row`
+- `NUMBA_AVAILABLE=True`
+- `NUMBA_AVAILABLE=False`
 
-但源码里该函数只在 `NUMBA_AVAILABLE=False` 的 fallback 分支定义；当 `NUMBA_AVAILABLE=True` 时，它不会在同名位置出现。
+两条路径下都提供定义。
 
-这意味着当前 `jit_ops` 存在“声明为可用，但实现只在部分导入路径存在”的不对称点。后续修复可以做，但在修复前不能把它当成稳定可依赖的对称 API。
+因此当前稳定合同可视为：
+
+- 该符号可以被导入
+- 它不是 Numba JIT kernel，而是 differential expression helper 的稳定公共面之一
+- 后续若要替换实现，可以优化内部路径，但不能再次回到“`__all__` 暴露而实际部分环境缺失”的状态
 
 ### 9.2 `sparse_center_rows()` 的名称与真实返回不一致
 
@@ -458,20 +479,38 @@
 
 它并不返回数值上已减去均值的新矩阵。
 
-### 9.3 `MatrixOps` mask query 的类型注解偏窄
+### 9.3 `MatrixOps` mask query 允许返回 dense 或 sparse 布尔结果
 
-`get_valid_mask()`、`get_missing_mask()`、`get_missing_type_mask()` 当前类型注解写成 `np.ndarray`，但在稀疏 `M` 路径下可返回稀疏布尔矩阵。
+`get_valid_mask()`、`get_missing_mask()`、`get_missing_type_mask()` 当前类型注解已经与真实行为对齐为：
 
-因此当前稳定合同应以“形状与布尔语义正确”为准，而不能依赖其必定是 dense ndarray。
+- `np.ndarray | sp.spmatrix`
 
-### 9.4 JIT 与 fallback 在极端 NaN 场景仍有差异风险
+稳定解释是：
 
-例如：
+- 稠密 `M` 路径返回 dense 布尔数组
+- 稀疏 `M` 路径可返回稀疏布尔矩阵
+- 调用方应依赖其 shape 与布尔语义，而不是假设结果必定 dense
 
-- JIT 版 `mean_no_nan()` / `var_no_nan()` 在全 NaN 输入下偏向返回 `0.0`
-- fallback 版分别调用 `np.nanmean()` / `np.nanvar()`，全 NaN 时会产生 `NaN`
+补充事实：
 
-也就是说，仓库当前已具备“主路径语义大体一致，但极端边界仍未完全收口”的事实。后续若修复，应通过新增 golden tests 显式收敛，而不是靠优化顺手改变。
+- 对稀疏 `M` 的 `VALID` 查询当前内部会显式抑制 `SparseEfficiencyWarning`
+- 这只是为了收口告警噪音，不代表其语义被改成 dense-only 或重新定义
+
+### 9.4 JIT 与 fallback 的 NaN 统计 helper 当前已对齐
+
+以下 helper 当前在 JIT 与 fallback 下都遵循同一约定：
+
+- `mean_no_nan()`
+- `var_no_nan()`
+- `mean_axis_no_nan()`
+- `var_axis_no_nan()`
+
+稳定语义：
+
+- 全 NaN 输入 -> 返回 `0.0`
+- 有效值数不足以定义样本方差（`< 2`） -> 返回 `0.0`
+
+因此当前可以把“zero-for-empty/all-NaN”视为仓库级冻结行为，而不是某一条执行路径的偶然现象。
 
 ## 10. 优化时不得破坏的高优先级约束
 
@@ -489,7 +528,7 @@
 
 基于当前实现，后续 `core` 优化应优先朝以下方向推进，而不是改动对外语义：
 
-- 用更低开销的 sparse write path 替换 `LIL -> CSR`，但保持返回语义不变
+- 保持当前 sparse write path 的 CSR arithmetic 实现，不要回退到 `LIL -> CSR`
 - 为 `filter_by_mask()` 的 densify 路径加更明确的测试和注释，而不是删除该路径
 - 把“显式非零 reduction”和“dense 语义 reduction”区分为两个明确函数族，而不是偷偷改变现有函数
 - 将 JIT kernel 与 fallback 的测试对齐到统一 golden cases

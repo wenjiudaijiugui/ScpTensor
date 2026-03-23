@@ -217,15 +217,15 @@
 
 说明：
 
-- 当前 matrix import 中，缺失单元格默认映射到 `LOD`，这是保守 engineering choice。
+- 当前 matrix import 中，缺失单元格默认映射到 `UNCERTAIN`，这是更严格的保守 engineering choice。
 - 若上游只提供最终 pivot matrix，ScpTensor 不应过度宣称该值是 `VALID` 还是 `MBR`；此时更适合依赖 provenance 和记为 `UNCERTAIN` 或保守 `LOD`。
 
 ### 9.4 当前实现快照与解释边界（2026-03-16）
 
-当前 `scptensor.io.mass_spec` 的 matrix/pivot 导入实现仍采用最简基线：
+当前 `scptensor.io.mass_spec` 的 matrix/pivot 导入实现采用保守基线：
 
 - finite cell -> `VALID`
-- non-finite cell -> `LOD`
+- non-finite cell -> `UNCERTAIN`
 
 这条规则的意义应被收紧为：
 
@@ -234,9 +234,9 @@
 
 因此在后续文档、QC 统计、missingness 指标与 benchmark 解释中，应继续遵守以下口径：
 
-- matrix-only 导入得到的 `LOD`，默认解释为 `matrix-missing baseline`
-- 不应把它自动上升为“明确 left-censored low abundance”
-- 若来源语义无法恢复，长期目标语义仍更接近 `UNCERTAIN`
+- matrix-only 导入得到的 `UNCERTAIN`，默认解释为“缺失存在，但来源语义未恢复”
+- 不应把它自动上升为“明确 left-censored low abundance”或 `MBR`
+- 若后续要细分成 `LOD` / `FILTERED` / `MBR`，必须依赖额外来源证据
 
 换句话说，当前实现允许工程上先走通导入路径，但文档不能把这一简化写成状态语义已经完全解决。
 

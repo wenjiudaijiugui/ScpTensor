@@ -45,7 +45,7 @@ def test_load_diann_protein_matrix(tmp_path: Path) -> None:
 
     m = assay.layers["raw"].get_m()
     assert int(m[0, 0]) == MaskCode.VALID.value
-    assert int(m[1, 1]) == MaskCode.LOD.value
+    assert int(m[1, 1]) == MaskCode.UNCERTAIN.value
 
 
 def test_load_diann_peptide_matrix_bgs_columns(tmp_path: Path) -> None:
@@ -74,8 +74,8 @@ def test_load_diann_peptide_matrix_bgs_columns(tmp_path: Path) -> None:
     )
 
     m = assay.layers["raw"].get_m()
-    assert int(m[0, 1]) == MaskCode.LOD.value
-    assert int(m[1, 0]) == MaskCode.LOD.value
+    assert int(m[0, 1]) == MaskCode.UNCERTAIN.value
+    assert int(m[1, 0]) == MaskCode.UNCERTAIN.value
 
 
 def test_load_diann_peptide_default_assay_name_is_peptides(tmp_path: Path) -> None:
@@ -186,7 +186,7 @@ def test_load_spectronaut_peptide_matrix_quantity_suffix(tmp_path: Path) -> None
     )
 
     m = assay.layers["raw"].get_m()
-    assert int(m[1, 0]) == MaskCode.LOD.value
+    assert int(m[1, 0]) == MaskCode.UNCERTAIN.value
 
 
 def test_load_spectronaut_matrix_prefers_suffix_sample_columns_over_other_numeric_columns(
@@ -263,7 +263,7 @@ def test_load_peptide_pivot_with_protein_aggregation(tmp_path: Path) -> None:
     assert np.isnan(x[1, idx_p2])
 
     m = protein_assay.layers["raw"].get_m()
-    assert int(m[1, idx_p2]) == MaskCode.LOD.value
+    assert int(m[1, idx_p2]) == MaskCode.UNCERTAIN.value
 
 
 def test_load_peptide_pivot_with_top_n_aggregation(tmp_path: Path) -> None:

@@ -43,6 +43,27 @@ class TestQuantileNormalize:
         assert isinstance(result, np.ndarray)
         assert result.shape == sample_data.shape
 
+    def test_quantile_normalize_preserves_average_rank_ties(self) -> None:
+        x = np.array([[1.0, 2.0, 3.0], [1.0, 4.0, 6.0], [3.0, 5.0, 9.0]])
+
+        result = quantile_normalize(x, axis=0)
+
+        expected = np.array(
+            [
+                [17.0 / 6.0, 2.0, 2.0],
+                [17.0 / 6.0, 11.0 / 3.0, 11.0 / 3.0],
+                [17.0 / 3.0, 17.0 / 3.0, 17.0 / 3.0],
+            ]
+        )
+        np.testing.assert_allclose(result, expected)
+
+    def test_quantile_normalize_copy_false_keeps_fractional_values_for_int_input(self) -> None:
+        x = np.array([[1, 2, 3], [10, 20, 30]], dtype=np.int64)
+
+        result = quantile_normalize(x, axis=1, copy=False)
+
+        np.testing.assert_allclose(result, np.array([[5.5, 11.0, 16.5], [5.5, 11.0, 16.5]]))
+
 
 class TestRobustScale:
     """Tests for robust_scale function."""
@@ -71,3 +92,7 @@ class TestRobustScale:
         x = np.array([[1.0, 2.0], [1.0, 2.0], [1.0, 2.0]])
         result = robust_scale(x, axis=0)
         assert np.all(np.isfinite(result))
+
+    def test_robust_scale_rejects_invalid_axis(self, sample_data: np.ndarray) -> None:
+        with pytest.raises(ValueError, match="axis must be 0 or 1"):
+            robust_scale(sample_data, axis=2)

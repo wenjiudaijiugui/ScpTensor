@@ -18,146 +18,13 @@ Quick Start:
 
 from __future__ import annotations
 
+from importlib import import_module
+from typing import Any
+
 __version__ = "0.1.0"
 __author__ = "ScpTensor Team"
 
-# Aggregation
-from scptensor.aggregation import aggregate_to_protein
-
-# Core data structures and exceptions
-from scptensor.core import (
-    NUMBA_AVAILABLE,
-    AggregationLink,
-    Assay,
-    AssayNotFoundError,
-    DimensionError,
-    LayerNotFoundError,
-    MaskCode,
-    MaskCodeError,
-    MatrixMetadata,
-    MatrixOps,
-    MissingDependencyError,
-    ProvenanceLog,
-    ScpContainer,
-    ScpMatrix,
-    ScpTensorError,
-    ScpValueError,
-    StructureError,
-    ValidationError,
-    VisualizationError,
-    apply_mask_threshold,
-    auto_convert_for_operation,
-    cleanup_layers,
-    count_mask_codes,
-    ensure_sparse_format,
-    fill_missing_with_value,
-    find_missing_indices,
-    get_format_recommendation,
-    get_memory_usage,
-    get_sparsity_ratio,
-    is_sparse_matrix,
-    optimal_format_for_operation,
-    sparse_center_rows,
-    sparse_col_operation,
-    sparse_copy,
-    sparse_multiply_colwise,
-    sparse_multiply_rowwise,
-    sparse_row_operation,
-    sparse_safe_log1p,
-    to_sparse_if_beneficial,
-)
-
-# Imputation
-from scptensor.impute import (
-    impute_bpca,
-    impute_half_row_min,
-    impute_iterative_svd,
-    impute_knn,
-    impute_lls,
-    impute_mf,
-    impute_minprob,
-    impute_none,
-    impute_qrilc,
-    impute_row_mean,
-    impute_row_median,
-    impute_softimpute,
-    impute_zero,
-)
-
-# Integration (Batch Correction)
-from scptensor.integration import (
-    integrate_combat,
-    integrate_harmony,
-    integrate_limma,
-    integrate_mnn,
-    integrate_none,
-    integrate_scanorama,
-)
-
-# Mass-spec I/O functions
-from scptensor.io import (
-    IOFormatError,
-    IOPasswordError,
-    IOWriteError,
-    load_diann,
-    load_peptide_pivot,
-    load_spectronaut,
-)
-
-# Normalization
-from scptensor.normalization import (
-    norm_mean,
-    norm_median,
-    norm_none,
-    norm_quantile,
-    norm_trqn,
-    normalize,
-)
-
-# Quality Control
-from scptensor.qc import (
-    assess_batch_effects,
-    calculate_feature_qc_metrics,
-    calculate_sample_qc_metrics,
-    filter_doublets_mad,
-    filter_features_by_cv,
-    filter_features_by_missingness,
-    filter_low_quality_samples,
-    qc_feature,
-    qc_sample,
-)
-
-# Standardization
-from scptensor.standardization import zscore
-
-# Transformation
-from scptensor.transformation import log_transform
-
-# Utilities
-from scptensor.utils import ScpDataGenerator
-
-# Visualization
-from scptensor.viz import (
-    embedding,
-    heatmap,
-    plot_data_overview,
-    plot_embedding_panels,
-    plot_missingness_reduction,
-    plot_preprocessing_summary,
-    plot_qc_filtering_summary,
-    plot_recent_operations,
-    plot_reduction_summary,
-    plot_saved_artifact_sizes,
-    qc_completeness,
-    qc_matrix_spy,
-    scatter,
-    violin,
-)
-
-# Public API
-__all__ = [
-    "__version__",
-    # Core structures
+_CORE_EXPORTS = [
     "ScpContainer",
     "Assay",
     "ScpMatrix",
@@ -166,7 +33,6 @@ __all__ = [
     "MaskCode",
     "AggregationLink",
     "MatrixOps",
-    # Core exceptions
     "ScpTensorError",
     "StructureError",
     "ValidationError",
@@ -177,16 +43,6 @@ __all__ = [
     "MaskCodeError",
     "ScpValueError",
     "VisualizationError",
-    # Core I/O
-    "load_diann",
-    "load_peptide_pivot",
-    "load_spectronaut",
-    # Aggregation
-    "aggregate_to_protein",
-    "IOFormatError",
-    "IOPasswordError",
-    "IOWriteError",
-    # Sparse utilities
     "is_sparse_matrix",
     "get_sparsity_ratio",
     "to_sparse_if_beneficial",
@@ -203,24 +59,38 @@ __all__ = [
     "sparse_center_rows",
     "sparse_safe_log1p",
     "get_format_recommendation",
-    # JIT operations
     "NUMBA_AVAILABLE",
     "count_mask_codes",
     "find_missing_indices",
     "apply_mask_threshold",
     "fill_missing_with_value",
-    # Transformation
-    "log_transform",
-    # Standardization
-    "zscore",
-    # Normalization
+]
+
+_AGGREGATION_EXPORTS = ["aggregate_to_protein"]
+
+_IO_EXPORTS = [
+    "IOFormatError",
+    "IOPasswordError",
+    "IOWriteError",
+    "load_diann",
+    "load_peptide_pivot",
+    "load_spectronaut",
+]
+
+_TRANSFORMATION_EXPORTS = ["log_transform"]
+
+_STANDARDIZATION_EXPORTS = ["zscore"]
+
+_NORMALIZATION_EXPORTS = [
     "norm_none",
     "norm_mean",
     "norm_median",
     "norm_quantile",
     "norm_trqn",
     "normalize",
-    # Imputation
+]
+
+_IMPUTATION_EXPORTS = [
     "impute_none",
     "impute_zero",
     "impute_row_mean",
@@ -234,14 +104,18 @@ __all__ = [
     "impute_mf",
     "impute_qrilc",
     "impute_minprob",
-    # Integration
+]
+
+_INTEGRATION_EXPORTS = [
     "integrate_none",
     "integrate_combat",
     "integrate_limma",
     "integrate_harmony",
     "integrate_mnn",
     "integrate_scanorama",
-    # Quality Control
+]
+
+_QC_EXPORTS = [
     "qc_feature",
     "qc_sample",
     "filter_features_by_cv",
@@ -251,7 +125,11 @@ __all__ = [
     "assess_batch_effects",
     "calculate_sample_qc_metrics",
     "calculate_feature_qc_metrics",
-    # Visualization
+]
+
+_UTIL_EXPORTS = ["ScpDataGenerator"]
+
+_VIZ_EXPORTS = [
     "scatter",
     "heatmap",
     "violin",
@@ -266,6 +144,56 @@ __all__ = [
     "plot_embedding_panels",
     "plot_saved_artifact_sizes",
     "plot_recent_operations",
-    # Utilities
-    "ScpDataGenerator",
 ]
+
+_EXPORT_GROUPS: dict[str, list[str]] = {
+    "scptensor.core": _CORE_EXPORTS,
+    "scptensor.aggregation": _AGGREGATION_EXPORTS,
+    "scptensor.io": _IO_EXPORTS,
+    "scptensor.transformation": _TRANSFORMATION_EXPORTS,
+    "scptensor.standardization": _STANDARDIZATION_EXPORTS,
+    "scptensor.normalization": _NORMALIZATION_EXPORTS,
+    "scptensor.impute": _IMPUTATION_EXPORTS,
+    "scptensor.integration": _INTEGRATION_EXPORTS,
+    "scptensor.qc": _QC_EXPORTS,
+    "scptensor.utils": _UTIL_EXPORTS,
+    "scptensor.viz": _VIZ_EXPORTS,
+}
+
+_EXPORT_MAP = {
+    symbol: (module_name, symbol)
+    for module_name, symbols in _EXPORT_GROUPS.items()
+    for symbol in symbols
+}
+
+__all__ = [
+    "__version__",
+    *_CORE_EXPORTS,
+    *_IO_EXPORTS,
+    *_AGGREGATION_EXPORTS,
+    *_TRANSFORMATION_EXPORTS,
+    *_STANDARDIZATION_EXPORTS,
+    *_NORMALIZATION_EXPORTS,
+    *_IMPUTATION_EXPORTS,
+    *_INTEGRATION_EXPORTS,
+    *_QC_EXPORTS,
+    *_VIZ_EXPORTS,
+    *_UTIL_EXPORTS,
+]
+
+
+def __getattr__(name: str) -> Any:
+    """Lazily resolve top-level reexports from their owning subpackages."""
+    try:
+        module_name, attr_name = _EXPORT_MAP[name]
+    except KeyError as exc:  # pragma: no cover - stdlib-facing fallback
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+
+    value = getattr(import_module(module_name), attr_name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    """Expose lazy reexports through interactive discovery tools."""
+    return sorted(set(globals()) | set(__all__))

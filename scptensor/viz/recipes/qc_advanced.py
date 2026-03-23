@@ -15,12 +15,25 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sp
-import seaborn as sns
 from scipy.cluster.hierarchy import leaves_list, linkage
 
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.core.structures import ScpContainer
 from scptensor.viz.base.style import PlotStyle
+
+try:
+    import seaborn as sns
+except ImportError:  # pragma: no cover - exercised via import smoke subprocesses
+    sns = None
+
+
+def _color_palette(n_colors: int) -> list[tuple[float, float, float, float]]:
+    """Return a colorblind-friendly palette without requiring seaborn."""
+    if sns is not None:
+        return list(sns.color_palette("colorblind", n_colors=n_colors))
+
+    cmap = plt.cm.get_cmap("tab10", n_colors)
+    return [cmap(i) for i in range(n_colors)]
 
 
 def _get_mask_array(matrix) -> np.ndarray:
@@ -117,7 +130,7 @@ def plot_sensitivity_summary(
         fig, ax = plt.subplots(figsize=figsize)
 
     # Set up color palette (colorblind-friendly)
-    colors = sns.color_palette("colorblind", n_colors=len(group_labels))
+    colors = _color_palette(len(group_labels))
 
     # Prepare data for plotting
     data_by_group = []
@@ -283,7 +296,7 @@ def plot_cumulative_sensitivity(
         unique_groups = [str(g) for g in np.unique(groups)]
 
     # Set up color palette (colorblind-friendly)
-    colors = sns.color_palette("colorblind", n_colors=len(unique_groups))
+    colors = _color_palette(len(unique_groups))
 
     # Plot curve for each group
     for i, group_label in enumerate(unique_groups):
@@ -1137,7 +1150,7 @@ def plot_cv_distribution(
         unique_groups = [str(g) for g in np.unique(groups)]
 
     # Set up color palette (colorblind-friendly)
-    colors = sns.color_palette("colorblind", n_colors=len(unique_groups))
+    colors = _color_palette(len(unique_groups))
 
     # Calculate and plot CV for each group
     all_cv_values: list[float] = []
@@ -1563,7 +1576,7 @@ def plot_cv_comparison(
     width = 0.35
 
     # Color palette
-    colors = sns.color_palette("colorblind", n_colors=max(3, len(batch_names)))
+    colors = _color_palette(max(3, len(batch_names)))
 
     # Plot within-batch CV bars
     ax.bar(

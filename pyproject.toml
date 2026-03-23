@@ -6,20 +6,11 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "matplotlib>=3.9",
-    "numba>=0.60",
     "numpy>=1.26",
-    "pandas>=2.0",
-    "plotly>=5.20",
     "polars>=1.0",
     "pyarrow>=14.0",
-    "psutil>=6.0",
-    "requests>=2.31",
-    "scienceplots>=2.0",
     "scikit-learn>=1.5",
     "scipy>=1.13",
-    "seaborn>=0.13",
-    "umap-learn>=0.5.6",
-    "h5py>=3.15.1",
 ]
 
 [build-system]
@@ -39,20 +30,50 @@ io = [
     "anndata>=0.10",
 ]
 
+# Optional JIT acceleration
+accel = [
+    "numba>=0.60",
+]
+
 # Integration methods (batch correction)
 integration = [
     "harmonypy>=0.1",
     "scanorama>=1.7",
 ]
 
+# Optional visualization polish and advanced palettes
+viz = [
+    "seaborn>=0.13",
+    "scienceplots>=2.0",
+]
+
+# Experimental downstream helpers
+experimental = [
+    "umap-learn>=0.5.6",
+]
+
+# Experimental graph-clustering helpers
+graph = [
+    "igraph>=0.11",
+    "leidenalg>=0.10",
+]
+
+# Runtime baseline tooling
+perf = [
+    "psutil>=6.0",
+]
+
 # Benchmarking against other tools
 benchmark = [
+    "pandas>=2.0",
+    "requests>=2.31",
+    "seaborn>=0.13",
     "scanpy>=1.10",
 ]
 
 # All optional features
 all = [
-    "scptensor[io,integration,benchmark]",
+    "scptensor[io,accel,integration,viz,experimental,graph,perf,benchmark]",
 ]
 
 # Development dependencies
@@ -94,12 +115,37 @@ docs = [
 ]
 
 # Optional runtime dependencies
+accel = [
+    "numba>=0.60",
+]
+
 integration = [
     "harmonypy>=0.1",
     "scanorama>=1.7",
 ]
 
+viz = [
+    "seaborn>=0.13",
+    "scienceplots>=2.0",
+]
+
+experimental = [
+    "umap-learn>=0.5.6",
+]
+
+graph = [
+    "igraph>=0.11",
+    "leidenalg>=0.10",
+]
+
+perf = [
+    "psutil>=6.0",
+]
+
 benchmark = [
+    "pandas>=2.0",
+    "requests>=2.31",
+    "seaborn>=0.13",
     "scanpy>=1.11.5",
 ]
 
@@ -192,8 +238,6 @@ known-first-party = ["scptensor"]
 # N803: Argument name 'M' should be lowercase
 # N806: Variable 'new_X' in function should be lowercase
 "scptensor/core/structures.py" = ["N802", "N803", "N806"]
-# QC variability: X and X_detected are standard names for data matrices
-"scptensor/qc/variability.py" = ["N803", "N806"]
 # QC advanced viz: M is standard name for mask matrices
 "scptensor/viz/recipes/qc_advanced.py" = ["N803", "N806", "F841"]
 # Imputation methods: X, M, W, U, Vt are standard matrix names in linear algebra
@@ -203,8 +247,6 @@ known-first-party = ["scptensor"]
 "scptensor/impute/lls.py" = ["N803", "N806"]
 "scptensor/impute/minprob.py" = ["N803", "N806"]
 "scptensor/impute/missforest.py" = ["N803", "N806"]
-"scptensor/impute/nmf.py" = ["N803", "N806"]
-"scptensor/impute/ppca.py" = ["N803", "N806"]
 "scptensor/impute/qrilc.py" = ["N803", "N806"]
 "scptensor/impute/svd.py" = ["N803", "N806", "B007"]
 # Imputation viz: X, M are standard matrix names, list default is acceptable
@@ -217,8 +259,6 @@ known-first-party = ["scptensor"]
 # Tutorial notebooks in docs/: Allow undefined names across cells (F821)
 "docs/*.ipynb" = ["F821"]
 
-# Benchmark files: X and M are standard names for data/mask matrices in scientific computing
-"scptensor/benchmark/*.py" = ["N803", "N806"]
 # Benchmark helper scripts (standalone analysis/report scripts with dynamic imports)
 "benchmark/autoselect/**/*.py" = ["UP009", "E402", "F401", "F841", "B905", "C408"]
 # Cluster: X and M_cluster are standard variable names in clustering algorithms

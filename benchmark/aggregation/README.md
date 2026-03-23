@@ -13,7 +13,10 @@
 - 已落地的是 `precursor-to-protein auxiliary board`：
   - `Spectronaut peptide-long -> aggregate_to_protein -> protein-level scoring`
 - 文献综述推荐的 `protein-direct main board` 尚未在本目录单独实现，因此本 README 不把它写成当前事实。
-- 当前脚本尚未输出 state-aware completeness、`DE consistency` 与 `ambiguous mapping burden`。
+- 当前脚本现已额外输出：
+  - state-aware completeness / burden
+  - `DE consistency` proxy
+  - `ambiguous mapping burden`
 - 当前文档合同下，主排名只能依据最终 `protein-level` endpoint；`peptide/protein mapping`、`.n` 或覆盖率类指标仅用于解释方法行为，不单独决定胜负。
 
 ## Review Links
@@ -82,13 +85,15 @@
 - 精确性：`cv_median_all`, `technical_variance_bg_cv_median`
 - 物种分离能力：`species_overlap_auc_mean`, `changed_vs_background_auc`
 - 覆盖率：`coverage_ratio`, `n_quantified`
+- DE proxy：`de_changed_direction_accuracy`, `de_background_stability_rate`, `de_consistency_score`
+- state-aware：`state_valid_fraction`, `state_non_valid_fraction`, `state_lod_fraction`, `state_uncertain_fraction`
+- mapping burden：`ambiguous_mapping_fraction`, `mapping_targets_per_peptide_mean`, `mapping_targets_per_peptide_median`
 
 按 `docs/review_aggregation_benchmark_20260312.md`，后续仍应补充：
 
 - `protein-direct main board`
-- `downstream DE consistency`
-- precursor/protein 映射不确定性与 `ambiguous mapping burden`
-- state-aware completeness / uncertainty 指标
+- 更强的 downstream DE benchmark，而不是当前 species-ratio 驱动的 proxy
+- 外部 ground-truth 或 vendor annotation 支撑的 precursor/protein 映射不确定性 panel
 
 ## 4. 可视化输出
 

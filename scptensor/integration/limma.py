@@ -10,6 +10,7 @@ from collections.abc import Sequence
 
 import numpy as np
 import polars as pl
+import scipy.linalg as la
 import scipy.sparse as sp
 
 from scptensor.core.exceptions import ScpValueError
@@ -52,8 +53,9 @@ def integrate_limma(
     covariates : Sequence[str] | None, default=None
         Biological covariates to preserve in the fitted design.
     reference_batch : str | None, default=None
-        Reference batch with zero batch coefficient. If None, first observed
-        batch is used.
+        Optional ScpTensor extension that keeps the chosen batch unchanged after
+        correction. If None, batch effects are removed to limma's centered
+        default rather than anchoring to the first observed batch.
     """
     assay, layer = validate_layer_params(container, assay_name, base_layer)
     obs_df, batches, unique_batches, _ = validate_batch_integration_params(
@@ -62,13 +64,21 @@ def integrate_limma(
 
     input_was_sparse = sp.issparse(layer.X)
     x_dense = to_dense_array(layer.X, copy=not input_was_sparse)
+    if np.isinf(x_dense).any():
+        raise ScpValueError(
+            "Limma integration supports NaN missing values but not Inf/-Inf values. "
+            "Please replace or filter infinite values before batch correction.",
+            parameter="X",
+        )
 
-    design_matrix, design_cols, batch_term_cols, ref_batch = _build_limma_design_matrix(
-        obs_df,
-        batches,
-        unique_batches,
-        covariates=covariates,
-        reference_batch=reference_batch,
+    design_matrix, design_cols, batch_idx, ref_batch, batch_reference_row = (
+        _build_limma_design_matrix(
+            obs_df,
+            batches,
+            unique_batches,
+            covariates=covariates,
+            reference_batch=reference_batch,
+        )
     )
     rank = np.linalg.matrix_rank(design_matrix)
     if rank < design_matrix.shape[1]:
@@ -79,8 +89,12 @@ def integrate_limma(
             f"Design columns: [{cols}]"
         )
 
-    batch_idx = [i for i, col in enumerate(design_cols) if col in set(batch_term_cols)]
-    x_corrected = _remove_batch_effect_with_missing(x_dense, design_matrix, batch_idx)
+    x_corrected = _remove_batch_effect_with_missing(
+        x_dense,
+        design_matrix,
+        batch_idx,
+        batch_reference_row=batch_reference_row,
+    )
 
     x_out = preserve_sparsity(x_corrected, input_was_sparse)
     add_integrated_layer(assay, new_layer_name or "limma", x_out, layer)
@@ -93,7 +107,7 @@ def integrate_limma(
             "batch_key": batch_key,
             "covariates": list(covariates) if covariates else None,
             "reference_batch": ref_batch,
-            "n_batch_terms": len(batch_term_cols),
+            "n_batch_terms": len(batch_idx),
         },
         description=f"Limma-style linear batch correction (reference_batch={ref_batch}).",
     )
@@ -106,12 +120,12 @@ def _build_limma_design_matrix(
     *,
     covariates: Sequence[str] | None,
     reference_batch: str | None,
-) -> tuple[np.ndarray, list[str], list[str], str]:
-    """Build design matrix: intercept + covariates + batch dummies."""
+) -> tuple[np.ndarray, list[str], list[int], str | None, np.ndarray | None]:
+    """Build preserve-design plus limma-style sum-coded batch design."""
     n_samples = len(batches)
-    ref = str(reference_batch) if reference_batch is not None else str(unique_batches[0])
     batch_labels = [str(b) for b in unique_batches]
-    if ref not in batch_labels:
+    ref = str(reference_batch) if reference_batch is not None else None
+    if ref is not None and ref not in batch_labels:
         raise ScpValueError(
             f"reference_batch '{ref}' not found. Available batches: {batch_labels}",
             parameter="reference_batch",
@@ -119,20 +133,50 @@ def _build_limma_design_matrix(
         )
 
     covar_design = _build_covariate_design(obs_df, covariates, n_samples)
-    batch_terms: dict[str, np.ndarray] = {}
-    for b in batch_labels:
-        if b == ref:
-            continue
-        batch_terms[f"batch_{b}"] = (batches.astype(str) == b).astype(float)
+    design_matrix = covar_design.to_numpy().astype(float)
+    if not np.isfinite(design_matrix).all():
+        raise ScpValueError(
+            "Covariates generated a design matrix containing missing or non-finite values. "
+            "Limma-style batch correction requires fully observed covariates.",
+            parameter="covariates",
+            value=list(covariates) if covariates is not None else None,
+        )
 
-    batch_df = pl.DataFrame(batch_terms) if batch_terms else pl.DataFrame()
-    design_df = pl.concat([covar_design, batch_df], how="horizontal")
-    return (
-        design_df.to_numpy().astype(float),
-        design_df.columns,
-        list(batch_terms.keys()),
-        ref,
+    batch_design, batch_cols, batch_reference_row = _build_batch_effect_design(
+        batches=batches,
+        batch_labels=batch_labels,
+        reference_batch=ref,
     )
+    if batch_design.shape[1] == 0:
+        return design_matrix, covar_design.columns, [], ref, batch_reference_row
+
+    combined = np.column_stack([design_matrix, batch_design])
+    batch_idx = list(range(design_matrix.shape[1], combined.shape[1]))
+    return combined, covar_design.columns + batch_cols, batch_idx, ref, batch_reference_row
+
+
+def _build_batch_effect_design(
+    *,
+    batches: np.ndarray,
+    batch_labels: list[str],
+    reference_batch: str | None,
+) -> tuple[np.ndarray, list[str], np.ndarray | None]:
+    """Construct limma-style sum-coded batch contrasts and optional reference row."""
+    n_batches = len(batch_labels)
+    n_samples = len(batches)
+    if n_batches <= 1:
+        return np.empty((n_samples, 0), dtype=float), [], None
+
+    contrast = np.zeros((n_batches, n_batches - 1), dtype=float)
+    contrast[: n_batches - 1, :] = np.eye(n_batches - 1, dtype=float)
+    contrast[-1, :] = -1.0
+
+    batch_to_index = {label: idx for idx, label in enumerate(batch_labels)}
+    batch_indices = np.array([batch_to_index[str(batch)] for batch in batches], dtype=int)
+    batch_design = contrast[batch_indices]
+    batch_cols = [f"batch_contr_{label}" for label in batch_labels[:-1]]
+    reference_row = None if reference_batch is None else contrast[batch_to_index[reference_batch]]
+    return batch_design, batch_cols, reference_row
 
 
 def _build_covariate_design(
@@ -164,30 +208,44 @@ def _remove_batch_effect_with_missing(
     X: np.ndarray,
     design_matrix: np.ndarray,
     batch_idx: list[int],
+    *,
+    batch_reference_row: np.ndarray | None,
 ) -> np.ndarray:
     """Fit per-feature linear models on observed samples and preserve NaN."""
     if not batch_idx:
         return X.copy()
 
     out = X.copy()
-    n_terms = design_matrix.shape[1]
     for feature_idx in range(X.shape[1]):
         y = X[:, feature_idx]
-        valid = np.isfinite(y)
-        if int(np.sum(valid)) <= len(batch_idx):
+        valid = ~np.isnan(y)
+        n_valid = int(np.sum(valid))
+        if n_valid == 0:
             continue
 
         design_valid = design_matrix[valid]
-        if design_valid.shape[0] < n_terms:
-            continue
-        if np.linalg.matrix_rank(design_valid) < n_terms:
+        rank = np.linalg.matrix_rank(design_valid)
+        if rank == 0:
             continue
 
-        coef = np.linalg.lstsq(design_valid, y[valid], rcond=None)[0]
+        estimable = _estimable_columns(design_valid, rank)
+        coef = np.zeros(design_matrix.shape[1], dtype=float)
+        coef[estimable] = np.linalg.lstsq(design_valid[:, estimable], y[valid], rcond=None)[0]
         batch_effect = design_valid[:, batch_idx] @ coef[batch_idx]
-        out[np.where(valid)[0], feature_idx] = y[valid] - batch_effect
+        ref_effect = 0.0
+        if batch_reference_row is not None:
+            ref_effect = float(batch_reference_row @ coef[batch_idx])
+        out[np.where(valid)[0], feature_idx] = y[valid] - batch_effect + ref_effect
 
     return out
+
+
+def _estimable_columns(design_valid: np.ndarray, rank: int) -> np.ndarray:
+    """Return indices of estimable columns using pivoted QR decomposition."""
+    if rank >= design_valid.shape[1]:
+        return np.arange(design_valid.shape[1], dtype=int)
+    _, _, pivots = la.qr(design_valid, mode="economic", pivoting=True)
+    return np.sort(np.asarray(pivots[:rank], dtype=int))
 
 
 __all__ = ["integrate_limma"]

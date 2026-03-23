@@ -28,6 +28,7 @@ import polars as pl
 from metrics import (
     BALANCED_METRIC_DIRECTIONS,
     CONFOUNDED_METRIC_DIRECTIONS,
+    compute_marker_consistency_metrics,
     score_methods,
 )
 from plots import plot_overall_scores, plot_score_heatmap, plot_summary_metrics
@@ -35,6 +36,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, silhouette_score
 from sklearn.neighbors import NearestNeighbors
 
+from scptensor.core import FilterCriteria
 from scptensor.impute import impute
 from scptensor.integration import integrate_combat, integrate_limma, integrate_mnn
 from scptensor.integration.diagnostics import (
@@ -51,6 +53,7 @@ DEFAULT_DATA_PATH = Path("data/dia/diann/PXD054343/1_SC_LF_report.tsv")
 DEFAULT_OUTPUT_DIR = Path("benchmark/integration/outputs")
 DEFAULT_SCENARIOS = [
     "balanced_amount_by_sample",
+    "partially_confounded_bridge_sample",
     "confounded_amount_as_batch",
 ]
 DEFAULT_METHODS = [
@@ -73,19 +76,36 @@ SCENARIO_SPECS: dict[str, dict[str, Any]] = {
         "condition_key": "condition_balanced",
         "score_profile": "balanced",
         "guardrail_expectation": "success",
+        "design_identifiability": "fully_identifiable_balanced",
+        "subset_strategy": "full_dataset",
         "description": "Batch=S1/S2/S3, Condition=SCamount(300ng/600ng); balanced design",
+    },
+    "partially_confounded_bridge_sample": {
+        "batch_key": "batch_partially_confounded",
+        "condition_key": "condition_partially_confounded",
+        "score_profile": "partially_confounded",
+        "guardrail_expectation": "success",
+        "design_identifiability": "bridge_reference_partial_confounding",
+        "subset_strategy": "bridge_sample_partial_confounding",
+        "description": (
+            "S1 keeps low amount only, S2 keeps both amounts as bridge, "
+            "S3 keeps high amount only; partially confounded design"
+        ),
     },
     "confounded_amount_as_batch": {
         "batch_key": "batch_confounded",
         "condition_key": "condition_confounded",
         "score_profile": "confounded",
         "guardrail_expectation": "rank_deficient_error",
+        "design_identifiability": "non_identifiable_fully_confounded",
+        "subset_strategy": "full_dataset",
         "description": "Batch=Condition=SCamount; fully confounded design",
     },
 }
 
 SCORE_PROFILE_DIRECTIONS: dict[str, dict[str, bool]] = {
     "balanced": BALANCED_METRIC_DIRECTIONS,
+    "partially_confounded": BALANCED_METRIC_DIRECTIONS,
     "confounded": CONFOUNDED_METRIC_DIRECTIONS,
 }
 
@@ -121,22 +141,82 @@ def _attach_scenario_labels(container) -> None:
     sample_group = _extract_by_regex(runs, r"_(S\d+)_", fallback="unknown")
 
     if len(set(amount_group)) < 2:
-        raise ValueError(
-            "Cannot build amount groups from run names: less than 2 groups detected."
-        )
+        raise ValueError("Cannot build amount groups from run names: less than 2 groups detected.")
     if len(set(sample_group)) < 2:
-        raise ValueError(
-            "Cannot build sample groups from run names: less than 2 groups detected."
-        )
+        raise ValueError("Cannot build sample groups from run names: less than 2 groups detected.")
 
     container.obs = container.obs.with_columns(
         pl.Series("amount_group", amount_group),
         pl.Series("sample_group", sample_group),
         pl.Series("batch_balanced", sample_group),
         pl.Series("condition_balanced", amount_group),
+        pl.Series("batch_partially_confounded", sample_group),
+        pl.Series("condition_partially_confounded", amount_group),
         pl.Series("batch_confounded", amount_group),
         pl.Series("condition_confounded", amount_group),
     )
+
+
+def _partially_confounded_mask(container) -> np.ndarray:
+    """Keep a bridge batch spanning both conditions plus two confounded edge batches."""
+    sample_values = container.obs["sample_group"].cast(pl.Utf8).to_numpy()
+    amount_values = container.obs["amount_group"].cast(pl.Utf8).to_numpy()
+
+    sample_groups = sorted(np.unique(sample_values).tolist())
+    amount_groups = sorted(np.unique(amount_values).tolist())
+    if len(sample_groups) < 3:
+        raise ValueError(
+            "Partially confounded scenario requires at least 3 sample groups "
+            "to define low/bridge/high batches."
+        )
+    if len(amount_groups) < 2:
+        raise ValueError("Partially confounded scenario requires at least 2 amount groups.")
+
+    low_batch = sample_groups[0]
+    bridge_batch = sample_groups[1]
+    high_batch = sample_groups[2]
+    low_amount = amount_groups[0]
+    high_amount = amount_groups[-1]
+
+    keep_mask = (
+        ((sample_values == low_batch) & (amount_values == low_amount))
+        | (sample_values == bridge_batch)
+        | ((sample_values == high_batch) & (amount_values == high_amount))
+    )
+
+    if int(np.sum(keep_mask)) < 6:
+        raise ValueError(
+            "Partially confounded scenario produced too few samples after bridge selection."
+        )
+
+    selected_samples = sample_values[keep_mask]
+    selected_amounts = amount_values[keep_mask]
+    observed_pairs = {
+        batch: sorted(np.unique(selected_amounts[selected_samples == batch]).tolist())
+        for batch in [low_batch, bridge_batch, high_batch]
+    }
+    if observed_pairs[low_batch] != [low_amount]:
+        raise ValueError("Low batch in partially confounded scenario is not singly identified.")
+    if observed_pairs[high_batch] != [high_amount]:
+        raise ValueError("High batch in partially confounded scenario is not singly identified.")
+    if len(observed_pairs[bridge_batch]) < 2:
+        raise ValueError(
+            "Bridge batch in partially confounded scenario must cover at least 2 conditions."
+        )
+
+    return keep_mask
+
+
+def _prepare_scenario_container(container, scenario_name: str):
+    """Build the scenario-specific container view/copy."""
+    scenario = SCENARIO_SPECS[scenario_name]
+    subset_strategy = str(scenario.get("subset_strategy", "full_dataset"))
+    if subset_strategy == "full_dataset":
+        return container
+    if subset_strategy == "bridge_sample_partial_confounding":
+        keep_mask = _partially_confounded_mask(container)
+        return container.filter_samples(FilterCriteria.by_mask(keep_mask))
+    raise ValueError(f"Unknown scenario subset strategy: {subset_strategy}")
 
 
 def _between_group_ratio(x: np.ndarray, labels: np.ndarray) -> float:
@@ -167,7 +247,9 @@ def _safe_condition_asw(x: np.ndarray, condition_labels: np.ndarray) -> float:
         return float("nan")
 
 
-def _safe_condition_cluster_scores(x: np.ndarray, condition_labels: np.ndarray) -> tuple[float, float]:
+def _safe_condition_cluster_scores(
+    x: np.ndarray, condition_labels: np.ndarray
+) -> tuple[float, float]:
     unique = np.unique(condition_labels)
     n_clusters = int(unique.size)
     if n_clusters < 2 or x.shape[0] <= n_clusters:
@@ -221,15 +303,18 @@ def _compute_metrics(
     layer_name: str,
     batch_key: str,
     condition_key: str,
+    reference_layer_name: str,
+    enable_marker_metrics: bool = True,
 ) -> dict[str, float]:
     x = _layer_to_dense(container.assays[assay_name].layers[layer_name].X)
+    x_ref = _layer_to_dense(container.assays[assay_name].layers[reference_layer_name].X)
     batch_labels = container.obs[batch_key].cast(pl.Utf8).to_numpy()
     condition_labels = container.obs[condition_key].cast(pl.Utf8).to_numpy()
     n_neighbors = max(3, min(10, x.shape[0] - 1))
 
     condition_ari, condition_nmi = _safe_condition_cluster_scores(x, condition_labels)
 
-    return {
+    metrics = {
         "between_batch_ratio": _between_group_ratio(x, batch_labels),
         "batch_asw": float(compute_batch_asw(container, assay_name, layer_name, batch_key)),
         "batch_mixing": float(
@@ -257,6 +342,26 @@ def _compute_metrics(
         "condition_knn_purity": _condition_knn_purity(x, condition_labels, n_neighbors=n_neighbors),
     }
 
+    if enable_marker_metrics and batch_key != condition_key:
+        metrics.update(
+            compute_marker_consistency_metrics(
+                x_ref,
+                x,
+                condition_labels,
+                top_k=50,
+            )
+        )
+    else:
+        metrics.update(
+            {
+                "marker_log2fc_pearson": float("nan"),
+                "marker_topk_jaccard": float("nan"),
+                "marker_topk_sign_agreement": float("nan"),
+            }
+        )
+
+    return metrics
+
 
 def _run_guardrail_checks(
     container,
@@ -268,6 +373,7 @@ def _run_guardrail_checks(
     scenario_name: str,
     dataset_key: str,
     expectation: str,
+    design_identifiability: str,
 ) -> list[dict[str, Any]]:
     checks: list[dict[str, Any]] = []
 
@@ -311,6 +417,7 @@ def _run_guardrail_checks(
                 "batch_key": batch_key,
                 "covariate": condition_key,
                 "expectation": expectation,
+                "design_identifiability": design_identifiability,
                 "status": status,
                 "error_type": err_type,
                 "message": message,
@@ -332,16 +439,20 @@ def _run_scenario(
     methods: list[str],
 ) -> tuple[list[dict[str, Any]], list[dict[str, str]], list[dict[str, Any]]]:
     scenario = SCENARIO_SPECS[scenario_name]
+    scenario_container = _prepare_scenario_container(container, scenario_name)
     batch_key = str(scenario["batch_key"])
     condition_key = str(scenario["condition_key"])
     score_profile = str(scenario["score_profile"])
+    design_identifiability = str(scenario["design_identifiability"])
 
     baseline_metrics = _compute_metrics(
-        container,
+        scenario_container,
         assay_name=assay_name,
         layer_name=baseline_layer,
         batch_key=batch_key,
         condition_key=condition_key,
+        reference_layer_name=baseline_layer,
+        enable_marker_metrics=score_profile != "confounded",
     )
 
     rows: list[dict[str, Any]] = [
@@ -351,8 +462,10 @@ def _run_scenario(
             "score_profile": score_profile,
             "batch_key": batch_key,
             "condition_key": condition_key,
+            "design_identifiability": design_identifiability,
             "method": "none",
             "layer": baseline_layer,
+            "n_samples_scenario": int(scenario_container.n_samples),
             "runtime_sec": 0.0,
             "delta_between_batch_ratio": 0.0,
             "success": True,
@@ -394,7 +507,7 @@ def _run_scenario(
         start = time.perf_counter()
         try:
             fn(
-                container,
+                scenario_container,
                 batch_key=batch_key,
                 assay_name=assay_name,
                 base_layer=baseline_layer,
@@ -403,11 +516,13 @@ def _run_scenario(
             )
             elapsed = time.perf_counter() - start
             metrics = _compute_metrics(
-                container,
+                scenario_container,
                 assay_name=assay_name,
                 layer_name=layer_name,
                 batch_key=batch_key,
                 condition_key=condition_key,
+                reference_layer_name=baseline_layer,
+                enable_marker_metrics=score_profile != "confounded",
             )
             rows.append(
                 {
@@ -416,8 +531,10 @@ def _run_scenario(
                     "score_profile": score_profile,
                     "batch_key": batch_key,
                     "condition_key": condition_key,
+                    "design_identifiability": design_identifiability,
                     "method": method_name,
                     "layer": layer_name,
+                    "n_samples_scenario": int(scenario_container.n_samples),
                     "runtime_sec": round(float(elapsed), 6),
                     "delta_between_batch_ratio": metrics["between_batch_ratio"]
                     - baseline_metrics["between_batch_ratio"],
@@ -444,8 +561,10 @@ def _run_scenario(
                     "score_profile": score_profile,
                     "batch_key": batch_key,
                     "condition_key": condition_key,
+                    "design_identifiability": design_identifiability,
                     "method": method_name,
                     "layer": layer_name,
+                    "n_samples_scenario": int(scenario_container.n_samples),
                     "runtime_sec": round(float(elapsed), 6),
                     "delta_between_batch_ratio": float("nan"),
                     "success": False,
@@ -454,7 +573,7 @@ def _run_scenario(
             )
 
     guardrail = _run_guardrail_checks(
-        container,
+        scenario_container,
         assay_name=assay_name,
         base_layer=baseline_layer,
         batch_key=batch_key,
@@ -462,6 +581,7 @@ def _run_scenario(
         scenario_name=scenario_name,
         dataset_key=dataset_key,
         expectation=str(scenario["guardrail_expectation"]),
+        design_identifiability=design_identifiability,
     )
     return rows, failures, guardrail
 
@@ -480,6 +600,7 @@ def _summarize_raw(raw_df: pd.DataFrame) -> pd.DataFrame:
             "score_profile",
             "batch_key",
             "condition_key",
+            "design_identifiability",
             "method",
             "layer",
             "success",
@@ -490,14 +611,30 @@ def _summarize_raw(raw_df: pd.DataFrame) -> pd.DataFrame:
 
     summary = (
         raw_df.groupby(
-            ["dataset", "scenario", "score_profile", "batch_key", "condition_key", "method"],
+            [
+                "dataset",
+                "scenario",
+                "score_profile",
+                "batch_key",
+                "condition_key",
+                "design_identifiability",
+                "method",
+            ],
             dropna=False,
         )[numeric_cols]
         .mean(numeric_only=True)
         .reset_index()
     )
     grouped = raw_df.groupby(
-        ["dataset", "scenario", "score_profile", "batch_key", "condition_key", "method"],
+        [
+            "dataset",
+            "scenario",
+            "score_profile",
+            "batch_key",
+            "condition_key",
+            "design_identifiability",
+            "method",
+        ],
         dropna=False,
     )
     summary["runs"] = grouped["success"].size().values
@@ -659,7 +796,9 @@ def run_benchmark(
             "summary": str(summary_out),
             "scores": str(score_out),
             "guardrail": str(guardrail_out) if guardrail_out.exists() else None,
-            "failures": str(output_dir / "failures.csv") if (output_dir / "failures.csv").exists() else None,
+            "failures": str(output_dir / "failures.csv")
+            if (output_dir / "failures.csv").exists()
+            else None,
             "summary_plot": str(output_dir / "summary_metrics.png"),
             "heatmap_plot": str(output_dir / "score_heatmap.png"),
             "overall_plot": str(output_dir / "overall_scores.png"),
@@ -678,20 +817,15 @@ def run_benchmark(
                 "score_profile": SCENARIO_SPECS[scenario]["score_profile"],
                 "batch_key": SCENARIO_SPECS[scenario]["batch_key"],
                 "condition_key": SCENARIO_SPECS[scenario]["condition_key"],
+                "design_identifiability": SCENARIO_SPECS[scenario]["design_identifiability"],
                 "baseline_metrics": (
-                    raw_df[
-                        (raw_df["scenario"] == scenario)
-                        & (raw_df["method"] == "none")
-                    ]
+                    raw_df[(raw_df["scenario"] == scenario) & (raw_df["method"] == "none")]
                     .drop(columns=["error"])
                     .head(1)
                     .to_dict("records")
                 ),
                 "integration_results": (
-                    raw_df[
-                        (raw_df["scenario"] == scenario)
-                        & (raw_df["method"] != "none")
-                    ]
+                    raw_df[(raw_df["scenario"] == scenario) & (raw_df["method"] != "none")]
                     .drop(columns=["error"])
                     .to_dict("records")
                 ),
@@ -703,7 +837,9 @@ def run_benchmark(
         "total_runtime_sec": round(total_runtime, 6),
     }
     legacy_json = output_json or (output_dir / "real_dia_batch_confounding_report.json")
-    legacy_json.write_text(json.dumps(legacy_report, ensure_ascii=False, indent=2), encoding="utf-8")
+    legacy_json.write_text(
+        json.dumps(legacy_report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     print("[INFO] Integration benchmark completed.")
     print(f"[INFO] Raw metrics: {raw_out}")
@@ -727,6 +863,9 @@ def run_benchmark(
             "condition_asw",
             "condition_ari",
             "condition_nmi",
+            "marker_log2fc_pearson",
+            "marker_topk_jaccard",
+            "marker_topk_sign_agreement",
         ]
         show_cols = [c for c in keep_cols if c in rank_df.columns]
         print("\n[INFO] Method ranking by scenario:")

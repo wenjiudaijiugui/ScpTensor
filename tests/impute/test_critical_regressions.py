@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import numpy as np
 import polars as pl
+import pytest
 import scipy.sparse as sp_sparse
 
 from scptensor.core import Assay, MaskCode, ScpContainer, ScpMatrix
+from scptensor.core.exceptions import ScpValueError
 from scptensor.impute import impute_zero
 from scptensor.impute.bpca import bpca_impute
 from scptensor.impute.knn import impute_knn, knn_impute
@@ -51,6 +53,62 @@ def test_qrilc_does_not_force_nonnegative_in_log_space() -> None:
 
     assert not np.any(np.isnan(x_out))
     assert np.any(x_out[missing_mask] < 0)
+
+
+def test_minprob_uses_sample_wise_low_quantiles_under_scptensor_axis_contract() -> None:
+    """Regression: MinProb must adapt imputeLCMD's sample-wise logic to row-wise loops."""
+    x = np.array(
+        [
+            [10.0, 20.0, np.nan, 40.0],
+            [1.0, 2.0, np.nan, 4.0],
+            [100.0, 200.0, np.nan, 400.0],
+        ],
+        dtype=np.float64,
+    )
+
+    x_out = minprob_impute(x, sigma=1e-12, q=0.25, random_state=0)
+    expected = np.array([15.0, 1.5, 150.0], dtype=np.float64)
+
+    np.testing.assert_allclose(x_out[:, 2], expected, atol=1e-6, rtol=0.0)
+
+
+def test_qrilc_uses_sample_wise_distribution_when_one_feature_is_missing_everywhere() -> None:
+    """Regression: QRILC must estimate the censored tail per sample row, not per feature."""
+    x = np.array(
+        [
+            [100.0, 120.0, 130.0, np.nan, 150.0, 160.0],
+            [1.0, 2.0, 3.0, np.nan, 5.0, 6.0],
+            [50.0, 60.0, 70.0, np.nan, 90.0, 100.0],
+        ],
+        dtype=np.float64,
+    )
+
+    x_out = qrilc_impute(x, q=0.01, random_state=0)
+    imputed = x_out[:, 3]
+
+    assert imputed[0] > imputed[2] > imputed[1]
+    assert 60.0 <= imputed[0] <= 130.0
+    assert 15.0 <= imputed[2] <= 80.0
+    assert 0.0 <= imputed[1] <= 3.0
+
+
+@pytest.mark.parametrize(
+    "fn, kwargs", [(minprob_impute, {"sigma": 2.0}), (qrilc_impute, {"q": 0.01})]
+)
+def test_left_censored_imputers_reject_nonfinite_observed_values(
+    fn: object, kwargs: dict[str, float]
+) -> None:
+    """Regression: only NaN may represent missingness; Inf must be rejected explicitly."""
+    x = np.array(
+        [
+            [1.0, np.inf, np.nan],
+            [2.0, 3.0, 4.0],
+        ],
+        dtype=np.float64,
+    )
+
+    with pytest.raises(ScpValueError, match="finite"):
+        fn(x, random_state=0, **kwargs)
 
 
 def test_knn_distance_weighting_normalizes_over_used_neighbors_only() -> None:
@@ -107,8 +165,8 @@ def test_knn_wrapper_handles_sparse_input_without_type_error() -> None:
     assert not np.any(np.isnan(x_out))
 
 
-def test_knn_no_missing_fast_path_does_not_append_history() -> None:
-    """Regression: KNN no-missing fast path currently returns without logging."""
+def test_knn_no_missing_fast_path_now_logs_history() -> None:
+    """Regression: no-missing KNN path should still leave auditable provenance."""
     x = np.array(
         [
             [1.0, 2.0],
@@ -126,7 +184,9 @@ def test_knn_no_missing_fast_path_does_not_append_history() -> None:
     initial_len = len(container.history)
     out = impute_knn(container, assay_name="protein", source_layer="raw", k=1)
 
-    assert len(out.history) == initial_len
+    assert len(out.history) == initial_len + 1
+    assert out.history[-1].action == "impute_knn"
+    assert out.history[-1].params["new_layer_name"] == "imputed_knn"
     np.testing.assert_allclose(out.assays["protein"].layers["imputed_knn"].X, x)
 
 
@@ -151,6 +211,35 @@ def test_qrilc_no_missing_fast_path_still_logs_history() -> None:
 
     assert len(out.history) == initial_len + 1
     assert out.history[-1].action == "impute_qrilc"
+    assert out.history[-1].params["new_layer_name"] == "qrilc"
+
+
+def test_iterative_svd_and_missforest_no_missing_fast_paths_log_history() -> None:
+    """Regression: no-missing fast paths should now be provenance-complete."""
+    x = np.array(
+        [
+            [8.0, 7.5],
+            [6.2, 5.9],
+        ],
+        dtype=np.float64,
+    )
+    assay = Assay(var=pl.DataFrame({"_index": ["p1", "p2"]}))
+    assay.add_layer("raw", ScpMatrix(X=x, M=None))
+    container = ScpContainer(
+        obs=pl.DataFrame({"_index": ["s1", "s2"]}),
+        assays={"protein": assay},
+    )
+
+    from scptensor.impute.missforest import impute_mf
+    from scptensor.impute.svd import impute_iterative_svd
+
+    out = impute_iterative_svd(container, assay_name="protein", source_layer="raw", n_components=1)
+    assert out.history[-1].action == "impute_iterative_svd"
+    assert out.history[-1].params["new_layer_name"] == "imputed_iterative_svd"
+
+    out = impute_mf(container, assay_name="protein", source_layer="raw", max_iter=2)
+    assert out.history[-1].action == "impute_missforest"
+    assert out.history[-1].params["new_layer_name"] == "imputed_missforest"
 
 
 def test_imputation_targets_only_nan_and_preserves_finite_masked_entries() -> None:

@@ -607,6 +607,15 @@ def run_benchmark(
                             row.update(recon)
                             row["runtime_sec"] = elapsed
                             row["post_missing_rate"] = float(np.mean(np.isnan(x_imputed)))
+                            finite_counts = np.sum(np.isfinite(x_imputed), axis=0)
+                            row["retained_proteins"] = int(np.sum(finite_counts > 0))
+                            row["retained_proteins_ratio"] = float(np.mean(finite_counts > 0))
+                            row["fully_observed_proteins"] = int(
+                                np.sum(finite_counts == x_imputed.shape[0])
+                            )
+                            row["fully_observed_proteins_ratio"] = float(
+                                np.mean(finite_counts == x_imputed.shape[0])
+                            )
                             row["within_group_cv_median"] = compute_within_group_cv_median(
                                 x_imputed,
                                 groups,

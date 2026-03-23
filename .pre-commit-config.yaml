@@ -33,7 +33,7 @@ repos:
       # Run the formatter
       - id: ruff-format
 
-  # Type checking with mypy
+  # Type checking with mypy (stable package contract only)
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.15.0
     hooks:
@@ -42,4 +42,5 @@ repos:
           - polars>=1.0
           - types-requests>=2.31
         args: [--config-file=pyproject.toml]
+        files: ^scptensor/
         exclude: ^(tests/|docs/|scripts/|studies/|scptensor/datasets/scripts/)

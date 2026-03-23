@@ -121,6 +121,16 @@
 - docs sync 检查
 - changed files 的 link / navigation 检查
 
+runtime baseline 选择规则：
+
+- `core_compute` 的 sparse path、mask write、JIT 阈值相关优化，至少运行 `sparse_transform_normalize`
+- 稳定 dense 主链上的通用性能改动，至少运行 `stable_chain_dense`
+- 涉及 logged `quantile` normalization 全链路影响时，运行 `stable_chain_quantile`
+- 涉及 logged `TRQN` normalization 全链路影响时，运行 `stable_chain_trqn`
+- 只改 `quantile` 内部排序 / rank 映射 / dense 临时分配时，以 `normalize_quantile_only` 为主 gate，再用 `stable_chain_quantile` 做链路确认
+- 只改 `TRQN` 内部 rank-invariant 选择 / balanced subset / quantile 子步骤时，以 `normalize_trqn_only` 为主 gate，再用 `stable_chain_trqn` 做链路确认
+- 若改动同时触及 normalization 前后的 layer 写入、overwrite、history、provenance 或 densify 边界，micro-baseline 不能替代对应 full-chain baseline
+
 ## 6. 阶段化执行路线
 
 ### 6.1 `PR-0` 运行时基线
@@ -231,6 +241,14 @@ Authority docs：
 - `quantile / trqn` 的 logged-layer gate 不得无声放宽
 - importer 与 normalization 之间的 vendor-normalized provenance 协作不得破坏
 - 当前 overwrite / history 语义若改变，必须显式升级文档
+
+建议基线：
+
+- `stable_chain_dense`：通用 transform/normalize 主链改动
+- `stable_chain_quantile`：logged `quantile` 全链路改动
+- `stable_chain_trqn`：logged `TRQN` 全链路改动
+- `normalize_quantile_only`：`quantile` 算法内部热点优化
+- `normalize_trqn_only`：`TRQN` 算法内部热点优化
 
 ### 6.6 `PR-5` Imputation 与 Integration
 

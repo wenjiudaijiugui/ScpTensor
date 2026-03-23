@@ -9,6 +9,8 @@ from scptensor.integration import (
     IntegrationMethodInfo,
     compute_batch_asw,
     compute_batch_mixing_metric,
+    compute_ilisi,
+    compute_kbet,
     compute_lisi_approx,
     get_integrate_method,
     get_integrate_method_info,
@@ -41,6 +43,8 @@ from scptensor.integration.diagnostics import compute_batch_asw as compute_batch
 from scptensor.integration.diagnostics import (
     compute_batch_mixing_metric as compute_batch_mixing_metric_core,
 )
+from scptensor.integration.diagnostics import compute_ilisi as compute_ilisi_core
+from scptensor.integration.diagnostics import compute_kbet as compute_kbet_core
 from scptensor.integration.diagnostics import compute_lisi_approx as compute_lisi_approx_core
 from scptensor.integration.diagnostics import (
     integration_quality_report as integration_quality_report_core,
@@ -71,6 +75,8 @@ def test_stable_integration_namespace_all_freezes_package_surface() -> None:
         "compute_batch_mixing_metric",
         "compute_batch_asw",
         "compute_lisi_approx",
+        "compute_kbet",
+        "compute_ilisi",
         "integration_quality_report",
     ]
 
@@ -93,6 +99,8 @@ def test_stable_integration_namespace_reexports_stable_implementations() -> None
     assert compute_batch_mixing_metric is compute_batch_mixing_metric_core
     assert compute_batch_asw is compute_batch_asw_core
     assert compute_lisi_approx is compute_lisi_approx_core
+    assert compute_kbet is compute_kbet_core
+    assert compute_ilisi is compute_ilisi_core
     assert integration_quality_report is integration_quality_report_core
 
 
@@ -124,6 +132,8 @@ def test_only_direct_integration_methods_are_reexported_from_top_level_package()
         "compute_batch_mixing_metric",
         "compute_batch_asw",
         "compute_lisi_approx",
+        "compute_kbet",
+        "compute_ilisi",
         "integration_quality_report",
     ):
         assert name not in scp.__all__

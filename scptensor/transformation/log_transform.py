@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import warnings
+from typing import cast
 
 import numpy as np
 import scipy.sparse as sp
@@ -15,8 +16,9 @@ from scptensor.core._layer_processing import (
     resolve_layer_context,
 )
 from scptensor.core.assay_alias import resolve_assay_name
-from scptensor.core.exceptions import ScpValueError
+from scptensor.core.exceptions import ScpValueError, ValidationError
 from scptensor.core.sparse_utils import (
+    _copy_and_transform_sparse_log,
     ensure_sparse_format,
     is_sparse_matrix,
     sparse_safe_log1p_with_scale,
@@ -38,6 +40,7 @@ def _history_suggests_logged(
 ) -> bool:
     """Return True if provenance indicates layer came from log transformation."""
     resolved_assay_name = resolve_assay_name(container, assay_name)
+    assay_resolution_cache: dict[str, str] = {assay_name: resolved_assay_name}
     for record in reversed(container.history):
         if record.action not in {"log_transform", "log_transform_skipped"}:
             continue
@@ -45,7 +48,11 @@ def _history_suggests_logged(
         record_assay = params.get("assay")
         if not isinstance(record_assay, str):
             continue
-        if resolve_assay_name(container, record_assay) != resolved_assay_name:
+        resolved_record_assay = assay_resolution_cache.get(record_assay)
+        if resolved_record_assay is None:
+            resolved_record_assay = resolve_assay_name(container, record_assay)
+            assay_resolution_cache[record_assay] = resolved_record_assay
+        if resolved_record_assay != resolved_assay_name:
             continue
         if params.get("new_layer_name") == layer_name:
             return True
@@ -103,6 +110,31 @@ def _data_suggests_logged(values: np.ndarray) -> tuple[bool, str]:
         return True, reason
 
     return False, "distribution does not match log-scale heuristics"
+
+
+def _warn_negative_clipping(min_val: float) -> None:
+    """Warn that negative values will be clipped before log transform."""
+    warnings.warn(
+        f"Input contains negative values (min={min_val:.4f}). "
+        "These will be clipped to 0 before log transform.",
+        UserWarning,
+        stacklevel=2,
+    )
+
+
+def _dense_log_transform(
+    x: np.ndarray,
+    *,
+    offset: float,
+    log_scale: float,
+) -> np.ndarray:
+    """Apply dense log transform with a single output buffer."""
+    x_log = np.array(x, dtype=np.float64, copy=True)
+    if offset != 0.0:
+        np.add(x_log, offset, out=x_log)
+    np.log(x_log, out=x_log)
+    np.divide(x_log, log_scale, out=x_log)
+    return x_log
 
 
 def _detect_already_logged(
@@ -174,16 +206,16 @@ def log_transform(
     ScpContainer
         Container with transformed layer added.
     """
-    if base <= 0:
+    if not np.isfinite(base) or base <= 0 or base == 1.0:
         raise ScpValueError(
-            f"Log base must be positive, got {base}. "
+            f"Log base must be finite, positive, and not equal to 1, got {base}. "
             "Use base=2.0 for log2, base=10.0 for log10, or base=np.e for natural log.",
             parameter="base",
             value=base,
         )
-    if offset < 0:
+    if not np.isfinite(offset) or offset < 0:
         raise ScpValueError(
-            f"Offset must be non-negative, got {offset}. "
+            f"Offset must be finite and non-negative, got {offset}. "
             "Offset is added before taking the log to handle zero values.",
             parameter="offset",
             value=offset,
@@ -195,7 +227,18 @@ def log_transform(
     resolved_assay_name = ctx.resolved_assay_name
 
     x = input_layer.X
+    input_is_sparse = is_sparse_matrix(x)
     log_scale = np.log(base)
+    history_base_params = {
+        "assay": resolved_assay_name,
+        "source_layer": source_layer,
+        "new_layer_name": new_layer_name,
+        "base": base,
+        "offset": offset,
+        "detect_logged": detect_logged,
+        "detect_logged_by_distribution": detect_logged_by_distribution,
+        "skip_if_logged": skip_if_logged,
+    }
 
     already_logged = False
     detection_reason = "logged-detection disabled"
@@ -228,17 +271,7 @@ def log_transform(
             log_container_operation(
                 container,
                 action="log_transform_skipped",
-                params={
-                    "assay": resolved_assay_name,
-                    "source_layer": source_layer,
-                    "new_layer_name": new_layer_name,
-                    "base": base,
-                    "offset": offset,
-                    "detect_logged": detect_logged,
-                    "detect_logged_by_distribution": detect_logged_by_distribution,
-                    "skip_if_logged": skip_if_logged,
-                    "reason": detection_reason,
-                },
+                params={**history_base_params, "reason": detection_reason},
                 description=(
                     f"Skipped log transform on {resolved_assay_name}/{source_layer} because "
                     "data appears already log-transformed."
@@ -246,33 +279,58 @@ def log_transform(
             )
             return container
 
-    if is_sparse_matrix(x):
-        if np.any(x.data < 0):  # type: ignore[union-attr,operator]
-            min_val = np.nanmin(x.data)  # type: ignore[union-attr]
-            warnings.warn(
-                f"Input contains negative values (min={min_val:.4f}). "
-                "These will be clipped to 0 before log transform.",
-                UserWarning,
-                stacklevel=2,
+    if offset == 0.0:
+        if input_is_sparse:
+            sparse_x = cast(sp.spmatrix, x)
+            sparse_data = np.asarray(sparse_x.data)
+            has_nonpositive = (sparse_x.nnz < np.prod(sparse_x.shape)) or np.any(sparse_data <= 0)
+        else:
+            has_nonpositive = bool(np.any(np.asarray(x) <= 0))
+
+        if has_nonpositive:
+            raise ValidationError(
+                "Log transform with offset=0 requires strictly positive input values. "
+                "Found zero or negative values; use a positive offset (for example 1.0).",
+                field="X",
             )
-            x = x.copy()
-            x.data = np.maximum(x.data, 0)  # type: ignore[misc]
+
+    if input_is_sparse:
+        sparse_x = cast(sp.spmatrix, x)
+        sparse_data = np.asarray(sparse_x.data)
+        if np.any(sparse_data < 0):
+            min_val = np.nanmin(sparse_data)
+            _warn_negative_clipping(min_val)
+
+            if offset == 1.0:
+                x_log = _copy_and_transform_sparse_log(
+                    sparse_x,
+                    offset=offset,
+                    scale=log_scale,
+                    use_jit=use_jit,
+                    clip_negative=True,
+                )
+                x_log = ensure_sparse_format(x_log, "csr")
+            else:
+                x_dense = np.asarray(sparse_x.toarray(), dtype=np.float64)
+                np.maximum(x_dense, 0, out=x_dense)
+                x_log = _dense_log_transform(x_dense, offset=offset, log_scale=log_scale)
+        elif offset == 1.0:
+            x_log = sparse_safe_log1p_with_scale(
+                sparse_x,
+                offset=offset,
+                scale=log_scale,
+                use_jit=use_jit,
+            )
+            x_log = ensure_sparse_format(x_log, "csr")
+        else:
+            x_dense = np.asarray(sparse_x.toarray(), dtype=np.float64)
+            x_log = _dense_log_transform(x_dense, offset=offset, log_scale=log_scale)
     else:
         if np.any(x < 0):
             min_val = np.nanmin(x)
-            warnings.warn(
-                f"Input contains negative values (min={min_val:.4f}). "
-                "These will be clipped to 0 before log transform.",
-                UserWarning,
-                stacklevel=2,
-            )
+            _warn_negative_clipping(min_val)
             x = np.maximum(x, 0)
-
-    if is_sparse_matrix(x):
-        x_log = sparse_safe_log1p_with_scale(x, offset=offset, scale=log_scale, use_jit=use_jit)
-        x_log = ensure_sparse_format(x_log, "csr")
-    else:
-        x_log = np.log(x + offset) / log_scale
+        x_log = _dense_log_transform(x, offset=offset, log_scale=log_scale)
 
     add_result_layer(assay, new_layer_name, x_log, input_layer)
 
@@ -280,16 +338,9 @@ def log_transform(
         container,
         action="log_transform",
         params={
-            "assay": resolved_assay_name,
-            "source_layer": source_layer,
-            "new_layer_name": new_layer_name,
-            "base": base,
-            "offset": offset,
-            "sparse_input": is_sparse_matrix(x),
+            **history_base_params,
+            "sparse_input": input_is_sparse,
             "use_jit": use_jit,
-            "detect_logged": detect_logged,
-            "detect_logged_by_distribution": detect_logged_by_distribution,
-            "skip_if_logged": skip_if_logged,
             "already_logged_detected": already_logged,
             "logged_detection_reason": detection_reason,
         },

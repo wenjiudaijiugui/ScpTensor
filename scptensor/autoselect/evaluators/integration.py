@@ -91,6 +91,9 @@ class IntegrationEvaluator(BaseEvaluator):
                 "integration_level": method_info.integration_level,
                 "recommended_for_de": method_info.recommended_for_de,
                 "candidate_scope": "stable" if is_stable else "exploratory",
+                "selection_batch_metric": "batch_mixing",
+                "selection_batch_metric_kind": "heuristic_proxy",
+                "standardized_batch_metrics": ["batch_kbet", "batch_ilisi"],
             }
         return contracts
 
@@ -294,7 +297,7 @@ class IntegrationEvaluator(BaseEvaluator):
         """
         weights = {
             "batch_asw": 0.25,  # Batch ASW (lower is better, returns 1-asw)
-            "batch_mixing": 0.25,  # Batch mixing score
+            "batch_mixing": 0.25,  # Current heuristic proxy used for selection
             "variance_preserved": 0.25,  # Variance preservation
         }
         if self._bio_key is not None:
@@ -303,6 +306,13 @@ class IntegrationEvaluator(BaseEvaluator):
             # Redistribute weight to variance_preserved
             weights["variance_preserved"] = 0.50
         return weights
+
+    def _zero_metric_scores(self) -> dict[str, float]:
+        """Return a zero-filled metric payload for early exits."""
+        scores = dict.fromkeys(self.metric_weights, 0.0)
+        scores["batch_kbet"] = 0.0
+        scores["batch_ilisi"] = 0.0
+        return scores
 
     def compute_metrics(
         self,
@@ -331,19 +341,19 @@ class IntegrationEvaluator(BaseEvaluator):
         # Check if layer exists
         assay = self._get_metric_assay(container)
         if assay is None:
-            return dict.fromkeys(self.metric_weights, 0.0)
+            return self._zero_metric_scores()
         if layer_name not in assay.layers:
-            return dict.fromkeys(self.metric_weights, 0.0)
+            return self._zero_metric_scores()
 
         # Get batch labels
         if self._batch_key not in container.obs.columns:
-            return dict.fromkeys(self.metric_weights, 0.0)
+            return self._zero_metric_scores()
 
         batches = container.obs[self._batch_key].to_numpy()
 
         # Check for multiple batches
         if len(np.unique(batches)) < 2:
-            return dict.fromkeys(self.metric_weights, 0.0)
+            return self._zero_metric_scores()
 
         # Get data matrix
         x_matrix = assay.layers[layer_name].X
@@ -362,6 +372,8 @@ class IntegrationEvaluator(BaseEvaluator):
 
         # Batch mixing score
         scores["batch_mixing"] = self._compute_batch_mixing(x_matrix, batches)
+        scores["batch_kbet"] = self._compute_batch_kbet(x_matrix, batches)
+        scores["batch_ilisi"] = self._compute_batch_ilisi(x_matrix, batches)
 
         # Variance preservation
         scores["variance_preserved"] = self._compute_variance_preserved(
@@ -380,10 +392,9 @@ class IntegrationEvaluator(BaseEvaluator):
 
     def _compute_batch_asw(self, x_data: np.ndarray, batches: np.ndarray) -> float:
         """Compute batch average silhouette width (1 - ASW)."""
-        from sklearn.metrics import silhouette_score
+        from scptensor.autoselect.metrics.batch import batch_asw
 
         try:
-            # Subsample if too large
             if x_data.shape[0] > 5000:
                 idx = np.random.choice(x_data.shape[0], 5000, replace=False)
                 x_sub = x_data[idx]
@@ -392,29 +403,15 @@ class IntegrationEvaluator(BaseEvaluator):
                 x_sub = x_data
                 batches_sub = batches
 
-            # Handle NaN
-            valid_mask = ~np.isnan(x_sub).any(axis=1)
-            if not np.any(valid_mask):
-                return 0.0
-
-            x_clean = x_sub[valid_mask]
-            batches_clean = batches_sub[valid_mask]
-
-            if len(np.unique(batches_clean)) < 2:
-                return 0.0
-
-            asw = silhouette_score(x_clean, batches_clean)
-            # Return 1 - ASW so higher is better
-            return float(np.clip(1.0 - asw, 0.0, 1.0))
+            return batch_asw(x_sub, batches_sub)
         except Exception:
             return 0.0
 
     def _compute_bio_asw(self, x_data: np.ndarray, bio_labels: np.ndarray) -> float:
         """Compute biological group average silhouette width."""
-        from sklearn.metrics import silhouette_score
+        from scptensor.autoselect.metrics.batch import bio_asw
 
         try:
-            # Subsample if too large
             if x_data.shape[0] > 5000:
                 idx = np.random.choice(x_data.shape[0], 5000, replace=False)
                 x_sub = x_data[idx]
@@ -423,60 +420,50 @@ class IntegrationEvaluator(BaseEvaluator):
                 x_sub = x_data
                 bio_sub = bio_labels
 
-            # Handle NaN
-            valid_mask = ~np.isnan(x_sub).any(axis=1)
-            if not np.any(valid_mask):
-                return 0.0
-
-            x_clean = x_sub[valid_mask]
-            bio_clean = bio_sub[valid_mask]
-
-            if len(np.unique(bio_clean)) < 2:
-                return 0.0
-
-            asw = silhouette_score(x_clean, bio_clean)
-            return float(np.clip(asw, 0.0, 1.0))
+            return bio_asw(x_sub, bio_sub)
         except Exception:
             return 0.0
 
     def _compute_batch_mixing(
         self, x_data: np.ndarray, batches: np.ndarray, n_neighbors: int = 30
     ) -> float:
-        """Compute batch mixing score using simplified LISI."""
-        from sklearn.neighbors import NearestNeighbors
+        """Compute the current heuristic batch-mixing proxy used for selection."""
+        from scptensor.autoselect.metrics.batch import batch_mixing_score
 
         try:
-            unique_batches = np.unique(batches)
-            n_batches = len(unique_batches)
+            return batch_mixing_score(x_data, batches, n_neighbors=n_neighbors)
+        except Exception:
+            return 0.0
 
-            if n_batches < 2:
-                return 0.0
+    def _compute_batch_kbet(
+        self, x_data: np.ndarray, batches: np.ndarray, n_neighbors: int = 30
+    ) -> float:
+        """Compute standardized fixed-k kBET acceptance rate."""
+        from scptensor.autoselect.metrics.batch import kbet_score
 
-            n_neighbors = min(n_neighbors, x_data.shape[0] - 1)
-            if n_neighbors < 1:
-                return 0.0
+        try:
+            return kbet_score(x_data, batches, n_neighbors=n_neighbors)
+        except Exception:
+            return 0.0
 
-            # Handle NaN
-            valid_mask = ~np.isnan(x_data).any(axis=1)
-            if not np.any(valid_mask):
-                return 0.0
+    def _compute_batch_ilisi(
+        self,
+        x_data: np.ndarray,
+        batches: np.ndarray,
+        n_neighbors: int = 60,
+        perplexity: float = 30.0,
+    ) -> float:
+        """Compute standardized iLISI summary for reporting."""
+        from scptensor.autoselect.metrics.batch import ilisi_score
 
-            x_clean = x_data[valid_mask]
-            batches_clean = batches[valid_mask]
-
-            # Find nearest neighbors
-            nn = NearestNeighbors(n_neighbors=n_neighbors + 1)
-            nn.fit(x_clean)
-            _, indices = nn.kneighbors(x_clean)
-
-            # Compute mixing score
-            scores = []
-            for i in range(len(x_clean)):
-                neighbor_batches = batches_clean[indices[i, 1:]]
-                unique_in_neighborhood = len(np.unique(neighbor_batches))
-                scores.append(unique_in_neighborhood / n_batches)
-
-            return float(np.mean(scores))
+        try:
+            return ilisi_score(
+                x_data,
+                batches,
+                n_neighbors=n_neighbors,
+                perplexity=perplexity,
+                scale=True,
+            )
         except Exception:
             return 0.0
 

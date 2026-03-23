@@ -50,7 +50,8 @@ If any document, prompt, or comment conflicts with this file, follow this file.
 - Standard setup:
   - `uv venv`
   - `uv pip install -e .`
-  - `uv pip install -e ".[dev]"` when development tools are needed
+  - `uv pip install -e ".[dev]"` when only development tools are needed
+  - `uv pip install -e ".[all,dev]"` or `uv sync --all-extras && uv sync --group dev` for CI-parity full-repo checks
 - Standard checks:
   - `uv run ruff check scptensor tests`
   - `uv run mypy scptensor`

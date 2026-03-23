@@ -30,10 +30,13 @@ def plot_summary_metrics(summary_df: pd.DataFrame, output_path: Path) -> None:
         ("condition_ari", "Condition ARI (Higher Better)"),
         ("condition_nmi", "Condition NMI (Higher Better)"),
         ("condition_knn_purity", "Condition kNN Purity (Higher Better)"),
+        ("marker_log2fc_pearson", "Marker Log2FC Pearson (Higher Better)"),
+        ("marker_topk_jaccard", "Marker Top-k Jaccard (Higher Better)"),
+        ("marker_topk_sign_agreement", "Marker Top-k Sign Agreement"),
         ("runtime_sec", "Runtime (sec, Lower Better)"),
     ]
 
-    fig, axes = plt.subplots(3, 3, figsize=(24, 16), constrained_layout=True)
+    fig, axes = plt.subplots(3, 4, figsize=(28, 16), constrained_layout=True)
     axes_flat = axes.ravel()
 
     for ax, (metric, title) in zip(axes_flat, panel_metrics, strict=False):
@@ -72,7 +75,9 @@ def plot_score_heatmap(scores_df: pd.DataFrame, output_path: Path) -> None:
 
     work = scores_df.copy()
     if "scenario" in work.columns:
-        work["dataset_scenario"] = work["dataset"].astype(str) + " | " + work["scenario"].astype(str)
+        work["dataset_scenario"] = (
+            work["dataset"].astype(str) + " | " + work["scenario"].astype(str)
+        )
         index_col = "dataset_scenario"
     else:
         index_col = "dataset"

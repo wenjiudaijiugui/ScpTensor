@@ -366,6 +366,14 @@ selection_score = quality_weight * overall_score + runtime_weight * runtime_scor
   - `integration_level`
   - `recommended_for_de`
   - `candidate_scope`
+- 其余 integration 合同元数据当前还会显式写明：
+  - `selection_batch_metric = "batch_mixing"`
+  - `selection_batch_metric_kind = "heuristic_proxy"`
+  - `standardized_batch_metrics = ["batch_kbet", "batch_ilisi"]`
+- 也就是说：
+  - `overall_score` / `selection_score` 当前仍使用旧的 proxy `batch_mixing`
+  - `batch_kbet` / `batch_ilisi` 已进入结果分项，用于 standardized diagnostics / reporting
+  - 在显式版本化前，不得把排序逻辑静默切换到 standardized 指标
 - `recommendation_reason` 会明确声明本次是 stable-only 还是 exploratory-inclusive 候选集
 
 ### 7.5 `reduce / cluster`

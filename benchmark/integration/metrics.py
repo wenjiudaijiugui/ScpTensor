@@ -35,6 +35,94 @@ CONFOUNDED_METRIC_DIRECTIONS: dict[str, bool] = {
 METRIC_DIRECTIONS = BALANCED_METRIC_DIRECTIONS
 
 
+def _safe_pearson(x: np.ndarray, y: np.ndarray) -> float:
+    if x.size < 3 or y.size < 3:
+        return float("nan")
+    x_std = float(np.std(x, ddof=1)) if x.size > 1 else float(np.std(x, ddof=0))
+    y_std = float(np.std(y, ddof=1)) if y.size > 1 else float(np.std(y, ddof=0))
+    if np.allclose(x, y, equal_nan=True, rtol=1e-10, atol=1e-12):
+        return 1.0
+    if x_std <= 1e-12 or y_std <= 1e-12:
+        return float("nan")
+    return float(np.corrcoef(x, y)[0, 1])
+
+
+def compute_marker_consistency_metrics(
+    reference_matrix: np.ndarray,
+    candidate_matrix: np.ndarray,
+    condition_labels: Sequence[str],
+    *,
+    top_k: int = 50,
+) -> dict[str, float]:
+    """Compare marker-style group contrasts before/after integration.
+
+    This reports a third, read-only axis for benchmark interpretation. It does
+    not change the current ranking contract, which remains driven by batch and
+    biological-conservation scores.
+    """
+    x_ref = np.asarray(reference_matrix, dtype=np.float64)
+    x_cmp = np.asarray(candidate_matrix, dtype=np.float64)
+    labels = np.asarray(list(condition_labels), dtype=object)
+
+    if x_ref.shape != x_cmp.shape or labels.shape[0] != x_ref.shape[0]:
+        return {
+            "marker_log2fc_pearson": float("nan"),
+            "marker_topk_jaccard": float("nan"),
+            "marker_topk_sign_agreement": float("nan"),
+        }
+
+    unique = np.unique(labels)
+    if unique.size < 2:
+        return {
+            "marker_log2fc_pearson": float("nan"),
+            "marker_topk_jaccard": float("nan"),
+            "marker_topk_sign_agreement": float("nan"),
+        }
+
+    corr_vals: list[float] = []
+    jacc_vals: list[float] = []
+    sign_vals: list[float] = []
+
+    for i in range(len(unique)):
+        for j in range(i + 1, len(unique)):
+            g1 = unique[i]
+            g2 = unique[j]
+            idx1 = np.where(labels == g1)[0]
+            idx2 = np.where(labels == g2)[0]
+            if idx1.size < 2 or idx2.size < 2:
+                continue
+
+            fc_ref = np.nanmean(x_ref[idx1, :], axis=0) - np.nanmean(x_ref[idx2, :], axis=0)
+            fc_cmp = np.nanmean(x_cmp[idx1, :], axis=0) - np.nanmean(x_cmp[idx2, :], axis=0)
+
+            valid = np.isfinite(fc_ref) & np.isfinite(fc_cmp)
+            if np.sum(valid) < 3:
+                continue
+
+            ref = fc_ref[valid]
+            cmp = fc_cmp[valid]
+            corr_vals.append(_safe_pearson(ref, cmp))
+
+            max_k = max(1, ref.size - 1)
+            k = int(min(max(5, top_k), max_k))
+            idx_top_ref = np.argsort(-np.abs(ref))[:k]
+            idx_top_cmp = np.argsort(-np.abs(cmp))[:k]
+
+            set_ref = set(idx_top_ref.tolist())
+            set_cmp = set(idx_top_cmp.tolist())
+            inter = len(set_ref & set_cmp)
+            union = len(set_ref | set_cmp)
+            jacc_vals.append(float(inter / union) if union > 0 else float("nan"))
+
+            sign_vals.append(float(np.mean(np.sign(cmp[idx_top_ref]) == np.sign(ref[idx_top_ref]))))
+
+    return {
+        "marker_log2fc_pearson": (float(np.nanmean(corr_vals)) if corr_vals else float("nan")),
+        "marker_topk_jaccard": (float(np.nanmean(jacc_vals)) if jacc_vals else float("nan")),
+        "marker_topk_sign_agreement": (float(np.nanmean(sign_vals)) if sign_vals else float("nan")),
+    }
+
+
 def _score_block(
     block: pd.DataFrame,
     metric_directions: dict[str, bool],
@@ -104,5 +192,6 @@ __all__ = [
     "BALANCED_METRIC_DIRECTIONS",
     "CONFOUNDED_METRIC_DIRECTIONS",
     "METRIC_DIRECTIONS",
+    "compute_marker_consistency_metrics",
     "score_methods",
 ]

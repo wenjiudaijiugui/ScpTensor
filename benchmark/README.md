@@ -136,7 +136,7 @@ ScpTensor 的 benchmark 不再只是一组脚本，而是三层结构：
 - precursor->protein 映射覆盖率
 - unmapped feature rate
 - ambiguous mapping burden
-- 说明：当前脚本已输出 LFQ-style accuracy / precision / coverage 指标；`DE consistency`、`ambiguous mapping burden` 与 state-aware completeness 尚未全面落地。
+- 说明：当前脚本已输出 LFQ-style accuracy / precision / coverage 指标，以及 `DE consistency` proxy、`ambiguous mapping burden` 与部分 state-aware burden（当前为 `valid / non_valid / lod / uncertain` 子集）；但完整状态向量、`protein-direct main board` 与更强 external-ground-truth 终点仍未全面落地。
 
 ### Imputation
 
@@ -149,11 +149,13 @@ ScpTensor 的 benchmark 不再只是一组脚本，而是三层结构：
   - `MAE`
   - `Spearman`
   - `DE log2fc_pearson / topk_jaccard / topk_sign_agreement`
+  - `DE topk_f1 / pAUC(0.01/0.05/0.10)`
+  - `retained_proteins_ratio / fully_observed_proteins_ratio`
   - `runtime / success_rate`
 - review 目标但当前待补：
-  - `DE pAUC / F1`
-  - retained proteins
   - state-aware holdout burden
+  - `precursor-to-protein auxiliary board`
+  - 外部 ground-truth 驱动而非 pseudo-truth 驱动的 `DE pAUC / F1`
 
 ### Integration
 
@@ -163,15 +165,14 @@ ScpTensor 的 benchmark 不再只是一组脚本，而是三层结构：
   - `fully confounded`
 - 当前 `benchmark/integration` 已实现：
   - `balanced_amount_by_sample`
+  - `partially_confounded_bridge_sample`
   - `confounded_amount_as_batch`（语义上等价于 `fully confounded`）
-- `partially confounded` 是 review 已确认的待补场景，不应在 README 中被暗示为已落地。
 - `fully confounded` 用于 guardrail，不应与主榜单混排，也不应跨场景合并出单一全局赢家。
 - 指标必须同时覆盖：
   - `batch removal`
   - `biological conservation`
-- `Gong 2025` 进一步支持长期补充：
-  - `marker / feature consistency`
-- 当前脚本已输出双轴数值指标和 `guardrail_checks.csv`，但尚未输出 state-aware uncertainty burden。
+- 当前脚本现已把 `marker / feature consistency` 作为第三报告轴输出，但保持与当前主评分权重分离。
+- 当前脚本已输出三场景结果、第三报告轴和 `guardrail_checks.csv`，但尚未输出 state-aware uncertainty burden。
 - 当前 `overall_scores.png` 仍属于 legacy 聚合可视化；解释时必须回到按场景分开的 `metrics_scores.csv`，不能把它当作官方主榜。
 
 ### AutoSelect
@@ -185,10 +186,11 @@ ScpTensor 的 benchmark 不再只是一组脚本，而是三层结构：
 - 当前目录已落地：
   - normalization literature score
   - synthetic normalization stress
-  - integration strategy comparison
+  - integration strategy comparison（含 `balanced / partially_confounded / fully_confounded` 三场景）
+  - script-local `state_penalized_selection_score` 辅助列
 - 待补：
-  - state-aware completeness / uncertainty penalty
   - 真实公共数据 panel 上的统一 AutoSelect 评分
+  - 真正进入 AutoSelect 主评分合同的 state-aware uncertainty 轴
   - normalization × imputation 组合敏感性结果在统一报告中的显式位置
 
 ## State-Aware Metric Contract
@@ -218,8 +220,9 @@ ScpTensor 的 benchmark 不再只是一组脚本，而是三层结构：
 
 当前实现状态：
 
-- `benchmark` 目录里的脚本还没有在 `aggregation / normalization / imputation / integration / autoselect` 五条赛道上全面输出这套状态向量。
-- 当前最多只能把它视为“目标合同”，而不是“已在所有 benchmark 中落地”的既成事实。
+- `aggregation` 已输出 `valid / non_valid / lod / uncertain` 子集，`autoselect` 已输出 script-local `state_non_valid_fraction / state_imputed_fraction` 负担列。
+- `normalization / imputation / integration` 仍未统一输出完整状态向量，`autoselect` 也尚未把状态轴接入主评分合同。
+- 因此这套状态向量目前仍只能视为“正在分阶段落地的目标合同”，不是“已在所有 benchmark 中完整统一”的既成事实。
 
 ## Failure Modes
 

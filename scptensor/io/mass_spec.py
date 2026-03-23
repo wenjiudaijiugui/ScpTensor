@@ -506,7 +506,7 @@ def _matrix_to_assay(
     ).to_numpy()
     x = np.asarray(x_t, dtype=np.float64).T
 
-    m = np.where(np.isfinite(x), MaskCode.VALID.value, MaskCode.LOD.value).astype(np.int8)
+    m = np.where(np.isfinite(x), MaskCode.VALID.value, MaskCode.UNCERTAIN.value).astype(np.int8)
     obs = pl.DataFrame({"_index": sample_ids})
 
     assay = Assay(var=var_df, layers={layer_name: ScpMatrix(X=x, M=m)}, feature_id_col="_index")

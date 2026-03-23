@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""Benchmark AutoSelect integration strategies side-by-side.
+"""Benchmark AutoSelect integration strategies across design scenarios.
 
-This script generates a DIA-like protein matrix with explicit batch confounding,
-applies a fixed preprocessing baseline, and compares AutoSelect strategy presets:
-`quality`, `balanced`, and `speed`.
+This script generates a DIA-like protein matrix, applies a fixed preprocessing
+baseline, and compares AutoSelect strategy presets across three scenario
+boundaries:
 
-Baseline preprocessing is fixed to:
-log transform -> normalization -> missing-value imputation
+- balanced
+- partially confounded with a bridge batch
+- fully confounded
+
+The script also reports a scenario-level state burden derived from the baseline
+mask state. This produces an auxiliary script-local penalty column without
+changing the core AutoSelect scoring contract.
 """
-
-from __future__ import annotations
 
 import argparse
 import csv
@@ -28,19 +31,51 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from scptensor.autoselect import AutoSelector, StageReport
-from scptensor.core import Assay, ScpContainer, ScpMatrix
+from scptensor.core import Assay, FilterCriteria, MaskCode, ScpContainer, ScpMatrix
 from scptensor.impute import impute
 from scptensor.normalization import normalize
 from scptensor.transformation import log_transform
 
+SAMPLE_GROUPS = ("S1", "S2", "S3")
+AMOUNT_GROUPS = ("300ng", "600ng")
+
+SCENARIO_SPECS: dict[str, dict[str, Any]] = {
+    "balanced_amount_by_sample": {
+        "batch_key": "batch_balanced",
+        "bio_key": "condition_balanced",
+        "design_identifiability": "fully_identifiable_balanced",
+        "subset_strategy": "full_dataset",
+        "description": "Balanced sample-group batches crossed with amount-group biology.",
+    },
+    "partially_confounded_bridge_sample": {
+        "batch_key": "batch_partially_confounded",
+        "bio_key": "condition_partially_confounded",
+        "design_identifiability": "bridge_reference_partial_confounding",
+        "subset_strategy": "bridge_sample_partial_confounding",
+        "description": (
+            "Bridge-style partial confounding: S1 low only, S2 both amounts, S3 high only."
+        ),
+    },
+    "confounded_amount_as_batch": {
+        "batch_key": "batch_confounded",
+        "bio_key": None,
+        "design_identifiability": "non_identifiable_fully_confounded",
+        "subset_strategy": "full_dataset",
+        "description": "Batch equals amount group; biological contrast is not separately identifiable.",
+    },
+}
+
 
 @dataclass
 class StrategySummaryRow:
-    """Compact summary row for one strategy."""
+    """Compact summary row for one strategy under one scenario."""
 
+    scenario: str
+    design_identifiability: str
     strategy: str
     best_method: str
     selection_score: float
+    state_penalized_selection_score: float
     overall_score: float
     execution_time: float
     n_repeats: int
@@ -48,13 +83,19 @@ class StrategySummaryRow:
     ci_upper: float
     methods_tested: int
     success_rate: float
+    n_samples_scenario: int
+    state_non_valid_fraction: float
+    state_imputed_fraction: float
     recommendation_reason: str
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "scenario": self.scenario,
+            "design_identifiability": self.design_identifiability,
             "strategy": self.strategy,
             "best_method": self.best_method,
             "selection_score": self.selection_score,
+            "state_penalized_selection_score": self.state_penalized_selection_score,
             "overall_score": self.overall_score,
             "execution_time": self.execution_time,
             "n_repeats": self.n_repeats,
@@ -62,64 +103,76 @@ class StrategySummaryRow:
             "ci_upper": self.ci_upper,
             "methods_tested": self.methods_tested,
             "success_rate": self.success_rate,
+            "n_samples_scenario": self.n_samples_scenario,
+            "state_non_valid_fraction": self.state_non_valid_fraction,
+            "state_imputed_fraction": self.state_imputed_fraction,
             "recommendation_reason": self.recommendation_reason,
         }
 
 
-def _build_confounded_dia_container(
+def _assign_design_labels(n_samples: int, rng: np.random.Generator) -> tuple[list[str], list[str]]:
+    pairs = [
+        (sample_group, amount_group)
+        for sample_group in SAMPLE_GROUPS
+        for amount_group in AMOUNT_GROUPS
+    ]
+    repeated = [pairs[i % len(pairs)] for i in range(n_samples)]
+    rng.shuffle(repeated)
+    sample_groups = [pair[0] for pair in repeated]
+    amount_groups = [pair[1] for pair in repeated]
+    return sample_groups, amount_groups
+
+
+def _build_design_synthetic_container(
     random_state: int,
     n_samples: int,
     n_proteins: int,
-    n_cell_types: int = 4,
 ) -> tuple[ScpContainer, dict[str, Any]]:
-    """Create a DIA-like protein matrix with explicit batch confounding."""
-    if n_samples < n_cell_types:
+    """Create a DIA-like protein matrix with balanced design labels."""
+    if n_samples < len(SAMPLE_GROUPS) * len(AMOUNT_GROUPS):
         raise ValueError(
-            f"n_samples must be >= n_cell_types ({n_cell_types}), got {n_samples}"
+            "n_samples must be >= 6 to cover all sample_group/amount_group combinations."
         )
 
     rng = np.random.default_rng(random_state)
+    sample_groups, amount_groups = _assign_design_labels(n_samples, rng)
+    sample_index = {name: idx for idx, name in enumerate(SAMPLE_GROUPS)}
+    amount_index = {name: idx for idx, name in enumerate(AMOUNT_GROUPS)}
 
-    # Cell types
-    cell_type_idx = np.arange(n_samples) % n_cell_types
-    rng.shuffle(cell_type_idx)
+    batch_idx = np.asarray([sample_index[name] for name in sample_groups], dtype=int)
+    condition_idx = np.asarray([amount_index[name] for name in amount_groups], dtype=int)
 
-    # Batch confounding: different cell types have different batch priors.
-    batch0_prob_by_type = np.linspace(0.85, 0.15, n_cell_types)
-    batch_idx = np.where(rng.random(n_samples) < batch0_prob_by_type[cell_type_idx], 0, 1)
+    base_log2 = rng.normal(24.0, 1.0, size=n_proteins)
+    bio_effects = np.zeros((len(AMOUNT_GROUPS), n_proteins), dtype=np.float64)
+    marker_count = max(16, n_proteins // 8)
+    markers_high = rng.choice(n_proteins, size=marker_count, replace=False)
+    bio_effects[1, markers_high] += rng.normal(0.9, 0.15, size=marker_count)
 
-    # Latent log2-intensity signal: biological signal + batch effect + noise.
-    base_log2 = rng.normal(24.0, 1.1, size=n_proteins)
-    bio_effects = rng.normal(0.0, 0.3, size=(n_cell_types, n_proteins))
-    marker_count = max(12, n_proteins // 8)
-    for ct in range(n_cell_types):
-        markers = rng.choice(n_proteins, size=marker_count, replace=False)
-        bio_effects[ct, markers] += rng.normal(1.0, 0.2, size=marker_count)
+    batch_effects = rng.normal(0.0, 0.20, size=(len(SAMPLE_GROUPS), n_proteins))
+    batch_specific = rng.choice(n_proteins, size=max(24, n_proteins // 6), replace=False)
+    for batch_id in range(1, len(SAMPLE_GROUPS)):
+        batch_effects[batch_id, batch_specific] += rng.normal(0.35, 0.08, size=batch_specific.size)
 
-    batch_effects = rng.normal(0.0, 0.2, size=(2, n_proteins))
-    strong_batch_features = rng.choice(n_proteins, size=max(20, n_proteins // 6), replace=False)
-    batch_effects[1, strong_batch_features] += rng.normal(
-        0.6, 0.1, size=strong_batch_features.size
-    )
-
-    noise = rng.normal(0.0, 0.35, size=(n_samples, n_proteins))
-    log2_x = base_log2 + bio_effects[cell_type_idx] + batch_effects[batch_idx] + noise
-
-    # Convert to linear-scale intensities (raw DIA-like matrix).
+    noise = rng.normal(0.0, 0.30, size=(n_samples, n_proteins))
+    log2_x = base_log2[None, :] + bio_effects[condition_idx] + batch_effects[batch_idx] + noise
     raw_x = np.exp2(np.clip(log2_x, a_min=0.0, a_max=None))
 
-    # Missingness: intensity-dependent + batch-dependent + MCAR component.
-    p_intensity = 0.02 + 0.22 * (1.0 / (1.0 + np.exp(log2_x - 23.0)))
-    p_batch = np.where(batch_idx[:, None] == 1, 0.05, 0.0)
-    p_total = np.clip(p_intensity + p_batch + 0.03, 0.0, 0.8)
+    p_intensity = 0.03 + 0.20 * (1.0 / (1.0 + np.exp(log2_x - 23.0)))
+    p_batch = np.where(np.asarray(sample_groups, dtype=object)[:, None] == "S3", 0.04, 0.0)
+    p_total = np.clip(p_intensity + p_batch + 0.02, 0.0, 0.75)
     missing_mask = rng.random(size=raw_x.shape) < p_total
     raw_x[missing_mask] = np.nan
 
     obs = pl.DataFrame(
         {
             "_index": [f"Cell_{i:04d}" for i in range(n_samples)],
-            "batch": np.where(batch_idx == 0, "Batch_0", "Batch_1"),
-            "cell_type": [f"Type_{ct}" for ct in cell_type_idx],
+            "sample_group": sample_groups,
+            "amount_group": amount_groups,
+            "batch_balanced": sample_groups,
+            "condition_balanced": amount_groups,
+            "batch_partially_confounded": sample_groups,
+            "condition_partially_confounded": amount_groups,
+            "batch_confounded": amount_groups,
         }
     )
     var = pl.DataFrame(
@@ -134,17 +187,47 @@ def _build_confounded_dia_container(
     container = ScpContainer(obs=obs)
     container.add_assay("proteins", assay)
 
-    confounding_counts = (
-        obs.group_by("cell_type", "batch").len().sort(["cell_type", "batch"]).to_dicts()
+    batch_condition_counts = (
+        obs.group_by("sample_group", "amount_group")
+        .len()
+        .sort(["sample_group", "amount_group"])
+        .to_dicts()
     )
     metadata = {
         "n_samples": n_samples,
         "n_proteins": n_proteins,
-        "n_cell_types": n_cell_types,
         "missing_rate": float(np.mean(np.isnan(raw_x))),
-        "batch_celltype_counts": confounding_counts,
+        "batch_condition_counts": batch_condition_counts,
     }
     return container, metadata
+
+
+def _partially_confounded_mask(container: ScpContainer) -> np.ndarray:
+    sample_values = container.obs["sample_group"].cast(pl.Utf8).to_numpy()
+    amount_values = container.obs["amount_group"].cast(pl.Utf8).to_numpy()
+
+    low_batch, bridge_batch, high_batch = SAMPLE_GROUPS
+    low_amount = AMOUNT_GROUPS[0]
+    high_amount = AMOUNT_GROUPS[-1]
+
+    keep_mask = (
+        ((sample_values == low_batch) & (amount_values == low_amount))
+        | (sample_values == bridge_batch)
+        | ((sample_values == high_batch) & (amount_values == high_amount))
+    )
+    return keep_mask
+
+
+def _prepare_scenario_container(container: ScpContainer, scenario_name: str) -> ScpContainer:
+    scenario = SCENARIO_SPECS[scenario_name]
+    subset_strategy = str(scenario["subset_strategy"])
+    if subset_strategy == "full_dataset":
+        return container
+    if subset_strategy == "bridge_sample_partial_confounding":
+        return container.filter_samples(
+            FilterCriteria.by_mask(_partially_confounded_mask(container))
+        )
+    raise ValueError(f"Unknown subset strategy: {subset_strategy}")
 
 
 def _apply_baseline_preprocessing(container: ScpContainer) -> tuple[ScpContainer, str]:
@@ -179,12 +262,35 @@ def _apply_baseline_preprocessing(container: ScpContainer) -> tuple[ScpContainer
     return processed, "baseline_imputed"
 
 
+def _compute_state_burden(
+    container: ScpContainer,
+    *,
+    assay_name: str,
+    layer_name: str,
+) -> tuple[float, float]:
+    matrix = container.assays[assay_name].layers[layer_name]
+    if matrix.M is None:
+        return 0.0, 0.0
+
+    mask = np.asarray(matrix.get_m(), dtype=np.int8)
+    total = float(mask.size) if mask.size > 0 else float("nan")
+    if not np.isfinite(total) or total <= 0:
+        return float("nan"), float("nan")
+
+    non_valid_fraction = float(np.sum(mask != MaskCode.VALID.value) / total)
+    imputed_fraction = float(np.sum(mask == MaskCode.IMPUTED.value) / total)
+    return non_valid_fraction, imputed_fraction
+
+
 def _run_single_strategy(
     container: ScpContainer,
     source_layer: str,
     strategy: str,
     n_repeats: int,
     confidence_level: float,
+    *,
+    batch_key: str,
+    bio_key: str | None,
 ) -> StageReport:
     """Run integration autoselection under one strategy."""
     selector = AutoSelector(
@@ -199,19 +305,32 @@ def _run_single_strategy(
         stage="integrate",
         assay_name="proteins",
         source_layer=source_layer,
-        batch_key="batch",
+        batch_key=batch_key,
+        bio_key=bio_key,
     )
     return report
 
 
-def _to_summary_row(strategy: str, report: StageReport) -> StrategySummaryRow:
+def _to_summary_row(
+    *,
+    scenario: str,
+    report: StageReport,
+    strategy: str,
+    n_samples_scenario: int,
+    design_identifiability: str,
+    state_non_valid_fraction: float,
+    state_imputed_fraction: float,
+) -> StrategySummaryRow:
     """Convert a stage report to compact summary row."""
     best = report.best_result
     if best is None:
         return StrategySummaryRow(
+            scenario=scenario,
+            design_identifiability=design_identifiability,
             strategy=strategy,
             best_method="",
             selection_score=0.0,
+            state_penalized_selection_score=0.0,
             overall_score=0.0,
             execution_time=0.0,
             n_repeats=report.n_repeats,
@@ -219,13 +338,21 @@ def _to_summary_row(strategy: str, report: StageReport) -> StrategySummaryRow:
             ci_upper=0.0,
             methods_tested=len(report.results),
             success_rate=report.success_rate,
+            n_samples_scenario=n_samples_scenario,
+            state_non_valid_fraction=state_non_valid_fraction,
+            state_imputed_fraction=state_imputed_fraction,
             recommendation_reason=report.recommendation_reason,
         )
 
+    selection_score = float(best.selection_score or 0.0)
+    state_penalty = max(0.0, 1.0 - state_non_valid_fraction)
     return StrategySummaryRow(
+        scenario=scenario,
+        design_identifiability=design_identifiability,
         strategy=strategy,
         best_method=report.best_method,
-        selection_score=float(best.selection_score or 0.0),
+        selection_score=selection_score,
+        state_penalized_selection_score=float(selection_score * state_penalty),
         overall_score=float(best.overall_score),
         execution_time=float(best.execution_time),
         n_repeats=int(best.n_repeats),
@@ -233,6 +360,9 @@ def _to_summary_row(strategy: str, report: StageReport) -> StrategySummaryRow:
         ci_upper=float(best.overall_score_ci_upper or 0.0),
         methods_tested=len(report.results),
         success_rate=report.success_rate,
+        n_samples_scenario=n_samples_scenario,
+        state_non_valid_fraction=state_non_valid_fraction,
+        state_imputed_fraction=state_imputed_fraction,
         recommendation_reason=report.recommendation_reason,
     )
 
@@ -241,24 +371,31 @@ def _write_json(
     output_path: Path,
     dataset_meta: dict[str, Any],
     summaries: list[StrategySummaryRow],
-    reports: dict[str, StageReport],
+    reports: dict[str, dict[str, StageReport]],
 ) -> None:
     payload = {
         "generated_at": datetime.now().isoformat(),
         "module": "autoselect.integration.strategy_comparison",
         "dataset": dataset_meta,
         "baseline_preprocessing": ["log_transform(base=2, offset=1)", "median_norm", "row_median"],
+        "scenario_specs": SCENARIO_SPECS,
         "summary": [row.to_dict() for row in summaries],
-        "reports": {name: report.to_dict() for name, report in reports.items()},
+        "reports": {
+            scenario: {name: report.to_dict() for name, report in scenario_reports.items()}
+            for scenario, scenario_reports in reports.items()
+        },
     }
     output_path.write_text(json.dumps(payload, indent=2))
 
 
 def _write_csv(output_path: Path, summaries: list[StrategySummaryRow]) -> None:
     fieldnames = [
+        "scenario",
+        "design_identifiability",
         "strategy",
         "best_method",
         "selection_score",
+        "state_penalized_selection_score",
         "overall_score",
         "execution_time",
         "n_repeats",
@@ -266,9 +403,12 @@ def _write_csv(output_path: Path, summaries: list[StrategySummaryRow]) -> None:
         "ci_upper",
         "methods_tested",
         "success_rate",
+        "n_samples_scenario",
+        "state_non_valid_fraction",
+        "state_imputed_fraction",
         "recommendation_reason",
     ]
-    with open(output_path, "w", newline="") as handle:
+    with output_path.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows([row.to_dict() for row in summaries])
@@ -284,7 +424,7 @@ def _write_markdown(
     output_path: Path,
     dataset_meta: dict[str, Any],
     summaries: list[StrategySummaryRow],
-    reports: dict[str, StageReport],
+    reports: dict[str, dict[str, StageReport]],
 ) -> None:
     lines: list[str] = []
     lines.append("# AutoSelect Integration Strategy Comparison")
@@ -298,56 +438,71 @@ def _write_markdown(
     lines.append("")
     lines.append("`raw -> log_transform(base=2, offset=1) -> median_norm -> row_median impute`")
     lines.append("")
-    lines.append("## Batch Confounding Snapshot")
+    lines.append("## Design Snapshot")
     lines.append("")
-    lines.append("| Cell Type | Batch | Count |")
+    lines.append("| Sample Group | Amount Group | Count |")
     lines.append("|---|---|---:|")
-    for row in dataset_meta["batch_celltype_counts"]:
-        lines.append(f"| {row['cell_type']} | {row['batch']} | {row['len']} |")
-    lines.append("")
-    lines.append("## Strategy Summary")
-    lines.append("")
-    lines.append(
-        "| Strategy | Best Method | Selection Score | Overall Score | Time (s) | Repeats | CI (overall) |"
-    )
-    lines.append("|---|---|---:|---:|---:|---:|---|")
-    for row in summaries:
-        lines.append(
-            f"| {row.strategy} | {row.best_method} | {row.selection_score:.4f} | "
-            f"{row.overall_score:.4f} | {row.execution_time:.3f} | {row.n_repeats} | "
-            f"[{row.ci_lower:.4f}, {row.ci_upper:.4f}] |"
-        )
+    for row in dataset_meta["batch_condition_counts"]:
+        lines.append(f"| {row['sample_group']} | {row['amount_group']} | {row['len']} |")
     lines.append("")
 
-    for strategy_name, report in reports.items():
-        lines.append(f"## {strategy_name} Details")
+    for scenario_name in SCENARIO_SPECS:
+        scenario_rows = [row for row in summaries if row.scenario == scenario_name]
+        if not scenario_rows:
+            continue
+
+        lines.append(f"## {scenario_name}")
         lines.append("")
-        lines.append(f"- Best method: `{report.best_method}`")
-        lines.append(f"- Success rate: `{report.success_rate:.1%}`")
-        lines.append("")
-        lines.append("| Method | Selection | Overall | Time (s) | Status |")
-        lines.append("|---|---:|---:|---:|---|")
-        ranked = sorted(
-            report.results,
-            key=lambda r: (
-                r.error is None,
-                r.selection_score if r.selection_score is not None else -1.0,
-                r.overall_score,
-            ),
-            reverse=True,
+        lines.append(f"- Design identifiability: `{scenario_rows[0].design_identifiability}`")
+        lines.append(f"- Samples in scenario: `{scenario_rows[0].n_samples_scenario}`")
+        lines.append(
+            f"- State non-valid fraction: `{scenario_rows[0].state_non_valid_fraction:.2%}`"
         )
-        for result in ranked:
-            status = "ok" if result.error is None else "failed"
-            method = (
-                f"{result.method_name} (best)"
-                if report.best_result is not None and result.method_name == report.best_result.method_name
-                else result.method_name
-            )
+        lines.append(f"- State imputed fraction: `{scenario_rows[0].state_imputed_fraction:.2%}`")
+        lines.append("")
+        lines.append(
+            "| Strategy | Best Method | Selection Score | State-Penalized Selection | "
+            "Overall Score | Time (s) | CI (overall) |"
+        )
+        lines.append("|---|---|---:|---:|---:|---:|---|")
+        for row in scenario_rows:
             lines.append(
-                f"| {method} | {_fmt(result.selection_score)} | {_fmt(result.overall_score)} | "
-                f"{result.execution_time:.3f} | {status} |"
+                f"| {row.strategy} | {row.best_method} | {row.selection_score:.4f} | "
+                f"{row.state_penalized_selection_score:.4f} | {row.overall_score:.4f} | "
+                f"{row.execution_time:.3f} | [{row.ci_lower:.4f}, {row.ci_upper:.4f}] |"
             )
         lines.append("")
+
+        for strategy_name, report in reports[scenario_name].items():
+            lines.append(f"### {strategy_name} Details")
+            lines.append("")
+            lines.append(f"- Best method: `{report.best_method}`")
+            lines.append(f"- Success rate: `{report.success_rate:.1%}`")
+            lines.append("")
+            lines.append("| Method | Selection | Overall | Time (s) | Status |")
+            lines.append("|---|---:|---:|---:|---|")
+            ranked = sorted(
+                report.results,
+                key=lambda r: (
+                    r.error is None,
+                    r.selection_score if r.selection_score is not None else -1.0,
+                    r.overall_score,
+                ),
+                reverse=True,
+            )
+            for result in ranked:
+                status = "ok" if result.error is None else "failed"
+                method = (
+                    f"{result.method_name} (best)"
+                    if report.best_result is not None
+                    and result.method_name == report.best_result.method_name
+                    else result.method_name
+                )
+                lines.append(
+                    f"| {method} | {_fmt(result.selection_score)} | {_fmt(result.overall_score)} | "
+                    f"{result.execution_time:.3f} | {status} |"
+                )
+            lines.append("")
 
     output_path.write_text("\n".join(lines))
 
@@ -363,7 +518,7 @@ def run_benchmark(
     """Run strategy comparison benchmark and write all output artifacts."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    container, dataset_meta = _build_confounded_dia_container(
+    container, dataset_meta = _build_design_synthetic_container(
         random_state=random_state,
         n_samples=n_samples,
         n_proteins=n_proteins,
@@ -371,19 +526,41 @@ def run_benchmark(
     container, baseline_layer = _apply_baseline_preprocessing(container)
 
     strategies = ["quality", "balanced", "speed"]
-    reports: dict[str, StageReport] = {}
+    reports: dict[str, dict[str, StageReport]] = {}
     summaries: list[StrategySummaryRow] = []
 
-    for strategy in strategies:
-        report = _run_single_strategy(
-            container=container,
-            source_layer=baseline_layer,
-            strategy=strategy,
-            n_repeats=n_repeats,
-            confidence_level=confidence_level,
+    for scenario_name, spec in SCENARIO_SPECS.items():
+        scenario_container = _prepare_scenario_container(container, scenario_name)
+        state_non_valid_fraction, state_imputed_fraction = _compute_state_burden(
+            scenario_container,
+            assay_name="proteins",
+            layer_name=baseline_layer,
         )
-        reports[strategy] = report
-        summaries.append(_to_summary_row(strategy, report))
+
+        scenario_reports: dict[str, StageReport] = {}
+        for strategy in strategies:
+            report = _run_single_strategy(
+                container=scenario_container,
+                source_layer=baseline_layer,
+                strategy=strategy,
+                n_repeats=n_repeats,
+                confidence_level=confidence_level,
+                batch_key=str(spec["batch_key"]),
+                bio_key=spec["bio_key"],
+            )
+            scenario_reports[strategy] = report
+            summaries.append(
+                _to_summary_row(
+                    scenario=scenario_name,
+                    report=report,
+                    strategy=strategy,
+                    n_samples_scenario=scenario_container.n_samples,
+                    design_identifiability=str(spec["design_identifiability"]),
+                    state_non_valid_fraction=state_non_valid_fraction,
+                    state_imputed_fraction=state_imputed_fraction,
+                )
+            )
+        reports[scenario_name] = scenario_reports
 
     json_path = output_dir / "strategy_comparison.json"
     csv_path = output_dir / "strategy_comparison.csv"
@@ -400,7 +577,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Run AutoSelect integration strategy comparison "
-            "for quality / balanced / speed presets."
+            "for quality / balanced / speed presets across balanced/partial/confounded scenarios."
         )
     )
     parser.add_argument(

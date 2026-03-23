@@ -4,13 +4,36 @@ Utility functions for enhanced ScpMatrix operations with mask code support.
 Optimized for sparse matrix operations - preserves sparsity when possible.
 """
 
+import copy
+import warnings
+
 import numpy as np
 import scipy.sparse as sp
+from scipy.sparse import SparseEfficiencyWarning
 
 from .jit_ops import count_mask_codes
 from .structures import MaskCode, ScpMatrix
 
 _N_MASK_CODES = max(code.value for code in MaskCode) + 1
+
+
+def _copy_matrix_metadata(matrix: ScpMatrix):
+    """Deep-copy matrix metadata when returning a detached ScpMatrix."""
+    return copy.deepcopy(matrix.metadata) if matrix.metadata is not None else None
+
+
+def _clone_with_replacements(
+    matrix: ScpMatrix,
+    *,
+    X: np.ndarray | sp.spmatrix,
+    M: np.ndarray | sp.spmatrix | None,
+) -> ScpMatrix:
+    """Clone a matrix shell while replacing already-validated payloads."""
+    cloned = copy.copy(matrix)
+    cloned.X = X
+    cloned.M = M
+    cloned.metadata = _copy_matrix_metadata(matrix)
+    return cloned
 
 
 def sparse_filter_mask(M: sp.spmatrix, keep_values: list[int]) -> sp.spmatrix:
@@ -86,15 +109,62 @@ def _write_values_at_indices(
         return X
 
     if isinstance(X, sp.spmatrix):
-        X_lil = X.tolil()
-        X_lil[rows, cols] = fill_value
-        X_out = X_lil.tocsr()
-        if fill_value == 0.0:
-            X_out.eliminate_zeros()
-        return X_out
+        update_mask = _build_sparse_update_mask(X.shape, rows, cols, dtype=np.float64)
+        return _replace_sparse_entries(X, update_mask, fill_value)
 
     X[rows, cols] = fill_value
     return X
+
+
+def _compare_mask_codes(
+    M: np.ndarray | sp.spmatrix,
+    mask_code: MaskCode,
+    *,
+    negate: bool = False,
+) -> np.ndarray | sp.spmatrix:
+    """Compare a mask matrix to a code while preserving current sparse behavior."""
+    target = mask_code.value
+    if isinstance(M, sp.spmatrix):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", SparseEfficiencyWarning)
+            return target != M if negate else target == M
+    return target != M if negate else target == M
+
+
+def _build_sparse_update_mask(
+    shape: tuple[int, int],
+    rows: np.ndarray,
+    cols: np.ndarray,
+    *,
+    dtype: np.dtype[np.generic] | type[np.generic] | type[float] | type[int],
+) -> sp.csr_matrix:
+    """Build a CSR update mask with one stored entry per target coordinate."""
+    update_mask = sp.coo_matrix(
+        (np.ones(rows.size, dtype=np.int8), (rows, cols)),
+        shape=shape,
+        dtype=dtype,
+    ).tocsr()
+    if update_mask.nnz > 0:
+        update_mask.data[:] = 1
+    return update_mask
+
+
+def _replace_sparse_entries(
+    matrix: sp.spmatrix,
+    update_mask: sp.csr_matrix,
+    fill_value: float,
+) -> sp.csr_matrix:
+    """Replace sparse matrix entries at update coordinates without LIL conversion."""
+    matrix_csr = matrix.tocsr()
+    preserved = matrix_csr - matrix_csr.multiply(update_mask)
+    preserved.eliminate_zeros()
+
+    if fill_value == 0.0:
+        return preserved
+
+    update_values = update_mask.astype(np.float64, copy=True)
+    update_values.data[:] = fill_value
+    return (preserved + update_values).tocsr()
 
 
 class MatrixOps:
@@ -103,7 +173,7 @@ class MatrixOps:
     """
 
     @staticmethod
-    def get_valid_mask(matrix: ScpMatrix) -> np.ndarray:
+    def get_valid_mask(matrix: ScpMatrix) -> np.ndarray | sp.spmatrix:
         """
         Get mask for valid (VALID) data points.
 
@@ -114,14 +184,14 @@ class MatrixOps:
 
         Returns
         -------
-        np.ndarray
+        np.ndarray | sp.spmatrix
             Boolean mask where True indicates valid data points
         """
         M = matrix.get_m()
-        return M == MaskCode.VALID
+        return _compare_mask_codes(M, MaskCode.VALID)
 
     @staticmethod
-    def get_missing_mask(matrix: ScpMatrix) -> np.ndarray:
+    def get_missing_mask(matrix: ScpMatrix) -> np.ndarray | sp.spmatrix:
         """
         Get mask for any missing data (any non-VALID code).
 
@@ -132,14 +202,14 @@ class MatrixOps:
 
         Returns
         -------
-        np.ndarray
+        np.ndarray | sp.spmatrix
             Boolean mask where True indicates missing data
         """
         M = matrix.get_m()
-        return M != MaskCode.VALID
+        return _compare_mask_codes(M, MaskCode.VALID, negate=True)
 
     @staticmethod
-    def get_missing_type_mask(matrix: ScpMatrix, mask_code: MaskCode) -> np.ndarray:
+    def get_missing_type_mask(matrix: ScpMatrix, mask_code: MaskCode) -> np.ndarray | sp.spmatrix:
         """
         Get mask for specific missing type.
 
@@ -152,12 +222,11 @@ class MatrixOps:
 
         Returns
         -------
-        np.ndarray
+        np.ndarray | sp.spmatrix
             Boolean mask where True indicates specified missing type
         """
         M = matrix.get_m()
-        result: np.ndarray = mask_code == M  # type: ignore[assignment]
-        return result
+        return _compare_mask_codes(M, mask_code)
 
     @staticmethod
     def mark_values(
@@ -186,11 +255,14 @@ class MatrixOps:
         M = new_matrix.get_m()
 
         if isinstance(M, sp.spmatrix):
-            # Efficient sparse modification using LIL format for fast indexing
-            M_lil = M.tolil()
-            M_lil[indices] = mask_code.value
-            # Convert back to efficient format (CSR for row operations, CSC for column)
-            new_matrix.M = M_lil.tocsr()
+            rows, cols = indices
+            if rows.size == 0:
+                return new_matrix
+            update_mask = _build_sparse_update_mask(M.shape, rows, cols, dtype=np.int8)
+            new_matrix.M = _replace_sparse_entries(M, update_mask, float(mask_code.value)).astype(
+                np.int8,
+                copy=False,
+            )
         else:
             M[indices] = mask_code.value
             new_matrix.M = M
@@ -359,11 +431,31 @@ class MatrixOps:
         ScpMatrix
             Filtered ScpMatrix with only specified mask codes
         """
+        keep_values = [code.value for code in keep_codes]
+        M = matrix.get_m()
+
+        if isinstance(M, sp.spmatrix) and MaskCode.VALID.value not in keep_values:
+            # VALID is not kept: implicit sparse entries must also be filtered.
+            # This path must densify for correctness, but should avoid first copying
+            # sparse buffers that are about to be materialized anyway.
+            M_dense = M.toarray()
+            filter_mask = np.isin(M_dense, keep_values, invert=True)
+            M_dense[filter_mask] = MaskCode.FILTERED.value
+            M_out = sp.csr_matrix(M_dense, dtype=np.int8)
+
+            X_src = matrix.X
+            if isinstance(X_src, sp.spmatrix):
+                X_out = X_src.toarray()
+                X_out[filter_mask] = np.nan
+            else:
+                X_out = X_src.copy()
+                X_out[filter_mask] = np.nan
+
+            return _clone_with_replacements(matrix, X=X_out, M=M_out)
+
         new_matrix = matrix.copy()
         M = new_matrix.get_m()
         X = new_matrix.X
-
-        keep_values = [code.value for code in keep_codes]
 
         # Handle sparse masks
         if isinstance(M, sp.spmatrix):
@@ -386,22 +478,6 @@ class MatrixOps:
                 ).tocsr()
 
                 new_matrix.X = _write_values_at_indices(X, filter_rows, filter_cols, np.nan)
-            else:
-                # VALID is not kept: implicit sparse entries must also be filtered.
-                # This requires materializing full masks for correctness.
-                M_dense = M.toarray().astype(np.int8, copy=False)
-                keep_mask = np.isin(M_dense, keep_values)
-                filter_mask = ~keep_mask
-                M_dense[filter_mask] = MaskCode.FILTERED.value
-                new_matrix.M = sp.csr_matrix(M_dense, dtype=np.int8)
-
-                if isinstance(X, sp.spmatrix):
-                    X_dense = X.toarray().astype(np.float64, copy=False)
-                    X_dense[filter_mask] = np.nan
-                    new_matrix.X = X_dense
-                else:
-                    X[filter_mask] = np.nan
-                    new_matrix.X = X
         else:
             # Dense matrix operations (already efficient)
             keep_mask = np.isin(M, keep_values)

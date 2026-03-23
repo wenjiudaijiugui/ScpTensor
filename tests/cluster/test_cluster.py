@@ -323,6 +323,16 @@ class TestClusterLeiden:
     @pytest.mark.skipif(
         not LEIDEN_AVAILABLE, reason="Requires optional dependencies: leidenalg and python-igraph"
     )
+    def test_leiden_caps_n_neighbors_to_available_samples(self, pca_container):
+        """Leiden should cap large n_neighbors values instead of failing on small datasets."""
+        result = cluster_leiden(pca_container, n_neighbors=99, resolution=1.0)
+
+        assert "leiden_r1.0" in result.obs.columns
+        assert result.history[-1].params["n_neighbors"] == pca_container.n_samples
+
+    @pytest.mark.skipif(
+        not LEIDEN_AVAILABLE, reason="Requires optional dependencies: leidenalg and python-igraph"
+    )
     def test_leiden_uses_unified_history_keys(self, pca_container):
         """Leiden provenance should use the same source/output key schema."""
         result = cluster_leiden(pca_container, resolution=1.0)

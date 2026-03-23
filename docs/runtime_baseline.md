@@ -74,6 +74,10 @@
 
 这些目录默认被 `.gitignore` 忽略，不作为仓库提交内容。
 
+`environment.json` 还应记录会影响 sparse log 分支选择的环境量，例如：
+
+- `SCPTENSOR_JIT_THRESHOLD`
+
 ## 5. 当前场景
 
 ### 5.1 `import_diann_protein_long`
@@ -126,7 +130,43 @@
 - 不把它当成默认主线
 - 只把它当作性能回归的特定重路径
 
-### 5.5 `sparse_transform_normalize`
+### 5.5 `stable_chain_trqn`
+
+目的：
+
+- 单独补齐较重的 logged TRQN normalization 路径
+
+说明：
+
+- 与 `stable_chain_quantile` 一样，它不是默认主线
+- 它用于观察 rank-invariant 选择与 balanced quantile 步骤带来的运行时回归
+- 当前沿用 quantile 链路同级别的 synthetic 输入规模，便于横向比较
+
+### 5.6 `normalize_quantile_only`
+
+目的：
+
+- 只观测 logged `quantile` normalization 本体
+
+说明：
+
+- 该场景会先构造 dense protein 容器并预先生成 `log` 层
+- baseline 只记录 `normalize_quantile` 这一个 stage
+- 适合对比 quantile 内部排序 / rank 映射实现的前后变化
+
+### 5.7 `normalize_trqn_only`
+
+目的：
+
+- 只观测 logged `TRQN` normalization 本体
+
+说明：
+
+- 该场景同样使用预先生成的 `log` 层
+- baseline 只记录 `normalize_trqn` 这一个 stage
+- 适合对比 rank-invariant 选择、balanced subset、内部 quantile 子步骤的前后变化
+
+### 5.8 `sparse_transform_normalize`
 
 目的：
 
@@ -137,8 +177,89 @@
 - 当前场景故意停在 normalization
 - 不继续接 imputation，因为当前 stable imputation 语义仍以 `np.isnan(X)` 为缺失判定主入口
 - 该场景主要用于捕获 sparse->dense 漂移
+- `log_transform_sparse` 这一步同时承担 sparse log fast path 的工程基线观察；当前 `use_jit=True` 只表示允许自动判断，不代表默认一定进入 numba 分支
 
-## 6. 当前输出字段重点
+### 5.9 `sparse_log_only`
+
+目的：
+
+- 把 sparse `log_transform` 单独拆成 micro baseline
+
+说明：
+
+- 该场景只记录 `log_transform_sparse`
+- 用于单独对比 sparse log 的 JIT / NumPy 分支、offset/base 透传与输出存储类型
+- 不把 normalization 的 densify 成本混进这条 baseline
+
+### 5.10 `autoselect_integrate_only`
+
+目的：
+
+- 单独基线化 stable `autoselect` 的 integration 选择阶段
+
+说明：
+
+- 输入使用预先生成的 stable baseline：`raw -> log -> norm -> imputed`
+- 场景只记录 `AutoSelector.run_stage(stage="integrate")`
+- 该场景观测的是选择层的调度 / 评估 / 结果保留开销，不把前处理链成本重复计入
+
+### 5.11 `viz_qc_overview`
+
+目的：
+
+- 为 `viz` 提供 read-only runtime baseline
+
+说明：
+
+- 当前记录：
+  - `plot_data_overview`
+  - `plot_qc_completeness`
+  - `plot_qc_matrix_spy`
+- 这条 baseline 只服务于绘图读取层，不把 figure aesthetics 当成 benchmark 排名依据
+
+## 6. 场景选择规则
+
+### 6.1 Full-chain gate
+
+以下场景用于确认一次优化没有把局部实现收益换成链路级回归：
+
+- `stable_chain_dense`
+  - 用于 stable dense 主链的通用改动
+- `stable_chain_quantile`
+  - 用于 logged `quantile` normalization 所在完整链路
+- `stable_chain_trqn`
+  - 用于 logged `TRQN` normalization 所在完整链路
+- `sparse_transform_normalize`
+  - 用于 sparse `log_transform`、sparse write path、densify 边界、JIT 选择相关改动
+
+### 6.2 Micro gate
+
+以下场景只测 normalization 本体，适合缩小热点定位范围：
+
+- `normalize_quantile_only`
+  - 只测 `normalize_quantile`
+  - 适合比较排序、rank 映射、dense 临时分配变化
+- `normalize_trqn_only`
+  - 只测 `normalize_trqn`
+  - 适合比较 rank-invariant 选择、balanced subset、内部 quantile 子步骤变化
+- `sparse_log_only`
+  - 只测 sparse `log_transform`
+  - 适合比较 JIT 阈值、branch 选择和 sparse 输出保持情况
+- `autoselect_integrate_only`
+  - 只测 stable integration AutoSelect 的选择层
+  - 适合比较 evaluator 调度、评分和 artifact 保留开销
+- `viz_qc_overview`
+  - 只测 read-only plotting 路径
+  - 适合比较 `viz` 层的 figure 生成成本，而不混入 preprocessing 写路径
+
+### 6.3 使用边界
+
+- 若改动只发生在 normalization 算法内部，优先运行对应 micro gate
+- 若改动触及 normalization 前后的 layer 写入、overwrite、history、provenance 或 densify 边界，必须再运行对应 full-chain gate
+- micro gate 只回答“算法本体是否更快、峰值分配是否更低”，不替代链路级回归确认
+- full-chain gate 只回答“整体主线是否回归”，不替代算法内部热点分析
+
+## 7. 当前输出字段重点
 
 `stage_runs.csv` 当前重点字段包括：
 
@@ -166,7 +287,7 @@
 
 这些字段的目标不是把所有 copy 行为量化到字节级精确来源，而是把“语义级别的 copy / alias / densify 边界”稳定记录下来。
 
-## 7. 运行方式
+## 8. 运行方式
 
 列出可用场景：
 
@@ -192,6 +313,8 @@ uv run python scripts/perf/run_runtime_baseline.py --profile quick
 uv run python scripts/perf/run_runtime_baseline.py \
   --profile quick \
   --scenario stable_chain_dense \
+  --scenario stable_chain_trqn \
+  --scenario normalize_trqn_only \
   --scenario sparse_transform_normalize
 ```
 
@@ -202,7 +325,7 @@ uv run python scripts/perf/run_runtime_baseline.py \
   --output-dir outputs/runtime_baseline_local
 ```
 
-## 8. 使用规则
+## 9. 使用规则
 
 后续任何“优化 PR”若涉及：
 
@@ -224,17 +347,18 @@ uv run python scripts/perf/run_runtime_baseline.py \
 3. 比较 wall-time、peak RSS、densify 和 copy-path 漂移。
 4. 若 stable 行为变化，先回到 contract 判断是否允许。
 
-## 9. 当前限制
+## 10. 当前限制
 
 当前 baseline 仍有以下限制：
 
 1. 主要基于 synthetic / generated inputs，不是公开数据 replay。
 2. RSS 采用单进程采样，不是 OS 级最严格 profiler。
 3. copy-path 目前是“对象共享/变更观察”，不是底层 allocator 级 tracing。
-4. 尚未覆盖 `autoselect` 与 `viz` 的单独 runtime baseline。
+4. 当前 `autoselect` 与 `viz` 已有最小独立 runtime baseline，但覆盖面仍只到 stable `integrate` 选择层与 QC/workflow 读取层，不代表所有 stage 或所有 plotting recipe 都已单独建模。
+5. sparse log JIT / NumPy 分支已拆出 `sparse_log_only` 独立 scenario；但具体进入哪条分支，仍取决于环境与阈值设置，因此结果解释必须结合 `environment.json` 中的 `SCPTENSOR_JIT_THRESHOLD`。
 
 这些限制在 `PR-0` 是可接受的，因为目标是先建立稳定、快速、可复用的工程基线。
 
-## 10. 一句话结论
+## 11. 一句话结论
 
 `PR-0` 的 runtime baseline 是后续优化的工程门禁，不是科学 benchmark；后续重构必须在不突破合同边界的前提下，用它验证“是否真的更快、是否引入了新的 densify/copy 漂移”。

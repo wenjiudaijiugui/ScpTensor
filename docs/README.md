@@ -55,7 +55,7 @@ Benchmark scripts and benchmark outputs should stay under `benchmark/`.
 
 - `experimental_downstream_alignment_plan.md`: non-contract convergence record for experimental helper asymmetries; current mandatory gaps are closed, keep it as a resolution log until an archive slot is introduced
 - `optimization_checklist.md`: document-driven execution checklist for future code optimization; defines authority-doc priority, PR gates, staged execution order, and stop conditions for contract drift
-- `runtime_baseline.md`: PR-0 runtime baseline spec for stable preprocessing paths; separates engineering runtime regression checks from scientific method benchmarks
+- `runtime_baseline.md`: PR-0 runtime baseline spec for stable preprocessing paths; separates engineering runtime regression checks from scientific method benchmarks and distinguishes full-chain gates from normalization-only micro-gates
 
 ### Tutorial
 

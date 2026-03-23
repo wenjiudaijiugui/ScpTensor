@@ -89,39 +89,37 @@
 
 `zscore()` 当前默认参数为：
 
-- `assay_name="protein"`
+- `assay_name="proteins"`
 - `source_layer="imputed"`
 - `new_layer_name="zscore"`
 - `axis=0`
 - `ddof=1`
 
-### 5.2 assay / layer 查找是精确字符串匹配
+### 5.2 assay alias 当前已对齐仓库 canonical naming
 
-当前实现没有做 assay alias 解析，而是直接：
+当前实现已通过 `resolve_assay_name()` 支持：
 
-- `if assay_name not in container.assays`
-- `if source_layer not in assay.layers`
+- `protein <-> proteins`
+- `peptide <-> peptides`
 
 因此当前真实行为是：
 
-- 若容器实际 assay 名是 `proteins`，直接使用默认 `assay_name="protein"` 会失败
+- 默认 `assay_name="proteins"` 已与仓库主线文档命名对齐
+- 若容器实际 assay 名是 `protein`，默认参数与显式 `assay_name="proteins"` 仍可通过 alias 正确解析
 - `source_layer` 也必须与当前对象中的 layer 名完全一致
 
-这与仓库级 canonical naming 存在差异，因此稳定文档应显式建议调用方在主线示例中写出真实 assay 名，而不要依赖默认值。
+这意味着 `zscore` 的 assay 入口已不再是单独一套历史命名分支。
 
 ### 5.3 `axis` 与 `ddof` 验证
 
-当前实现只显式验证：
+当前实现显式验证：
 
 - `axis` 必须是 `0` 或 `1`
 - `ddof` 必须非负
+- `ddof < axis_len`
+  - 即对应标准化轴上至少要有 `ddof + 1` 个值
 
-当前并不会进一步验证：
-
-- `ddof` 是否小于对应轴样本数
-- 输入矩阵是否适合该 `ddof`
-
-因此 `ddof` 的合同当前是“非负数值检查”，不是“完整统计学有效性检查”。
+因此 `ddof` 的合同现在已经不是“仅做非负检查”，而是包含基本统计定义域校验。
 
 ### 5.4 当前没有 logged/unlogged gate
 
@@ -137,7 +135,7 @@
 因此当前真实行为是：
 
 - 只要 `assay_name` / `source_layer` 精确命中
-- 且 `X` 中没有 `NaN`
+- 且 `X` 中没有 `NaN/Inf`
 
 `zscore` 就会继续执行，不会因为 source layer 名是：
 
@@ -167,7 +165,7 @@
 因此当前真实行为是：
 
 - 如果缺失只编码在 `M` 中，但 `X` 本身仍是有限数值，`zscore` 仍会继续运行
-- 当前“complete matrix”更接近 “`X` 中无 `NaN`”，而不是 “mask 上无缺失状态”
+- 当前“complete matrix”更接近 “`X` 中无 `NaN/Inf`”，而不是 “mask 上无缺失状态”
 
 这是一条必须冻结记录的实现事实。
 
@@ -255,30 +253,30 @@
   - 附带 available layers hint
 - `ValidationError`
   - `X` 中存在 `NaN`
+  - `X` 中存在 `Inf`
+  - `ddof` 对当前轴长度非法
 
 ### 7.2 未显式收口但可能暴露的边界
 
-以下边界当前没有单独合同化处理：
+以下边界当前仍没有单独合同化处理：
 
-- `ddof` 过大导致 `std` 中出现 `NaN`
-- sparse `X` 路径上的 NumPy 行为差异
+- sparse `X` 路径上的更细粒度性能/格式语义
 - 输出 layer 名冲突
 
 因此这些情形当前不能被写成“已显式校验”。
 
 ## 8. 当前已知实现不对称点
 
-### 8.1 默认 assay 名与仓库 canonical naming 冲突
+### 8.1 默认 assay 名已收口到仓库 canonical naming
 
-仓库级文档主线已收敛到：
+当前默认已收敛为：
 
-- `proteins`
+- `assay_name="proteins"`
 
-但 `zscore()` 当前默认仍是：
+同时保留 singular/plural alias 解析，因此：
 
-- `assay_name="protein"`
-
-因此默认参数当前更像 compatibility-facing 历史遗留，而不是仓库级主线命名。
+- canonical 文档命名与默认参数一致
+- 历史容器若仍使用 `protein`，也不会因为默认值变化而失配
 
 ### 8.2 “complete matrix” 只按 `X` 检查，不按 `M` 检查
 
@@ -319,7 +317,6 @@
 
 基于当前实现，下一阶段最合理的完善方向是：
 
-- 收口默认命名，把 `protein` 与 `proteins` 的历史差异明确处理掉
 - 把 “complete matrix” 从仅检查 `X` 的 `NaN` 扩展为文档和代码一致的状态检查
 - 决定 sparse `X` 是否要作为正式支持路径，并用测试锁定
 - 给 `new_layer_name` 冲突增加显式策略，而不是继续依赖静默覆盖

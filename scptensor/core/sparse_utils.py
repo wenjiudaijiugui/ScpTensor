@@ -17,9 +17,10 @@ from typing import Any
 import numpy as np
 import scipy.sparse as sp
 
-# JIT threshold: for very large matrices, JIT may provide benefit
-# Set high because NumPy is already well-optimized for simple operations
-_JIT_THRESHOLD = int(os.getenv("SCPTENSOR_JIT_THRESHOLD", "500000"))
+# JIT threshold: after the in-place NumPy fast path was tightened, local
+# runtime baselines show that auto-JIT should remain conservative and only
+# trigger for very large sparse buffers unless explicitly overridden.
+_JIT_THRESHOLD = int(os.getenv("SCPTENSOR_JIT_THRESHOLD", "10000000"))
 
 # Lazy import of numba - only import if actually needed
 _JIT_AVAILABLE = False
@@ -346,6 +347,51 @@ def _compressed_segment_reduction(
         reduced = reduced / lengths[nonempty]
 
     result[nonempty] = reduced
+    return result
+
+
+def _apply_log1p_scale_inplace(data: np.ndarray, *, offset: float, scale: float) -> None:
+    """Apply sparse log1p(+offset) and optional scaling in-place on a copied data buffer."""
+    if offset != 1.0:
+        np.add(data, offset - 1.0, out=data)
+
+    np.log1p(data, out=data)
+
+    if scale != 1.0:
+        np.divide(data, scale, out=data)
+
+
+def _should_use_sparse_log_jit(*, use_jit: bool, nnz: int) -> bool:
+    """Return whether sparse log helpers should attempt the JIT kernel."""
+    return use_jit and nnz > _JIT_THRESHOLD
+
+
+def _copy_and_transform_sparse_log(
+    X: sp.spmatrix,
+    *,
+    offset: float,
+    scale: float,
+    use_jit: bool,
+    clip_negative: bool = False,
+) -> sp.spmatrix:
+    """Copy sparse input once, then apply optional clipping and log/scale in place."""
+    result = X.copy()
+    data = np.asarray(result.data)
+
+    if data.dtype.kind != "f":
+        data = data.astype(float)
+        result.data = data
+
+    if clip_negative:
+        np.maximum(data, 0, out=data)
+
+    if _should_use_sparse_log_jit(use_jit=use_jit, nnz=X.nnz):
+        kernel = _get_jit_log_with_scale_kernel()
+        if kernel is not None:
+            result.data = kernel(data, offset - 1.0, 1.0 / scale)  # type: ignore[misc]
+            return result
+
+    _apply_log1p_scale_inplace(data, offset=offset, scale=scale)
     return result
 
 
@@ -746,17 +792,11 @@ def sparse_center_rows(
     array([2., 3.])
     """
     X_csr = ensure_sparse_format(X, "csr")
-    n_rows, n_cols = X_csr.shape
+    n_rows, _ = X_csr.shape
 
     # Compute row means if not provided
     if row_means is None:
-        row_sums = np.zeros(n_rows)
-        row_counts = np.zeros(n_rows)
-        for i in range(n_rows):
-            start, end = X_csr.indptr[i], X_csr.indptr[i + 1]
-            row_sums[i] = np.sum(X_csr.data[start:end])
-            row_counts[i] = end - start
-        row_means = np.divide(row_sums, row_counts, where=row_counts > 0)
+        row_means = _compressed_segment_reduction(X_csr.indptr, X_csr.data, n_rows, "mean")
 
     # Create centered matrix (this will densify, so we use a different approach)
     # For sparse matrices, we return the original with means separately
@@ -767,10 +807,12 @@ def sparse_safe_log1p(
     X: np.ndarray | sp.spmatrix, offset: float = 1.0, use_jit: bool = True
 ) -> np.ndarray | sp.spmatrix:
     """
-    Apply log(1 + x) transformation preserving sparsity.
+    Apply log(x + offset), preserving sparsity only when structural zeros stay zero.
 
-    For sparse matrices, this is more efficient than log(x + offset)
-    because we only need to compute on non-zero elements.
+    For sparse matrices, sparsity is preserved only when ``offset == 1.0``.
+    In that case, structural zeros map to ``log(0 + 1) = 0`` and can remain
+    implicit. For any other offset, structural zeros become non-zero and the
+    mathematically correct result is dense.
 
     Parameters
     ----------
@@ -784,7 +826,8 @@ def sparse_safe_log1p(
     Returns
     -------
     Union[np.ndarray, sp.spmatrix]
-        Log-transformed matrix (same format as input)
+        Log-transformed matrix. Sparse input remains sparse only when
+        ``offset == 1.0``.
 
     Examples
     --------
@@ -796,22 +839,11 @@ def sparse_safe_log1p(
            [0.        , 1.60943791]])
     """
     if is_sparse_matrix(X):
-        result = X.copy()
-        # Ensure float dtype for log operation
-        if result.data.dtype.kind != "f":  # type: ignore[union-attr]
-            result.data = result.data.astype(float)  # type: ignore[union-attr,misc]
+        if offset == 1.0:
+            return _copy_and_transform_sparse_log(X, offset=offset, scale=1.0, use_jit=use_jit)
 
-        # NumPy vectorization is already highly optimized for simple operations
-        # JIT only helps for very large arrays where parallel overhead is worth it
-        if use_jit and X.nnz > _JIT_THRESHOLD:  # type: ignore[union-attr]
-            kernel = _get_jit_log_with_scale_kernel()
-            if kernel is not None:
-                result.data = kernel(result.data, offset - 1.0, 1.0)  # type: ignore[misc]
-                return result
-
-        # Fast path: NumPy vectorized operation
-        result.data = np.log1p(result.data + offset - 1.0)  # type: ignore[misc,operator]
-        return result
+        dense = np.asarray(X.toarray(), dtype=np.float64)  # type: ignore[union-attr]
+        return np.log1p(dense + offset - 1.0)
     else:
         return np.log1p(X + offset - 1.0)
 
@@ -820,12 +852,16 @@ def sparse_safe_log1p_with_scale(
     X: np.ndarray | sp.spmatrix, offset: float = 1.0, scale: float = 1.0, use_jit: bool = True
 ) -> np.ndarray | sp.spmatrix:
     """
-    Apply log(1 + x) transformation with scaling in a single operation.
+    Apply log(x + offset) / scale, preserving sparsity only when offset is 1.
 
     This function combines the log transformation and scaling into a single
     expression, reducing memory allocations and improving cache locality.
 
     Computes: log(x + offset) / scale
+
+    For sparse inputs, the sparse-preserving path is mathematically valid only
+    when ``offset == 1.0``. Otherwise structural zeros would transform to the
+    dense constant ``log(offset) / scale``.
 
     Performance Notes:
     - The combined operation is faster than separate log() then divide()
@@ -847,7 +883,8 @@ def sparse_safe_log1p_with_scale(
     Returns
     -------
     Union[np.ndarray, sp.spmatrix]
-        Log-transformed and scaled matrix (same format as input)
+        Log-transformed and scaled matrix. Sparse input remains sparse only
+        when ``offset == 1.0``.
 
     Examples
     --------
@@ -857,23 +894,11 @@ def sparse_safe_log1p_with_scale(
     >>> result = sparse_safe_log1p_with_scale(X, offset=1.0, scale=np.log(2))
     """
     if is_sparse_matrix(X):
-        result = X.copy()
-        # Ensure float dtype for log operation
-        if result.data.dtype.kind != "f":  # type: ignore[union-attr]
-            result.data = result.data.astype(float)  # type: ignore[union-attr,misc]
+        if offset == 1.0:
+            return _copy_and_transform_sparse_log(X, offset=offset, scale=scale, use_jit=use_jit)
 
-        # For very large matrices, JIT may provide benefit
-        if use_jit and X.nnz > _JIT_THRESHOLD:  # type: ignore[union-attr]
-            kernel = _get_jit_log_with_scale_kernel()
-            if kernel is not None:
-                # Pre-compute inverse scale for the JIT kernel
-                result.data = kernel(result.data, offset - 1.0, 1.0 / scale)  # type: ignore[misc]
-                return result
-
-        # Fast path: combined NumPy operation (single pass over data)
-        # This is typically faster than JIT for small-to-medium arrays
-        result.data = np.log1p(result.data + offset - 1.0) / scale  # type: ignore[misc,operator]
-        return result
+        dense = np.asarray(X.toarray(), dtype=np.float64)  # type: ignore[union-attr]
+        return np.log1p(dense + offset - 1.0) / scale
     else:
         # Dense matrix: single combined operation
         return np.log1p(X + offset - 1.0) / scale

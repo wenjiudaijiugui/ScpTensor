@@ -9,7 +9,12 @@ import numpy as np
 import pandas as pd
 from scipy.stats import ConstantInputWarning, spearmanr
 from sklearn.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, silhouette_score
+from sklearn.metrics import (
+    adjusted_rand_score,
+    normalized_mutual_info_score,
+    roc_auc_score,
+    silhouette_score,
+)
 from sklearn.neighbors import NearestNeighbors
 
 METRIC_DIRECTIONS: dict[str, bool] = {
@@ -27,10 +32,16 @@ METRIC_DIRECTIONS: dict[str, bool] = {
     "de_log2fc_pearson": True,
     "de_topk_jaccard": True,
     "de_topk_sign_agreement": True,
+    "de_topk_f1": True,
+    "de_pauc_01": True,
+    "de_pauc_05": True,
+    "de_pauc_10": True,
     "ratio_pairwise_auc_mean": True,
     "ratio_changed_vs_bg_auc": True,
     "ratio_mae": False,
     "ratio_rmse": False,
+    "retained_proteins_ratio": True,
+    "fully_observed_proteins_ratio": True,
     "runtime_sec": False,
     "post_missing_rate": False,
 }
@@ -41,6 +52,8 @@ def _safe_pearson(x: np.ndarray, y: np.ndarray) -> float:
         return float("nan")
     x_std = float(np.std(x, ddof=1)) if x.size > 1 else 0.0
     y_std = float(np.std(y, ddof=1)) if y.size > 1 else 0.0
+    if np.allclose(x, y, equal_nan=True, rtol=1e-10, atol=1e-12):
+        return 1.0
     if x_std <= 0 or y_std <= 0:
         return float("nan")
     return float(np.corrcoef(x, y)[0, 1])
@@ -253,6 +266,10 @@ def compute_de_consistency_metrics(
             "de_log2fc_pearson": float("nan"),
             "de_topk_jaccard": float("nan"),
             "de_topk_sign_agreement": float("nan"),
+            "de_topk_f1": float("nan"),
+            "de_pauc_01": float("nan"),
+            "de_pauc_05": float("nan"),
+            "de_pauc_10": float("nan"),
         }
 
     uniq = np.unique(labels)
@@ -261,11 +278,19 @@ def compute_de_consistency_metrics(
             "de_log2fc_pearson": float("nan"),
             "de_topk_jaccard": float("nan"),
             "de_topk_sign_agreement": float("nan"),
+            "de_topk_f1": float("nan"),
+            "de_pauc_01": float("nan"),
+            "de_pauc_05": float("nan"),
+            "de_pauc_10": float("nan"),
         }
 
     corr_vals: list[float] = []
     jacc_vals: list[float] = []
     sign_vals: list[float] = []
+    f1_vals: list[float] = []
+    pauc_01_vals: list[float] = []
+    pauc_05_vals: list[float] = []
+    pauc_10_vals: list[float] = []
 
     for i in range(len(uniq)):
         for j in range(i + 1, len(uniq)):
@@ -281,7 +306,7 @@ def compute_de_consistency_metrics(
                 fc_imp = np.nanmean(x_imp[idx1, :], axis=0) - np.nanmean(x_imp[idx2, :], axis=0)
 
             valid = np.isfinite(fc_true) & np.isfinite(fc_imp)
-            if np.sum(valid) < 10:
+            if np.sum(valid) < 3:
                 continue
 
             t = fc_true[valid]
@@ -289,7 +314,8 @@ def compute_de_consistency_metrics(
 
             corr_vals.append(_safe_pearson(t, p))
 
-            k = int(min(max(5, top_k), t.size))
+            max_k = max(1, t.size - 1)
+            k = int(min(max(5, top_k), max_k))
             idx_top_true = np.argsort(-np.abs(t))[:k]
             idx_top_imp = np.argsort(-np.abs(p))[:k]
             set_true = set(idx_top_true.tolist())
@@ -297,14 +323,35 @@ def compute_de_consistency_metrics(
             inter = len(set_true & set_imp)
             union = len(set_true | set_imp)
             jacc_vals.append(float(inter / union) if union > 0 else float("nan"))
+            f1_vals.append(float(inter / k) if k > 0 else float("nan"))
 
             sign_match = np.mean(np.sign(p[idx_top_true]) == np.sign(t[idx_top_true]))
             sign_vals.append(float(sign_match))
+
+            labels_binary = np.zeros(t.size, dtype=np.int8)
+            labels_binary[idx_top_true] = 1
+            scores_abs = np.abs(p)
+            if np.unique(labels_binary).size == 2:
+                for max_fpr, collector in (
+                    (0.01, pauc_01_vals),
+                    (0.05, pauc_05_vals),
+                    (0.10, pauc_10_vals),
+                ):
+                    try:
+                        collector.append(
+                            float(roc_auc_score(labels_binary, scores_abs, max_fpr=max_fpr))
+                        )
+                    except ValueError:
+                        collector.append(float("nan"))
 
     return {
         "de_log2fc_pearson": float(np.nanmean(corr_vals)) if corr_vals else float("nan"),
         "de_topk_jaccard": float(np.nanmean(jacc_vals)) if jacc_vals else float("nan"),
         "de_topk_sign_agreement": float(np.nanmean(sign_vals)) if sign_vals else float("nan"),
+        "de_topk_f1": float(np.nanmean(f1_vals)) if f1_vals else float("nan"),
+        "de_pauc_01": float(np.nanmean(pauc_01_vals)) if pauc_01_vals else float("nan"),
+        "de_pauc_05": float(np.nanmean(pauc_05_vals)) if pauc_05_vals else float("nan"),
+        "de_pauc_10": float(np.nanmean(pauc_10_vals)) if pauc_10_vals else float("nan"),
     }
 
 

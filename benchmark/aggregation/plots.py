@@ -34,10 +34,13 @@ def plot_summary_metrics(summary_df: pd.DataFrame, output_path: Path) -> None:
         ("abs_bias", "|Bias| (lower is better)", False),
         ("species_overlap_auc_mean", "Pairwise AUC (higher is better)", True),
         ("changed_vs_background_auc", "Changed-vs-Background AUC", True),
+        ("de_consistency_score", "DE Consistency Proxy (Higher Better)", True),
         ("coverage_ratio", "Coverage Ratio (higher is better)", True),
+        ("state_valid_fraction", "State VALID Fraction (Higher Better)", True),
+        ("state_non_valid_fraction", "State Non-VALID Fraction (Lower Better)", False),
     ]
 
-    fig, axes = plt.subplots(2, 3, figsize=(24, 12), constrained_layout=True)
+    fig, axes = plt.subplots(3, 3, figsize=(24, 16), constrained_layout=True)
     axes_flat = axes.ravel()
 
     for ax, (metric, title, higher_better) in zip(axes_flat, panel_metrics, strict=False):
@@ -217,7 +220,10 @@ def plot_metric_heatmap(summary_df: pd.DataFrame, output_path: Path) -> None:
         "cv_median_all": False,
         "species_overlap_auc_mean": True,
         "changed_vs_background_auc": True,
+        "de_consistency_score": True,
         "coverage_ratio": True,
+        "state_valid_fraction": True,
+        "state_non_valid_fraction": False,
     }
 
     work = summary_df.set_index("method")

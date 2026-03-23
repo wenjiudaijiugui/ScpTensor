@@ -153,6 +153,12 @@ class TestCorrelationMatrix:
         assert corr.shape == (2, 2)
         assert np.allclose(np.diag(corr), 1.0)
 
+    def test_correlation_rejects_nonfinite_values(self):
+        """Test that non-finite observed values are rejected explicitly."""
+        X = np.array([[1.0, 2.0], [3.0, np.inf]], dtype=float)
+        with pytest.raises(ValueError, match="finite"):
+            correlation_matrix(X, method="pearson")
+
 
 class TestPartialCorrelation:
     """Tests for partial_correlation function."""
@@ -244,6 +250,32 @@ class TestPartialCorrelation:
         assert isinstance(pc, float)
         assert -1.0 <= pc <= 1.0
 
+    def test_partial_correlation_rejects_nonfinite_values(self):
+        """Test partial correlation rejects non-finite observed values."""
+        X = np.array([[1.0, 2.0, 3.0], [4.0, np.nan, 6.0]], dtype=float)
+        with pytest.raises(ValueError, match="finite"):
+            partial_correlation(X, 0, 1, conditioning_set={2})
+
+    def test_partial_correlation_requires_two_samples(self):
+        """Test partial correlation rejects undersized sample matrices."""
+        X = np.array([[1.0, 2.0, 3.0]], dtype=float)
+        with pytest.raises(ValueError, match="at least 2 samples"):
+            partial_correlation(X, 0, 1, conditioning_set={2})
+
+    def test_partial_correlation_same_variable_returns_one(self):
+        """A variable's partial correlation with itself should stay exactly one."""
+        X = np.array(
+            [
+                [1.0, 2.0, 3.0],
+                [2.0, 3.0, 4.0],
+                [3.0, 4.0, 5.0],
+                [4.0, 5.0, 6.0],
+            ],
+            dtype=float,
+        )
+        pc = partial_correlation(X, 0, 0, conditioning_set={2})
+        assert pc == 1.0
+
 
 class TestSpearmanCorrelation:
     """Tests for spearman_correlation function."""
@@ -309,6 +341,41 @@ class TestSpearmanCorrelation:
         corr_custom = spearman_correlation(X)
         corr_scipy, _ = scipy_spearmanr(X, axis=0)
         assert np.allclose(corr_custom, corr_scipy)
+
+    def test_spearman_correlation_rejects_nonfinite_values(self):
+        """Test Spearman correlation rejects NaN/Inf inputs explicitly."""
+        X = np.array([[1.0, 2.0], [3.0, np.nan]], dtype=float)
+        with pytest.raises(ValueError, match="finite"):
+            spearman_correlation(X)
+
+    def test_spearman_correlation_single_feature_returns_one(self):
+        """Single-feature Spearman correlation should return the trivial self-correlation."""
+        X = np.array([[1.0], [2.0], [3.0]], dtype=float)
+        corr = spearman_correlation(X)
+        assert corr == 1.0
+
+    def test_spearman_correlation_constant_pair_returns_zero(self):
+        """Degenerate constant inputs should produce a stable finite fallback."""
+        x = np.array([1.0, 1.0, 1.0], dtype=float)
+        y = np.array([2.0, 2.0, 2.0], dtype=float)
+        corr = spearman_correlation(x, y)
+        assert corr == 0.0
+
+    def test_spearman_correlation_constant_column_matrix_returns_finite_matrix(self):
+        """Multi-column outputs should not propagate NaN from constant columns."""
+        X = np.array(
+            [
+                [1.0, 1.0, 3.0],
+                [1.0, 2.0, 2.0],
+                [1.0, 3.0, 1.0],
+            ],
+            dtype=float,
+        )
+        corr = spearman_correlation(X)
+        assert isinstance(corr, np.ndarray)
+        assert corr.shape == (3, 3)
+        assert np.isfinite(corr).all()
+        assert np.allclose(np.diag(corr), 1.0)
 
 
 class TestCosineSimilarity:
@@ -385,6 +452,19 @@ class TestCosineSimilarity:
         sim = cosine_similarity(X, Y)
         assert sim.shape == (1, 1)
 
+    def test_cosine_similarity_shape_mismatch(self):
+        """Test cosine similarity validates feature dimensions."""
+        X = np.array([[1.0, 0.0]], dtype=float)
+        Y = np.array([[1.0, 0.0, 0.0]], dtype=float)
+        with pytest.raises(ValueError, match="same number of features"):
+            cosine_similarity(X, Y)
+
+    def test_cosine_similarity_rejects_nonfinite_values(self):
+        """Test cosine similarity rejects non-finite observed values."""
+        X = np.array([[1.0, 0.0], [np.inf, 1.0]], dtype=float)
+        with pytest.raises(ValueError, match="finite"):
+            cosine_similarity(X)
+
     def test_cosine_similarity_zero_vector(self):
         """Test cosine similarity with zero vector."""
         X = np.array([[1, 0, 0], [0, 0, 0]], dtype=float)
@@ -439,11 +519,11 @@ class TestEdgeCases:
         assert corr.shape == (1, 1)
         assert corr[0, 0] == 1.0
 
-    def test_nan_propagation(self):
-        """Test how NaN values are handled."""
+    def test_nonfinite_values_raise(self):
+        """Test that non-finite values are rejected instead of propagating silently."""
         X = np.array([[1, 2, 3], [4, np.nan, 6], [7, 8, 9]], dtype=float)
-        corr = correlation_matrix(X)
-        assert corr.shape == (3, 3)
+        with pytest.raises(ValueError, match="finite"):
+            correlation_matrix(X)
 
     def test_very_small_values(self):
         """Test with very small numerical values."""

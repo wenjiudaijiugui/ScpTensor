@@ -654,6 +654,26 @@ wheels = [
 ]
 
 [[package]]
+name = "igraph"
+version = "1.0.0"
+source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple/" }
+dependencies = [
+    { name = "texttable" },
+]
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/23/be/56bef1919005b4caf1f71522b300d359f7faeb7ae93a3b0baa9b4f146a87/igraph-1.0.0.tar.gz", hash = "sha256:2414d0be2e4d77ee5357807d100974b40f6082bb1bb71988ec46cfb6728651ee", size = 5077105, upload-time = "2025-10-23T12:22:50.127Z" }
+wheels = [
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/a5/03/3278ad0ceb3ea0e84d8ae3a85bdded4d0e57853aeb802a200feb43847b93/igraph-1.0.0-cp39-abi3-macosx_10_15_x86_64.whl", hash = "sha256:c2cbc415e02523e5a241eecee82319080bf928a70b1ba299f3b3e25bf029b6d4", size = 2257415, upload-time = "2025-10-23T12:22:27.246Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/0d/bc/6281ec7f9baaf71ee57c3b1748da2d3148d15d253e1a03006f204aa68ca5/igraph-1.0.0-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:1a27753cd80680a8f676c2d5a467aaa4a95e510b30748398ec4e4aeb982130e8", size = 2048555, upload-time = "2025-10-23T12:22:29.49Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/2a/38/3cd6428a4ed4c09a56df05998438e7774fd1d799ee4fb8fc481674f5f7fc/igraph-1.0.0-cp39-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:a55dc3a2a4e3fc3eba42479910c1511bfc3ecb33cdf5f0406891fd85f14b5aee", size = 5314141, upload-time = "2025-10-23T12:22:31.023Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/7d/da/dd2867c25adbb41563720f14b5fc895c98bf88be682a3faff4f7b3118d2a/igraph-1.0.0-cp39-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:2d04c2c76f686fb1f554ee35dfd3085f5e73b7965ba6b4cf06d53e66b1955522", size = 5683134, upload-time = "2025-10-23T12:22:32.423Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/e5/40/243c118d34ab80382d7009c4dcb99b887384c3d2ce84d29eeac19e2a007a/igraph-1.0.0-cp39-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:f2b52dc1757fff0fed29a9f7a276d971a11db4211569ed78b9eab36288dfcc9d", size = 6211583, upload-time = "2025-10-23T12:22:34.238Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/1d/b7/88f433819c54b496cb0315fce28e658970cb20ff5dbd52a5a605ce2888de/igraph-1.0.0-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:05c79a2a8fca695b2f217a6fa7f2549f896f757d4db41be32a055400cb19cc30", size = 6594509, upload-time = "2025-10-23T12:22:35.831Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/7b/5d/8f7f6f619d374e959aa3664ebc4b24c10abc90c2e8efbed97f2623fadaf5/igraph-1.0.0-cp39-abi3-win32.whl", hash = "sha256:c2bce3cd472fec3dd9c4d8a3ea5b6b9be65fb30edf760beb4850760dd4f2d479", size = 2725406, upload-time = "2025-10-23T12:22:37.588Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/af/77/a85b3745cf40a0572bae2de8cd9c2a2a8af78e5cf3e880fc0a249114e609/igraph-1.0.0-cp39-abi3-win_amd64.whl", hash = "sha256:faeff8ede0cf15eb4ded44b0fcea6e1886740146e60504c24ad2da14e0939563", size = 3221663, upload-time = "2025-10-23T12:22:39.404Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/ef/7e/5df541c37bdf6493035e89c22bd53f30d99b291bcda6c78e9a8afeecec2b/igraph-1.0.0-cp39-abi3-win_arm64.whl", hash = "sha256:b607cafc24b10a615e713ee96e58208ef27e0764af80140c7cc45d4724a3f2df", size = 2785701, upload-time = "2025-10-23T12:22:41.03Z" },
+]
+
+[[package]]
 name = "imagesize"
 version = "1.4.1"
 source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple/" }
@@ -881,6 +901,26 @@ source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple/" }
 sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/58/49/f06f94048c8974205730d40beca879e43b6eee08efb0101cfb8623e60f41/legacy_api_wrap-1.5.tar.gz", hash = "sha256:b41ba6532f3ebfe3a897a35a7f97dec3be04b92a450f6c2bcf89f1b91c9cadf2", size = 11610, upload-time = "2025-11-03T13:21:12.437Z" }
 wheels = [
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/41/5b/058db09c45ba58a7321bdf2294cae651b37d6fec68117265af90cde043b0/legacy_api_wrap-1.5-py3-none-any.whl", hash = "sha256:5a8ea50e3e3bcbcdec3447b77034fd0d32cb2cf4089db799238708e4d7e0098d", size = 10182, upload-time = "2025-11-03T13:21:11.102Z" },
+]
+
+[[package]]
+name = "leidenalg"
+version = "0.11.0"
+source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple/" }
+dependencies = [
+    { name = "igraph" },
+]
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/5d/a5/853e93441aed7f82b0389f86f37e19413e817ba0c54cc790895935256968/leidenalg-0.11.0.tar.gz", hash = "sha256:f454be96bbc8089ea2a90ca853d8d389ab646de964a03bd58417f8b29ff8ef5d", size = 452850, upload-time = "2025-10-31T17:14:48.684Z" }
+wheels = [
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/28/a9/4ab4e244215db0c8b626e4bed0d3e0fbd191c52d2d5f5cb9d160139ecc7e/leidenalg-0.11.0-cp38-abi3-macosx_10_9_x86_64.whl", hash = "sha256:5607589050bfc1926e657b4d8a3b5341fe1eb81018c22cf4a3d3a39e368d1fcb", size = 2256514, upload-time = "2025-10-31T17:14:27.574Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/98/f4/98db342d603671ae0a233f0a624939a47161044a2716cbd62a50440a1132/leidenalg-0.11.0-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:9b5781876b1f1faed72a4f9926ff52de286843556b9d6791fe25a2acb33b7a5c", size = 1926003, upload-time = "2025-10-31T17:14:29.521Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/9b/38/fd6ac21af10b12828b472eada4fce0edf2a212581238ad0c8d1afebc6f98/leidenalg-0.11.0-cp38-abi3-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:a80f49477f8e793f27d8e08949177f19e3834cd878af50a662b4f87335d06549", size = 2545535, upload-time = "2025-10-31T17:14:31.102Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/77/87/b087584750a788535b4a8d56ddeb82a175d32b472aa5338a4e2cc593a42c/leidenalg-0.11.0-cp38-abi3-manylinux_2_26_i686.manylinux_2_28_i686.whl", hash = "sha256:2143be3e80485584ccbdf927323fce65345da17facd0f8b438f11015f5dc6c27", size = 2845029, upload-time = "2025-10-31T17:14:32.815Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/b0/a4/a89e2ce16a580f7bea066ed49364f0b3e04a6412f0c3692975bee8515141/leidenalg-0.11.0-cp38-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:571a0934f831a69442d82889d319bdba93de924bd9e09b720cd8cbe6fdc08c17", size = 2738084, upload-time = "2025-10-31T17:14:35.246Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/e8/fe/8923cac6cd7c9e0ac5f38aaa69a4744c93d025575763d05f7a3baae8020d/leidenalg-0.11.0-cp38-abi3-musllinux_1_2_i686.whl", hash = "sha256:aec03e7178b19102dd271b453a39b9865cf283b4113151ba60514e5681046294", size = 4070307, upload-time = "2025-10-31T17:14:36.796Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/fe/94/beaab5ee9968f9389f705532c31ffb868bad8a5ce68fb699ddde5ddc5409/leidenalg-0.11.0-cp38-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:310b9269a11fd1e960590c1a2b6ff685a2cc42aa3234ce67bc2a623ab61f26a9", size = 3797863, upload-time = "2025-10-31T17:14:38.124Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/6e/8e/8caf4ba38fd7d8e6197348b348a4ab666b1b3117225ea2f0934a98a93176/leidenalg-0.11.0-cp38-abi3-win32.whl", hash = "sha256:5ea4cd7ee054540112b28f7e2d64658dcccd59f61a5d6a08a41df808645f96e9", size = 1643351, upload-time = "2025-10-31T17:14:39.385Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/47/15/7d459a8e2a43f17c1db129b997b7bb7aa7f000a0967bab87c28b8c5cf448/leidenalg-0.11.0-cp38-abi3-win_amd64.whl", hash = "sha256:5e789c0960008d185413344a402d0587580c441644d4d20bf57c96f25d4d1710", size = 1990321, upload-time = "2025-10-31T17:14:40.892Z" },
 ]
 
 [[package]]
@@ -1183,15 +1223,6 @@ dependencies = [
 sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/66/a5/9626ba4f73555b3735ad86247a8077d4603aa8628537687c839ab08bfe44/myst_parser-4.0.1.tar.gz", hash = "sha256:5cfea715e4f3574138aecbf7d54132296bfd72bb614d31168f48c477a830a7c4", size = 93985, upload-time = "2025-02-12T10:53:03.833Z" }
 wheels = [
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/5f/df/76d0321c3797b54b60fef9ec3bd6f4cfd124b9e422182156a1dd418722cf/myst_parser-4.0.1-py3-none-any.whl", hash = "sha256:9134e88959ec3b5780aedf8a99680ea242869d012e8821db3126d427edc9c95d", size = 84579, upload-time = "2025-02-12T10:53:02.078Z" },
-]
-
-[[package]]
-name = "narwhals"
-version = "2.15.0"
-source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple/" }
-sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/47/6d/b57c64e5038a8cf071bce391bb11551657a74558877ac961e7fa905ece27/narwhals-2.15.0.tar.gz", hash = "sha256:a9585975b99d95084268445a1fdd881311fa26ef1caa18020d959d5b2ff9a965", size = 603479, upload-time = "2026-01-06T08:10:13.27Z" }
-wheels = [
-    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/3d/2e/cf2ffeb386ac3763526151163ad7da9f1b586aac96d2b4f7de1eaebf0c61/narwhals-2.15.0-py3-none-any.whl", hash = "sha256:cbfe21ca19d260d9fd67f995ec75c44592d1f106933b03ddd375df7ac841f9d6", size = 432856, upload-time = "2026-01-06T08:10:11.511Z" },
 ]
 
 [[package]]
@@ -1652,19 +1683,6 @@ source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple/" }
 sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/cf/86/0248f086a84f01b37aaec0fa567b397df1a119f73c16f6c7a9aac73ea309/platformdirs-4.5.1.tar.gz", hash = "sha256:61d5cdcc6065745cdd94f0f878977f8de9437be93de97c1c12f853c9c0cdcbda", size = 21715, upload-time = "2025-12-05T13:52:58.638Z" }
 wheels = [
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/cb/28/3bfe2fa5a7b9c46fe7e13c97bda14c895fb10fa2ebf1d0abb90e0cea7ee1/platformdirs-4.5.1-py3-none-any.whl", hash = "sha256:d03afa3963c806a9bed9d5125c8f4cb2fdaf74a55ab60e5d59b3fde758104d31", size = 18731, upload-time = "2025-12-05T13:52:56.823Z" },
-]
-
-[[package]]
-name = "plotly"
-version = "6.5.1"
-source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple/" }
-dependencies = [
-    { name = "narwhals" },
-    { name = "packaging" },
-]
-sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/d6/ff/a4938b75e95114451efdb34db6b41930253e67efc8dc737bd592ef2e419d/plotly-6.5.1.tar.gz", hash = "sha256:b0478c8d5ada0c8756bce15315bcbfec7d3ab8d24614e34af9aff7bfcfea9281", size = 7014606, upload-time = "2026-01-07T20:11:41.644Z" }
-wheels = [
-    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/e9/8e/24e0bb90b2d75af84820693260c5534e9ed351afdda67ed6f393a141a0e2/plotly-6.5.1-py3-none-any.whl", hash = "sha256:5adad4f58c360612b6c5ce11a308cdbc4fd38ceb1d40594a614f0062e227abe1", size = 9894981, upload-time = "2026-01-07T20:11:38.124Z" },
 ]
 
 [[package]]
@@ -2237,32 +2255,38 @@ name = "scptensor"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "h5py" },
     { name = "matplotlib" },
-    { name = "numba" },
     { name = "numpy" },
-    { name = "pandas" },
-    { name = "plotly" },
     { name = "polars" },
-    { name = "psutil" },
     { name = "pyarrow" },
-    { name = "requests" },
-    { name = "scienceplots" },
     { name = "scikit-learn" },
     { name = "scipy" },
-    { name = "seaborn" },
-    { name = "umap-learn" },
 ]
 
 [package.optional-dependencies]
+accel = [
+    { name = "numba" },
+]
 all = [
     { name = "anndata" },
     { name = "harmonypy" },
+    { name = "igraph" },
+    { name = "leidenalg" },
+    { name = "numba" },
+    { name = "pandas" },
+    { name = "psutil" },
+    { name = "requests" },
     { name = "scanorama" },
     { name = "scanpy" },
+    { name = "scienceplots" },
+    { name = "seaborn" },
+    { name = "umap-learn" },
 ]
 benchmark = [
+    { name = "pandas" },
+    { name = "requests" },
     { name = "scanpy" },
+    { name = "seaborn" },
 ]
 dev = [
     { name = "ipykernel" },
@@ -2279,6 +2303,13 @@ docs = [
     { name = "sphinx" },
     { name = "sphinx-autodoc-typehints" },
 ]
+experimental = [
+    { name = "umap-learn" },
+]
+graph = [
+    { name = "igraph" },
+    { name = "leidenalg" },
+]
 integration = [
     { name = "harmonypy" },
     { name = "scanorama" },
@@ -2286,10 +2317,23 @@ integration = [
 io = [
     { name = "anndata" },
 ]
+perf = [
+    { name = "psutil" },
+]
+viz = [
+    { name = "scienceplots" },
+    { name = "seaborn" },
+]
 
 [package.dev-dependencies]
+accel = [
+    { name = "numba" },
+]
 benchmark = [
+    { name = "pandas" },
+    { name = "requests" },
     { name = "scanpy" },
+    { name = "seaborn" },
 ]
 dev = [
     { name = "ipykernel" },
@@ -2305,6 +2349,13 @@ docs = [
     { name = "sphinx" },
     { name = "sphinx-autodoc-typehints" },
 ]
+experimental = [
+    { name = "umap-learn" },
+]
+graph = [
+    { name = "igraph" },
+    { name = "leidenalg" },
+]
 integration = [
     { name = "harmonypy" },
     { name = "scanorama" },
@@ -2312,45 +2363,59 @@ integration = [
 io = [
     { name = "anndata" },
 ]
+perf = [
+    { name = "psutil" },
+]
+viz = [
+    { name = "scienceplots" },
+    { name = "seaborn" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "anndata", marker = "extra == 'io'", specifier = ">=0.10" },
     { name = "furo", marker = "extra == 'docs'", specifier = ">=2024.0" },
-    { name = "h5py", specifier = ">=3.15.1" },
     { name = "harmonypy", marker = "extra == 'integration'", specifier = ">=0.1" },
+    { name = "igraph", marker = "extra == 'graph'", specifier = ">=0.11" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=7.1" },
+    { name = "leidenalg", marker = "extra == 'graph'", specifier = ">=0.10" },
     { name = "matplotlib", specifier = ">=3.9" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.9" },
     { name = "myst-parser", marker = "extra == 'docs'", specifier = ">=3.0" },
-    { name = "numba", specifier = ">=0.60" },
+    { name = "numba", marker = "extra == 'accel'", specifier = ">=0.60" },
     { name = "numpy", specifier = ">=1.26" },
-    { name = "pandas", specifier = ">=2.0" },
-    { name = "plotly", specifier = ">=5.20" },
+    { name = "pandas", marker = "extra == 'benchmark'", specifier = ">=2.0" },
     { name = "polars", specifier = ">=1.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0" },
-    { name = "psutil", specifier = ">=6.0" },
+    { name = "psutil", marker = "extra == 'perf'", specifier = ">=6.0" },
     { name = "pyarrow", specifier = ">=14.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
-    { name = "requests", specifier = ">=2.31" },
+    { name = "requests", marker = "extra == 'benchmark'", specifier = ">=2.31" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
     { name = "scanorama", marker = "extra == 'integration'", specifier = ">=1.7" },
     { name = "scanpy", marker = "extra == 'benchmark'", specifier = ">=1.10" },
-    { name = "scienceplots", specifier = ">=2.0" },
+    { name = "scienceplots", marker = "extra == 'viz'", specifier = ">=2.0" },
     { name = "scikit-learn", specifier = ">=1.5" },
     { name = "scipy", specifier = ">=1.13" },
-    { name = "scptensor", extras = ["io", "integration", "benchmark"], marker = "extra == 'all'" },
-    { name = "seaborn", specifier = ">=0.13" },
+    { name = "scptensor", extras = ["io", "accel", "integration", "viz", "experimental", "graph", "perf", "benchmark"], marker = "extra == 'all'" },
+    { name = "seaborn", marker = "extra == 'benchmark'", specifier = ">=0.13" },
+    { name = "seaborn", marker = "extra == 'viz'", specifier = ">=0.13" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = ">=7.0" },
     { name = "sphinx-autodoc-typehints", marker = "extra == 'docs'", specifier = ">=2.0" },
     { name = "types-requests", marker = "extra == 'dev'", specifier = ">=2.31" },
-    { name = "umap-learn", specifier = ">=0.5.6" },
+    { name = "umap-learn", marker = "extra == 'experimental'", specifier = ">=0.5.6" },
 ]
-provides-extras = ["io", "integration", "benchmark", "all", "dev", "docs"]
+provides-extras = ["io", "accel", "integration", "viz", "experimental", "graph", "perf", "benchmark", "all", "dev", "docs"]
 
 [package.metadata.requires-dev]
-benchmark = [{ name = "scanpy", specifier = ">=1.11.5" }]
+accel = [{ name = "numba", specifier = ">=0.60" }]
+benchmark = [
+    { name = "pandas", specifier = ">=2.0" },
+    { name = "requests", specifier = ">=2.31" },
+    { name = "scanpy", specifier = ">=1.11.5" },
+    { name = "seaborn", specifier = ">=0.13" },
+]
 dev = [
     { name = "ipykernel", specifier = ">=7.1.0" },
     { name = "mypy", specifier = ">=1.15.0" },
@@ -2365,11 +2430,21 @@ docs = [
     { name = "sphinx", specifier = ">=8.0.0" },
     { name = "sphinx-autodoc-typehints", specifier = ">=2.0.0" },
 ]
+experimental = [{ name = "umap-learn", specifier = ">=0.5.6" }]
+graph = [
+    { name = "igraph", specifier = ">=0.11" },
+    { name = "leidenalg", specifier = ">=0.10" },
+]
 integration = [
     { name = "harmonypy", specifier = ">=0.1" },
     { name = "scanorama", specifier = ">=1.7" },
 ]
 io = [{ name = "anndata", specifier = ">=0.10" }]
+perf = [{ name = "psutil", specifier = ">=6.0" }]
+viz = [
+    { name = "scienceplots", specifier = ">=2.0" },
+    { name = "seaborn", specifier = ">=0.13" },
+]
 
 [[package]]
 name = "seaborn"
@@ -2602,6 +2677,15 @@ dependencies = [
 sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/83/d3/803453b36afefb7c2bb238361cd4ae6125a569b4db67cd9e79846ba2d68c/sympy-1.14.0.tar.gz", hash = "sha256:d3d3fe8df1e5a0b42f0e7bdf50541697dbe7d23746e894990c030e2b05e72517", size = 7793921, upload-time = "2025-04-27T18:05:01.611Z" }
 wheels = [
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl", hash = "sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5", size = 6299353, upload-time = "2025-04-27T18:04:59.103Z" },
+]
+
+[[package]]
+name = "texttable"
+version = "1.7.0"
+source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple/" }
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/1c/dc/0aff23d6036a4d3bf4f1d8c8204c5c79c4437e25e0ae94ffe4bbb55ee3c2/texttable-1.7.0.tar.gz", hash = "sha256:2d2068fb55115807d3ac77a4ca68fa48803e84ebb0ee2340f858107a36522638" }
+wheels = [
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/24/99/4772b8e00a136f3e01236de33b0efda31ee7077203ba5967fcc76da94d65/texttable-1.7.0-py2.py3-none-any.whl", hash = "sha256:72227d592c82b3d7f672731ae73e4d1f88cd8e2ef5b075a7a7f01a23a3743917" },
 ]
 
 [[package]]

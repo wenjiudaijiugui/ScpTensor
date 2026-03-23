@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import scipy.sparse as sp
 
+from scptensor.normalization.quantile_normalization import _quantile_normalize_rows
+
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
@@ -65,31 +67,13 @@ def quantile_normalize(
     if axis not in (0, 1):
         raise ValueError(f"axis must be 0 or 1, got {axis}")
 
-    # Convert sparse to dense for sorting
-    X_working = X.toarray() if sp.issparse(X) else X  # type: ignore[union-attr]
-    if copy:
-        X_working = X_working.astype(np.float64, copy=True)
+    X_working = X.toarray() if sp.issparse(X) else np.asarray(X)  # type: ignore[union-attr]
+    X_working = X_working.astype(np.float64, copy=copy)
 
     if axis == 0:
-        # Normalize columns
-        sorted_X = np.sort(X_working, axis=0)
-        row_means = sorted_X.mean(axis=1, keepdims=True)
+        return _quantile_normalize_rows(X_working.T).T.astype(np.float64, copy=False)
 
-        X_normalized = np.empty_like(X_working)
-        for col_idx in range(X_working.shape[1]):
-            ranks = np.argsort(np.argsort(X_working[:, col_idx]))
-            X_normalized[:, col_idx] = row_means[ranks, 0]
-    else:
-        # Normalize rows
-        sorted_X = np.sort(X_working, axis=1)
-        col_means = sorted_X.mean(axis=0, keepdims=True)
-
-        X_normalized = np.empty_like(X_working)
-        for row_idx in range(X_working.shape[0]):
-            ranks = np.argsort(np.argsort(X_working[row_idx, :]))
-            X_normalized[row_idx, :] = col_means[0, ranks]
-
-    return X_normalized.astype(np.float64)
+    return _quantile_normalize_rows(X_working).astype(np.float64, copy=False)
 
 
 def robust_scale(
@@ -137,8 +121,12 @@ def robust_scale(
     >>> X_scaled.shape
     (4, 2)
     """
+    if axis not in (0, 1):
+        raise ValueError(f"axis must be 0 or 1, got {axis}")
+
     # Get dense version for statistics
-    X_dense = X.toarray() if sp.issparse(X) else X  # type: ignore[union-attr]
+    X_dense = X.toarray() if sp.issparse(X) else np.asarray(X)  # type: ignore[union-attr]
+    X_dense = X_dense.astype(np.float64, copy=False)
     X_working = X_dense if not copy else X_dense.copy()
 
     # Compute statistics

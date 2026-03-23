@@ -18,6 +18,7 @@ venv/
 htmlcov/
 .serena/
 .claude/
+node_modules/
 
 # Python build artifacts
 __pycache__/
@@ -35,6 +36,9 @@ dist/
 outputs/
 data/
 tmp/
+_build/
+benchmark_results/
+studies/
 **/data_cache/
 **/outputs/
 

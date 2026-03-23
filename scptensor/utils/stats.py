@@ -36,6 +36,22 @@ def _ensure_dense(X: NDArray[np.float64] | sp.spmatrix) -> NDArray[np.float64]:
     return X.toarray() if sp.issparse(X) else X  # type: ignore[union-attr]
 
 
+def _ensure_2d_float_array(
+    X: NDArray[np.float64] | sp.spmatrix,
+    *,
+    name: str,
+) -> NDArray[np.float64]:
+    """Convert input to a finite 2D float64 array."""
+    X_dense = np.asarray(_ensure_dense(X), dtype=np.float64)
+    if X_dense.ndim == 1:
+        X_dense = X_dense.reshape(-1, 1)
+    elif X_dense.ndim != 2:
+        raise ValueError(f"{name} must be 1D or 2D, got ndim={X_dense.ndim}")
+    if not np.isfinite(X_dense).all():
+        raise ValueError(f"{name} must contain only finite values")
+    return X_dense
+
+
 def correlation_matrix(
     X: NDArray[np.float64] | sp.spmatrix,
     method: str = "pearson",
@@ -74,7 +90,7 @@ def correlation_matrix(
     if method not in ("pearson", "spearman"):
         raise ValueError(f"Unsupported method: {method}. Use 'pearson' or 'spearman'.")
 
-    X_dense = _ensure_dense(X)
+    X_dense = _ensure_2d_float_array(X, name="X")
     X_centered = X_dense - X_dense.mean(axis=0, keepdims=True)
 
     if method == "pearson":
@@ -152,12 +168,18 @@ def partial_correlation(
     >>> -1.0 <= pc <= 1.0
     True
     """
-    X_dense = _ensure_dense(X)
+    X_dense = _ensure_2d_float_array(X, name="X")
     n_samples, n_features = X_dense.shape
+    if n_samples < 2:
+        raise ValueError("X must contain at least 2 samples")
 
     # Validate indices
     if not (0 <= i < n_features) or not (0 <= j < n_features):
         raise ValueError(f"Indices i={i}, j={j} out of bounds for {n_features} features.")
+    if i == j:
+        if conditioning_set and i in conditioning_set:
+            raise ValueError("Variables i and j cannot be in the conditioning set.")
+        return 1.0
 
     # Simple correlation if no conditioning set
     if not conditioning_set:
@@ -186,7 +208,10 @@ def partial_correlation(
 
     # Partial correlation: -P_ij / sqrt(P_ii * P_jj)
     p_ij, p_ii, p_jj = precision[0, 1], precision[0, 0], precision[1, 1]
-    partial_corr = -p_ij / np.sqrt(p_ii * p_jj)
+    denom = p_ii * p_jj
+    if not np.isfinite(denom) or denom <= 0:
+        return 0.0
+    partial_corr = -p_ij / np.sqrt(denom)
 
     return float(np.clip(partial_corr, -1.0, 1.0))
 
@@ -211,8 +236,9 @@ def spearman_correlation(
     Returns
     -------
     Union[NDArray[np.float64], float]
-        If Y is None: correlation matrix of shape (n_features, n_features).
-        If Y is provided: correlation coefficient between X and Y.
+        If Y is None: follows ``scipy.stats.spearmanr`` return conventions,
+        yielding a scalar for one/two-column inputs and a correlation matrix for
+        wider inputs. If Y is provided: correlation coefficient between X and Y.
 
     Examples
     --------
@@ -222,30 +248,37 @@ def spearman_correlation(
     >>> corr.shape
     (2, 2)
     """
-    X_dense = _ensure_dense(X)
+    X_dense = _ensure_2d_float_array(X, name="X")
 
     if Y is None:
-        # Correlation between columns of X
-        if X_dense.ndim == 1:
-            X_dense = X_dense.reshape(-1, 1)
-        corr, _ = spearmanr(X_dense, axis=0)
-        return corr.astype(np.float64)
+        n_features = X_dense.shape[1]
+        if n_features == 1:
+            return 1.0
+        corr_matrix = correlation_matrix(X_dense, method="spearman")
+        if n_features == 2:
+            return float(corr_matrix[0, 1])
+        return corr_matrix
 
     # Correlation between X and Y
-    Y_dense = _ensure_dense(Y)
+    Y_dense = _ensure_2d_float_array(Y, name="Y")
     x_flat, y_flat = X_dense.ravel(), Y_dense.ravel()
 
     if x_flat.shape != y_flat.shape:
         raise ValueError(f"Shape mismatch: X {x_flat.shape} vs Y {y_flat.shape}")
 
+    if np.all(x_flat == x_flat[0]) or np.all(y_flat == y_flat[0]):
+        return 0.0
+
     corr, _ = spearmanr(x_flat, y_flat)
+    if not np.isfinite(corr):
+        return 0.0
     return float(corr)
 
 
 def cosine_similarity(
     X: NDArray[np.float64] | sp.spmatrix,
     Y: NDArray[np.float64] | sp.spmatrix | None = None,
-) -> NDArray[np.float64] | float:
+) -> NDArray[np.float64]:
     """Compute cosine similarity between vectors.
 
     Cosine similarity measures the cosine of the angle between vectors,
@@ -261,9 +294,10 @@ def cosine_similarity(
 
     Returns
     -------
-    Union[NDArray[np.float64], float]
+    NDArray[np.float64]
         If Y is None: similarity matrix of shape (n_samples, n_samples).
-        If Y is provided: similarity coefficient between X and Y.
+        If Y is provided: row-wise similarity matrix of shape
+        ``(X.shape[0], Y.shape[0])``.
 
     Examples
     --------
@@ -278,38 +312,30 @@ def cosine_similarity(
         """Compute L2 norm for each row."""
         if sp.issparse(matrix):
             return sp.linalg.norm(matrix, axis=1).reshape(-1, 1)
-        if matrix.ndim == 1:
-            return np.array([[np.sqrt(np.sum(matrix**2))]])
         return np.sqrt(np.sum(matrix**2, axis=1, keepdims=True))
 
+    X = _ensure_2d_float_array(X, name="X")
     X_norm = _compute_norm(X)
 
     if Y is None:
         # Pairwise similarity between rows of X
-        sim = X @ X.T if not sp.issparse(X) else X @ X.T
+        sim = X @ X.T
         norms = X_norm @ X_norm.T
-
-        if sp.issparse(norms):
-            norms.data[norms.data == 0] = 1.0  # type: ignore[call-overload]
-            sim = sim / norms
-            result = sim.toarray()  # type: ignore[union-attr]
-        else:
-            norms[norms == 0] = 1.0
-            result = sim / norms
+        norms[norms == 0] = 1.0
+        result = sim / norms
 
         return np.nan_to_num(result, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float64)
 
     # Similarity between X and Y
+    Y = _ensure_2d_float_array(Y, name="Y")
+    if X.shape[1] != Y.shape[1]:
+        raise ValueError(
+            f"X and Y must have the same number of features, got {X.shape[1]} and {Y.shape[1]}"
+        )
     Y_norm = _compute_norm(Y)
-    sim = X @ Y.T if not (sp.issparse(X) or sp.issparse(Y)) else X @ Y.T
+    sim = X @ Y.T
     norms = X_norm @ Y_norm.T
-
-    if sp.issparse(norms):
-        norms.data[norms.data == 0] = 1.0  # type: ignore[call-overload]
-        sim = sim / norms
-        result = sim.toarray()  # type: ignore[union-attr]
-    else:
-        norms[norms == 0] = 1.0
-        result = sim / norms
+    norms[norms == 0] = 1.0
+    result = sim / norms
 
     return np.nan_to_num(result, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float64)

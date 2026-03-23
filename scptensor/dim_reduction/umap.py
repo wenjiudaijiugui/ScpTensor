@@ -18,6 +18,7 @@ import numpy as np
 import polars as pl
 
 from scptensor.core.assay_alias import resolve_assay_name
+from scptensor.core.exceptions import MissingDependencyError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.dim_reduction.base import (
     _check_no_nan_inf,
@@ -123,7 +124,10 @@ def reduce_umap(
     # Some umap-learn builds emit ImportWarning for optional ParametricUMAP/TensorFlow.
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=ImportWarning, module=r"umap(\.|$)")
-        import umap as umap_learn
+        try:
+            import umap as umap_learn
+        except ImportError as exc:
+            raise MissingDependencyError("umap-learn") from exc
 
     umap_kwargs: dict[str, object] = {
         "n_neighbors": n_neighbors,

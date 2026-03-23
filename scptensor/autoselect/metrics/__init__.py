@@ -23,7 +23,11 @@ Batch Effect Metrics (batch.py)
     bio_asw
         Biological group average silhouette width (higher is better)
     batch_mixing_score
-        Batch mixing score (simplified LISI)
+        Heuristic local batch-mixing proxy
+    kbet_score
+        Fixed-k kBET acceptance rate
+    ilisi_score
+        Perplexity-weighted iLISI summary
 
 Clustering Metrics (clustering.py)
     silhouette_score
@@ -62,6 +66,8 @@ from scptensor.autoselect.metrics.batch import (
     batch_asw,
     batch_mixing_score,
     bio_asw,
+    ilisi_score,
+    kbet_score,
 )
 from scptensor.autoselect.metrics.clustering import (
     calinski_harabasz_score,
@@ -88,6 +94,8 @@ __all__ = [
     "batch_asw",
     "bio_asw",
     "batch_mixing_score",
+    "kbet_score",
+    "ilisi_score",
     # Clustering metrics
     "silhouette_score",
     "calinski_harabasz_score",

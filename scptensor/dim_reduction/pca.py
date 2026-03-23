@@ -191,28 +191,25 @@ def reduce_pca(
         feature_id_col="pc_name",
     )
 
-    # Store loadings in original assay
-    if len(container.history) > 0 or True:  # Always update loadings
-        loading_cols = {
-            f"{new_assay_name}_PC{i + 1}_loading": loadings[:, i] for i in range(n_components)
-        }
-        loadings_df = pl.DataFrame(loading_cols)
+    # Store loadings in original assay.
+    loading_cols = {
+        f"{new_assay_name}_PC{i + 1}_loading": loadings[:, i] for i in range(n_components)
+    }
+    loadings_df = pl.DataFrame(loading_cols)
 
-        # Clean old loadings
-        prefix = f"{new_assay_name}_PC"
-        existing_cols = assay.var.columns
-        cols_to_drop = [c for c in existing_cols if c.startswith(prefix) and "_loading" in c]
+    # Clean old loadings
+    prefix = f"{new_assay_name}_PC"
+    existing_cols = assay.var.columns
+    cols_to_drop = [c for c in existing_cols if c.startswith(prefix) and "_loading" in c]
 
-        var_clean = assay.var.drop(cols_to_drop) if cols_to_drop else assay.var
-        new_var = pl.concat([var_clean, loadings_df], how="horizontal")
+    var_clean = assay.var.drop(cols_to_drop) if cols_to_drop else assay.var
+    new_var = pl.concat([var_clean, loadings_df], how="horizontal")
 
-        original_assay = Assay(
-            var=new_var,
-            layers=assay.layers.copy(),
-            feature_id_col=assay.feature_id_col,
-        )
-    else:
-        original_assay = assay
+    original_assay = Assay(
+        var=new_var,
+        layers=assay.layers.copy(),
+        feature_id_col=assay.feature_id_col,
+    )
 
     # Create new container
     new_assays = {
