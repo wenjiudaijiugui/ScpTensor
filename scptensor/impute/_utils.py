@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 import scipy.sparse as sp
 
+from scptensor.core._layer_processing import create_result_layer
 from scptensor.core._structure_matrix import MaskCode, ScpMatrix
 
 if TYPE_CHECKING:
@@ -73,9 +74,23 @@ def build_imputed_matrix(
     x: np.ndarray | sp.spmatrix,
     input_matrix: ScpMatrix,
     missing_mask: np.ndarray,
+    *,
+    source_assay_name: str | None = None,
+    source_layer_name: str | None = None,
+    action: str | None = None,
+    output_layer_name: str | None = None,
 ) -> ScpMatrix:
     """Create a result matrix with the contract-preserving imputed mask."""
-    return ScpMatrix(X=x, M=_update_imputed_mask(input_matrix.M, missing_mask))
+    result = create_result_layer(
+        x,
+        input_matrix,
+        source_assay_name=source_assay_name,
+        source_layer_name=source_layer_name,
+        action=action,
+        output_layer_name=output_layer_name,
+    )
+    result.M = _update_imputed_mask(input_matrix.M, missing_mask)
+    return result
 
 
 def add_imputed_layer(
@@ -84,22 +99,49 @@ def add_imputed_layer(
     x: np.ndarray | sp.spmatrix,
     input_matrix: ScpMatrix,
     missing_mask: np.ndarray,
+    *,
+    source_assay_name: str | None = None,
+    source_layer_name: str | None = None,
+    action: str | None = None,
 ) -> ScpMatrix:
     """Write an imputed layer and return the stored matrix."""
-    result = build_imputed_matrix(x, input_matrix, missing_mask)
+    result = build_imputed_matrix(
+        x,
+        input_matrix,
+        missing_mask,
+        source_assay_name=source_assay_name,
+        source_layer_name=source_layer_name,
+        action=action,
+        output_layer_name=layer_name,
+    )
     assay.add_layer(layer_name, result)
     return result
 
 
-def clone_layer_matrix(source_layer: ScpMatrix) -> ScpMatrix:
+def clone_layer_matrix(
+    source_layer: ScpMatrix,
+    *,
+    source_assay_name: str | None = None,
+    source_layer_name: str | None = None,
+    action: str | None = None,
+    output_layer_name: str | None = None,
+) -> ScpMatrix:
     """Clone X and M for passthrough/no-op layer creation."""
     if sp.issparse(source_layer.X):
         x_copy: np.ndarray | sp.spmatrix = source_layer.X.copy()
     else:
         x_copy = np.array(source_layer.X, copy=True)
 
-    m_copy = source_layer.M.copy() if source_layer.M is not None else None
-    return ScpMatrix(X=x_copy, M=m_copy)
+    result = create_result_layer(
+        x_copy,
+        source_layer,
+        source_assay_name=source_assay_name,
+        source_layer_name=source_layer_name,
+        action=action,
+        output_layer_name=output_layer_name,
+    )
+    result.M = source_layer.M.copy() if source_layer.M is not None else None
+    return result
 
 
 def log_imputation_operation(

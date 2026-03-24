@@ -14,6 +14,7 @@ from .batch import (
     batch_iterator,
 )
 from .data_generator import ScpDataGenerator
+from .export import protein_matrix_to_table, write_protein_matrix_bundle
 from .stats import (
     correlation_matrix,
     cosine_similarity,
@@ -36,6 +37,9 @@ __all__ = [
     # Transformations
     "quantile_normalize",
     "robust_scale",
+    # Export helpers
+    "protein_matrix_to_table",
+    "write_protein_matrix_bundle",
     # Batch processing
     "batch_iterator",
     "apply_by_batch",

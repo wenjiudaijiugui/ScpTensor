@@ -22,7 +22,7 @@ from scptensor.integration.base import (
     register_integrate_method,
     to_dense_array,
     validate_batch_integration_params,
-    validate_layer_params,
+    validate_layer_context,
 )
 
 
@@ -58,11 +58,13 @@ def integrate_limma(
         default rather than anchoring to the first observed batch.
 
     """
-    assay, layer = validate_layer_params(container, assay_name, base_layer)
+    ctx = validate_layer_context(container, assay_name, base_layer)
+    assay = ctx.assay
+    layer = ctx.layer
     obs_df, batches, unique_batches, _ = validate_batch_integration_params(
         container,
         batch_key,
-        assay_name,
+        ctx.resolved_assay_name,
         min_batches=2,
         min_samples_per_batch=2,
     )
@@ -102,7 +104,16 @@ def integrate_limma(
     )
 
     x_out = preserve_sparsity(x_corrected, input_was_sparse)
-    add_integrated_layer(assay, new_layer_name or "limma", x_out, layer)
+    layer_name = new_layer_name or "limma"
+    add_integrated_layer(
+        assay,
+        layer_name,
+        x_out,
+        layer,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=base_layer,
+        action="integration_limma",
+    )
 
     return log_integration_operation(
         container,
@@ -110,6 +121,9 @@ def integrate_limma(
         method_name="limma",
         params={
             "batch_key": batch_key,
+            "assay": ctx.resolved_assay_name,
+            "base_layer": base_layer,
+            "new_layer_name": layer_name,
             "covariates": list(covariates) if covariates else None,
             "reference_batch": ref_batch,
             "n_batch_terms": len(batch_idx),

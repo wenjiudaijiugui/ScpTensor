@@ -19,12 +19,12 @@ Quick Start:
     ...     container,
     ...     assay_name="proteins",
     ...     source_layer="raw",
-    ...     new_layer_name="log2",
+    ...     new_layer_name="log",
     ... )
     >>> container = norm_median(
     ...     container,
     ...     assay_name="proteins",
-    ...     source_layer="log2",
+    ...     source_layer="log",
     ...     new_layer_name="norm",
     ... )
 """

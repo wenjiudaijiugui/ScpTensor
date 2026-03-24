@@ -26,6 +26,7 @@ import numpy as np
 from scptensor.autoselect.core import EvaluationResult, StageReport
 from scptensor.autoselect.strategy import get_strategy_preset
 from scptensor.core.assay_alias import resolve_assay_name
+from scptensor.core.state_metrics import compute_state_transition_metrics
 
 if TYPE_CHECKING:
     from scptensor.core.structures import ScpContainer
@@ -288,6 +289,28 @@ class BaseEvaluator(ABC):
         """
         del container, original_container, layer_name, scores
         return {}
+
+    def _compute_state_report_metrics(
+        self,
+        container: ScpContainer,
+        layer_name: str,
+    ) -> dict[str, float]:
+        """Return shared state-aware diagnostics for a derived layer."""
+        resolved_assay_name = self._resolve_metric_assay_name(container, None)
+        if resolved_assay_name is None:
+            return {}
+
+        assay = container.assays.get(resolved_assay_name)
+        if assay is None or layer_name not in assay.layers:
+            return {}
+
+        metrics = compute_state_transition_metrics(
+            container,
+            assay_name=resolved_assay_name,
+            layer_name=layer_name,
+            reference="source",
+        )
+        return {f"state_{key}": float(value) for key, value in metrics.items()}
 
     def get_metric_weights(self) -> dict[str, float]:
         """Return metric weights, applying overrides if present."""

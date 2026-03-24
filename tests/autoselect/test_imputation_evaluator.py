@@ -89,3 +89,25 @@ def test_holdout_mask_uses_centralized_holdout_policy() -> None:
     )
     expected = min(expected, IMPUTATION_HOLDOUT_HEURISTICS.max_entries, observed_mask.sum())
     assert int(np.sum(holdout_mask)) == expected
+
+
+def test_impute_report_metrics_include_state_axis() -> None:
+    """Imputation stage should expose shared state-aware reporting metrics."""
+    container = _build_container()
+    evaluator = ImputationEvaluator()
+
+    _, report = evaluator.run_all(
+        container=container,
+        assay_name="proteins",
+        source_layer="raw",
+        keep_all=True,
+        selection_strategy="quality",
+    )
+
+    successful = [result for result in report.results if result.error is None]
+    assert successful
+    first = successful[0]
+    assert "state_direct_observation_rate" in first.report_metrics
+    assert "state_uncertainty_burden" in first.report_metrics
+    assert "state_reference_uncertainty_burden" in first.report_metrics
+    assert "state_delta_imputed_rate" in first.report_metrics

@@ -106,7 +106,16 @@ def impute_none(
     assay = ctx.assay
     matrix = ctx.layer
 
-    assay.add_layer(new_layer_name, clone_layer_matrix(matrix))
+    assay.add_layer(
+        new_layer_name,
+        clone_layer_matrix(
+            matrix,
+            source_assay_name=ctx.resolved_assay_name,
+            source_layer_name=source_layer,
+            action="impute_none",
+            output_layer_name=new_layer_name,
+        ),
+    )
     return log_imputation_operation(
         container,
         action="impute_none",
@@ -134,7 +143,16 @@ def impute_zero(
     missing_mask = np.isnan(x_dense)
     x_imputed = preserve_observed_values(impute_zero_core(x_dense), x_dense, missing_mask)
 
-    add_imputed_layer(assay, new_layer_name, x_imputed, input_matrix, missing_mask)
+    add_imputed_layer(
+        assay,
+        new_layer_name,
+        x_imputed,
+        input_matrix,
+        missing_mask,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=source_layer,
+        action="impute_zero",
+    )
     return log_imputation_operation(
         container,
         action="impute_zero",
@@ -162,7 +180,16 @@ def impute_row_mean(
     missing_mask = np.isnan(x_dense)
     x_imputed = preserve_observed_values(impute_row_mean_core(x_dense), x_dense, missing_mask)
 
-    add_imputed_layer(assay, new_layer_name, x_imputed, input_matrix, missing_mask)
+    add_imputed_layer(
+        assay,
+        new_layer_name,
+        x_imputed,
+        input_matrix,
+        missing_mask,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=source_layer,
+        action="impute_row_mean",
+    )
     return log_imputation_operation(
         container,
         action="impute_row_mean",
@@ -190,7 +217,16 @@ def impute_row_median(
     missing_mask = np.isnan(x_dense)
     x_imputed = preserve_observed_values(impute_row_median_core(x_dense), x_dense, missing_mask)
 
-    add_imputed_layer(assay, new_layer_name, x_imputed, input_matrix, missing_mask)
+    add_imputed_layer(
+        assay,
+        new_layer_name,
+        x_imputed,
+        input_matrix,
+        missing_mask,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=source_layer,
+        action="impute_row_median",
+    )
     return log_imputation_operation(
         container,
         action="impute_row_median",
@@ -230,7 +266,16 @@ def impute_half_row_min(
         missing_mask,
     )
 
-    add_imputed_layer(assay, new_layer_name, x_imputed, input_matrix, missing_mask)
+    add_imputed_layer(
+        assay,
+        new_layer_name,
+        x_imputed,
+        input_matrix,
+        missing_mask,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=source_layer,
+        action="impute_half_row_min",
+    )
     return log_imputation_operation(
         container,
         action="impute_half_row_min",

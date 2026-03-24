@@ -223,7 +223,16 @@ def impute_qrilc(
     missing_mask = np.isnan(X_dense)
     layer_name = new_layer_name or "qrilc"
     if not np.any(missing_mask):
-        add_imputed_layer(assay, layer_name, X_dense, input_matrix, missing_mask)
+        add_imputed_layer(
+            assay,
+            layer_name,
+            X_dense,
+            input_matrix,
+            missing_mask,
+            source_assay_name=ctx.resolved_assay_name,
+            source_layer_name=source_layer,
+            action="impute_qrilc",
+        )
         return log_imputation_operation(
             container,
             action="impute_qrilc",
@@ -243,7 +252,16 @@ def impute_qrilc(
     preserve_observed_values(X_imputed, X_dense, missing_mask)
 
     # Create new layer
-    add_imputed_layer(assay, layer_name, X_imputed, input_matrix, missing_mask)
+    add_imputed_layer(
+        assay,
+        layer_name,
+        X_imputed,
+        input_matrix,
+        missing_mask,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=source_layer,
+        action="impute_qrilc",
+    )
 
     # Log operation
     return log_imputation_operation(

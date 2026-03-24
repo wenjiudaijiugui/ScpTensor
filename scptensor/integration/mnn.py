@@ -160,7 +160,16 @@ def integrate_mnn(
     )
 
     X_corrected = preserve_sparsity(X_corrected, input_was_sparse)
-    add_integrated_layer(assay, new_layer_name or "mnn_corrected", X_corrected, layer)
+    layer_name = new_layer_name or "mnn_corrected"
+    add_integrated_layer(
+        assay,
+        layer_name,
+        X_corrected,
+        layer,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=base_layer,
+        action="integration_mnn",
+    )
 
     return log_integration_operation(
         container,
@@ -169,6 +178,8 @@ def integrate_mnn(
         params={
             "batch_key": batch_key,
             "assay": ctx.resolved_assay_name,
+            "base_layer": base_layer,
+            "new_layer_name": layer_name,
             "k": k,
             "sigma": sigma,
             "use_pca": use_pca,

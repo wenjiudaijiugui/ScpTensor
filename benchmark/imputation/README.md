@@ -16,8 +16,12 @@
 当前实现边界：
 
 - 已落地的是 protein-level `masked-value recovery` 主榜。
-- `precursor-to-protein auxiliary board` 尚未在本目录单独实现。
-- holdout 是从当前矩阵中已观测的有限值构造，并未按原始 `MaskCode` 分层，因此还不能称为 state-aware masking benchmark。
+- 已落地 `precursor-to-protein auxiliary board`：
+  `Spectronaut peptide-long -> log/normalize -> precursor holdout/imputation -> aggregate_to_protein -> protein-level scoring`
+- holdout 已升级为基于 source-layer `MaskCode` 的 state-aware masking benchmark：
+  当前只会在“当前有限值且可恢复”的位置上做 holdout，但会按 `all_observed / valid / mbr / lod / uncertain`
+  等 strata 分层；无可恢复条目的 strata 会在 `run_metadata.json` 里记录为 skipped，而不是伪造结果。
+- 脚本现已内置 `smoke / default / literature` 三档 tier profile，并允许 `--board main / auxiliary / both`。
 - 输出里若出现 `raw_norm_median_knn` 一类 layer 名，它们是比较过程的 artifact naming；若后续要把选中结果纳入 stable mainline，仍需显式 promote 到 canonical `imputed` 层并保留 provenance。
 - 当前默认数据集、默认 holdout 比例、默认 `normalization` 设定和默认方法池，只表示今天仓库默认怎么跑，不应反向改写长期 benchmark 合同。
 
@@ -73,6 +77,9 @@
 - 多缺失机制（MCAR + mixed MNAR）
 - 多缺失比例（10% / 30% / 50%）
 - 任务导向指标（恢复误差 + 聚类保真 + DE 信号一致性）
+- 双榜结构：
+  - `main`: protein-direct masked recovery
+  - `auxiliary`: precursor holdout -> protein endpoint
 
 ### 2.1 数据
 
@@ -87,20 +94,38 @@
 - 传统：`knn`, `lls`, `missforest`, `iterative_svd`
 - 矩阵补全：`softimpute`（依赖 `fancyimpute`）
 
+文献级首版运行策略：
+
+- `tier = literature` 的默认方法池现在收紧为
+  `none / half_row_min / row_mean / knn / lls / iterative_svd`
+- `missforest` 仍保留为可显式选择的方法，但不再放在默认 literature 首跑里，
+  原因是其 wall-clock 成本会把双榜实跑拉成数小时级
+- `softimpute` 仍保留为可显式选择的方法，但需要先安装 `fancyimpute`；
+  若显式请求而环境缺依赖，runner 会在启动前 fail closed，而不是把整批 run
+  记成运行期失败
+
 ### 2.3 评估设定
 
 - 预处理默认：`log_transform -> normalize(mean)`
 - 可通过 `--normalization` 改为 `none / mean / median / quantile / trqn`
 - 缺失机制：`mcar`, `mixed_mnar`
+- 缺失状态分层：默认 `all_observed`, `valid`, `mbr`, `lod`, `uncertain`
 - 缺失比例：`0.1`, `0.3`, `0.5`
 - 只在 holdout 位置计算恢复误差（masked-value recovery）
+- `metrics_raw.csv` 保留逐 seed 结果；`metrics_summary.csv` 按
+  `dataset / method / mechanism / holdout_rate / holdout_state` 做 seed summary
 
 当前默认 vs review 目标：
 
 - 当前脚本默认：
+  - `tier = default`
+  - `board = main`
   - `holdout_rates = 0.1 / 0.3 / 0.5`
+  - `holdout_states = all_observed / valid / mbr / lod / uncertain`
   - `repeats = 1`
 - review 更偏好的主协议：
+  - `tier = literature`
+  - `board = both`
   - 主区间优先 `0.1 / 0.2 / 0.3`
   - `0.5` 作为压力测试
   - 资源允许时 `repeats >= 5`，更稳妥时参考 `NAguideR` 风格的多档比例 + 多轮重复
@@ -110,6 +135,8 @@
 - 当前 `0.1 / 0.3 / 0.5, repeats = 1` 更接近“轻量可复现默认”，便于快速跑通。
 - 若目标是更贴近 literature-style 稳健比较，应补上更密的 holdout 网格与重复 masking，而不是把一次性结果当作最终排名。
 - 因此当前默认更适合快速回归或脚本冒烟，不应被表述为“最终文献级主协议”。
+- 当前 literature 默认方法池也采用“先保证可复跑”的策略：
+  可选依赖方法和超重方法默认不进入首版双榜，只有显式 `--methods` 才会加入。
 
 ### 2.4 指标
 
@@ -125,6 +152,10 @@
   - `ratio_pairwise_auc_mean`, `ratio_changed_vs_bg_auc`, `ratio_mae`, `ratio_rmse`
 - 工程维度：
   - `runtime_sec`, `post_missing_rate`, `success_rate`
+- state-aware holdout 维度：
+  - `holdout_state`, `holdout_state_fraction`, `holdout_rate_within_state`
+  - `state_valid_fraction / state_mbr_fraction / state_lod_fraction / state_uncertain_fraction`
+  - `state_direct_observation_rate / state_supported_observation_rate / state_uncertainty_burden`
 
 说明：
 
@@ -137,12 +168,10 @@
 - `cluster_*` 与 `DE_*` 指标在这里是下游评估终点，用于判断插补是否破坏后续分析；它们不把 `cluster` 本身提升为 stable preprocessing contract。
 - `Nature Communications 2024` 的 DEA workflow benchmark 明确把 `pAUC(0.01/0.05/0.1) + nMCC + G-mean` 组合用于 workflow ranking；因此如果后续扩展 imputation benchmark 的 DE 终点，优先补 `pAUC / confusion-matrix` 一类指标比继续堆更多相关系数更有文献依据：<https://www.nature.com/articles/s41467-024-47899-w>
 
-待补项（按 review 合同）：
+仍待补项（按 review 合同）：
 
-- 按 `LOD / MBR / FILTERED / UNCERTAIN` 分层的 holdout 协议
-- state-aware completeness / uncertainty burden
-- `precursor-to-protein` 辅榜
-- 外部 ground-truth 驱动而非 pseudo-truth 驱动的 `DE pAUC / F1`
+- 更强的外部 ground-truth 驱动 `DE pAUC / F1`
+- auxiliary board 的更多公共 peptide/precursor 数据面板
 
 ## 3. 运行方式（uv）
 
@@ -150,26 +179,57 @@
 
 ```bash
 UV_CACHE_DIR=/tmp/.uv-cache uv run python benchmark/imputation/run_benchmark.py \
+  --tier default \
+  --board main \
   --datasets pxd054343_diann_2x lfqbench_hye124_spectronaut \
-  --methods none half_row_min row_mean knn lls iterative_svd softimpute missforest \
-  --holdout-rates 0.1 0.3 0.5 \
-  --mechanisms mcar mixed_mnar \
-  --repeats 1 \
   --normalization mean \
   --max-features 500 \
   --output-dir benchmark/imputation/outputs
 ```
 
+文献级双榜运行：
+
+```bash
+UV_CACHE_DIR=/tmp/.uv-cache uv run python benchmark/imputation/run_benchmark.py \
+  --tier literature \
+  --board both \
+  --normalization mean \
+  --aux-aggregation-method sum \
+  --output-dir benchmark/imputation/outputs
+```
+
+若要显式加入扩展方法：
+
+```bash
+UV_CACHE_DIR=/tmp/.uv-cache uv run python benchmark/imputation/run_benchmark.py \
+  --tier literature \
+  --board both \
+  --methods none half_row_min row_mean knn lls iterative_svd missforest \
+  --normalization mean \
+  --output-dir benchmark/imputation/outputs
+```
+
+若要加入 `softimpute`，需先安装 `fancyimpute`；否则脚本会在启动前报错并停止。
+
 ## 4. 输出文件
 
-- `benchmark/imputation/outputs/metrics_raw.csv`
-- `benchmark/imputation/outputs/metrics_summary.csv`
-- `benchmark/imputation/outputs/metrics_scores.csv`
-- `benchmark/imputation/outputs/run_metadata.json`
-- `benchmark/imputation/outputs/overall_scores.png`
-- `benchmark/imputation/outputs/score_heatmap.png`
-- `benchmark/imputation/outputs/nrmse_curves.png`
-- `benchmark/imputation/outputs/runtime_vs_accuracy.png`
+- `--board main` 或 `--board auxiliary`：
+  - `benchmark/imputation/outputs/metrics_raw.csv`
+  - `benchmark/imputation/outputs/metrics_summary.csv`
+  - `benchmark/imputation/outputs/metrics_scores.csv`
+  - `benchmark/imputation/outputs/run_metadata.json`
+  - PNG 图表
+- `--board both`：
+  - `benchmark/imputation/outputs/main/*`
+  - `benchmark/imputation/outputs/auxiliary/*`
+  - 根目录 `benchmark/imputation/outputs/run_metadata.json` 用于指向双榜子目录
+  - 根级 metadata 会在每个 board 完成后增量更新，因此即使双榜长跑在第二块中断，已完成的 board 仍可被审计
+
+长跑 checkpoint 语义：
+
+- runner 现在会周期性刷新当前 board 的 `metrics_raw.csv / metrics_summary.csv / metrics_scores.csv / run_metadata.json`
+- 若长跑被中断，当前 board 的 `run_metadata.json` 会记录 `run_status = interrupted`
+- `--board both` 时，根级 `run_metadata.json` 也会记录各 board 的 `pending / running / completed / interrupted` 状态
 
 ## 5. 附录：历史运行快照（2026-03-05，非合同）
 

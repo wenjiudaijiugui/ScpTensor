@@ -5,6 +5,10 @@ Benchmark scripts and benchmark outputs should stay under `benchmark/`.
 
 ## Current Files
 
+### User Guide
+
+- `user_workflows.md`: stable user workflows for DIA-NN / Spectronaut input to complete protein-level matrix
+
 ### Review
 
 - `review_imputation_20260304.md`: DIA single-cell imputation review notes
@@ -61,6 +65,7 @@ Benchmark scripts and benchmark outputs should stay under `benchmark/`.
 
 ### Tutorial
 
+- `user_workflows.md`: canonical user workflow guide for stable preprocessing
 - `../tutorial/README.md`: tutorial index
 - `../tutorial/tutorial.ipynb`: main tutorial
 - `../tutorial/autoselect_tutorial.ipynb`: AutoSelect tutorial

@@ -72,7 +72,20 @@ Dependency boundary:
 - `.[perf]` adds `psutil` for `scripts/perf/run_runtime_baseline.py`
 - `.[benchmark]` adds benchmark-only dataframe/download/plot tooling
 
+## User Workflow Map
+
+Canonical user guide:
+- [Stable user workflows](docs/user_workflows.md)
+
+Choose the mainline that matches your input:
+- already have a DIA-NN / Spectronaut protein table: load directly to `proteins` and continue with `log -> norm -> imputed`
+- only have peptide/precursor output: import to `peptides`, run `aggregate_to_protein()`, then continue on the `proteins` assay
+
+Current stable user entrypoint is the Python API. There is no package CLI yet.
+
 ## Quick Start (DIA-NN)
+
+For both canonical workflows, see [docs/user_workflows.md](docs/user_workflows.md).
 
 ```python
 from pathlib import Path
@@ -204,6 +217,7 @@ Background / Convergence:
 Tutorial:
 - [Main tutorial notebook](tutorial/tutorial.ipynb)
 - [AutoSelect tutorial](tutorial/autoselect_tutorial.ipynb)
+- [Stable user workflows](docs/user_workflows.md)
 
 ## Benchmark Assets
 

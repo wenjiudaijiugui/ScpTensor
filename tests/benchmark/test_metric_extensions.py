@@ -48,6 +48,12 @@ def test_imputation_de_extensions_return_expected_keys() -> None:
     assert metrics["de_topk_jaccard"] == 1.0
     assert metrics["de_topk_sign_agreement"] == 1.0
 
+    state_profile = module.summarize_holdout_state_profile(np.array([0, 2, 2, 6], dtype=np.int8))
+    assert state_profile["state_valid_fraction"] == 0.25
+    assert state_profile["state_lod_fraction"] == 0.5
+    assert state_profile["state_uncertain_fraction"] == 0.25
+    assert state_profile["state_supported_observation_rate"] == 0.25
+
 
 def test_aggregation_mapping_and_state_extensions() -> None:
     module = _load_module("aggregation", "benchmark_aggregation_metrics")

@@ -267,6 +267,17 @@ class ImputationEvaluator(BaseEvaluator):
             "completeness": completeness_score,
         }
 
+    def compute_report_metrics(
+        self,
+        container: ScpContainer,
+        original_container: ScpContainer,
+        layer_name: str,
+        scores: dict[str, float],
+    ) -> dict[str, float]:
+        """Expose state-aware burden diagnostics beside ranking metrics."""
+        del original_container, scores
+        return self._compute_state_report_metrics(container, layer_name)
+
     def _infer_source_layer(self, assay: Any, layer_name: str) -> str | None:
         candidates = [name for name in assay.layers if layer_name.startswith(f"{name}_")]
         if not candidates:
@@ -514,8 +525,12 @@ class ImputationEvaluator(BaseEvaluator):
         result_container: ScpContainer | None = None
         error_msg: str | None = None
         scores: dict[str, float] = {}
+        report_metrics: dict[str, float] = {}
 
         try:
+            resolved_assay_name = resolve_assay_name(container, assay_name)
+            self._metric_assay_name = resolved_assay_name
+            self._prepare_evaluation_context(resolved_assay_name, source_layer)
             masked_container = self._mask_holdout_entries(
                 container=container,
                 assay_name=assay_name,
@@ -565,10 +580,19 @@ class ImputationEvaluator(BaseEvaluator):
                 original_x=original_x,
                 original_m=original_m,
             )
+            report_metrics = self.compute_report_metrics(
+                result_container,
+                container,
+                new_layer_name,
+                scores,
+            )
         except Exception as e:
             error_msg = f"{type(e).__name__}: {e}"
             result_container = None
             scores = dict.fromkeys(self.get_metric_weights(), 0.0)
+            report_metrics = {}
+        finally:
+            self._clear_evaluation_context()
 
         execution_time = time.perf_counter() - start_time
         overall_score = 0.0 if error_msg else self.compute_overall_score(scores)
@@ -576,6 +600,7 @@ class ImputationEvaluator(BaseEvaluator):
         eval_result = EvaluationResult(
             method_name=method_name,
             scores=scores,
+            report_metrics=report_metrics,
             overall_score=overall_score,
             execution_time=execution_time,
             layer_name=new_layer_name,

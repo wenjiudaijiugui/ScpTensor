@@ -13,7 +13,11 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
-from scptensor.core._layer_processing import resolve_assay_and_layer, resolve_layer_context
+from scptensor.core._layer_processing import (
+    create_result_layer,
+    resolve_assay_and_layer,
+    resolve_layer_context,
+)
 from scptensor.core._structure_matrix import ScpMatrix
 from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import ScpValueError
@@ -208,15 +212,30 @@ def validate_layer_context(
     return resolve_layer_context(container, assay_name, layer_name)
 
 
-def clone_layer_matrix(layer: ScpMatrix) -> ScpMatrix:
+def clone_layer_matrix(
+    layer: ScpMatrix,
+    *,
+    source_assay_name: str | None = None,
+    source_layer_name: str | None = None,
+    action: str | None = None,
+    output_layer_name: str | None = None,
+) -> ScpMatrix:
     """Clone X and M for baseline/no-op integration outputs."""
     if sp.issparse(layer.X):
         x_copy: np.ndarray | sp.spmatrix = layer.X.copy()
     else:
         x_copy = np.array(layer.X, copy=True)
 
-    m_copy = layer.M.copy() if layer.M is not None else None
-    return ScpMatrix(X=x_copy, M=m_copy)
+    result = create_result_layer(
+        x_copy,
+        layer,
+        source_assay_name=source_assay_name,
+        source_layer_name=source_layer_name,
+        action=action,
+        output_layer_name=output_layer_name,
+    )
+    result.M = layer.M.copy() if layer.M is not None else None
+    return result
 
 
 def add_integrated_layer(
@@ -224,12 +243,21 @@ def add_integrated_layer(
     layer_name: str,
     X: np.ndarray | sp.spmatrix,
     source_layer: ScpMatrix,
+    *,
+    source_assay_name: str | None = None,
+    source_layer_name: str | None = None,
+    action: str | None = None,
 ) -> ScpMatrix:
     """Write an integration result while preserving copy semantics for M."""
-    result = ScpMatrix(
-        X=X,
-        M=source_layer.M.copy() if source_layer.M is not None else None,
+    result = create_result_layer(
+        X,
+        source_layer,
+        source_assay_name=source_assay_name,
+        source_layer_name=source_layer_name,
+        action=action,
+        output_layer_name=layer_name,
     )
+    result.M = source_layer.M.copy() if source_layer.M is not None else None
     assay.add_layer(layer_name, result)
     return result
 

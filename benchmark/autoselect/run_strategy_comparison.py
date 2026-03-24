@@ -31,7 +31,13 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from scptensor.autoselect import AutoSelector, StageReport
-from scptensor.core import Assay, FilterCriteria, MaskCode, ScpContainer, ScpMatrix
+from scptensor.core import (
+    Assay,
+    FilterCriteria,
+    ScpContainer,
+    ScpMatrix,
+    compute_layer_state_metrics,
+)
 from scptensor.impute import impute
 from scptensor.normalization import normalize
 from scptensor.transformation import log_transform
@@ -84,6 +90,9 @@ class StrategySummaryRow:
     methods_tested: int
     success_rate: float
     n_samples_scenario: int
+    state_direct_observation_rate: float
+    state_supported_observation_rate: float
+    state_uncertainty_burden: float
     state_non_valid_fraction: float
     state_imputed_fraction: float
     recommendation_reason: str
@@ -104,6 +113,9 @@ class StrategySummaryRow:
             "methods_tested": self.methods_tested,
             "success_rate": self.success_rate,
             "n_samples_scenario": self.n_samples_scenario,
+            "state_direct_observation_rate": self.state_direct_observation_rate,
+            "state_supported_observation_rate": self.state_supported_observation_rate,
+            "state_uncertainty_burden": self.state_uncertainty_burden,
             "state_non_valid_fraction": self.state_non_valid_fraction,
             "state_imputed_fraction": self.state_imputed_fraction,
             "recommendation_reason": self.recommendation_reason,
@@ -267,19 +279,19 @@ def _compute_state_burden(
     *,
     assay_name: str,
     layer_name: str,
-) -> tuple[float, float]:
-    matrix = container.assays[assay_name].layers[layer_name]
-    if matrix.M is None:
-        return 0.0, 0.0
-
-    mask = np.asarray(matrix.get_m(), dtype=np.int8)
-    total = float(mask.size) if mask.size > 0 else float("nan")
-    if not np.isfinite(total) or total <= 0:
-        return float("nan"), float("nan")
-
-    non_valid_fraction = float(np.sum(mask != MaskCode.VALID.value) / total)
-    imputed_fraction = float(np.sum(mask == MaskCode.IMPUTED.value) / total)
-    return non_valid_fraction, imputed_fraction
+) -> dict[str, float]:
+    state_metrics = compute_layer_state_metrics(
+        container,
+        assay_name=assay_name,
+        layer_name=layer_name,
+    )
+    return {
+        "state_direct_observation_rate": state_metrics["direct_observation_rate"],
+        "state_supported_observation_rate": state_metrics["supported_observation_rate"],
+        "state_uncertainty_burden": state_metrics["uncertainty_burden"],
+        "state_non_valid_fraction": float(1.0 - state_metrics["valid_rate"]),
+        "state_imputed_fraction": state_metrics["imputed_rate"],
+    }
 
 
 def _run_single_strategy(
@@ -318,8 +330,7 @@ def _to_summary_row(
     strategy: str,
     n_samples_scenario: int,
     design_identifiability: str,
-    state_non_valid_fraction: float,
-    state_imputed_fraction: float,
+    state_burden: dict[str, float],
 ) -> StrategySummaryRow:
     """Convert a stage report to compact summary row."""
     best = report.best_result
@@ -339,13 +350,16 @@ def _to_summary_row(
             methods_tested=len(report.results),
             success_rate=report.success_rate,
             n_samples_scenario=n_samples_scenario,
-            state_non_valid_fraction=state_non_valid_fraction,
-            state_imputed_fraction=state_imputed_fraction,
+            state_direct_observation_rate=state_burden["state_direct_observation_rate"],
+            state_supported_observation_rate=state_burden["state_supported_observation_rate"],
+            state_uncertainty_burden=state_burden["state_uncertainty_burden"],
+            state_non_valid_fraction=state_burden["state_non_valid_fraction"],
+            state_imputed_fraction=state_burden["state_imputed_fraction"],
             recommendation_reason=report.recommendation_reason,
         )
 
     selection_score = float(best.selection_score or 0.0)
-    state_penalty = max(0.0, 1.0 - state_non_valid_fraction)
+    state_penalty = max(0.0, 1.0 - state_burden["state_uncertainty_burden"])
     return StrategySummaryRow(
         scenario=scenario,
         design_identifiability=design_identifiability,
@@ -361,8 +375,11 @@ def _to_summary_row(
         methods_tested=len(report.results),
         success_rate=report.success_rate,
         n_samples_scenario=n_samples_scenario,
-        state_non_valid_fraction=state_non_valid_fraction,
-        state_imputed_fraction=state_imputed_fraction,
+        state_direct_observation_rate=state_burden["state_direct_observation_rate"],
+        state_supported_observation_rate=state_burden["state_supported_observation_rate"],
+        state_uncertainty_burden=state_burden["state_uncertainty_burden"],
+        state_non_valid_fraction=state_burden["state_non_valid_fraction"],
+        state_imputed_fraction=state_burden["state_imputed_fraction"],
         recommendation_reason=report.recommendation_reason,
     )
 
@@ -378,6 +395,8 @@ def _write_json(
         "module": "autoselect.integration.strategy_comparison",
         "dataset": dataset_meta,
         "baseline_preprocessing": ["log_transform(base=2, offset=1)", "median_norm", "row_median"],
+        "state_aware_enabled": True,
+        "state_reference_policy": "baseline_layer_current_state",
         "scenario_specs": SCENARIO_SPECS,
         "summary": [row.to_dict() for row in summaries],
         "reports": {
@@ -404,6 +423,9 @@ def _write_csv(output_path: Path, summaries: list[StrategySummaryRow]) -> None:
         "methods_tested",
         "success_rate",
         "n_samples_scenario",
+        "state_direct_observation_rate",
+        "state_supported_observation_rate",
+        "state_uncertainty_burden",
         "state_non_valid_fraction",
         "state_imputed_fraction",
         "recommendation_reason",
@@ -455,6 +477,17 @@ def _write_markdown(
         lines.append("")
         lines.append(f"- Design identifiability: `{scenario_rows[0].design_identifiability}`")
         lines.append(f"- Samples in scenario: `{scenario_rows[0].n_samples_scenario}`")
+        lines.append(
+            f"- State direct observation rate: "
+            f"`{scenario_rows[0].state_direct_observation_rate:.2%}`"
+        )
+        lines.append(
+            f"- State supported observation rate: "
+            f"`{scenario_rows[0].state_supported_observation_rate:.2%}`"
+        )
+        lines.append(
+            f"- State uncertainty burden: `{scenario_rows[0].state_uncertainty_burden:.2%}`"
+        )
         lines.append(
             f"- State non-valid fraction: `{scenario_rows[0].state_non_valid_fraction:.2%}`"
         )
@@ -531,7 +564,7 @@ def run_benchmark(
 
     for scenario_name, spec in SCENARIO_SPECS.items():
         scenario_container = _prepare_scenario_container(container, scenario_name)
-        state_non_valid_fraction, state_imputed_fraction = _compute_state_burden(
+        state_burden = _compute_state_burden(
             scenario_container,
             assay_name="proteins",
             layer_name=baseline_layer,
@@ -556,8 +589,7 @@ def run_benchmark(
                     strategy=strategy,
                     n_samples_scenario=scenario_container.n_samples,
                     design_identifiability=str(spec["design_identifiability"]),
-                    state_non_valid_fraction=state_non_valid_fraction,
-                    state_imputed_fraction=state_imputed_fraction,
+                    state_burden=state_burden,
                 )
             )
         reports[scenario_name] = scenario_reports

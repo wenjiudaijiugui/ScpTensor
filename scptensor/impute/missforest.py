@@ -188,7 +188,16 @@ def impute_mf(
     layer_name = new_layer_name or "imputed_missforest"
 
     if not np.any(missing_mask_original):
-        add_imputed_layer(assay, layer_name, X_in.copy(), input_matrix, missing_mask_original)
+        add_imputed_layer(
+            assay,
+            layer_name,
+            X_in.copy(),
+            input_matrix,
+            missing_mask_original,
+            source_assay_name=ctx.resolved_assay_name,
+            source_layer_name=source_layer,
+            action="impute_missforest",
+        )
         return log_imputation_operation(
             container,
             action="impute_missforest",
@@ -227,7 +236,16 @@ def impute_mf(
     preserve_observed_values(X_imputed, X_in, missing_mask_original)
 
     # Create new layer
-    add_imputed_layer(assay, layer_name, X_imputed, input_matrix, missing_mask_original)
+    add_imputed_layer(
+        assay,
+        layer_name,
+        X_imputed,
+        input_matrix,
+        missing_mask_original,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=source_layer,
+        action="impute_missforest",
+    )
 
     # Log operation
     return log_imputation_operation(

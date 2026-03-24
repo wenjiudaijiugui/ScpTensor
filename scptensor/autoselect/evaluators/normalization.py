@@ -515,6 +515,7 @@ class NormalizationEvaluator(BaseEvaluator):
             "bio_asw": bio_asw_score,
             "signal_preservation": signal_score,
         }
+        report_metrics.update(self._compute_state_report_metrics(container, layer_name))
         return self._set_cached_metric_channels(
             container,
             original_container,

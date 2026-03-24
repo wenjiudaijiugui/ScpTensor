@@ -17,6 +17,8 @@ from sklearn.metrics import (
 )
 from sklearn.neighbors import NearestNeighbors
 
+from scptensor.core import MaskCode
+
 METRIC_DIRECTIONS: dict[str, bool] = {
     "holdout_coverage": True,
     "pearson_r": True,
@@ -57,6 +59,13 @@ def _safe_pearson(x: np.ndarray, y: np.ndarray) -> float:
     if x_std <= 0 or y_std <= 0:
         return float("nan")
     return float(np.corrcoef(x, y)[0, 1])
+
+
+def _nanmean_or_nan(values: Sequence[float]) -> float:
+    array = np.asarray(values, dtype=np.float64)
+    if array.size == 0 or not np.isfinite(array).any():
+        return float("nan")
+    return float(np.nanmean(array))
 
 
 def compute_reconstruction_metrics(
@@ -122,6 +131,56 @@ def compute_reconstruction_metrics(
         "pearson_r": pearson_r,
         "spearman_r": spearman_r,
         "median_abs_error": float(np.median(np.abs(err))),
+    }
+
+
+def summarize_holdout_state_profile(mask_codes: np.ndarray) -> dict[str, float]:
+    """Summarize source-state composition for the evaluated holdout entries."""
+    values = np.asarray(mask_codes, dtype=np.int8).ravel()
+    if values.size == 0:
+        return {
+            "state_valid_fraction": float("nan"),
+            "state_non_valid_fraction": float("nan"),
+            "state_mbr_fraction": float("nan"),
+            "state_lod_fraction": float("nan"),
+            "state_filtered_fraction": float("nan"),
+            "state_outlier_fraction": float("nan"),
+            "state_imputed_fraction": float("nan"),
+            "state_uncertain_fraction": float("nan"),
+            "state_direct_observation_rate": float("nan"),
+            "state_supported_observation_rate": float("nan"),
+            "state_uncertainty_burden": float("nan"),
+        }
+
+    fractions = {
+        MaskCode.VALID: float(np.mean(values == MaskCode.VALID.value)),
+        MaskCode.MBR: float(np.mean(values == MaskCode.MBR.value)),
+        MaskCode.LOD: float(np.mean(values == MaskCode.LOD.value)),
+        MaskCode.FILTERED: float(np.mean(values == MaskCode.FILTERED.value)),
+        MaskCode.OUTLIER: float(np.mean(values == MaskCode.OUTLIER.value)),
+        MaskCode.IMPUTED: float(np.mean(values == MaskCode.IMPUTED.value)),
+        MaskCode.UNCERTAIN: float(np.mean(values == MaskCode.UNCERTAIN.value)),
+    }
+    valid_fraction = fractions[MaskCode.VALID]
+    supported_fraction = valid_fraction + fractions[MaskCode.MBR]
+    uncertainty_burden = (
+        fractions[MaskCode.FILTERED]
+        + fractions[MaskCode.OUTLIER]
+        + fractions[MaskCode.IMPUTED]
+        + fractions[MaskCode.UNCERTAIN]
+    )
+    return {
+        "state_valid_fraction": valid_fraction,
+        "state_non_valid_fraction": float(1.0 - valid_fraction),
+        "state_mbr_fraction": fractions[MaskCode.MBR],
+        "state_lod_fraction": fractions[MaskCode.LOD],
+        "state_filtered_fraction": fractions[MaskCode.FILTERED],
+        "state_outlier_fraction": fractions[MaskCode.OUTLIER],
+        "state_imputed_fraction": fractions[MaskCode.IMPUTED],
+        "state_uncertain_fraction": fractions[MaskCode.UNCERTAIN],
+        "state_direct_observation_rate": valid_fraction,
+        "state_supported_observation_rate": float(supported_fraction),
+        "state_uncertainty_burden": float(uncertainty_burden),
     }
 
 
@@ -345,66 +404,89 @@ def compute_de_consistency_metrics(
                         collector.append(float("nan"))
 
     return {
-        "de_log2fc_pearson": float(np.nanmean(corr_vals)) if corr_vals else float("nan"),
-        "de_topk_jaccard": float(np.nanmean(jacc_vals)) if jacc_vals else float("nan"),
-        "de_topk_sign_agreement": float(np.nanmean(sign_vals)) if sign_vals else float("nan"),
-        "de_topk_f1": float(np.nanmean(f1_vals)) if f1_vals else float("nan"),
-        "de_pauc_01": float(np.nanmean(pauc_01_vals)) if pauc_01_vals else float("nan"),
-        "de_pauc_05": float(np.nanmean(pauc_05_vals)) if pauc_05_vals else float("nan"),
-        "de_pauc_10": float(np.nanmean(pauc_10_vals)) if pauc_10_vals else float("nan"),
+        "de_log2fc_pearson": _nanmean_or_nan(corr_vals),
+        "de_topk_jaccard": _nanmean_or_nan(jacc_vals),
+        "de_topk_sign_agreement": _nanmean_or_nan(sign_vals),
+        "de_topk_f1": _nanmean_or_nan(f1_vals),
+        "de_pauc_01": _nanmean_or_nan(pauc_01_vals),
+        "de_pauc_05": _nanmean_or_nan(pauc_05_vals),
+        "de_pauc_10": _nanmean_or_nan(pauc_10_vals),
     }
 
 
-def score_methods(summary_df: pd.DataFrame) -> pd.DataFrame:
-    """Generate per-dataset normalized scores and overall ranking."""
-    rows: list[dict[str, object]] = []
+def _score_block(
+    block: pd.DataFrame,
+    metric_directions: dict[str, bool],
+) -> pd.DataFrame:
+    """Generate normalized per-metric scores for one comparison block."""
+    work = block.copy()
+    score_cols: list[str] = []
 
-    for _dataset, block in summary_df.groupby("dataset", sort=False):
-        work = block.copy()
-        score_cols: list[str] = []
+    for metric, higher_better in metric_directions.items():
+        if metric not in work.columns:
+            continue
 
-        for metric, higher_better in METRIC_DIRECTIONS.items():
-            if metric not in work.columns:
-                continue
+        values = work[metric].astype(float)
+        finite = np.isfinite(values.to_numpy(dtype=np.float64))
+        score_col = f"score_{metric}"
+        score_cols.append(score_col)
 
-            values = work[metric].astype(float)
-            finite = np.isfinite(values.to_numpy(dtype=np.float64))
-            score_col = f"score_{metric}"
-            score_cols.append(score_col)
+        if np.sum(finite) < 2:
+            work[score_col] = np.nan
+            continue
 
-            if np.sum(finite) < 2:
-                work[score_col] = np.nan
-                continue
+        vmin = float(np.nanmin(values))
+        vmax = float(np.nanmax(values))
+        if np.isclose(vmin, vmax):
+            work[score_col] = np.where(np.isfinite(values), 1.0, np.nan)
+            continue
 
-            vmin = float(np.nanmin(values))
-            vmax = float(np.nanmax(values))
-            if np.isclose(vmin, vmax):
-                work[score_col] = np.where(np.isfinite(values), 1.0, np.nan)
-                continue
-
-            if higher_better:
-                work[score_col] = (values - vmin) / (vmax - vmin)
-            else:
-                work[score_col] = (vmax - values) / (vmax - vmin)
-
-        if score_cols:
-            score_mat = work[score_cols].to_numpy(dtype=np.float64)
-            valid_counts = np.sum(np.isfinite(score_mat), axis=1)
-            numer = np.nansum(score_mat, axis=1)
-            overall = np.full(work.shape[0], np.nan, dtype=np.float64)
-            mask = valid_counts > 0
-            overall[mask] = numer[mask] / valid_counts[mask]
-            work["overall_score"] = overall
+        if higher_better:
+            work[score_col] = (values - vmin) / (vmax - vmin)
         else:
-            work["overall_score"] = np.nan
+            work[score_col] = (vmax - values) / (vmax - vmin)
 
-        # Penalize unstable methods: failed runs should directly lower final ranking.
-        if "success_rate" in work.columns:
-            success = pd.to_numeric(work["success_rate"], errors="coerce").clip(0.0, 1.0)
-            success = success.fillna(0.0)
-            work["score_success_rate"] = success
-            work["overall_score"] = work["overall_score"] * success.to_numpy(dtype=np.float64)
+    if score_cols:
+        score_mat = work[score_cols].to_numpy(dtype=np.float64)
+        valid_counts = np.sum(np.isfinite(score_mat), axis=1)
+        numer = np.nansum(score_mat, axis=1)
+        overall = np.full(work.shape[0], np.nan, dtype=np.float64)
+        mask = valid_counts > 0
+        overall[mask] = numer[mask] / valid_counts[mask]
+        work["overall_score"] = overall
+    else:
+        work["overall_score"] = np.nan
 
-        rows.extend(work.to_dict("records"))
+    if "success_rate" in work.columns:
+        success = pd.to_numeric(work["success_rate"], errors="coerce").clip(0.0, 1.0)
+        success = success.fillna(0.0)
+        work["score_success_rate"] = success
+        work["overall_score"] = work["overall_score"] * success.to_numpy(dtype=np.float64)
 
+    return work
+
+
+def score_methods(
+    summary_df: pd.DataFrame,
+    *,
+    metric_directions: dict[str, bool] | None = None,
+    group_by: Sequence[str] | None = None,
+) -> pd.DataFrame:
+    """Generate normalized scores within each benchmark scenario block."""
+    if summary_df.empty:
+        return pd.DataFrame()
+
+    metric_directions = metric_directions or METRIC_DIRECTIONS
+    group_by = list(group_by or ["dataset"])
+    valid_group_by = [column for column in group_by if column in summary_df.columns]
+    if not valid_group_by:
+        valid_group_by = ["dataset"] if "dataset" in summary_df.columns else []
+
+    if not valid_group_by:
+        return _score_block(summary_df, metric_directions)
+
+    rows: list[dict[str, object]] = []
+    for _, block in summary_df.groupby(valid_group_by, sort=False, dropna=False):
+        scored = _score_block(block, metric_directions)
+        rows.extend(scored.to_dict("records"))
     return pd.DataFrame(rows)

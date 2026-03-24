@@ -401,6 +401,17 @@ class IntegrationEvaluator(BaseEvaluator):
 
         return scores
 
+    def compute_report_metrics(
+        self,
+        container: ScpContainer,
+        original_container: ScpContainer,
+        layer_name: str,
+        scores: dict[str, float],
+    ) -> dict[str, float]:
+        """Expose state-aware burden diagnostics beside integration scores."""
+        del original_container, scores
+        return self._compute_state_report_metrics(container, layer_name)
+
     def _compute_batch_asw(self, x_data: np.ndarray, batches: np.ndarray) -> float:
         """Compute batch average silhouette width (1 - ASW)."""
         from scptensor.autoselect.metrics.batch import batch_asw

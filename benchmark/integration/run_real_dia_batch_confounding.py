@@ -36,7 +36,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, silhouette_score
 from sklearn.neighbors import NearestNeighbors
 
-from scptensor.core import FilterCriteria
+from scptensor.core import FilterCriteria, compute_state_transition_metrics
 from scptensor.impute import impute
 from scptensor.integration import integrate_combat, integrate_limma, integrate_mnn
 from scptensor.integration.diagnostics import (
@@ -341,6 +341,13 @@ def _compute_metrics(
         "condition_nmi": condition_nmi,
         "condition_knn_purity": _condition_knn_purity(x, condition_labels, n_neighbors=n_neighbors),
     }
+    metrics.update(
+        compute_state_transition_metrics(
+            container,
+            assay_name=assay_name,
+            layer_name=layer_name,
+        )
+    )
 
     if enable_marker_metrics and batch_key != condition_key:
         metrics.update(
@@ -789,6 +796,10 @@ def run_benchmark(
             float(guardrail_df["guardrail_pass"].mean()) if not guardrail_df.empty else float("nan")
         ),
         "score_profiles": SCORE_PROFILE_DIRECTIONS,
+        "state_aware_enabled": True,
+        "benchmark_tier": "default",
+        "board_type": "scenario_separated_main_with_guardrail",
+        "state_reference_policy": "immediate_source_layer",
         "literature_references": LITERATURE_REFERENCES,
         "total_runtime_sec": round(total_runtime, 6),
         "outputs": {
@@ -860,6 +871,8 @@ def run_benchmark(
             "batch_asw",
             "batch_mixing",
             "lisi_approx",
+            "uncertainty_burden",
+            "delta_uncertainty_burden",
             "condition_asw",
             "condition_ari",
             "condition_nmi",

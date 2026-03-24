@@ -54,6 +54,20 @@ from .sparse_utils import (
     sparse_safe_log1p,
     to_sparse_if_beneficial,
 )
+from .state_metrics import (
+    LayerLineageStep,
+    compute_direct_observation_rate,
+    compute_layer_state_metrics,
+    compute_state_counts,
+    compute_state_rates,
+    compute_state_summary,
+    compute_state_transition_metrics,
+    compute_supported_observation_rate,
+    compute_uncertainty_burden,
+    resolve_layer_lineage,
+    resolve_origin_layer,
+    resolve_source_layer,
+)
 
 # Core structures
 from .structures import (
@@ -99,6 +113,18 @@ __all__ = [
     "resolve_filter_criteria",
     # Operations
     "MatrixOps",
+    "compute_layer_state_metrics",
+    "compute_state_counts",
+    "compute_state_rates",
+    "compute_state_summary",
+    "compute_state_transition_metrics",
+    "compute_direct_observation_rate",
+    "compute_supported_observation_rate",
+    "compute_uncertainty_burden",
+    "LayerLineageStep",
+    "resolve_layer_lineage",
+    "resolve_origin_layer",
+    "resolve_source_layer",
     # Sparse utilities
     "is_sparse_matrix",
     "get_sparsity_ratio",

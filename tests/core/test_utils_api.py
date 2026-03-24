@@ -13,9 +13,11 @@ from scptensor.utils import (
     correlation_matrix,
     cosine_similarity,
     partial_correlation,
+    protein_matrix_to_table,
     quantile_normalize,
     robust_scale,
     spearman_correlation,
+    write_protein_matrix_bundle,
 )
 from scptensor.utils.batch import (
     BatchProcessor as BatchProcessorCore,
@@ -28,6 +30,8 @@ from scptensor.utils.batch import (
 )
 from scptensor.utils.batch import batch_iterator as batch_iterator_core
 from scptensor.utils.data_generator import ScpDataGenerator as ScpDataGeneratorCore
+from scptensor.utils.export import protein_matrix_to_table as protein_matrix_to_table_core
+from scptensor.utils.export import write_protein_matrix_bundle as write_protein_matrix_bundle_core
 from scptensor.utils.stats import correlation_matrix as correlation_matrix_core
 from scptensor.utils.stats import cosine_similarity as cosine_similarity_core
 from scptensor.utils.stats import partial_correlation as partial_correlation_core
@@ -45,6 +49,8 @@ def test_stable_utils_namespace_all_freezes_package_surface() -> None:
         "cosine_similarity",
         "quantile_normalize",
         "robust_scale",
+        "protein_matrix_to_table",
+        "write_protein_matrix_bundle",
         "batch_iterator",
         "apply_by_batch",
         "batch_apply_along_axis",
@@ -60,6 +66,8 @@ def test_stable_utils_namespace_reexports_stable_implementations() -> None:
     assert cosine_similarity is cosine_similarity_core
     assert quantile_normalize is quantile_normalize_core
     assert robust_scale is robust_scale_core
+    assert protein_matrix_to_table is protein_matrix_to_table_core
+    assert write_protein_matrix_bundle is write_protein_matrix_bundle_core
     assert batch_iterator is batch_iterator_core
     assert apply_by_batch is apply_by_batch_core
     assert batch_apply_along_axis is batch_apply_along_axis_core
@@ -76,6 +84,8 @@ def test_utils_api_is_not_reexported_from_top_level_package() -> None:
         "cosine_similarity",
         "quantile_normalize",
         "robust_scale",
+        "protein_matrix_to_table",
+        "write_protein_matrix_bundle",
         "batch_iterator",
         "apply_by_batch",
         "batch_apply_along_axis",

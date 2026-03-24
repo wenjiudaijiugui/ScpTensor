@@ -197,7 +197,16 @@ def impute_iterative_svd(
     missing_mask = np.isnan(x_original)
 
     if not np.any(missing_mask):
-        add_imputed_layer(assay, new_layer_name, x_original.copy(), input_matrix, missing_mask)
+        add_imputed_layer(
+            assay,
+            new_layer_name,
+            x_original.copy(),
+            input_matrix,
+            missing_mask,
+            source_assay_name=ctx.resolved_assay_name,
+            source_layer_name=source_layer,
+            action="impute_iterative_svd",
+        )
         return log_imputation_operation(
             container,
             action="impute_iterative_svd",
@@ -225,7 +234,16 @@ def impute_iterative_svd(
     )
     preserve_observed_values(x_imputed, x_original, missing_mask)
 
-    add_imputed_layer(assay, new_layer_name, x_imputed, input_matrix, missing_mask)
+    add_imputed_layer(
+        assay,
+        new_layer_name,
+        x_imputed,
+        input_matrix,
+        missing_mask,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=source_layer,
+        action="impute_iterative_svd",
+    )
     return log_imputation_operation(
         container,
         action="impute_iterative_svd",
@@ -290,7 +308,16 @@ def impute_softimpute(
     missing_mask = np.isnan(x_original)
 
     if not np.any(missing_mask):
-        add_imputed_layer(assay, new_layer_name, x_original.copy(), input_matrix, missing_mask)
+        add_imputed_layer(
+            assay,
+            new_layer_name,
+            x_original.copy(),
+            input_matrix,
+            missing_mask,
+            source_assay_name=ctx.resolved_assay_name,
+            source_layer_name=source_layer,
+            action="impute_softimpute",
+        )
         return log_imputation_operation(
             container,
             action="impute_softimpute",
@@ -328,7 +355,16 @@ def impute_softimpute(
         ) from exc
 
     preserve_observed_values(x_imputed, x_original, missing_mask)
-    add_imputed_layer(assay, new_layer_name, x_imputed, input_matrix, missing_mask)
+    add_imputed_layer(
+        assay,
+        new_layer_name,
+        x_imputed,
+        input_matrix,
+        missing_mask,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=source_layer,
+        action="impute_softimpute",
+    )
     return log_imputation_operation(
         container,
         action="impute_softimpute",

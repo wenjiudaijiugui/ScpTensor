@@ -202,7 +202,16 @@ def impute_minprob(
     missing_mask = np.isnan(X_dense)
     layer_name = new_layer_name or "imputed_minprob"
     if not np.any(missing_mask):
-        add_imputed_layer(assay, layer_name, X_dense, input_matrix, missing_mask)
+        add_imputed_layer(
+            assay,
+            layer_name,
+            X_dense,
+            input_matrix,
+            missing_mask,
+            source_assay_name=ctx.resolved_assay_name,
+            source_layer_name=source_layer,
+            action="impute_minprob",
+        )
         return log_imputation_operation(
             container,
             action="impute_minprob",
@@ -223,7 +232,16 @@ def impute_minprob(
     preserve_observed_values(X_imputed, X_dense, missing_mask)
 
     # Create new layer
-    add_imputed_layer(assay, layer_name, X_imputed, input_matrix, missing_mask)
+    add_imputed_layer(
+        assay,
+        layer_name,
+        X_imputed,
+        input_matrix,
+        missing_mask,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=source_layer,
+        action="impute_minprob",
+    )
 
     # Log operation
     return log_imputation_operation(

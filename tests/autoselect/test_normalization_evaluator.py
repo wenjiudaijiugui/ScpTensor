@@ -287,6 +287,9 @@ def test_run_all_separates_selection_scores_from_report_metrics() -> None:
         assert "loading_bias_reduction" in result.report_metrics
         assert "technical_variance" in result.report_metrics
         assert "batch_asw" in result.report_metrics
+        assert "state_direct_observation_rate" in result.report_metrics
+        assert "state_uncertainty_burden" in result.report_metrics
+        assert "state_reference_uncertainty_burden" in result.report_metrics
     assert 0.0 <= result.overall_score <= 1.0
 
 

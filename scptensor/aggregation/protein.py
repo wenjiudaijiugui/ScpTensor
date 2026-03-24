@@ -17,6 +17,7 @@ from scptensor.core._structure_matrix import (
     ProvenanceLog,
     ScpMatrix,
 )
+from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import AssayNotFoundError, ValidationError
 
 BasicAggMethod = Literal["sum", "mean", "median", "max", "weighted_mean"]
@@ -342,6 +343,7 @@ def _prepare_protein_groups(
 ) -> tuple[np.ndarray, np.ndarray, dict[str, str | None]]:
     """Resolve group IDs and labels for peptide->protein aggregation."""
     map_values = protein_map.cast(pl.Utf8, strict=False).str.strip_chars().to_list()
+    mapped_group_ids = {str(value) for value in map_values if value is not None and value != ""}
 
     group_ids: list[str] = []
     valid_idx: list[int] = []
@@ -360,6 +362,12 @@ def _prepare_protein_groups(
             continue
 
         group_id = _make_unmapped_group_id(unmapped_label, str(source_ids[idx]))
+        if group_id in mapped_group_ids:
+            raise ValidationError(
+                "Generated unmapped pseudo-protein ID collides with an existing mapped protein ID. "
+                f"unmapped_label='{unmapped_label}', source_id='{source_ids[idx]}', "
+                f"colliding_group_id='{group_id}'. Choose a different unmapped_label.",
+            )
         label_by_group[group_id] = None
         group_ids.append(group_id)
         valid_idx.append(idx)
@@ -449,13 +457,35 @@ def aggregate_to_protein(
     if tmp_log_base <= 1:
         raise ValidationError(f"tmp_log_base must be > 1, got {tmp_log_base}")
 
-    if source_assay not in container.assays:
+    resolved_source_assay = resolve_assay_name(container, source_assay)
+    if resolved_source_assay not in container.assays:
         raise AssayNotFoundError(source_assay, available_assays=container.assays.keys())
 
-    peptide_assay = container.assays[source_assay]
+    resolved_target_assay = resolve_assay_name(container, target_assay)
+    if resolved_source_assay == resolved_target_assay:
+        raise ValidationError(
+            "target_assay resolves to the same assay as source_assay. "
+            f"source_assay='{source_assay}' -> '{resolved_source_assay}', "
+            f"target_assay='{target_assay}' -> '{resolved_target_assay}'. "
+            "Choose a new target assay name.",
+        )
+    if resolved_target_assay in container.assays:
+        raise ValidationError(
+            "target_assay would overwrite an existing assay. "
+            f"target_assay='{target_assay}' resolves to '{resolved_target_assay}', "
+            "which already exists. Choose a new target assay name.",
+        )
+
+    peptide_assay = container.assays[resolved_source_assay]
+    source_resolution_note = (
+        f" (resolved from source_assay='{source_assay}')"
+        if resolved_source_assay != source_assay
+        else ""
+    )
     if source_layer not in peptide_assay.layers:
         raise ValidationError(
-            f"Layer '{source_layer}' not found in assay '{source_assay}'. "
+            f"Layer '{source_layer}' not found in assay '{resolved_source_assay}'"
+            f"{source_resolution_note}. "
             f"Available: {list(peptide_assay.layers.keys())}",
         )
 
@@ -536,7 +566,7 @@ def aggregate_to_protein(
     )
 
     link = AggregationLink(
-        source_assay=source_assay,
+        source_assay=resolved_source_assay,
         target_assay=target_assay,
         linkage=pl.DataFrame({"source_id": linkage_source, "target_id": linkage_target}),
     )
@@ -547,7 +577,7 @@ def aggregate_to_protein(
             timestamp=datetime.now().isoformat(),
             action="aggregate_to_protein",
             params={
-                "source_assay": source_assay,
+                "source_assay": resolved_source_assay,
                 "source_layer": source_layer,
                 "target_assay": target_assay,
                 "method": method,
@@ -560,7 +590,7 @@ def aggregate_to_protein(
                 "has_ibaq_denominator": ibaq_denominator is not None,
             },
             description=(
-                f"Aggregated {source_assay}/{source_layer} -> {target_assay} via {method} "
+                f"Aggregated {resolved_source_assay}/{source_layer} -> {target_assay} via {method} "
                 f"(protein_column={protein_col})."
             ),
         ),

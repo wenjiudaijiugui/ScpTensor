@@ -28,6 +28,7 @@ from plots import (
 )
 
 from scptensor.aggregation import aggregate_to_protein
+from scptensor.core import compute_state_transition_metrics
 from scptensor.io import load_diann, load_spectronaut
 from scptensor.normalization import normalize
 from scptensor.transformation import log_transform
@@ -420,6 +421,13 @@ def run_benchmark(
                 }
                 row.update(compute_distribution_metrics(matrix))
                 row.update(compute_group_metrics(matrix, groups))
+                row.update(
+                    compute_state_transition_metrics(
+                        normalized,
+                        assay_name="proteins",
+                        layer_name=method_layer,
+                    )
+                )
 
                 if ratio_cfg is not None:
                     ratio_metrics, ratio_table = compute_ratio_metrics(
@@ -497,6 +505,10 @@ def run_benchmark(
         "dataset_metadata": dataset_metadata,
         "failures": failures,
         "metric_directions": METRIC_DIRECTIONS,
+        "state_aware_enabled": True,
+        "benchmark_tier": "default",
+        "board_type": "main",
+        "state_reference_policy": "immediate_source_layer",
     }
     with (output_dir / "run_metadata.json").open("w", encoding="utf-8") as fh:
         json.dump(metadata, fh, indent=2, ensure_ascii=False)

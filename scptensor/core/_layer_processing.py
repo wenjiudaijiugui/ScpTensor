@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import scipy.sparse as sp
 
-from scptensor.core._structure_matrix import ScpMatrix
+from scptensor.core._structure_matrix import MatrixMetadata, ScpMatrix
 from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
 
@@ -69,9 +70,31 @@ def resolve_assay_and_layer(
 def create_result_layer(
     x: np.ndarray | sp.spmatrix,
     source_layer: ScpMatrix,
+    *,
+    source_assay_name: str | None = None,
+    source_layer_name: str | None = None,
+    action: str | None = None,
+    output_layer_name: str | None = None,
 ) -> ScpMatrix:
     """Create a derived layer while preserving current mask semantics."""
-    return ScpMatrix(X=x, M=source_layer.M)
+    metadata = copy.deepcopy(source_layer.metadata) if source_layer.metadata is not None else None
+    if any(
+        value is not None
+        for value in (source_assay_name, source_layer_name, action, output_layer_name)
+    ):
+        if metadata is None:
+            metadata = MatrixMetadata()
+        creation_info = dict(metadata.creation_info or {})
+        if source_assay_name is not None:
+            creation_info["source_assay"] = source_assay_name
+        if source_layer_name is not None:
+            creation_info["source_layer"] = source_layer_name
+        if action is not None:
+            creation_info["action"] = action
+        if output_layer_name is not None:
+            creation_info["output_layer"] = output_layer_name
+        metadata.creation_info = creation_info
+    return ScpMatrix(X=x, M=source_layer.M, metadata=metadata)
 
 
 def clone_matrix_data(x: np.ndarray | sp.spmatrix) -> np.ndarray | sp.spmatrix:
@@ -103,9 +126,20 @@ def add_result_layer(
     layer_name: str,
     x: np.ndarray | sp.spmatrix,
     source_layer: ScpMatrix,
+    *,
+    source_assay_name: str | None = None,
+    source_layer_name: str | None = None,
+    action: str | None = None,
 ) -> ScpMatrix:
     """Write a derived layer into an assay and return it."""
-    result = create_result_layer(x, source_layer)
+    result = create_result_layer(
+        x,
+        source_layer,
+        source_assay_name=source_assay_name,
+        source_layer_name=source_layer_name,
+        action=action,
+        output_layer_name=layer_name,
+    )
     assay.add_layer(layer_name, result)
     return result
 
@@ -122,7 +156,22 @@ def write_result_layer_and_log(
     description: str,
 ) -> ScpContainer:
     """Write a derived layer and append the matching provenance record."""
-    add_result_layer(assay, layer_name, x, source_layer)
+    lineage_assay = params.get("assay")
+    if not isinstance(lineage_assay, str):
+        lineage_assay = params.get("source_assay")
+    lineage_source_layer = params.get("source_layer")
+    if not isinstance(lineage_source_layer, str):
+        lineage_source_layer = params.get("base_layer")
+
+    add_result_layer(
+        assay,
+        layer_name,
+        x,
+        source_layer,
+        source_assay_name=lineage_assay if isinstance(lineage_assay, str) else None,
+        source_layer_name=lineage_source_layer if isinstance(lineage_source_layer, str) else None,
+        action=action,
+    )
     return log_container_operation(
         container,
         action=action,

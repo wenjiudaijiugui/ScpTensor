@@ -64,7 +64,7 @@ from scptensor.integration.base import (
     register_integrate_method,
     to_dense_array,
     validate_batch_integration_params,
-    validate_layer_params,
+    validate_layer_context,
 )
 
 EbMode = Literal["parametric", "nonparametric"]
@@ -139,11 +139,13 @@ def integrate_combat(
             value=eb_mode,
         )
 
-    assay, layer = validate_layer_params(container, assay_name, base_layer)
+    ctx = validate_layer_context(container, assay_name, base_layer)
+    assay = ctx.assay
+    layer = ctx.layer
     obs_df, batches, unique_batches, batch_counts = validate_batch_integration_params(
         container,
         batch_key,
-        assay_name,
+        ctx.resolved_assay_name,
         min_batches=2,
         min_samples_per_batch=2,
     )
@@ -202,13 +204,25 @@ def integrate_combat(
             X_corrected = sp.csr_matrix(X_corrected)
 
     # Create new layer and log
-    add_integrated_layer(assay, new_layer_name or "combat", X_corrected, layer)
+    layer_name = new_layer_name or "combat"
+    add_integrated_layer(
+        assay,
+        layer_name,
+        X_corrected,
+        layer,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=base_layer,
+        action="integration_combat",
+    )
     return log_integration_operation(
         container,
         action="integration_combat",
         method_name="combat",
         params={
             "batch_key": batch_key,
+            "assay": ctx.resolved_assay_name,
+            "base_layer": base_layer,
+            "new_layer_name": layer_name,
             "covariates": list(covariates) if covariates else None,
             "eb_mode": eb_mode,
         },

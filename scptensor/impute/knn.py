@@ -246,7 +246,16 @@ def impute_knn(
     layer_name = new_layer_name or "imputed_knn"
 
     if not np.any(missing_mask):
-        add_imputed_layer(assay, layer_name, X, matrix, missing_mask)
+        add_imputed_layer(
+            assay,
+            layer_name,
+            X,
+            matrix,
+            missing_mask,
+            source_assay_name=ctx.resolved_assay_name,
+            source_layer_name=source_layer,
+            action="impute_knn",
+        )
         return log_imputation_operation(
             container,
             action="impute_knn",
@@ -273,7 +282,16 @@ def impute_knn(
     preserve_observed_values(X_imputed, X, missing_mask)
 
     # Create new layer
-    add_imputed_layer(assay, layer_name, X_imputed, matrix, missing_mask)
+    add_imputed_layer(
+        assay,
+        layer_name,
+        X_imputed,
+        matrix,
+        missing_mask,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=source_layer,
+        action="impute_knn",
+    )
 
     # Log operation
     return log_imputation_operation(

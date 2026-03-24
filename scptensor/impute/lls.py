@@ -306,7 +306,16 @@ def impute_lls(
     missing_mask = np.isnan(X_original)
     layer_name = new_layer_name or "imputed_lls"
     if not np.any(missing_mask):
-        add_imputed_layer(assay, layer_name, X_original, input_matrix, missing_mask)
+        add_imputed_layer(
+            assay,
+            layer_name,
+            X_original,
+            input_matrix,
+            missing_mask,
+            source_assay_name=ctx.resolved_assay_name,
+            source_layer_name=source_layer,
+            action="impute_lls",
+        )
         return log_imputation_operation(
             container,
             action="impute_lls",
@@ -332,7 +341,16 @@ def impute_lls(
     preserve_observed_values(X_imputed, X_original, missing_mask)
 
     # Create new layer
-    add_imputed_layer(assay, layer_name, X_imputed, input_matrix, missing_mask)
+    add_imputed_layer(
+        assay,
+        layer_name,
+        X_imputed,
+        input_matrix,
+        missing_mask,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=source_layer,
+        action="impute_lls",
+    )
 
     # Log operation
     return log_imputation_operation(

@@ -10,7 +10,7 @@ import pytest
 
 from scptensor.core.structures import MaskCode
 from scptensor.impute import impute_row_median
-from scptensor.io import aggregate_to_protein, load_quant_table
+from scptensor.io import aggregate_to_protein, load_quant_table, load_spectronaut
 from scptensor.normalization import norm_median
 from scptensor.transformation import log_transform
 
@@ -106,4 +106,82 @@ def test_diann_peptide_matrix_to_complete_protein_matrix_acceptance(tmp_path: Pa
     ]
     assert container.history[-5].params["software"] == "diann"
     assert container.history[-4].params["target_assay"] == "proteins"
+    assert container.history[-1].params["new_layer_name"] == "imputed"
+
+
+def test_spectronaut_protein_long_to_complete_protein_matrix_acceptance(tmp_path: Path) -> None:
+    path = _write_tsv(
+        tmp_path,
+        "spectronaut_protein_long.tsv",
+        pl.DataFrame(
+            {
+                "PG.ProteinGroups": ["P1", "P1", "P1", "P2", "P2", "P2"],
+                "R.FileName": ["S1.raw", "S2.raw", "S3.raw", "S1.raw", "S2.raw", "S3.raw"],
+                "PG.Quantity": [100.0, 110.0, 90.0, 50.0, 60.0, None],
+                "Q.Value": [0.005, 0.005, 0.005, 0.005, 0.005, 0.005],
+            },
+        ),
+    )
+
+    container = load_spectronaut(
+        path,
+        assay_name="proteins",
+        level="protein",
+        table_format="long",
+        quantity_column="PG.Quantity",
+        fdr_threshold=0.01,
+    )
+
+    raw = container.assays["proteins"].layers["raw"].X
+    np.testing.assert_allclose(
+        raw,
+        np.array(
+            [
+                [100.0, 50.0],
+                [110.0, 60.0],
+                [90.0, np.nan],
+            ],
+        ),
+        equal_nan=True,
+    )
+
+    container = log_transform(
+        container,
+        assay_name="proteins",
+        source_layer="raw",
+        new_layer_name="log",
+        base=2.0,
+    )
+    container = norm_median(
+        container,
+        assay_name="proteins",
+        source_layer="log",
+        new_layer_name="norm",
+    )
+    container = impute_row_median(
+        container,
+        assay_name="proteins",
+        source_layer="norm",
+        new_layer_name="imputed",
+    )
+
+    proteins = container.assays["proteins"]
+    assert set(container.assays) == {"proteins"}
+    assert {"raw", "log", "norm", "imputed"}.issubset(proteins.layers)
+
+    imputed = proteins.layers["imputed"]
+    assert imputed.X.shape == (3, 2)
+    assert np.isfinite(imputed.X).all()
+    assert imputed.X[2, 1] == pytest.approx(imputed.X[2, 0])
+
+    mask = imputed.get_m()
+    assert int(mask[2, 1]) == MaskCode.IMPUTED.value
+
+    assert [entry.action for entry in container.history[-4:]] == [
+        "load_quant_table",
+        "log_transform",
+        "normalization_median_centering",
+        "impute_row_median",
+    ]
+    assert container.history[-4].params["software"] == "spectronaut"
     assert container.history[-1].params["new_layer_name"] == "imputed"

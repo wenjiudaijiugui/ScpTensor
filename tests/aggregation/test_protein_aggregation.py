@@ -171,7 +171,8 @@ def test_aggregate_to_protein_keep_unmapped_encodes_reserved_characters() -> Non
     assert not any(any(ch in '<>:"/\\\\|?*' for ch in feature_id) for feature_id in feature_ids)
 
 
-def test_aggregate_to_protein_existing_target_assay_is_silently_overwritten() -> None:
+@pytest.mark.parametrize("target_assay", ["proteins", "protein"])
+def test_aggregate_to_protein_existing_target_assay_errors_early(target_assay: str) -> None:
     container = _build_container(np.array([[1.0, 3.0, 5.0], [2.0, 4.0, 6.0]], dtype=np.float64))
     existing = Assay(
         var=pl.DataFrame({"_index": ["old_protein"]}),
@@ -179,17 +180,57 @@ def test_aggregate_to_protein_existing_target_assay_is_silently_overwritten() ->
     )
     container.assays["proteins"] = existing
 
-    out = aggregate_to_protein(container, target_assay="proteins")
-
-    assert out.assays["proteins"] is not existing
-    assert out.assays["proteins"].var["_index"].to_list() == ["P1", "P2"]
+    with pytest.raises(ValidationError, match="overwrite an existing assay"):
+        aggregate_to_protein(container, target_assay=target_assay)
 
 
-def test_aggregate_to_protein_same_source_and_target_assay_currently_errors() -> None:
+@pytest.mark.parametrize(
+    ("source_assay", "target_assay"),
+    [
+        ("peptides", "peptides"),
+        ("peptide", "peptides"),
+        ("peptides", "peptide"),
+    ],
+)
+def test_aggregate_to_protein_same_source_and_target_assay_fails_early(
+    source_assay: str,
+    target_assay: str,
+) -> None:
     container = _build_container(np.array([[1.0, 3.0, 5.0], [2.0, 4.0, 6.0]], dtype=np.float64))
 
-    with pytest.raises(ValueError, match="Link source_id values not found in assay 'peptides'"):
-        aggregate_to_protein(container, source_assay="peptides", target_assay="peptides")
+    with pytest.raises(ValidationError, match="same assay as source_assay"):
+        aggregate_to_protein(container, source_assay=source_assay, target_assay=target_assay)
+
+
+def test_aggregate_to_protein_resolves_source_assay_alias_and_logs_resolved_key() -> None:
+    container = _build_container(np.array([[1.0, 3.0, 5.0], [2.0, 4.0, 6.0]], dtype=np.float64))
+
+    out = aggregate_to_protein(container, source_assay="peptide", target_assay="proteins")
+
+    assert "proteins" in out.assays
+    assert out.links[-1].source_assay == "peptides"
+    assert out.history[-1].params["source_assay"] == "peptides"
+
+
+def test_aggregate_to_protein_resolves_plural_source_alias_against_singular_container_key() -> None:
+    container = _build_container(np.array([[1.0, 3.0, 5.0], [2.0, 4.0, 6.0]], dtype=np.float64))
+    container.assays["peptide"] = container.assays.pop("peptides")
+
+    out = aggregate_to_protein(container, source_assay="peptides", target_assay="proteins")
+
+    assert "proteins" in out.assays
+    assert out.links[-1].source_assay == "peptide"
+    assert out.history[-1].params["source_assay"] == "peptide"
+
+
+def test_aggregate_to_protein_keep_unmapped_generated_id_collision_errors() -> None:
+    container = _build_container(
+        np.array([[10.0, 2.0, 5.0], [1.0, 7.0, 3.0]], dtype=np.float64),
+        protein_ids=["P1", "__UNMAPPED__--NA--pep3", None],
+    )
+
+    with pytest.raises(ValidationError, match="collides with an existing mapped protein ID"):
+        aggregate_to_protein(container, keep_unmapped=True)
 
 
 def test_aggregate_to_protein_noncontiguous_mapping_groups_correctly() -> None:

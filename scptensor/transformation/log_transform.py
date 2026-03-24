@@ -265,7 +265,15 @@ def log_transform(
         if skip_if_logged:
             if new_layer_name != source_layer:
                 passthrough = clone_matrix_data(input_layer.X)
-                add_result_layer(assay, new_layer_name, passthrough, input_layer)
+                add_result_layer(
+                    assay,
+                    new_layer_name,
+                    passthrough,
+                    input_layer,
+                    source_assay_name=resolved_assay_name,
+                    source_layer_name=source_layer,
+                    action="log_transform_skipped",
+                )
             log_container_operation(
                 container,
                 action="log_transform_skipped",
@@ -330,7 +338,15 @@ def log_transform(
             x = np.maximum(x, 0)
         x_log = _dense_log_transform(x, offset=offset, log_scale=log_scale)
 
-    add_result_layer(assay, new_layer_name, x_log, input_layer)
+    add_result_layer(
+        assay,
+        new_layer_name,
+        x_log,
+        input_layer,
+        source_assay_name=resolved_assay_name,
+        source_layer_name=source_layer,
+        action="log_transform",
+    )
 
     log_container_operation(
         container,

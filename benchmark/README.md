@@ -142,8 +142,11 @@ ScpTensor 的 benchmark 不再只是一组脚本，而是三层结构：
 
 - `benchmark/imputation` 的主协议是 `masked-value recovery + downstream stability`，而不是只看 reconstruction error。
 - `no-imputation` 必须保留为基线。
-- 当前实现是 protein-level main board；`precursor-to-protein auxiliary board` 仍未在该目录单独落地。
-- 当前脚本的 holdout 由观测到的有限值构造，并未按原始 `MaskCode` 分层，因此还不能声称已经实现 state-aware masking benchmark。
+- 当前实现已显式区分：
+  - `protein-direct main board`
+  - `precursor-to-protein auxiliary board`
+- 当前脚本已把 holdout 升级为按 source-layer `MaskCode` 分层的 state-aware masking benchmark。
+- 当前脚本现已内置 `smoke / default / literature` tier profile；`literature` profile 默认走更密 holdout 网格、重复 seed，并支持 `--board both` 双榜输出。
 - 当前实现已落地：
   - `NRMSE`
   - `MAE`
@@ -153,9 +156,8 @@ ScpTensor 的 benchmark 不再只是一组脚本，而是三层结构：
   - `retained_proteins_ratio / fully_observed_proteins_ratio`
   - `runtime / success_rate`
 - review 目标但当前待补：
-  - state-aware holdout burden
-  - `precursor-to-protein auxiliary board`
   - 外部 ground-truth 驱动而非 pseudo-truth 驱动的 `DE pAUC / F1`
+  - 更多公共 peptide/precursor auxiliary panel
 
 ### Integration
 

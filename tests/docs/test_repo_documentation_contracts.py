@@ -13,6 +13,7 @@ PATH_SUFFIXES = (".md", ".json", ".yml", ".yaml", ".py", ".ipynb", ".toml")
 INDEX_DOCS = (
     REPO_ROOT / "README.md",
     REPO_ROOT / "docs/README.md",
+    REPO_ROOT / "docs/user_workflows.md",
     REPO_ROOT / "benchmark/README.md",
     WORKFLOW_README,
 )
@@ -135,6 +136,14 @@ def test_top_level_docs_reference_existing_local_files() -> None:
                 missing.append(f"{rel_doc}: {raw}")
 
     assert missing == []
+
+
+def test_user_workflow_guide_is_indexed_from_root_and_docs_readmes() -> None:
+    root_text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    docs_text = (REPO_ROOT / "docs/README.md").read_text(encoding="utf-8")
+
+    assert "docs/user_workflows.md" in root_text
+    assert "user_workflows.md" in docs_text
 
 
 def test_documented_optional_extras_exist() -> None:

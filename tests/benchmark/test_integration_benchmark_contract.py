@@ -104,6 +104,9 @@ def test_marker_consistency_axis_is_present_for_identifiable_scenario() -> None:
 
     baseline_row = rows[0]
     assert baseline_row["method"] == "none"
+    assert "uncertainty_burden" in baseline_row
+    assert "reference_uncertainty_burden" in baseline_row
+    assert "delta_uncertainty_burden" in baseline_row
     assert "marker_log2fc_pearson" in baseline_row
     assert "marker_topk_jaccard" in baseline_row
     assert "marker_topk_sign_agreement" in baseline_row

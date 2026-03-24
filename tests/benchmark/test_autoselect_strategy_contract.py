@@ -77,6 +77,9 @@ def test_state_burden_summary_fields_are_serializable() -> None:
         methods_tested=2,
         success_rate=1.0,
         n_samples_scenario=40,
+        state_direct_observation_rate=0.8,
+        state_supported_observation_rate=0.9,
+        state_uncertainty_burden=0.15,
         state_non_valid_fraction=0.2,
         state_imputed_fraction=0.15,
         recommendation_reason="contract test",
@@ -85,5 +88,8 @@ def test_state_burden_summary_fields_are_serializable() -> None:
 
     assert payload["scenario"] == "balanced_amount_by_sample"
     assert payload["state_penalized_selection_score"] == 0.6
+    assert payload["state_direct_observation_rate"] == 0.8
+    assert payload["state_supported_observation_rate"] == 0.9
+    assert payload["state_uncertainty_burden"] == 0.15
     assert payload["state_non_valid_fraction"] == 0.2
     assert payload["state_imputed_fraction"] == 0.15

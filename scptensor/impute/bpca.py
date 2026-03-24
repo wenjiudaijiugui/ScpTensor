@@ -326,7 +326,16 @@ def impute_bpca(
     missing_mask = np.isnan(X_dense)
     layer_name = new_layer_name or "imputed_bpca"
     if not np.any(missing_mask):
-        add_imputed_layer(assay, layer_name, X_dense, input_matrix, missing_mask)
+        add_imputed_layer(
+            assay,
+            layer_name,
+            X_dense,
+            input_matrix,
+            missing_mask,
+            source_assay_name=ctx.resolved_assay_name,
+            source_layer_name=source_layer,
+            action="impute_bpca",
+        )
         return log_imputation_operation(
             container,
             action="impute_bpca",
@@ -350,7 +359,16 @@ def impute_bpca(
     )
 
     # Create new layer
-    add_imputed_layer(assay, layer_name, X_imputed, input_matrix, missing_mask)
+    add_imputed_layer(
+        assay,
+        layer_name,
+        X_imputed,
+        input_matrix,
+        missing_mask,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=source_layer,
+        action="impute_bpca",
+    )
 
     # Log operation
     singular_values = np.linalg.svd(X_imputed, full_matrices=False, compute_uv=False)

@@ -218,6 +218,13 @@ class TestIntegrationEvaluatorRunAll:
             and contract["standardized_batch_metrics"] == ["batch_kbet", "batch_ilisi"]
             for contract in report.method_contracts.values()
         )
+        assert all(
+            "state_uncertainty_burden" in result.report_metrics
+            and "state_reference_uncertainty_burden" in result.report_metrics
+            and "state_delta_uncertainty_burden" in result.report_metrics
+            for result in report.results
+            if result.error is None
+        )
         assert report.recommendation_reason.startswith(
             "Candidate set restricted to matrix-level methods ",
         )

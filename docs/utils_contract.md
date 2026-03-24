@@ -90,6 +90,8 @@
 - `cosine_similarity`
 - `quantile_normalize`
 - `robust_scale`
+- `protein_matrix_to_table`
+- `write_protein_matrix_bundle`
 - `batch_iterator`
 - `apply_by_batch`
 - `batch_apply_along_axis`
@@ -106,6 +108,8 @@
 - `quantile_normalize`
 - `robust_scale`
 - `correlation_matrix`
+- `protein_matrix_to_table`
+- `write_protein_matrix_bundle`
 - `BatchProcessor`
 - 其他 utils helper
 
@@ -113,6 +117,60 @@
 
 - `ScpDataGenerator` 是 `scptensor.utils` 包级 public utility
 - 其他 utility helper 是 `scptensor.utils` 包级 public surface，但不是顶层 `scptensor` 主入口
+
+### 4.3 Export Helpers 合同
+
+#### 4.3.1 helper 定位
+
+`protein_matrix_to_table` 与 `write_protein_matrix_bundle` 当前应解释为：
+
+- stable user-facing helper
+- 服务于 stable protein-level mainline 的结果导出
+- 不是 `ScpContainer.save()` 一类通用对象持久化接口
+
+它们存在的目的，是让用户不必手动拆解：
+
+- `container.obs`
+- `assay.var`
+- `layer.X`
+
+再自行拼装最终 protein matrix 导出文件。
+
+#### 4.3.2 `protein_matrix_to_table`
+
+当前稳定语义：
+
+- 输入是 `ScpContainer`
+- 通过 `assay_name + layer` 显式选择导出层
+- 默认面向 `proteins` assay 与 `imputed` layer
+- 输出是 `polars.DataFrame`
+- 导出方向固定为：
+  - 行 = protein
+  - 列 = sample
+- 首列是 feature ID 列
+- 数值矩阵中的 `NaN` 会收口为表格级 null，避免把字符串 `NaN` 直接写入导出表
+
+因此它是“protein matrix table builder”，不是对象序列化层。
+
+#### 4.3.3 `write_protein_matrix_bundle`
+
+当前稳定语义：
+
+- 写出三份表：
+  - `protein_matrix.tsv`
+  - `sample_metadata.tsv`
+  - `protein_metadata.tsv`
+- sample metadata 来自 `container.obs`
+- protein metadata 来自目标 assay 的 `var`
+- 通过 `assay_name + layer` 显式选择导出来源
+- 返回写出路径字典
+
+边界：
+
+- 它不修改 `container`
+- 它不追加 container provenance
+- 它不是通用 `save/load` 协议
+- 它是 stable protein-mainline 的导出 recipe helper
 
 ## 5. Batch Utilities 合同
 
@@ -473,15 +531,17 @@
 2. `scptensor.utils.__all__` 当前 helper 集合的大体稳定性
 3. batch utilities 的基本返回语义与 stats tracking
 4. stats helpers 的数组级而非容器级定位
-5. transform helpers 与主线 normalization 模块的边界
-6. synthetic missingness 主要存于 `M` 而不是 `X=NaN` 的事实
-7. `generate_synthetic_data` provenance 行为
+5. protein matrix export helper 与 `ScpContainer.save()` 的边界
+6. transform helpers 与主线 normalization 模块的边界
+7. synthetic missingness 主要存于 `M` 而不是 `X=NaN` 的事实
+8. `generate_synthetic_data` provenance 行为
 
 ## 11. 对后续重构的直接指导
 
 基于当前仓库状态，`utils` 下一阶段最合理的完善方向是：
 
 - 明确哪些 helper 继续作为 package-level public API，哪些应降为 internal helper
+- 明确 protein matrix export helper 是否还需要扩展更多 sidecar manifest，但不要回退成 `ScpContainer.save()`
 - 为 `apply_by_batch` / `BatchProcessor` 收敛一套更一致的 list 与 sparse 拼接策略
 - 把 `ScpDataGenerator` 的 synthetic mask semantics 写得更明确，避免和真实 vendor provenance 混淆
 - 明确 `quantile_normalize` / `robust_scale` 是否需要继续保留为独立 helper，还是转为更明确的 internal utility

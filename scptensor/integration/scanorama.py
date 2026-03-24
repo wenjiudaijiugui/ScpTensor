@@ -179,7 +179,16 @@ def integrate_scanorama(
     X_corrected = preserve_sparsity(X_corrected, input_was_sparse)
 
     # Create new layer
-    add_integrated_layer(assay, new_layer_name or "scanorama", X_corrected, layer)
+    layer_name = new_layer_name or "scanorama"
+    add_integrated_layer(
+        assay,
+        layer_name,
+        X_corrected,
+        layer,
+        source_assay_name=ctx.resolved_assay_name,
+        source_layer_name=base_layer,
+        action="integration_scanorama",
+    )
 
     # Log operation
     return log_integration_operation(
@@ -189,6 +198,8 @@ def integrate_scanorama(
         params={
             "batch_key": batch_key,
             "assay": ctx.resolved_assay_name,
+            "base_layer": base_layer,
+            "new_layer_name": layer_name,
             "sigma": sigma,
             "alpha": alpha,
             "knn": knn,

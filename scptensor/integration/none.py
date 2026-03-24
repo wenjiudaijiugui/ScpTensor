@@ -52,7 +52,17 @@ def integrate_none(
             value=batch_key,
         )
 
-    assay.add_layer(new_layer_name or "none", clone_layer_matrix(layer))
+    layer_name = new_layer_name or "none"
+    assay.add_layer(
+        layer_name,
+        clone_layer_matrix(
+            layer,
+            source_assay_name=ctx.resolved_assay_name,
+            source_layer_name=base_layer,
+            action="integration_none",
+            output_layer_name=layer_name,
+        ),
+    )
 
     return log_integration_operation(
         container,
@@ -62,6 +72,7 @@ def integrate_none(
             "batch_key": batch_key,
             "assay": ctx.resolved_assay_name,
             "base_layer": base_layer,
+            "new_layer_name": layer_name,
         },
         description="No batch correction baseline (layer copy).",
     )

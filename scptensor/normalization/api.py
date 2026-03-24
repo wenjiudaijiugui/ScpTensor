@@ -35,7 +35,15 @@ def norm_none(
 
     if layer_name != source_layer:
         passthrough = clone_matrix_data(input_layer.X)
-        add_result_layer(assay, layer_name, passthrough, input_layer)
+        add_result_layer(
+            assay,
+            layer_name,
+            passthrough,
+            input_layer,
+            source_assay_name=ctx.resolved_assay_name,
+            source_layer_name=source_layer,
+            action="normalization_none",
+        )
 
     return log_container_operation(
         container,

@@ -33,6 +33,7 @@ import inspect
 import numpy as np
 
 from scptensor.core._structure_container import ScpContainer
+from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import MissingDependencyError, ScpValueError
 from scptensor.integration.base import (
     add_integrated_layer,
@@ -164,10 +165,11 @@ def integrate_harmony(
         base_layer,
         method_name="Harmony integration",
     )
+    resolved_assay_name = resolve_assay_name(container, assay_name)
     _, _, unique_batches, _ = validate_batch_integration_params(
         container,
         batch_key,
-        assay_name,
+        resolved_assay_name,
         min_batches=2,
         min_samples_per_batch=2,
     )
@@ -215,7 +217,16 @@ def integrate_harmony(
     res = ho.Z_corr
     res = preserve_sparsity(res, input_was_sparse)
 
-    add_integrated_layer(assay, new_layer_name or "harmony", res, layer)
+    layer_name = new_layer_name or "harmony"
+    add_integrated_layer(
+        assay,
+        layer_name,
+        res,
+        layer,
+        source_assay_name=resolved_assay_name,
+        source_layer_name=base_layer,
+        action="integration_harmony",
+    )
 
     return log_integration_operation(
         container,
@@ -223,6 +234,9 @@ def integrate_harmony(
         method_name="harmony",
         params={
             "batch_key": batch_key,
+            "assay": resolved_assay_name,
+            "base_layer": base_layer,
+            "new_layer_name": layer_name,
             "theta": harmony_params["theta"],
             "lamb": harmony_params["lamb"],
             "sigma": logged_sigma,
