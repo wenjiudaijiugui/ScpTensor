@@ -59,6 +59,7 @@ class ReportTheme:
         Colormap for missing values
     cmap_cluster : str
         Colormap for clusters
+
     """
 
     # Layout
@@ -98,6 +99,7 @@ class ReportTheme:
         -------
         ReportTheme
             Theme configured for dark backgrounds
+
         """
         return cls(
             primary_color="#4fc3f7",
@@ -115,6 +117,7 @@ class ReportTheme:
         -------
         ReportTheme
             Theme with colorblind-friendly palette (IBM Design Language)
+
         """
         return cls(
             primary_color="#0072B2",
@@ -138,6 +141,7 @@ def _render_overview_panel(
         Matplotlib axes to render on
     container : ScpContainer
         Input data container
+
     """
     ax.axis("off")
     ax.set_title("Data Overview", fontsize=12, fontweight="bold", pad=10)
@@ -227,6 +231,7 @@ def _render_qc_panel(
         Column in obs for grouping
     assay_name : str, default "proteins"
         Assay to visualize
+
     """
     import numpy as np
 
@@ -297,6 +302,7 @@ def _render_missing_panel(
         Assay to visualize
     max_features : int, default 100
         Maximum number of features to display
+
     """
     import matplotlib.pyplot as plt
     import numpy as np
@@ -363,6 +369,7 @@ def _render_embedding_panel(
         Assay to visualize
     color_col : str
         Column in obs for coloring
+
     """
     import numpy as np
     from sklearn.decomposition import PCA
@@ -430,6 +437,7 @@ def _render_feature_panel(
         Input data container
     assay_name : str, default "proteins"
         Assay to visualize
+
     """
     import numpy as np
 
@@ -477,6 +485,7 @@ def _render_cluster_panel(
         Input data container
     assay_name : str, default "proteins"
         Assay to visualize
+
     """
     import numpy as np
     from sklearn.impute import SimpleImputer
@@ -531,6 +540,7 @@ def _render_batch_panel(
         Assay to visualize
     batch_col : str, default "batch"
         Column in obs for batch information
+
     """
     import numpy as np
     from sklearn.decomposition import PCA
@@ -624,6 +634,7 @@ def generate_analysis_report(
     -------
     Figure
         The generated figure
+
     """
     # Import here to avoid circular dependency
     import matplotlib.pyplot as plt

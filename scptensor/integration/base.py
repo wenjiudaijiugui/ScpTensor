@@ -13,10 +13,10 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
-from scptensor.core._layer_processing import resolve_layer_context
+from scptensor.core._layer_processing import resolve_assay_and_layer, resolve_layer_context
+from scptensor.core._structure_matrix import ScpMatrix
 from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import ScpMatrix
 
 if TYPE_CHECKING:
     from scptensor.core._layer_processing import LayerContext
@@ -67,6 +67,7 @@ def register_integrate_method(
     -------
     Callable
         Decorator function.
+
     """
 
     def decorator(func: IntegrateMethod) -> IntegrateMethod:
@@ -99,6 +100,7 @@ def get_integrate_method(name: str) -> IntegrateMethod:
     ------
     ScpValueError
         If method not found.
+
     """
     if name not in _INTEGRATE_METHODS:
         available = list(_INTEGRATE_METHODS.keys())
@@ -129,6 +131,7 @@ def list_integrate_methods() -> list[str]:
     -------
     list[str]
         List of method names.
+
     """
     return list(_INTEGRATE_METHODS.keys())
 
@@ -158,6 +161,7 @@ def integrate(
     -------
     ScpContainer
         Container with corrected data.
+
     """
     func = get_integrate_method(method)
     return func(container, **kwargs)
@@ -190,9 +194,9 @@ def validate_layer_params(
         If assay not found.
     LayerNotFoundError
         If layer not found.
+
     """
-    ctx = validate_layer_context(container, assay_name, layer_name)
-    return ctx.assay, ctx.layer
+    return resolve_assay_and_layer(container, assay_name, layer_name)
 
 
 def validate_layer_context(
@@ -302,6 +306,7 @@ def validate_batch_integration_params(
     ------
     ScpValueError
         If batch_key not found or insufficient batches/samples.
+
     """
     obs_df = container.obs
 
@@ -351,6 +356,7 @@ def prepare_integration_data(
     -------
     np.ndarray
         Dense array for downstream integration.
+
     """
     X = to_dense_array(X, copy=not sp.issparse(X))
 
@@ -413,6 +419,7 @@ def preserve_sparsity(
     -------
     np.ndarray | sp.spmatrix
         Sparse matrix if was_sparse and sparsity > threshold, else dense.
+
     """
     if not was_sparse:
         return X

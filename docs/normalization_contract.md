@@ -14,9 +14,10 @@
 
 本文档基于以下仓库内现状收束，不额外扩展文献层结论：
 
+- `scptensor/core/_layer_processing.py`
 - `scptensor/normalization/__init__.py`
 - `scptensor/normalization/api.py`
-- `scptensor/normalization/base.py`
+- `scptensor/normalization/_context.py`
 - `scptensor/normalization/mean_normalization.py`
 - `scptensor/normalization/median_normalization.py`
 - `scptensor/normalization/quantile_normalization.py`
@@ -74,24 +75,7 @@
 
 ### 2.4 当前公开 API
 
-`scptensor.normalization.__all__` 当前导出两类入口：
-
-- user-facing normalization API：
-  - `norm_none`
-  - `norm_mean`
-  - `norm_median`
-  - `norm_quantile`
-  - `norm_trqn`
-  - `normalize`
-- base helpers：
-  - `apply_normalization`
-  - `create_result_layer`
-  - `ensure_dense`
-  - `get_layer_name`
-  - `log_operation`
-  - `validate_assay_and_layer`
-
-`scptensor.__all__` 当前只从 normalization 顶层重导出 user-facing normalization API：
+`scptensor.normalization.__all__` 当前只导出 user-facing normalization API：
 
 - `norm_none`
 - `norm_mean`
@@ -100,19 +84,21 @@
 - `norm_trqn`
 - `normalize`
 
+`scptensor.__all__` 当前不再从 normalization 顶层重导出这些 API。
+
 不会重导出：
 
-- `apply_normalization`
-- `create_result_layer`
-- `ensure_dense`
-- `get_layer_name`
-- `log_operation`
-- `validate_assay_and_layer`
+- user-facing normalization methods
+- stage-plumbing helpers
+- vendor-normalized input warning helpers
+- `scptensor.core._layer_processing` 中的内部实现细节
 
 因此当前稳定边界是：
 
-- `scptensor.normalization` 子包既是用户方法入口，也是少量 helper 的公开承载点；
-- 顶层 `scptensor` 只暴露用户方法，不把 helper 升格为顶层 stable API。
+- `scptensor.normalization` 子包只承载用户方法入口；
+- preprocessing 共用的 layer plumbing 收敛到 `scptensor.core._layer_processing`；
+- normalization 特有 warning 逻辑保留在内部模块 `scptensor.normalization._context`，但不作为公共 API 导出；
+- 顶层 `scptensor` 不再承担 normalization facade，调用方应显式从 `scptensor.normalization` 导入。
 
 ## 3. 当前已实现方法池
 
@@ -164,7 +150,7 @@
 
 ### 4.3 输入 assay 名解析
 
-当前 `validate_assay_and_layer()` 会通过 `resolve_assay_name()` 做 assay 别名解析。
+当前 normalization 在内部通过 `resolve_layer_context()` 做 assay 别名解析。
 
 当前支持的 assay alias 组只有：
 
@@ -287,7 +273,7 @@
   - dense 输入保留 dense
   - sparse 输入保留 sparse copy
 - `norm_mean / norm_median / norm_quantile / norm_trqn`：
-  - 先通过 `ensure_dense()` 转成 dense `numpy.ndarray`
+  - 先通过内部 dense helper 转成 dense `numpy.ndarray`
   - 结果层 `X` 当前是 dense
 
 因此，当前合同不是“所有归一化方法都保留输入存储格式”，而是：
@@ -343,8 +329,11 @@
 
 这里还要补一个实现级事实：
 
-- `NormalizationEvaluator` 当前直接复用 `scptensor.transformation.log_transform._detect_already_logged(...)`
-- 但固定传入 `detect_logged_by_distribution=False`
+- `NormalizationEvaluator` 当前直接调用共享内部 detector
+  `scptensor.core._log_scale_detection.detect_logged_source_layer(...)`
+- `scptensor.transformation.log_transform._detect_already_logged(...)` 现在只是兼容包装层，
+  同样委托到这套共享 detector
+- evaluator 固定传入 `detect_logged_by_distribution=False`
 
 因此对 normalization 候选门控而言，当前“logged source layer”只依赖：
 
@@ -434,26 +423,21 @@ warning 语义是：
 
 这意味着：
 
-- `validate_assay_and_layer()` 会先做 alias 解析来找到 assay
+- normalization 内部会先做 alias 解析来找到 assay
 - history 中的 `params["assay"]` 与真正读写的 assay key 一致
 - 若容器里 assay 名是 `protein`，传入 `proteins` 后 history 仍写 `protein`
 - 若容器里 assay 名是 `proteins`，传入 `protein` 后 history 仍写 `proteins`
 
 这一点现在与 `log_transform()` 的 resolved assay name 语义保持一致。
 
-### 7.5 不要用 `apply_normalization()` 直接替换现有公开路径
+### 7.5 不要让内部 stage helper 改写公开 history schema
 
-`scptensor.normalization.base.apply_normalization()` 是内部 helper，但它当前的 history 参数命名是：
-
-- `source`
-- `target`
-
-而不是公开方法当前已经稳定下来的：
+公开方法当前已经稳定下来的 history 参数命名是：
 
 - `source_layer`
 - `new_layer_name`
 
-因此，不能直接把公开方法改写成对 `apply_normalization()` 的机械封装，除非同时保留当前 history schema。
+因此，即使底层 layer-plumbing helper 收敛到 `scptensor.core._layer_processing`，公开方法仍必须显式保留这套 history schema，不能因为内部 helper 更换而无声改名。
 
 ## 8. 失败合同
 
@@ -613,7 +597,7 @@ method key alias 可以保留，但对外文档叙述应优先使用 canonical m
 
 ### 10.7 不要无声切换到 helper 的另一套 history schema
 
-如前所述，`apply_normalization()` 的 `source/target` 命名不能直接替代公开 API 当前的 `source_layer/new_layer_name` 命名。
+如前所述，内部 stage helper 不得无声替换公开 API 当前的 `source_layer/new_layer_name` 命名。
 
 ### 10.8 默认产物层名可以收敛，但不能偷偷改
 

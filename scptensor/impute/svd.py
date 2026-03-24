@@ -8,15 +8,13 @@ This module provides:
 from __future__ import annotations
 
 import inspect
-import sys
 from typing import Any
 
 import numpy as np
-import sklearn.utils
 from sklearn.decomposition import TruncatedSVD
 
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import MissingDependencyError, ScpValueError
-from scptensor.core.structures import ScpContainer
 from scptensor.impute._utils import (
     add_imputed_layer,
     log_imputation_operation,
@@ -109,35 +107,8 @@ def softimpute_impute(
     if np.all(missing_mask):
         return np.zeros_like(x)
 
-    # Compatibility patch: fancyimpute still calls sklearn.check_array(force_all_finite=...),
-    # while newer sklearn versions renamed it to ensure_all_finite.
-    check_array_sig = inspect.signature(sklearn.utils.check_array)
-    if (
-        "force_all_finite" not in check_array_sig.parameters
-        and "ensure_all_finite" in check_array_sig.parameters
-    ):
-        _orig_check_array = sklearn.utils.check_array
-
-        def _check_array_compat(*args: Any, force_all_finite: Any = None, **kwargs: Any) -> Any:
-            if force_all_finite is not None and "ensure_all_finite" not in kwargs:
-                kwargs["ensure_all_finite"] = force_all_finite
-            return _orig_check_array(*args, **kwargs)
-
-        sklearn.utils.check_array = _check_array_compat  # type: ignore[assignment]
-        # If fancyimpute modules are already imported, patch their local aliases too.
-        for mod_name in ("fancyimpute.solver", "fancyimpute.soft_impute"):
-            mod = sys.modules.get(mod_name)
-            if mod is not None and hasattr(mod, "check_array"):
-                mod.check_array = _check_array_compat  # type: ignore[attr-defined]
-
     try:
         from fancyimpute import SoftImpute
-
-        # Patch alias after import as well, covering first-import path.
-        for mod_name in ("fancyimpute.solver", "fancyimpute.soft_impute"):
-            mod = sys.modules.get(mod_name)
-            if mod is not None and hasattr(mod, "check_array"):
-                mod.check_array = sklearn.utils.check_array  # type: ignore[attr-defined]
     except ImportError as exc:
         raise MissingDependencyError("fancyimpute") from exc
 
@@ -163,7 +134,20 @@ def softimpute_impute(
         kwargs["verbose"] = False
 
     model = SoftImpute(**kwargs)
-    return np.asarray(model.fit_transform(x), dtype=np.float64)
+    try:
+        return np.asarray(model.fit_transform(x), dtype=np.float64)
+    except TypeError as exc:
+        message = str(exc)
+        if "force_all_finite" in message or "ensure_all_finite" in message:
+            raise ScpValueError(
+                "SoftImpute dependency interface mismatch detected between "
+                "fancyimpute and scikit-learn "
+                "(check_array force_all_finite/ensure_all_finite). "
+                "Install a compatible dependency pair. "
+                "ScpTensor no longer applies runtime monkey patches for this path.",
+                parameter="softimpute",
+            ) from exc
+        raise
 
 
 def validate_iterative_svd(data: np.ndarray) -> bool:
@@ -335,6 +319,8 @@ def impute_softimpute(
         )
     except MissingDependencyError:
         raise
+    except ScpValueError:
+        raise
     except Exception as exc:
         raise ScpValueError(
             f"SoftImpute failed: {exc}",
@@ -365,7 +351,7 @@ register_impute_method(
         supports_sparse=False,
         validate=validate_iterative_svd,
         apply=impute_iterative_svd,
-    )
+    ),
 )
 
 register_impute_method(
@@ -374,5 +360,5 @@ register_impute_method(
         supports_sparse=False,
         validate=validate_softimpute,
         apply=impute_softimpute,
-    )
+    ),
 )

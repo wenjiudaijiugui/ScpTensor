@@ -74,7 +74,7 @@ def test_aggregation_mapping_and_state_extensions() -> None:
             "species": ["HUMAN", "YEAST", "ECOLI"],
             "expected_log2_fc_ab": [0.0, 1.0, -2.0],
             "log2_fc_ab": [0.1, 0.8, -1.9],
-        }
+        },
     )
     de_proxy = module.summarize_de_consistency_proxy(quantified)
     assert de_proxy["de_changed_direction_accuracy"] == 1.0

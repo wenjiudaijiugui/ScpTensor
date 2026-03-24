@@ -1,5 +1,4 @@
-"""
-Utility functions for enhanced ScpMatrix operations with mask code support.
+"""Utility functions for enhanced ScpMatrix operations with mask code support.
 
 Optimized for sparse matrix operations - preserves sparsity when possible.
 """
@@ -37,8 +36,7 @@ def _clone_with_replacements(
 
 
 def sparse_filter_mask(M: sp.spmatrix, keep_values: list[int]) -> sp.spmatrix:
-    """
-    Efficiently create boolean mask for sparse matrix filtering.
+    """Efficiently create boolean mask for sparse matrix filtering.
 
     Parameters
     ----------
@@ -51,6 +49,7 @@ def sparse_filter_mask(M: sp.spmatrix, keep_values: list[int]) -> sp.spmatrix:
     -------
     sp.spmatrix
         Boolean sparse mask where True indicates values to keep
+
     """
     # Convert to COO for efficient element-wise operations
     M_coo = M.tocoo()
@@ -168,14 +167,11 @@ def _replace_sparse_entries(
 
 
 class MatrixOps:
-    """
-    Enhanced matrix operations for ScpMatrix with full mask code support.
-    """
+    """Enhanced matrix operations for ScpMatrix with full mask code support."""
 
     @staticmethod
     def get_valid_mask(matrix: ScpMatrix) -> np.ndarray | sp.spmatrix:
-        """
-        Get mask for valid (VALID) data points.
+        """Get mask for valid (VALID) data points.
 
         Parameters
         ----------
@@ -186,14 +182,14 @@ class MatrixOps:
         -------
         np.ndarray | sp.spmatrix
             Boolean mask where True indicates valid data points
+
         """
         M = matrix.get_m()
         return _compare_mask_codes(M, MaskCode.VALID)
 
     @staticmethod
     def get_missing_mask(matrix: ScpMatrix) -> np.ndarray | sp.spmatrix:
-        """
-        Get mask for any missing data (any non-VALID code).
+        """Get mask for any missing data (any non-VALID code).
 
         Parameters
         ----------
@@ -204,14 +200,14 @@ class MatrixOps:
         -------
         np.ndarray | sp.spmatrix
             Boolean mask where True indicates missing data
+
         """
         M = matrix.get_m()
         return _compare_mask_codes(M, MaskCode.VALID, negate=True)
 
     @staticmethod
     def get_missing_type_mask(matrix: ScpMatrix, mask_code: MaskCode) -> np.ndarray | sp.spmatrix:
-        """
-        Get mask for specific missing type.
+        """Get mask for specific missing type.
 
         Parameters
         ----------
@@ -224,16 +220,18 @@ class MatrixOps:
         -------
         np.ndarray | sp.spmatrix
             Boolean mask where True indicates specified missing type
+
         """
         M = matrix.get_m()
         return _compare_mask_codes(M, mask_code)
 
     @staticmethod
     def mark_values(
-        matrix: ScpMatrix, indices: tuple[np.ndarray, np.ndarray], mask_code: MaskCode
+        matrix: ScpMatrix,
+        indices: tuple[np.ndarray, np.ndarray],
+        mask_code: MaskCode,
     ) -> ScpMatrix:
-        """
-        Mark specific values with given mask code.
+        """Mark specific values with given mask code.
 
         Optimized to preserve sparsity - avoids unnecessary densification.
 
@@ -250,6 +248,7 @@ class MatrixOps:
         -------
         ScpMatrix
             New ScpMatrix with updated mask
+
         """
         new_matrix = matrix.copy()
         M = new_matrix.get_m()
@@ -271,8 +270,7 @@ class MatrixOps:
 
     @staticmethod
     def mark_imputed(matrix: ScpMatrix, indices: tuple[np.ndarray, np.ndarray]) -> ScpMatrix:
-        """
-        Mark values as imputed.
+        """Mark values as imputed.
 
         Parameters
         ----------
@@ -285,13 +283,13 @@ class MatrixOps:
         -------
         ScpMatrix
             Matrix with values marked as imputed
+
         """
         return MatrixOps.mark_values(matrix, indices, MaskCode.IMPUTED)
 
     @staticmethod
     def mark_outliers(matrix: ScpMatrix, indices: tuple[np.ndarray, np.ndarray]) -> ScpMatrix:
-        """
-        Mark values as outliers.
+        """Mark values as outliers.
 
         Parameters
         ----------
@@ -304,13 +302,13 @@ class MatrixOps:
         -------
         ScpMatrix
             Matrix with values marked as outliers
+
         """
         return MatrixOps.mark_values(matrix, indices, MaskCode.OUTLIER)
 
     @staticmethod
     def mark_lod(matrix: ScpMatrix, indices: tuple[np.ndarray, np.ndarray]) -> ScpMatrix:
-        """
-        Mark values as below limit of detection.
+        """Mark values as below limit of detection.
 
         Parameters
         ----------
@@ -323,13 +321,13 @@ class MatrixOps:
         -------
         ScpMatrix
             Matrix with values marked as LOD
+
         """
         return MatrixOps.mark_values(matrix, indices, MaskCode.LOD)
 
     @staticmethod
     def mark_uncertain(matrix: ScpMatrix, indices: tuple[np.ndarray, np.ndarray]) -> ScpMatrix:
-        """
-        Mark values as uncertain quality.
+        """Mark values as uncertain quality.
 
         Parameters
         ----------
@@ -342,13 +340,13 @@ class MatrixOps:
         -------
         ScpMatrix
             Matrix with values marked as uncertain
+
         """
         return MatrixOps.mark_values(matrix, indices, MaskCode.UNCERTAIN)
 
     @staticmethod
     def combine_masks(masks: list[np.ndarray], operation: str = "union") -> np.ndarray:
-        """
-        Combine multiple masks with specified operation.
+        """Combine multiple masks with specified operation.
 
         Parameters
         ----------
@@ -366,6 +364,7 @@ class MatrixOps:
         ------
         ValueError
             If masks list is empty or operation is unknown
+
         """
         if not masks:
             raise ValueError("No masks provided")
@@ -377,17 +376,15 @@ class MatrixOps:
 
         if operation == "union":
             return np.any(masks_stacked, axis=0)
-        elif operation == "intersection":
+        if operation == "intersection":
             return np.all(masks_stacked, axis=0)
-        elif operation == "majority":
+        if operation == "majority":
             return np.sum(masks_stacked, axis=0) > (len(masks) // 2)
-        else:
-            raise ValueError(f"Unknown operation: {operation}")
+        raise ValueError(f"Unknown operation: {operation}")
 
     @staticmethod
     def get_mask_statistics(matrix: ScpMatrix) -> dict:
-        """
-        Get comprehensive statistics about mask codes in the matrix.
+        """Get comprehensive statistics about mask codes in the matrix.
 
         Parameters
         ----------
@@ -399,6 +396,7 @@ class MatrixOps:
         dict
             Dictionary with statistics for each mask code.
             Keys are MaskCode names, values are dicts with 'count' and 'percentage'
+
         """
         total_elements = matrix.X.shape[0] * matrix.X.shape[1]
         counts = _mask_code_counts(matrix.M, matrix.X.shape)
@@ -412,8 +410,7 @@ class MatrixOps:
 
     @staticmethod
     def filter_by_mask(matrix: ScpMatrix, keep_codes: list[MaskCode]) -> ScpMatrix:
-        """
-        Create new matrix with only specified mask codes.
+        """Create new matrix with only specified mask codes.
         All other values are set to NaN and marked as FILTERED.
 
         Optimized with COO format - no LIL conversion, no Python loops.
@@ -430,6 +427,7 @@ class MatrixOps:
         -------
         ScpMatrix
             Filtered ScpMatrix with only specified mask codes
+
         """
         keep_values = [code.value for code in keep_codes]
         M = matrix.get_m()
@@ -501,8 +499,7 @@ class MatrixOps:
 
     @staticmethod
     def apply_mask_to_values(matrix: ScpMatrix, operation: str = "zero") -> ScpMatrix:
-        """
-        Apply mask to values in X matrix.
+        """Apply mask to values in X matrix.
 
         Optimized to preserve sparsity - avoids unnecessary densification.
 
@@ -522,6 +519,7 @@ class MatrixOps:
         ------
         ValueError
             If operation is not 'zero', 'nan', or 'keep'
+
         """
         if operation not in {"zero", "nan", "keep"}:
             raise ValueError(f"Unknown operation: {operation}")

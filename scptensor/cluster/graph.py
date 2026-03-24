@@ -19,9 +19,9 @@ from scptensor.cluster.base import (
     _prepare_matrix,
     _validate_assay_layer,
 )
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import ScpContainer
 
 
 def cluster_leiden(
@@ -75,6 +75,7 @@ def cluster_leiden(
     >>> result = cluster_leiden(container, resolution=0.8)
     >>> "leiden_r0.8" in result.obs.columns
     True
+
     """
     # Validate parameters
     if n_neighbors <= 0:

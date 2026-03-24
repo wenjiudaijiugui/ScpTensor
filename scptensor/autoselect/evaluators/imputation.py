@@ -12,10 +12,11 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from scptensor.autoselect._heuristics import IMPUTATION_HOLDOUT_HEURISTICS
 from scptensor.autoselect.core import EvaluationResult
 from scptensor.autoselect.evaluators.base import BaseEvaluator
+from scptensor.core._structure_matrix import MaskCode
 from scptensor.core.assay_alias import resolve_assay_name
-from scptensor.core.structures import MaskCode
 
 if TYPE_CHECKING:
     from scptensor.core.structures import ScpContainer
@@ -45,17 +46,14 @@ class ImputationEvaluator(BaseEvaluator):
     ...     assay_name="proteins",
     ...     source_layer="log"
     ... )
+
     """
 
     def __init__(self) -> None:
         """Initialize the imputation evaluator."""
         self._available_methods: dict[str, Callable] | None = None
         self._eps = 1e-10
-        # Cross-validation holdout used to avoid score saturation at 1.0.
-        self._holdout_fraction = 0.05
-        self._holdout_min = 128
-        self._holdout_max = 50000
-        self._holdout_random_state = 42
+        self._holdout_heuristics = IMPUTATION_HOLDOUT_HEURISTICS
 
     def _get_available_methods(self) -> dict[str, Callable]:
         """Get available imputation methods.
@@ -64,6 +62,7 @@ class ImputationEvaluator(BaseEvaluator):
         -------
         dict[str, Callable]
             Dictionary of available methods
+
         """
         from scptensor.autoselect.evaluators.base import create_wrapper
 
@@ -178,6 +177,7 @@ class ImputationEvaluator(BaseEvaluator):
         -------
         str
             Stage name ("impute")
+
         """
         return "impute"
 
@@ -190,6 +190,7 @@ class ImputationEvaluator(BaseEvaluator):
         dict[str, Callable]
             Dictionary mapping method names to their implementation functions.
             Only methods with installed dependencies are included.
+
         """
         return self._get_available_methods()
 
@@ -201,6 +202,7 @@ class ImputationEvaluator(BaseEvaluator):
         -------
         dict[str, float]
             Dictionary mapping metric names to their weights
+
         """
         return {
             "rmse": 0.4,
@@ -229,6 +231,7 @@ class ImputationEvaluator(BaseEvaluator):
         -------
         dict[str, float]
             Dictionary mapping metric names to their scores (0.0 to 1.0)
+
         """
         assay = self._get_metric_assay(container)
         if assay is None or layer_name not in assay.layers:
@@ -352,13 +355,17 @@ class ImputationEvaluator(BaseEvaluator):
         if observed_idx.size < 2:
             return None
 
-        target = int(observed_idx.size * self._holdout_fraction)
-        n_holdout = max(self._holdout_min, target)
-        n_holdout = min(n_holdout, self._holdout_max, observed_idx.size)
+        target = int(observed_idx.size * self._holdout_heuristics.fraction)
+        n_holdout = max(self._holdout_heuristics.min_entries, target)
+        n_holdout = min(
+            n_holdout,
+            self._holdout_heuristics.max_entries,
+            observed_idx.size,
+        )
         if n_holdout < 2:
             return None
 
-        rng = np.random.default_rng(self._holdout_random_state)
+        rng = np.random.default_rng(self._holdout_heuristics.random_state)
         chosen = rng.choice(observed_idx, size=n_holdout, replace=False)
 
         holdout_mask = np.zeros(observed_mask.size, dtype=bool)
@@ -469,6 +476,7 @@ class ImputationEvaluator(BaseEvaluator):
         A subset of observed values is masked before imputation, then scored
         against the ground truth on the held-out subset. This avoids score
         saturation when methods leave observed values unchanged.
+
         """
         assay = container.assays.get(assay_name)
         if assay is None or source_layer not in assay.layers:
@@ -527,7 +535,7 @@ class ImputationEvaluator(BaseEvaluator):
             resolved_assay_name = resolve_assay_name(result_container, assay_name)
             if new_layer_name not in result_container.assays[resolved_assay_name].layers:
                 raise KeyError(
-                    f"Expected output layer '{new_layer_name}' not found in assay '{assay_name}'"
+                    f"Expected output layer '{new_layer_name}' not found in assay '{assay_name}'",
                 )
 
             imputed_matrix = result_container.assays[resolved_assay_name].layers[new_layer_name]
@@ -535,7 +543,8 @@ class ImputationEvaluator(BaseEvaluator):
 
             if imputed_x.shape != original_x.shape:
                 raise ValueError(
-                    f"Shape mismatch after imputation: expected {original_x.shape}, got {imputed_x.shape}"
+                    "Shape mismatch after imputation: "
+                    f"expected {original_x.shape}, got {imputed_x.shape}",
                 )
 
             holdout_true = original_x[holdout_mask]

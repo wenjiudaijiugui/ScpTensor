@@ -59,7 +59,7 @@ def _validate_mask_matrix(m: np.ndarray | sp.spmatrix, x_shape: tuple[int, int])
         invalid_values = np.setdiff1d(np.unique(m), list(_VALID_MASK_CODES))
         if invalid_values.size > 0:
             raise ValueError(
-                f"Invalid mask codes: {invalid_values}. Valid: {sorted(_VALID_MASK_CODES)}"
+                f"Invalid mask codes: {invalid_values}. Valid: {sorted(_VALID_MASK_CODES)}",
             )
         return
 
@@ -67,7 +67,7 @@ def _validate_mask_matrix(m: np.ndarray | sp.spmatrix, x_shape: tuple[int, int])
         invalid_values = np.setdiff1d(np.unique(m.data), list(_VALID_MASK_CODES))
         if invalid_values.size > 0:
             raise ValueError(
-                f"Invalid mask codes: {invalid_values}. Valid: {sorted(_VALID_MASK_CODES)}"
+                f"Invalid mask codes: {invalid_values}. Valid: {sorted(_VALID_MASK_CODES)}",
             )
 
 

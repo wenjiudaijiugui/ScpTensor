@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import sparse
 
-from scptensor.core.structures import ScpContainer
+from scptensor.core._structure_container import ScpContainer
 from scptensor.viz.base.multi_panel import PanelLayout
 from scptensor.viz.base.style import PlotStyle, setup_style
 from scptensor.viz.base.validation import (
@@ -254,6 +254,7 @@ def pca_overview(
     >>> container.assays["proteins"] = assay
     >>> container = pca(container, "proteins", "imputed", n_components=5)
     >>> fig = pca_overview(container, layer="scores", color="cluster", show=False)
+
     """
     validate_container(container)
     validate_layer(container, pca_assay_name, layer)
@@ -278,7 +279,7 @@ def pca_overview(
         raise ValueError(
             f"PCA assay '{pca_assay_name}' does not contain "
             "explained_variance_ratio column. "
-            "Please run PCA first."
+            "Please run PCA first.",
         )
 
     variance_ratio = pca_assay.var[var_col].to_numpy()[:n_pcs]
@@ -294,7 +295,7 @@ def pca_overview(
         ]
         if loading_cols:
             loading_data = np.column_stack(
-                [original_var[c].to_numpy() for c in loading_cols[:n_pcs]]
+                [original_var[c].to_numpy() for c in loading_cols[:n_pcs]],
             )
             loadings = loading_data
 
@@ -493,6 +494,7 @@ def missing_value_patterns(
     >>> container.assays["proteins"] = assay
     >>> fig = missing_value_patterns(container, layer="normalized",
     ...                             groupby="cluster", show=False)
+
     """
     validate_container(container)
     validate_layer(container, assay_name, layer)

@@ -9,7 +9,7 @@ Handles QC for proteins/features including:
 import numpy as np
 import polars as pl
 
-from scptensor.core.structures import ScpContainer
+from scptensor.core._structure_container import ScpContainer
 from scptensor.qc._utils import (
     compute_detection_stats,
     count_detected,
@@ -23,8 +23,8 @@ from scptensor.qc.metrics import compute_cv
 
 def calculate_feature_qc_metrics(
     container: ScpContainer,
-    assay_name: str = "protein",
-    layer_name: str | None = None,
+    assay_name: str = "proteins",
+    layer_name: str = "raw",
 ) -> ScpContainer:
     """Calculate quality control metrics for features.
 
@@ -38,10 +38,10 @@ def calculate_feature_qc_metrics(
     ----------
     container : ScpContainer
         ScpContainer containing the assay to analyze.
-    assay_name : str, default="protein"
+    assay_name : str, default="proteins"
         Name of the assay containing feature-level data.
-    layer_name : str, optional
-        Name of the layer to use. If None, uses first available layer.
+    layer_name : str, default="raw"
+        Name of the layer to use.
 
     Returns
     -------
@@ -52,13 +52,13 @@ def calculate_feature_qc_metrics(
     --------
     >>> result = calculate_feature_qc_metrics(container)
     >>> result.assays['protein'].var[['missing_rate', 'detection_rate', 'cv']]
+
     """
     resolved_assay_name, assay = resolve_assay(container, assay_name)
     layer_name, layer = resolve_layer(
         assay,
         assay_name=resolved_assay_name,
         layer_name=layer_name,
-        fallback_to_first=True,
     )
 
     # Compute detection statistics
@@ -75,7 +75,7 @@ def calculate_feature_qc_metrics(
             "detection_rate": detection_rate,
             "mean_expression": means,
             "cv": cv,
-        }
+        },
     )
 
     # Merge with existing var
@@ -107,8 +107,8 @@ def calculate_feature_qc_metrics(
 
 def filter_features_by_missingness(
     container: ScpContainer,
-    assay_name: str = "protein",
-    layer_name: str | None = None,
+    assay_name: str = "proteins",
+    layer_name: str = "raw",
     max_missing_rate: float = 0.5,
 ) -> ScpContainer:
     """Filter features based on missing rate.
@@ -120,10 +120,10 @@ def filter_features_by_missingness(
     ----------
     container : ScpContainer
         ScpContainer containing the assay to filter.
-    assay_name : str, default="protein"
+    assay_name : str, default="proteins"
         Name of the assay containing feature-level data.
-    layer_name : str, optional
-        Name of the layer to use. If None, uses first available layer.
+    layer_name : str, default="raw"
+        Name of the layer to use.
     max_missing_rate : float, default=0.5
         Maximum acceptable missing rate [0, 1].
         Recommended: 0.2-0.3 (stringent), 0.5 (moderate), 0.7 (lenient).
@@ -138,6 +138,7 @@ def filter_features_by_missingness(
     >>> result = filter_features_by_missingness(container, max_missing_rate=0.5)
     >>> result.assays['protein'].n_features
     4
+
     """
     validate_threshold(max_missing_rate, "max_missing_rate", min_val=0.0, max_val=1.0)
     resolved_assay_name, assay = resolve_assay(container, assay_name)
@@ -146,7 +147,6 @@ def filter_features_by_missingness(
         assay,
         assay_name=resolved_assay_name,
         layer_name=layer_name,
-        fallback_to_first=True,
     )
 
     n_samples = layer.X.shape[0]
@@ -167,6 +167,7 @@ def filter_features_by_missingness(
         action="filter_features_by_missingness",
         params={
             "assay": resolved_assay_name,
+            "layer": layer_name,
             "n_removed": n_removed,
             "n_total": assay.n_features,
             "max_missing_rate": max_missing_rate,
@@ -181,8 +182,8 @@ def filter_features_by_missingness(
 
 def filter_features_by_cv(
     container: ScpContainer,
-    assay_name: str = "protein",
-    layer_name: str | None = None,
+    assay_name: str = "proteins",
+    layer_name: str = "raw",
     max_cv: float = 1.0,
     min_mean: float = 1e-6,
 ) -> ScpContainer:
@@ -195,10 +196,10 @@ def filter_features_by_cv(
     ----------
     container : ScpContainer
         ScpContainer containing the assay to filter.
-    assay_name : str, default="protein"
+    assay_name : str, default="proteins"
         Name of the assay containing feature-level data.
-    layer_name : str, optional
-        Name of the layer to use. If None, uses first available layer.
+    layer_name : str, default="raw"
+        Name of the layer to use.
     max_cv : float, default=1.0
         Maximum acceptable CV.
         Recommended: 0.3-0.5 (stringent), 1.0 (lenient).
@@ -215,6 +216,7 @@ def filter_features_by_cv(
     >>> result = filter_features_by_cv(container, max_cv=0.5)
     >>> result.assays['protein'].n_features
     3
+
     """
     if max_cv <= 0:
         from scptensor.core.exceptions import ScpValueError
@@ -231,7 +233,6 @@ def filter_features_by_cv(
         assay,
         assay_name=resolved_assay_name,
         layer_name=layer_name,
-        fallback_to_first=True,
     )
 
     X = layer.X
@@ -249,6 +250,7 @@ def filter_features_by_cv(
         action="filter_features_by_cv",
         params={
             "assay": resolved_assay_name,
+            "layer": layer_name,
             "n_removed": n_removed,
             "n_total": assay.n_features,
             "max_cv": max_cv,

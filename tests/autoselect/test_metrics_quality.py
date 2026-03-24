@@ -6,9 +6,12 @@ used in the automatic method selection system.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
 
+from scptensor.autoselect._heuristics import DYNAMIC_RANGE_HEURISTICS
 from scptensor.autoselect.metrics.quality import (
     cv_stability,
     dynamic_range,
@@ -72,6 +75,19 @@ class TestCVStability:
         result = cv_stability(X)
         assert isinstance(result, float)
 
+    def test_single_evaluable_feature_fails_closed(self) -> None:
+        """Stability across features is undefined with only one valid feature."""
+        X = np.array(
+            [
+                [1.0, np.nan, np.nan],
+                [2.0, np.nan, np.nan],
+                [3.0, np.nan, np.nan],
+                [4.0, np.nan, np.nan],
+            ],
+        )
+        result = cv_stability(X)
+        assert result == 0.0
+
 
 class TestSkewnessImprovement:
     """Tests for skewness_improvement function."""
@@ -128,6 +144,15 @@ class TestSkewnessImprovement:
         result = skewness_improvement(X, X)
         assert isinstance(result, float)
 
+    def test_already_perfect_skewness_fails_closed(self) -> None:
+        """Perfect baseline skewness should not receive synthetic improvement credit."""
+        X = np.ones((10, 5), dtype=float)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("error", RuntimeWarning)
+            result = skewness_improvement(X, X)
+        assert result == 0.0
+        assert not caught
+
 
 class TestKurtosisImprovement:
     """Tests for kurtosis_improvement function."""
@@ -170,6 +195,15 @@ class TestKurtosisImprovement:
         result = kurtosis_improvement(X, X)
         assert isinstance(result, float)
 
+    def test_already_perfect_kurtosis_fails_closed(self) -> None:
+        """Perfect baseline kurtosis should not receive synthetic improvement credit."""
+        X = np.ones((10, 5), dtype=float)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("error", RuntimeWarning)
+            result = kurtosis_improvement(X, X)
+        assert result == 0.0
+        assert not caught
+
 
 class TestDynamicRange:
     """Tests for dynamic_range function."""
@@ -201,6 +235,12 @@ class TestDynamicRange:
         result = dynamic_range(X)
         assert 0.0 <= result <= 1.0
         assert result > 0.5  # Should score well
+
+    def test_dynamic_range_uses_central_policy_center(self) -> None:
+        """Dynamic-range peak should track the centralized heuristic center."""
+        target = DYNAMIC_RANGE_HEURISTICS.target_orders_of_magnitude
+        X = np.array([[1.0, 10.0**target]], dtype=float)
+        assert dynamic_range(X) == pytest.approx(1.0)
 
     def test_too_large_range(self) -> None:
         """Test with extremely large dynamic range."""

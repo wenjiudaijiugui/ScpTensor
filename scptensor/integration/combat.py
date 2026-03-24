@@ -18,7 +18,9 @@ towards global estimates using empirical Bayes:
 
 .. math::
 
-    Y_{ij}^{*} = \\frac{Y_{ij} - \\hat{\\gamma}_{\\gamma(i)} - \\hat{\\beta}_{\\gamma(i)} X_{ij}}{\\hat{\\delta}_{\\gamma(i)}}
+    Y_{ij}^{*} =
+    \\frac{Y_{ij} - \\hat{\\gamma}_{\\gamma(i)} - \\hat{\\beta}_{\\gamma(i)} X_{ij}}
+    {\\hat{\\delta}_{\\gamma(i)}}
 
 where:
 - :math:`Y_{ij}` is the expression value for feature i, sample j
@@ -30,7 +32,9 @@ The empirical Bayes shrinkage uses:
 
 .. math::
 
-    \\gamma^* = \\frac{n \\hat{\\tau}^2 \\hat{\\gamma} + \\hat{\\delta} \\bar{\\gamma}}{n \\hat{\\tau}^2 + \\hat{\\delta}}
+    \\gamma^* =
+    \\frac{n \\hat{\\tau}^2 \\hat{\\gamma} + \\hat{\\delta} \\bar{\\gamma}}
+    {n \\hat{\\tau}^2 + \\hat{\\delta}}
 
 References
 ----------
@@ -39,6 +43,7 @@ microarray expression data using empirical Bayes methods. Biostatistics.
 
 Fortin, J.-P., et al. (2017). Correction of unwanted variation in
 microarray data using empirical Bayes methods. bioRxiv.
+
 """
 
 from __future__ import annotations
@@ -50,9 +55,9 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import ScpValueError, ValidationError
 from scptensor.core.sparse_utils import is_sparse_matrix
-from scptensor.core.structures import ScpContainer
 from scptensor.integration.base import (
     add_integrated_layer,
     log_integration_operation,
@@ -124,8 +129,8 @@ def integrate_combat(
     --------
     >>> container = integrate_combat(container, batch_key='batch')
     >>> container = integrate_combat(container, batch_key='batch', covariates=['condition'])
-    """
 
+    """
     # Validate parameters
     if eb_mode not in ("parametric", "nonparametric"):
         raise ScpValueError(
@@ -136,7 +141,11 @@ def integrate_combat(
 
     assay, layer = validate_layer_params(container, assay_name, base_layer)
     obs_df, batches, unique_batches, batch_counts = validate_batch_integration_params(
-        container, batch_key, assay_name, min_batches=2, min_samples_per_batch=2
+        container,
+        batch_key,
+        assay_name,
+        min_batches=2,
+        min_samples_per_batch=2,
     )
 
     # Get data
@@ -148,7 +157,7 @@ def integrate_combat(
             "ScpTensor's ComBat implementation currently requires a complete finite matrix "
             "(no NaN/Inf values). For high-missing single-cell DIA protein matrices, "
             "prefer integrate_limma() to preserve missing values, or perform explicit "
-            "filtering/imputation before ComBat."
+            "filtering/imputation before ComBat.",
         )
 
     # Transpose: (n_features, n_samples) for feature-wise operations
@@ -157,7 +166,11 @@ def integrate_combat(
 
     # Build design matrices
     design_matrix, design_columns, n_batch = _build_design_matrices(
-        obs_df, batches, unique_batches, covariates, n_sample
+        obs_df,
+        batches,
+        unique_batches,
+        covariates,
+        n_sample,
     )
 
     # Check for rank deficiency
@@ -167,7 +180,7 @@ def integrate_combat(
         raise ValueError(
             f"Design matrix is rank deficient (rank={rank_design}, cols={design_matrix.shape[1]}). "
             "Batch and biological covariates are likely confounded. "
-            f"Design columns: [{col_text}]"
+            f"Design columns: [{col_text}]",
         )
 
     # Fit ComBat model
@@ -217,7 +230,7 @@ def _build_design_matrices(
 
     # Create one-hot encoding for batches
     batch_dummies = pl.DataFrame(
-        {f"batch_{i}": (batches == b).astype(int) for i, b in enumerate(batch_items)}
+        {f"batch_{i}": (batches == b).astype(int) for i, b in enumerate(batch_items)},
     )
 
     # Build covariate design matrix
@@ -314,7 +327,14 @@ def _fit_combat_core(
     elif eb_mode == "parametric":
         gamma_bar, t2, a_prior, b_prior = _compute_eb_priors(gamma_hat, delta_hat)
         gamma_star, delta_star = _solve_eb_for_batches(
-            gamma_hat, delta_hat, batches, unique_batches, gamma_bar, t2, a_prior, b_prior
+            gamma_hat,
+            delta_hat,
+            batches,
+            unique_batches,
+            gamma_bar,
+            t2,
+            a_prior,
+            b_prior,
         )
     else:
         gamma_star, delta_star = _solve_nonparametric_for_batches(
@@ -464,7 +484,7 @@ def _solve_eb(
         d_new = (b + 0.5 * sum2) / denom
 
         change = np.max(np.abs(g_new - g_old) / (np.abs(g_old) + 1e-8)) + np.max(
-            np.abs(d_new - d_old) / (np.abs(d_old) + 1e-8)
+            np.abs(d_new - d_old) / (np.abs(d_old) + 1e-8),
         )
 
         g_old, d_old = g_new, d_new

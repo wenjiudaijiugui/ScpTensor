@@ -26,8 +26,8 @@ class MissingValueHandler:
 
     @staticmethod
     def separate_mask(
-        X: np.ndarray,  # noqa: N803 - X is standard notation for data matrix
-        M: np.ndarray,  # noqa: N803 - M is standard notation for mask matrix
+        X: np.ndarray,
+        M: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Separate valid and missing values.
 
@@ -46,18 +46,19 @@ class MissingValueHandler:
             Missing values (where M > 0)
         m_types : ndarray
             Missing value types
+
         """
         valid_mask = M == 0
         missing_mask = M > 0
 
-        x_valid = X[valid_mask]  # noqa: N806
-        x_missing = X[missing_mask]  # noqa: N806
-        m_types = M[missing_mask]  # noqa: N806
+        x_valid = X[valid_mask]
+        x_missing = X[missing_mask]
+        m_types = M[missing_mask]
 
         return x_valid, x_missing, m_types
 
     @staticmethod
-    def get_present_mask_codes(M: np.ndarray) -> list[int]:  # noqa: N803
+    def get_present_mask_codes(M: np.ndarray) -> list[int]:
         """Return sorted non-zero mask codes present in input mask."""
         mask_array = np.asarray(M).ravel()
         if mask_array.size == 0:
@@ -73,7 +74,7 @@ class MissingValueHandler:
     def _validate_overlay_inputs(
         x: np.ndarray,
         y: np.ndarray,
-        M: np.ndarray,  # noqa: N803
+        M: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Validate and flatten overlay inputs to 1D arrays."""
         x_arr = np.asarray(x).ravel()
@@ -82,7 +83,7 @@ class MissingValueHandler:
 
         if x_arr.shape != y_arr.shape or x_arr.shape != m_arr.shape:
             raise ValueError(
-                "x, y, and M must have the same number of elements for overlay scatter"
+                "x, y, and M must have the same number of elements for overlay scatter",
             )
         return x_arr, y_arr, m_arr
 
@@ -90,7 +91,7 @@ class MissingValueHandler:
     def create_overlay_scatter(
         x: np.ndarray,
         y: np.ndarray,
-        M: np.ndarray,  # noqa: N803 - M is standard notation for mask matrix
+        M: np.ndarray,
         ax: plt.Axes,
         size: float = 5.0,
         alpha: float = 0.8,
@@ -120,6 +121,7 @@ class MissingValueHandler:
         -------
         dict
             Dictionary with legend handles/labels as keys
+
         """
         x_arr, y_arr, m_arr = MissingValueHandler._validate_overlay_inputs(x, y, M)
         mask_codes = MissingValueHandler.get_present_mask_codes(m_arr)

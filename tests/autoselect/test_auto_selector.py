@@ -24,14 +24,14 @@ def simple_container() -> ScpContainer:
         {
             "_index": ["S1", "S2", "S3", "S4", "S5"],
             "batch": ["B1", "B1", "B2", "B2", "B1"],
-        }
+        },
     )
 
     var = pl.DataFrame(
         {
             "_index": ["P1", "P2", "P3"],
             "protein": ["A", "B", "C"],
-        }
+        },
     )
 
     matrix = ScpMatrix(X=X)
@@ -57,7 +57,7 @@ def larger_container() -> ScpContainer:
         {
             "_index": [f"S{i}" for i in range(n_samples)],
             "batch": np.array(["B1"] * 40 + ["B2"] * 40),
-        }
+        },
     )
     var = pl.DataFrame({"_index": [f"P{i}" for i in range(n_features)]})
 
@@ -341,7 +341,7 @@ class TestAutoSelectorRunStage:
                     "bio_conservation": 0.0,
                     "technical_quality": 0.0,
                     "balance_score": 0.0,
-                }
+                },
             },
         )
 

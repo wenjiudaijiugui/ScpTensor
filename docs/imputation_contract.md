@@ -61,7 +61,7 @@
 
 ### 2.3 当前公开 API
 
-`scptensor.impute.__all__` 当前导出两类公共入口：
+`scptensor.impute.__all__` 当前只导出 user-facing imputation 入口：
 
 - individual method wrappers：
   - `impute_none`
@@ -77,13 +77,18 @@
   - `impute_softimpute`
   - `impute_qrilc`
   - `impute_minprob`
-- unified interface helpers：
+- unified interface：
   - `impute`
-  - `list_impute_methods`
-  - `infer_missing_mechanism`
-  - `recommend_impute_method`
 
-`scptensor.__all__` 当前只从 imputation 模块顶层重导出 individual wrappers：
+`scptensor.impute.base.__all__` 当前导出 registry / selection helpers：
+
+- `list_impute_methods`
+- `infer_missing_mechanism`
+- `recommend_impute_method`
+
+`scptensor.__all__` 当前不再从 imputation 模块顶层重导出这些 wrappers。
+
+不会重导出：
 
 - `impute_none`
 - `impute_zero`
@@ -98,9 +103,6 @@
 - `impute_mf`
 - `impute_qrilc`
 - `impute_minprob`
-
-不会重导出：
-
 - `impute`
 - `list_impute_methods`
 - `infer_missing_mechanism`
@@ -108,8 +110,9 @@
 
 因此当前稳定边界是：
 
-- `scptensor.impute` 子包是 unified dispatch / mechanism helper 的公共入口；
-- 顶层 `scptensor` 只暴露 individual method wrappers，不把统一分发入口升格为顶层主 API。
+- `scptensor.impute` 子包是 user-facing method wrapper / unified dispatch 的公共入口；
+- `scptensor.impute.base` 承担 registry 与 mechanism helper 的显式入口；
+- 顶层 `scptensor` 不再承担 imputation facade，调用方应显式从 `scptensor.impute` 导入。
 
 ## 3. 稳定场景边界
 
@@ -137,7 +140,7 @@
 
 ### 4.1 统一注册名
 
-当前 `list_impute_methods()` 注册的稳定方法名为：
+当前 `scptensor.impute.base.list_impute_methods()` 注册的稳定方法名为：
 
 - `none`
 - `zero`
@@ -340,7 +343,7 @@
 
 ### 8.3 当前缺失机制推断规则
 
-`infer_missing_mechanism()` 当前使用透明启发式，而不是模型训练：
+`scptensor.impute.base.infer_missing_mechanism()` 当前使用透明启发式，而不是模型训练：
 
 1. 计算 feature 平均强度与 feature 缺失率的 Spearman 相关。
 2. 计算 sample-level missingness CV。

@@ -10,14 +10,14 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
-from scptensor.core.exceptions import AssayNotFoundError, ValidationError
-from scptensor.core.structures import (
+from scptensor.core._structure_assay import Assay
+from scptensor.core._structure_container import ScpContainer
+from scptensor.core._structure_matrix import (
     AggregationLink,
-    Assay,
     ProvenanceLog,
-    ScpContainer,
     ScpMatrix,
 )
+from scptensor.core.exceptions import AssayNotFoundError, ValidationError
 
 BasicAggMethod = Literal["sum", "mean", "median", "max", "weighted_mean"]
 AggMethod = Literal[
@@ -45,7 +45,7 @@ _DEFAULT_PROTEIN_COLUMNS: tuple[str, ...] = (
 def _to_dense_float64(matrix: np.ndarray | sp.spmatrix) -> np.ndarray:
     """Convert dense/sparse matrices to dense float64 arrays."""
     if sp.issparse(matrix):
-        return cast(sp.spmatrix, matrix).toarray().astype(np.float64, copy=False)
+        return cast("sp.spmatrix", matrix).toarray().astype(np.float64, copy=False)
     return np.asarray(matrix, dtype=np.float64)
 
 
@@ -54,7 +54,7 @@ def _to_dense_int8(mask: np.ndarray | sp.spmatrix | None, shape: tuple[int, int]
     if mask is None:
         return np.zeros(shape, dtype=np.int8)
     if sp.issparse(mask):
-        return cast(sp.spmatrix, mask).toarray().astype(np.int8, copy=False)
+        return cast("sp.spmatrix", mask).toarray().astype(np.int8, copy=False)
     return np.asarray(mask, dtype=np.int8)
 
 
@@ -209,7 +209,11 @@ def _aggregate_maxlfq(values: np.ndarray, min_ratio_count: int = 1) -> np.ndarra
 
 
 def _aggregate_tmp(
-    values: np.ndarray, *, log_base: float = 2.0, max_iter: int = 20, tol: float = 1e-6
+    values: np.ndarray,
+    *,
+    log_base: float = 2.0,
+    max_iter: int = 20,
+    tol: float = 1e-6,
 ) -> np.ndarray:
     """Tukey median polish summarization on log-intensity scale."""
     out = np.full(values.shape[0], np.nan, dtype=np.float64)
@@ -258,7 +262,7 @@ def resolve_protein_mapping_column(var: pl.DataFrame, protein_column: str = "aut
     if protein_column != "auto":
         if protein_column not in var.columns:
             raise ValidationError(
-                f"protein_column='{protein_column}' not found. Available columns: {var.columns}"
+                f"protein_column='{protein_column}' not found. Available columns: {var.columns}",
             )
         return protein_column
 
@@ -272,12 +276,12 @@ def resolve_protein_mapping_column(var: pl.DataFrame, protein_column: str = "aut
     if len(protein_like) > 1:
         raise ValidationError(
             "Multiple protein-like columns detected. "
-            f"Please pass protein_column explicitly. Candidates: {protein_like}"
+            f"Please pass protein_column explicitly. Candidates: {protein_like}",
         )
 
     raise ValidationError(
         "No protein mapping column found in peptide metadata. "
-        f"Tried defaults: {_DEFAULT_PROTEIN_COLUMNS}. Available columns: {var.columns}"
+        f"Tried defaults: {_DEFAULT_PROTEIN_COLUMNS}. Available columns: {var.columns}",
     )
 
 
@@ -292,7 +296,7 @@ def _resolve_ibaq_denominator(
     if protein_id not in ibaq_denominator:
         raise ValidationError(
             "Missing iBAQ denominator for protein. "
-            f"protein_id='{protein_id}'. Provide all denominators in ibaq_denominator."
+            f"protein_id='{protein_id}'. Provide all denominators in ibaq_denominator.",
         )
 
     denom = float(ibaq_denominator[protein_id])
@@ -304,7 +308,9 @@ def _resolve_ibaq_denominator(
 def _group_indices_by_protein(protein_ids: np.ndarray) -> tuple[np.ndarray, list[np.ndarray]]:
     """Group feature indices by sorted protein identifier."""
     unique_proteins, inverse, counts = np.unique(
-        np.asarray(protein_ids), return_inverse=True, return_counts=True
+        np.asarray(protein_ids),
+        return_inverse=True,
+        return_counts=True,
     )
     if unique_proteins.size == 0:
         return unique_proteins, []
@@ -361,7 +367,7 @@ def _prepare_protein_groups(
     valid_idx_arr = np.asarray(valid_idx, dtype=np.int64)
     if valid_idx_arr.size == 0:
         raise ValidationError(
-            "No mapped peptides available after removing null or empty protein mapping values."
+            "No mapped peptides available after removing null or empty protein mapping values.",
         )
 
     return np.asarray(group_ids, dtype=object), valid_idx_arr, label_by_group
@@ -450,7 +456,7 @@ def aggregate_to_protein(
     if source_layer not in peptide_assay.layers:
         raise ValidationError(
             f"Layer '{source_layer}' not found in assay '{source_assay}'. "
-            f"Available: {list(peptide_assay.layers.keys())}"
+            f"Available: {list(peptide_assay.layers.keys())}",
         )
 
     protein_col = resolve_protein_mapping_column(peptide_assay.var, protein_column)
@@ -518,8 +524,9 @@ def aggregate_to_protein(
     if protein_col != "_index":
         protein_var = protein_var.with_columns(
             pl.Series(
-                protein_col, [protein_label_by_group[protein_id] for protein_id in protein_index]
-            )
+                protein_col,
+                [protein_label_by_group[protein_id] for protein_id in protein_index],
+            ),
         )
 
     protein_assay = Assay(
@@ -556,7 +563,7 @@ def aggregate_to_protein(
                 f"Aggregated {source_assay}/{source_layer} -> {target_assay} via {method} "
                 f"(protein_column={protein_col})."
             ),
-        )
+        ),
     )
 
     new_assays = dict(container.assays)

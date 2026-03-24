@@ -60,8 +60,9 @@ def test_validate_features_errors(validation_container: ScpContainer) -> None:
         obs=pl.DataFrame({"_index": ["S1"]}),
         assays={
             "proteins": Assay(
-                var=pl.DataFrame({"_index": []}), layers={"raw": ScpMatrix(X=np.zeros((1, 0)))}
-            )
+                var=pl.DataFrame({"_index": []}),
+                layers={"raw": ScpMatrix(X=np.zeros((1, 0)))},
+            ),
         },
     )
     with pytest.raises(VisualizationError, match="has no features"):

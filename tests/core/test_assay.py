@@ -1,5 +1,4 @@
-"""
-Tests for Assay core structure.
+"""Tests for Assay core structure.
 
 This module contains tests for Assay functionality.
 """
@@ -185,7 +184,7 @@ class TestAssayBasic:
                 "protein_name": ["Protein1", "Protein2", "Protein3"],
                 "chromosome": ["chr1", "chr2", "chr3"],
                 "is_significant": [True, False, True],
-            }
+            },
         )
         X = np.random.rand(10, 3)
         matrix = ScpMatrix(X=X)

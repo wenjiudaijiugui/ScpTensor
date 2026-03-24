@@ -78,7 +78,8 @@ class TestMatrixTypes:
         from scipy import sparse
 
         mask: MaskMatrix = sparse.csr_matrix(
-            [[MaskCode.VALID, 0], [MaskCode.LOD, MaskCode.VALID]], dtype=np.int8
+            [[MaskCode.VALID, 0], [MaskCode.LOD, MaskCode.VALID]],
+            dtype=np.int8,
         )
         assert sparse.issparse(mask)
 

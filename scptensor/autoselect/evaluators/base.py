@@ -19,7 +19,7 @@ import re
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
@@ -75,7 +75,36 @@ def create_wrapper(
     ...     layer_namer="clean",
     ...     batch_key="batch"
     ... )
+
     """
+    signature = inspect.signature(func)
+    parameters = signature.parameters
+    accepted_params = set(parameters.keys())
+    required_params = ("container", "assay_name", source_layer_param)
+    missing_required = [name for name in required_params if name not in accepted_params]
+    if missing_required:
+        raise TypeError(
+            f"create_wrapper() requires `{func.__name__}` to declare parameters "
+            f"{list(required_params)}; missing {missing_required}.",
+        )
+
+    unsupported_extra = sorted(set(extra_params) - accepted_params)
+    if unsupported_extra:
+        raise TypeError(
+            f"create_wrapper() for `{func.__name__}` received unsupported fixed params "
+            f"{unsupported_extra}. Declare these parameters explicitly in the method "
+            "signature before wiring through create_wrapper.",
+        )
+
+    fixed_param_names = {"container", "assay_name", source_layer_param, "new_layer_name"}
+    allowed_runtime_kwargs = sorted(
+        name
+        for name, param in parameters.items()
+        if name not in fixed_param_names
+        and param.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+    )
+    allowed_runtime_set = set(allowed_runtime_kwargs)
+
     # Determine layer naming strategy
     get_layer_name: Callable[[str, str], str]
     if layer_namer == "auto":
@@ -101,25 +130,24 @@ def create_wrapper(
     ) -> ScpContainer:
         """Wrapper for method functions."""
         new_layer_name = get_layer_name(source_layer, func.__name__)
-        signature = inspect.signature(func)
-        accepted = set(signature.parameters.keys())
-        supports_var_kwargs = any(
-            param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
-        )
+        unknown_runtime_kwargs = sorted(set(kwargs) - allowed_runtime_set)
+        if unknown_runtime_kwargs:
+            allowed_display = allowed_runtime_kwargs if allowed_runtime_kwargs else ["<none>"]
+            raise TypeError(
+                f"{func.__name__} wrapper received unsupported runtime kwargs "
+                f"{unknown_runtime_kwargs}. Allowed runtime kwargs: {allowed_display}.",
+            )
 
-        raw_params = {
+        call_params = {
             "container": container,
             "assay_name": assay_name,
             source_layer_param: source_layer,
-            "new_layer_name": new_layer_name,
-            **extra_params,
-            **kwargs,
         }
-        if supports_var_kwargs:
-            return func(**raw_params)
-
-        filtered = {k: v for k, v in raw_params.items() if k in accepted}
-        return func(**filtered)
+        if "new_layer_name" in accepted_params:
+            call_params["new_layer_name"] = new_layer_name
+        call_params.update(extra_params)
+        call_params.update(kwargs)
+        return func(**call_params)
 
     return wrapper
 
@@ -169,7 +197,11 @@ class BaseEvaluator(ABC):
     ...     def compute_metrics(self, container, original, layer_name):
     ...         # Compute and return metrics
     ...         return {"variance": 0.9, "batch_effect": 0.85, "completeness": 0.95}
+
     """
+
+    _metric_assay_name: str | None = None
+    _metric_source_layer: str | None = None
 
     @property
     @abstractmethod
@@ -180,8 +212,8 @@ class BaseEvaluator(ABC):
         -------
         str
             Stage name (e.g., "normalization", "imputation", "batch_correction")
+
         """
-        pass
 
     @property
     @abstractmethod
@@ -193,9 +225,14 @@ class BaseEvaluator(ABC):
         dict[str, Callable]
             Dictionary mapping method names to their implementation functions.
             Each function should have signature:
-            func(container: ScpContainer, assay_name: str, source_layer: str, **kwargs) -> ScpContainer
+            func(
+                container: ScpContainer,
+                assay_name: str,
+                source_layer: str,
+                **kwargs,
+            ) -> ScpContainer
+
         """
-        pass
 
     @property
     @abstractmethod
@@ -209,8 +246,8 @@ class BaseEvaluator(ABC):
         -------
         dict[str, float]
             Dictionary mapping metric names to their weights
+
         """
-        pass
 
     @abstractmethod
     def compute_metrics(
@@ -234,8 +271,23 @@ class BaseEvaluator(ABC):
         -------
         dict[str, float]
             Dictionary mapping metric names to their scores (0.0 to 1.0)
+
         """
-        pass
+
+    def compute_report_metrics(
+        self,
+        container: ScpContainer,
+        original_container: ScpContainer,
+        layer_name: str,
+        scores: dict[str, float],
+    ) -> dict[str, float]:
+        """Compute additional reporting metrics not used for ranking.
+
+        Subclasses can override this to surface diagnostics separately from
+        ``scores``. The default implementation returns an empty mapping.
+        """
+        del container, original_container, layer_name, scores
+        return {}
 
     def get_metric_weights(self) -> dict[str, float]:
         """Return metric weights, applying overrides if present."""
@@ -279,6 +331,7 @@ class BaseEvaluator(ABC):
         >>> evaluator = MyEvaluator()
         >>> scores = {"metric1": 0.9, "metric2": 0.8}
         >>> overall = evaluator.compute_overall_score(scores)
+
         """
         weights = self.get_metric_weights()
         total_weight = sum(weights.values())
@@ -298,7 +351,7 @@ class BaseEvaluator(ABC):
         n_repeats = int(method_kwargs.pop("n_repeats", 1))
         confidence_level = float(method_kwargs.pop("confidence_level", 0.95))
         strategy = get_strategy_preset(
-            str(method_kwargs.pop("selection_strategy", "balanced"))
+            str(method_kwargs.pop("selection_strategy", "balanced")),
         ).name
 
         if n_repeats < 1:
@@ -319,22 +372,53 @@ class BaseEvaluator(ABC):
             repeat_kwargs["random_state"] = base_rs + repeat_idx
         return repeat_kwargs
 
-    def _resolve_metric_assay_name(self, container: ScpContainer, assay_name: str | None) -> str:
+    def _default_metric_assay_name(self) -> str | None:
+        """Return an evaluator-specific default assay name, if any."""
+        return None
+
+    def _resolve_metric_assay_name(
+        self,
+        container: ScpContainer,
+        assay_name: str | None,
+    ) -> str | None:
         """Resolve assay aliases for evaluator bookkeeping."""
         preferred = assay_name
         if preferred is None:
-            cached = getattr(self, "_metric_assay_name", "proteins")
-            preferred = cached if isinstance(cached, str) else "proteins"
+            cached = getattr(self, "_metric_assay_name", None)
+            preferred = cached if isinstance(cached, str) and cached else None
+        if preferred is None:
+            preferred = self._default_metric_assay_name()
+        if preferred is None:
+            return None
         return resolve_assay_name(container, preferred)
 
     def _get_metric_assay(self, container: ScpContainer, assay_name: str | None = None):
         """Return resolved assay or None when unavailable."""
         resolved = self._resolve_metric_assay_name(container, assay_name)
+        if resolved is None:
+            return None
         return container.assays.get(resolved)
 
     def _get_result_name(self, method_name: str, source_layer: str) -> str:
         """Return the result identifier stored in EvaluationResult.layer_name."""
         return f"{source_layer}_{method_name}"
+
+    def _result_output_kind(self) -> Literal["layer", "assay", "obs"]:
+        """Return the output storage kind for this evaluator."""
+        return "layer"
+
+    def _prepare_evaluation_context(
+        self,
+        assay_name: str,
+        source_layer: str,
+    ) -> None:
+        """Set any evaluator-local context needed by ``compute_metrics``."""
+        self._metric_assay_name = assay_name
+        del source_layer
+
+    def _clear_evaluation_context(self) -> None:
+        """Clear any evaluator-local context after one method evaluation."""
+        self._metric_assay_name = None
 
     def _collect_success_artifact(
         self,
@@ -344,6 +428,11 @@ class BaseEvaluator(ABC):
     ):
         """Extract the successful artifact from a result container."""
         resolved_assay_name = self._resolve_metric_assay_name(result_container, assay_name)
+        if resolved_assay_name is None:
+            raise ValueError(
+                "Metric assay name is undefined when collecting evaluator output. "
+                "This indicates evaluator context was not prepared correctly.",
+            )
         return result_container.assays[resolved_assay_name].layers[result_name]
 
     def _attach_success_artifact(
@@ -355,6 +444,11 @@ class BaseEvaluator(ABC):
     ) -> None:
         """Attach a stored artifact to the final result container."""
         resolved_assay_name = self._resolve_metric_assay_name(result_container, assay_name)
+        if resolved_assay_name is None:
+            raise ValueError(
+                "Metric assay name is undefined when attaching evaluator output. "
+                "This indicates evaluator context was not prepared correctly.",
+            )
         result_container.assays[resolved_assay_name].add_layer(result_name, artifact)
 
     def _create_stage_report(
@@ -499,9 +593,11 @@ class BaseEvaluator(ABC):
             failed_result = EvaluationResult(
                 method_name=method_name,
                 scores=dict.fromkeys(self.get_metric_weights(), 0.0),
+                report_metrics={},
                 overall_score=0.0,
                 execution_time=float(np.mean([r.execution_time for r in repeat_results])),
                 layer_name=layer_name,
+                output_kind=self._result_output_kind(),
                 error=merged_error,
                 n_repeats=n_repeats,
                 repeat_overall_scores=[],
@@ -516,6 +612,11 @@ class BaseEvaluator(ABC):
             key: float(np.mean([r.scores.get(key, 0.0) for r in successful]))
             for key in sorted(metric_keys)
         }
+        report_metric_keys = set().union(*(r.report_metrics.keys() for r in successful))
+        mean_report_metrics = {
+            key: float(np.mean([r.report_metrics.get(key, 0.0) for r in successful]))
+            for key in sorted(report_metric_keys)
+        }
         repeat_overall_scores = [float(r.overall_score) for r in successful]
         mean_overall = float(np.mean(repeat_overall_scores))
         overall_std = float(np.std(repeat_overall_scores, ddof=0))
@@ -525,9 +626,11 @@ class BaseEvaluator(ABC):
         merged = EvaluationResult(
             method_name=method_name,
             scores=mean_scores,
+            report_metrics=mean_report_metrics,
             overall_score=mean_overall,
             execution_time=mean_exec,
             layer_name=layer_name,
+            output_kind=self._result_output_kind(),
             error=None,
             n_repeats=n_repeats,
             overall_score_std=overall_std,
@@ -561,7 +664,7 @@ class BaseEvaluator(ABC):
 
         for result, runtime_score in zip(successful, runtime_scores, strict=False):
             selection_score = quality_weight * result.overall_score + runtime_weight * float(
-                runtime_score
+                runtime_score,
             )
             result.selection_score = float(np.clip(selection_score, 0.0, 1.0))
 
@@ -631,16 +734,24 @@ class BaseEvaluator(ABC):
         ... )
         >>> if container is not None:
         ...     print(f"Score: {result.overall_score}")
+
         """
         new_layer_name = self._get_result_name(method_name, source_layer)
         start_time = time.perf_counter()
         result_container: ScpContainer | None = None
         error_msg: str | None = None
         scores: dict[str, float] = {}
+        report_metrics: dict[str, float] = {}
 
         try:
             resolved_assay_name = self._resolve_metric_assay_name(container, assay_name)
+            if resolved_assay_name is None:
+                raise ValueError(
+                    "Metric assay name is undefined for this evaluator. "
+                    "Pass assay_name explicitly or set evaluator context before evaluation.",
+                )
             self._metric_assay_name = resolved_assay_name
+            self._prepare_evaluation_context(resolved_assay_name, source_layer)
             result_container = method_func(
                 container=container.copy(),
                 assay_name=resolved_assay_name,
@@ -652,10 +763,23 @@ class BaseEvaluator(ABC):
                 if result_container
                 else {}
             )
+            report_metrics = (
+                self.compute_report_metrics(
+                    result_container,
+                    container,
+                    new_layer_name,
+                    scores,
+                )
+                if result_container
+                else {}
+            )
         except Exception as e:
             error_msg = f"{type(e).__name__}: {e}"
             result_container = None
             scores = dict.fromkeys(self.get_metric_weights(), 0.0)
+            report_metrics = {}
+        finally:
+            self._clear_evaluation_context()
 
         execution_time = time.perf_counter() - start_time
         overall_score = 0.0 if error_msg else self.compute_overall_score(scores)
@@ -663,9 +787,11 @@ class BaseEvaluator(ABC):
         eval_result = EvaluationResult(
             method_name=method_name,
             scores=scores,
+            report_metrics=report_metrics,
             overall_score=overall_score,
             execution_time=execution_time,
             layer_name=new_layer_name,
+            output_kind=self._result_output_kind(),
             error=error_msg,
         )
 
@@ -717,6 +843,7 @@ class BaseEvaluator(ABC):
         ... )
         >>> print(f"Best method: {report.best_method}")
         >>> print(f"Best score: {report.best_result.overall_score}")
+
         """
         n_repeats, confidence_level, strategy, method_kwargs = self._extract_eval_controls(kwargs)
         report = self._create_stage_report(
@@ -740,16 +867,23 @@ class BaseEvaluator(ABC):
         if not successful_results:
             report.best_method = ""
             report.best_result = None
-            report.recommendation_reason = "All methods failed"
+            report.recommendation_reason = (
+                "All methods failed; returned an unchanged input-container copy."
+            )
             return container.copy(), report
 
         # Select best and build result container
         best_result = self._select_best_result(successful_results)
         report.best_method = best_result.method_name
         report.best_result = best_result
+        best_selection_score = (
+            best_result.selection_score
+            if best_result.selection_score is not None
+            else best_result.overall_score
+        )
         report.recommendation_reason = (
             f"Best '{strategy}' selection score "
-            f"({best_result.selection_score if best_result.selection_score is not None else best_result.overall_score:.4f}) "
+            f"({best_selection_score:.4f}) "
             f"from {len(successful_results)} successful methods (n_repeats={n_repeats})."
         )
         return (

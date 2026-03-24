@@ -1,5 +1,4 @@
-"""
-Comprehensive tests for QC module.
+"""Comprehensive tests for QC module.
 
 Tests cover the refactored QC module structure:
 - qc_psm: PSM-level filtering (filter_contaminants, filter_psms_by_pif)
@@ -35,7 +34,7 @@ def qc_obs():
         {
             "_index": [str(i) for i in range(20)],  # Use integer strings as IDs
             "batch": ["A"] * 10 + ["B"] * 10,
-        }
+        },
     )
 
 
@@ -55,7 +54,7 @@ def qc_var():
                 str(i) for i in range(20)
             ],  # Use integer strings as IDs (matches positional indices)
             "name": protein_names,
-        }
+        },
     )
 
 
@@ -76,7 +75,7 @@ def qc_var_with_contaminants():
         {
             "_index": [str(i) for i in range(20)],
             "name": protein_names,
-        }
+        },
     )
 
 
@@ -158,7 +157,7 @@ def qc_psm_container(qc_obs):
             "gene_names": ["KRT1", "PEP_A", "PEP_B", "PEP_C"],
             "pif": [0.95, 0.60, 0.82, 0.40],
             "qvalue": [0.001, 0.020, 0.200, 0.005],
-        }
+        },
     )
     X = np.arange(16, dtype=np.float64).reshape(4, 4) + 1.0
     assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
@@ -192,7 +191,8 @@ class TestCalculateSampleQCMetrics:
     def test_calculate_sample_qc_metrics_custom_layer(self, qc_container_multi_layer):
         """Test with different layer."""
         result = qc_sample.calculate_sample_qc_metrics(
-            qc_container_multi_layer, layer_name="normalized"
+            qc_container_multi_layer,
+            layer_name="normalized",
         )
         assert "n_features_protein" in result.obs.columns
 
@@ -242,7 +242,7 @@ class TestCalculateSampleQCMetrics:
         container = ScpContainer(
             obs=qc_obs.head(2),
             assays={
-                "protein": Assay(var=qc_var.head(2), layers={"normalized": ScpMatrix(X=X, M=M)})
+                "protein": Assay(var=qc_var.head(2), layers={"normalized": ScpMatrix(X=X, M=M)}),
             },
         )
 
@@ -272,7 +272,10 @@ class TestFilterLowQualitySamples:
     def test_filter_low_quality_samples_with_mad(self, qc_container):
         """Test with MAD-based filtering."""
         result = qc_sample.filter_low_quality_samples(
-            qc_container, min_features=2, nmads=2.0, use_mad=True
+            qc_container,
+            min_features=2,
+            nmads=2.0,
+            use_mad=True,
         )
         assert isinstance(result, ScpContainer)
         assert result.n_samples <= qc_container.n_samples
@@ -314,8 +317,8 @@ class TestFilterLowQualitySamples:
         result = qc_sample.filter_low_quality_samples(container, min_features=2, use_mad=False)
         assert result.obs["_index"].to_list() == ["S2"]
 
-    def test_filter_low_quality_samples_falls_back_to_first_layer_without_raw(self):
-        """Sample filters should fall back to the first layer when raw is absent."""
+    def test_filter_low_quality_samples_requires_raw_by_default(self):
+        """Sample filters should require raw unless callers select another layer explicitly."""
         obs = pl.DataFrame({"_index": ["S1", "S2"]})
         var = pl.DataFrame({"_index": ["F1", "F2"]})
         normalized_X = np.array([[1.0, 0.0], [1.0, 1.0]])
@@ -329,7 +332,15 @@ class TestFilterLowQualitySamples:
         assay = Assay(var=var, layers={"normalized": ScpMatrix(X=normalized_X, M=normalized_M)})
         container = ScpContainer(obs=obs, assays={"protein": assay})
 
-        result = qc_sample.filter_low_quality_samples(container, min_features=2, use_mad=False)
+        with pytest.raises(LayerNotFoundError):
+            qc_sample.filter_low_quality_samples(container, min_features=2, use_mad=False)
+
+        result = qc_sample.filter_low_quality_samples(
+            container,
+            layer_name="normalized",
+            min_features=2,
+            use_mad=False,
+        )
         assert result.obs["_index"].to_list() == ["S2"]
 
     def test_filter_low_quality_samples_preserves_filter_provenance(self, qc_container):
@@ -402,7 +413,9 @@ class TestAssessBatchEffects:
         """Test that invalid assay raises error."""
         with pytest.raises(AssayNotFoundError):
             qc_sample.assess_batch_effects(
-                qc_container, batch_col="batch", assay_name="nonexistent"
+                qc_container,
+                batch_col="batch",
+                assay_name="nonexistent",
             )
 
     def test_assess_batch_effects_prefers_raw_when_present(self):
@@ -425,8 +438,8 @@ class TestAssessBatchEffects:
         result = qc_sample.assess_batch_effects(container, batch_col="batch")
         assert result["median_intensity"].to_list() == pytest.approx([3.0])
 
-    def test_assess_batch_effects_falls_back_to_first_layer_without_raw(self):
-        """Batch summaries should still work when only a non-raw layer exists."""
+    def test_assess_batch_effects_requires_raw_by_default(self):
+        """Batch summaries should require raw unless callers select another layer explicitly."""
         obs = pl.DataFrame({"_index": ["S1", "S2"], "batch": ["A", "B"]})
         var = pl.DataFrame({"_index": ["F1", "F2"]})
         normalized_X = np.array([[1.0, 0.0], [2.0, 2.0]])
@@ -434,7 +447,14 @@ class TestAssessBatchEffects:
         assay = Assay(var=var, layers={"normalized": ScpMatrix(X=normalized_X, M=normalized_M)})
         container = ScpContainer(obs=obs, assays={"protein": assay})
 
-        result = qc_sample.assess_batch_effects(container, batch_col="batch")
+        with pytest.raises(LayerNotFoundError):
+            qc_sample.assess_batch_effects(container, batch_col="batch")
+
+        result = qc_sample.assess_batch_effects(
+            container,
+            batch_col="batch",
+            layer_name="normalized",
+        )
         assert result["median_intensity"].to_list() == pytest.approx([1.0, 4.0])
 
 
@@ -469,7 +489,8 @@ class TestCalculateFeatureQCMetrics:
     def test_calculate_feature_qc_metrics_custom_layer(self, qc_container_multi_layer):
         """Test with different layer."""
         result = qc_feature.calculate_feature_qc_metrics(
-            qc_container_multi_layer, layer_name="normalized"
+            qc_container_multi_layer,
+            layer_name="normalized",
         )
         var = result.assays["protein"].var
         assert "missing_rate" in var.columns
@@ -511,8 +532,8 @@ class TestCalculateFeatureQCMetrics:
         assert len(qc_container.history) == 0
         assert len(result.history) == 1
 
-    def test_calculate_feature_qc_metrics_uses_first_layer_when_unspecified(self):
-        """Feature QC should use the first layer when layer_name is None."""
+    def test_calculate_feature_qc_metrics_defaults_to_raw_even_when_not_first_layer(self):
+        """Feature QC should use raw by default instead of assay layer insertion order."""
         obs = pl.DataFrame({"_index": ["S1", "S2", "S3"]})
         var = pl.DataFrame({"_index": ["F1", "F2"]})
         normalized_X = np.ones((3, 2))
@@ -531,8 +552,10 @@ class TestCalculateFeatureQCMetrics:
         result_default = qc_feature.calculate_feature_qc_metrics(container)
         result_raw = qc_feature.calculate_feature_qc_metrics(container, layer_name="raw")
 
-        assert result_default.assays["protein"].var["cv"].to_list() == pytest.approx([0.0, 0.0])
-        assert result_raw.assays["protein"].var["cv"].to_list()[0] > 0.0
+        assert result_default.assays["protein"].var["cv"].to_list() == pytest.approx(
+            result_raw.assays["protein"].var["cv"].to_list(),
+        )
+        assert result_default.assays["protein"].var["cv"].to_list()[0] > 0.0
 
 
 class TestFilterFeaturesByMissingness:
@@ -559,7 +582,8 @@ class TestFilterFeaturesByMissingness:
     def test_filter_features_by_missingness_sparse(self, qc_container_sparse):
         """Test with sparse matrix."""
         result = qc_feature.filter_features_by_missingness(
-            qc_container_sparse, max_missing_rate=0.5
+            qc_container_sparse,
+            max_missing_rate=0.5,
         )
         assert isinstance(result, ScpContainer)
 
@@ -597,12 +621,14 @@ class TestFilterFeaturesByMissingness:
     def test_filter_features_by_missingness_accepts_alias(self, qc_container):
         """Feature filtering should resolve proteins/protein aliases consistently."""
         result = qc_feature.filter_features_by_missingness(
-            qc_container, assay_name="proteins", max_missing_rate=0.5
+            qc_container,
+            assay_name="proteins",
+            max_missing_rate=0.5,
         )
         assert isinstance(result, ScpContainer)
 
-    def test_filter_features_by_missingness_uses_first_layer_when_unspecified(self):
-        """Missingness filtering should use the first layer when layer_name is None."""
+    def test_filter_features_by_missingness_defaults_to_raw_even_when_not_first_layer(self):
+        """Missingness filtering should use raw by default instead of the first layer."""
         obs = pl.DataFrame({"_index": ["S1", "S2"]})
         var = pl.DataFrame({"_index": ["F1", "F2"]})
         normalized_X = np.array([[1.0, 0.0], [1.0, 0.0]])
@@ -624,8 +650,15 @@ class TestFilterFeaturesByMissingness:
         )
         container = ScpContainer(obs=obs, assays={"protein": assay})
 
-        result = qc_feature.filter_features_by_missingness(container, max_missing_rate=0.0)
-        assert result.assays["protein"].var["_index"].to_list() == ["F1"]
+        result_default = qc_feature.filter_features_by_missingness(container, max_missing_rate=0.0)
+        result_normalized = qc_feature.filter_features_by_missingness(
+            container,
+            layer_name="normalized",
+            max_missing_rate=0.0,
+        )
+
+        assert result_default.assays["protein"].var["_index"].to_list() == ["F1", "F2"]
+        assert result_normalized.assays["protein"].var["_index"].to_list() == ["F1"]
 
     def test_filter_features_by_missingness_preserves_filter_provenance(self, qc_container):
         """Feature filtering should keep both generic and entrypoint-specific logs."""
@@ -665,28 +698,24 @@ class TestFilterFeaturesByCV:
         with pytest.raises(AssayNotFoundError):
             qc_feature.filter_features_by_cv(qc_container, assay_name="nonexistent")
 
-    def test_filter_features_by_cv_uses_first_layer_when_unspecified(self):
-        """CV filtering should use the first layer when layer_name is None."""
+    def test_filter_features_by_cv_requires_raw_by_default(self):
+        """CV filtering should require raw unless callers select another layer explicitly."""
         obs = pl.DataFrame({"_index": ["S1", "S2", "S3"]})
         var = pl.DataFrame({"_index": ["F1", "F2"]})
         normalized_X = np.ones((3, 2))
         normalized_M = np.full(normalized_X.shape, MaskCode.VALID.value, dtype=np.int8)
-        raw_X = np.array([[1.0, 1.0], [10.0, 10.0], [20.0, 20.0]])
-        raw_M = np.full(raw_X.shape, MaskCode.VALID.value, dtype=np.int8)
-        assay = Assay(
-            var=var,
-            layers={
-                "normalized": ScpMatrix(X=normalized_X, M=normalized_M),
-                "raw": ScpMatrix(X=raw_X, M=raw_M),
-            },
-        )
+        assay = Assay(var=var, layers={"normalized": ScpMatrix(X=normalized_X, M=normalized_M)})
         container = ScpContainer(obs=obs, assays={"protein": assay})
 
-        result_default = qc_feature.filter_features_by_cv(container, max_cv=0.1)
-        result_raw = qc_feature.filter_features_by_cv(container, layer_name="raw", max_cv=0.1)
+        with pytest.raises(LayerNotFoundError):
+            qc_feature.filter_features_by_cv(container, max_cv=0.1)
 
-        assert result_default.assays["protein"].n_features == 2
-        assert result_raw.assays["protein"].n_features == 0
+        result = qc_feature.filter_features_by_cv(
+            container,
+            layer_name="normalized",
+            max_cv=0.1,
+        )
+        assert result.assays["protein"].n_features == 2
 
 
 # =============================================================================
@@ -698,14 +727,16 @@ class TestQCPsmModuleSurface:
     """Tests for qc_psm module-level export boundaries."""
 
     def test_qc_psm_module_all_explicitly_freezes_public_surface(self):
-        """Module-level __all__ should freeze helpers and exclude imported implementation details."""
+        """Module-level __all__ should freeze helpers.
+
+        Imported implementation details must stay excluded.
+        """
         assert qc_psm.__all__ == [
             "filter_psms_by_pif",
             "filter_contaminants",
             "pep_to_qvalue",
             "filter_psms_by_qvalue",
             "compute_sample_cv",
-            "compute_median_cv",
         ]
         assert "_DEFAULT_CONTAMINANT_PATTERNS" not in qc_psm.__all__
         assert "np" not in qc_psm.__all__
@@ -720,7 +751,9 @@ class TestFilterContaminants:
     def test_filter_contaminants_default(self, qc_container_with_contaminants):
         """Test contaminant filtering with default patterns."""
         result = qc_psm.filter_contaminants(
-            qc_container_with_contaminants, assay_name="protein", feature_col="name"
+            qc_container_with_contaminants,
+            assay_name="protein",
+            feature_col="name",
         )
         assert isinstance(result, ScpContainer)
         # Should have removed some contaminant proteins
@@ -912,28 +945,13 @@ class TestComputeSampleCV:
             qc_psm.compute_sample_cv(qc_psm_container, assay_name="peptide", layer_name="norm")
 
 
-class TestComputeMedianCVCompatibilityAlias:
-    """Tests for the legacy compute_median_cv compatibility alias."""
+class TestComputeMedianCVRetirement:
+    """Tests for the retired compute_median_cv alias."""
 
-    def test_compute_median_cv_warns_and_preserves_legacy_columns(self, qc_psm_container):
-        """Legacy alias should warn, point callers to migration, and keep old outputs."""
-        expected_cv = compute_cv(qc_psm_container.assays["peptides"].layers["raw"].X.T, axis=0)
-
-        with pytest.warns(
-            FutureWarning,
-            match="compute_sample_cv.*future contract update.*repository-wide migration",
-        ):
-            result = qc_psm.compute_median_cv(
-                qc_psm_container,
-                assay_name="peptide",
-                layer_name="raw",
-                cv_threshold=0.3,
-            )
-
-        assert result.obs["median_cv"].to_list() == pytest.approx(expected_cv.tolist())
-        assert result.obs["is_high_cv"].to_list() == list(expected_cv > 0.3)
-        assert result.history[-1].action == "compute_median_cv"
-        assert result.history[-1].params["assay"] == "peptides"
+    def test_compute_median_cv_not_exported_and_not_available(self):
+        """Legacy alias should be fully removed from the module surface."""
+        assert "compute_median_cv" not in qc_psm.__all__
+        assert not hasattr(qc_psm, "compute_median_cv")
 
 
 # =============================================================================

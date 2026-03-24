@@ -13,7 +13,10 @@ from scptensor.dim_reduction import reduce_tsne
 
 
 def _make_container(
-    *, n_samples: int = 30, with_nan: bool = False, use_sparse: bool = False
+    *,
+    n_samples: int = 30,
+    with_nan: bool = False,
+    use_sparse: bool = False,
 ) -> ScpContainer:
     rng = np.random.default_rng(42)
     X = rng.normal(size=(n_samples, 15)).astype(np.float64)

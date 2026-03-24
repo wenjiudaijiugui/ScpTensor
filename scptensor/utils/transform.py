@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import scipy.sparse as sp
 
-from scptensor.normalization.quantile_normalization import _quantile_normalize_rows
+from scptensor.core._rank_normalization import quantile_normalize_dense_rows
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -63,6 +63,7 @@ def quantile_normalize(
     >>> X = np.array([[1, 5, 9], [2, 6, 10], [3, 7, 11], [4, 8, 12]])
     >>> X_norm = quantile_normalize(X, axis=0)
     >>> # All columns should have the same distribution
+
     """
     if axis not in (0, 1):
         raise ValueError(f"axis must be 0 or 1, got {axis}")
@@ -71,9 +72,9 @@ def quantile_normalize(
     X_working = X_working.astype(np.float64, copy=copy)
 
     if axis == 0:
-        return _quantile_normalize_rows(X_working.T).T.astype(np.float64, copy=False)
+        return quantile_normalize_dense_rows(X_working.T).T.astype(np.float64, copy=False)
 
-    return _quantile_normalize_rows(X_working).astype(np.float64, copy=False)
+    return quantile_normalize_dense_rows(X_working).astype(np.float64, copy=False)
 
 
 def robust_scale(
@@ -120,6 +121,7 @@ def robust_scale(
     >>> X_scaled = robust_scale(X, axis=0)
     >>> X_scaled.shape
     (4, 2)
+
     """
     if axis not in (0, 1):
         raise ValueError(f"axis must be 0 or 1, got {axis}")

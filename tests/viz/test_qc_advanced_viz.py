@@ -32,13 +32,13 @@ def qc_advanced_container() -> ScpContainer:
         {
             "_index": [f"S{i:02d}" for i in range(n_samples)],
             "batch": ["A"] * 6 + ["B"] * 6,
-        }
+        },
     )
     var = pl.DataFrame({"_index": [f"P{i:02d}" for i in range(n_features)]})
 
     x = rng.uniform(10, 100, size=(n_samples, n_features))
     m = rng.choice([0, 1, 2, 5], size=(n_samples, n_features), p=[0.75, 0.1, 0.1, 0.05]).astype(
-        np.int8
+        np.int8,
     )
     assay = Assay(var=var, layers={"raw": ScpMatrix(X=x, M=m)})
     return ScpContainer(obs=obs, assays={"proteins": assay})
@@ -78,7 +78,10 @@ def test_plot_sensitivity_summary_mask_none(qc_container_mask_none: ScpContainer
 def test_plot_cumulative_sensitivity_basic(qc_advanced_container: ScpContainer) -> None:
     plt.close("all")
     ax = plot_cumulative_sensitivity(
-        qc_advanced_container, group_by="batch", show_saturation=True, saturation_threshold=0.8
+        qc_advanced_container,
+        group_by="batch",
+        show_saturation=True,
+        saturation_threshold=0.8,
     )
     assert isinstance(ax, Axes)
     plt.close("all")
@@ -99,7 +102,10 @@ def test_plot_jaccard_heatmap_low_similarity_mode(qc_advanced_container: ScpCont
 def test_plot_missing_type_heatmap_basic(qc_advanced_container: ScpContainer) -> None:
     plt.close("all")
     ax = plot_missing_type_heatmap(
-        qc_advanced_container, cluster_samples=True, cluster_features=True, max_samples=12
+        qc_advanced_container,
+        cluster_samples=True,
+        cluster_features=True,
+        max_samples=12,
     )
     assert isinstance(ax, Axes)
     plt.close("all")

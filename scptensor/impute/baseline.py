@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import ScpContainer
 from scptensor.impute._utils import (
     add_imputed_layer,
     clone_layer_matrix,
@@ -248,13 +248,19 @@ def impute_half_row_min(
 
 register_impute_method(
     ImputeMethod(
-        name="none", supports_sparse=True, validate=lambda data: data.size > 0, apply=impute_none
-    )
+        name="none",
+        supports_sparse=True,
+        validate=lambda data: data.size > 0,
+        apply=impute_none,
+    ),
 )
 register_impute_method(
     ImputeMethod(
-        name="zero", supports_sparse=False, validate=lambda data: data.size > 0, apply=impute_zero
-    )
+        name="zero",
+        supports_sparse=False,
+        validate=lambda data: data.size > 0,
+        apply=impute_zero,
+    ),
 )
 register_impute_method(
     ImputeMethod(
@@ -262,7 +268,7 @@ register_impute_method(
         supports_sparse=False,
         validate=lambda data: data.size > 0,
         apply=impute_row_mean,
-    )
+    ),
 )
 register_impute_method(
     ImputeMethod(
@@ -270,7 +276,7 @@ register_impute_method(
         supports_sparse=False,
         validate=lambda data: data.size > 0,
         apply=impute_row_median,
-    )
+    ),
 )
 register_impute_method(
     ImputeMethod(
@@ -278,5 +284,5 @@ register_impute_method(
         supports_sparse=False,
         validate=lambda data: data.size > 0,
         apply=impute_half_row_min,
-    )
+    ),
 )

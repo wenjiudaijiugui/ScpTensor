@@ -32,7 +32,7 @@ def test_diann_peptide_matrix_to_complete_protein_matrix_acceptance(tmp_path: Pa
                 "[1] S1.raw.PEP.Quantity": [100.0, 50.0, 80.0, 40.0],
                 "[2] S2.raw.PEP.Quantity": [120.0, None, 90.0, 45.0],
                 "[3] S3.raw.PEP.Quantity": [None, 55.0, None, None],
-            }
+            },
         ),
     )
 
@@ -59,7 +59,7 @@ def test_diann_peptide_matrix_to_complete_protein_matrix_acceptance(tmp_path: Pa
                 [150.0, 120.0],
                 [120.0, 135.0],
                 [55.0, np.nan],
-            ]
+            ],
         ),
         equal_nan=True,
     )

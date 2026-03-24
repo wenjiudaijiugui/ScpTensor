@@ -6,7 +6,6 @@ import scptensor as scp
 import scptensor.viz as stable_viz
 from scptensor.viz import (
     ReportTheme,
-    embedding,
     generate_analysis_report,
     heatmap,
     plot_data_overview,
@@ -17,18 +16,12 @@ from scptensor.viz import (
     plot_qc_completeness,
     plot_qc_filtering_summary,
     plot_recent_operations,
-    qc_completeness,
-    qc_matrix_spy,
-    scatter,
     violin,
 )
 from scptensor.viz.base.heatmap import heatmap as heatmap_core
 from scptensor.viz.base.violin import violin as violin_core
 from scptensor.viz.recipes import (
     ReportTheme as ReportThemeCore,
-)
-from scptensor.viz.recipes import (
-    embedding as embedding_core,
 )
 from scptensor.viz.recipes import (
     generate_analysis_report as generate_analysis_report_core,
@@ -57,18 +50,45 @@ from scptensor.viz.recipes import (
 from scptensor.viz.recipes import (
     plot_recent_operations as plot_recent_operations_core,
 )
-from scptensor.viz.recipes import (
-    qc_completeness as qc_completeness_core,
-)
-from scptensor.viz.recipes import (
-    qc_matrix_spy as qc_matrix_spy_core,
-)
-from scptensor.viz.recipes import (
-    scatter as recipe_scatter_core,
-)
 
 
 def test_stable_viz_namespace_reexports_canonical_plotting_surface() -> None:
+    assert stable_viz.__all__ == [
+        "heatmap",
+        "violin",
+        "plot_embedding_scatter",
+        "plot_embedding_umap",
+        "plot_embedding_pca",
+        "plot_embedding_tsne",
+        "plot_embedding",
+        "plot_feature_dotplot",
+        "plot_matrixplot",
+        "plot_matrix_heatmap",
+        "plot_tracksplot",
+        "plot_qc_completeness",
+        "plot_qc_matrix_spy",
+        "plot_qc_pca_overview",
+        "plot_qc_missing_value_patterns",
+        "plot_correlation_matrix",
+        "plot_dendrogram",
+        "plot_imputation_comparison",
+        "plot_imputation_scatter",
+        "plot_imputation_metrics",
+        "plot_missing_pattern",
+        "plot_aggregation_summary",
+        "plot_data_overview",
+        "plot_qc_filtering_summary",
+        "plot_preprocessing_summary",
+        "plot_normalization_summary",
+        "plot_missingness_reduction",
+        "plot_integration_batch_summary",
+        "plot_reduction_summary",
+        "plot_embedding_panels",
+        "plot_saved_artifact_sizes",
+        "plot_recent_operations",
+        "generate_analysis_report",
+        "ReportTheme",
+    ]
     assert plot_embedding_scatter is plot_embedding_scatter_core
     assert plot_qc_completeness is plot_qc_completeness_core
     assert plot_imputation_comparison is plot_imputation_comparison_core
@@ -81,17 +101,27 @@ def test_stable_viz_namespace_reexports_canonical_plotting_surface() -> None:
     assert ReportTheme is ReportThemeCore
 
 
-def test_stable_viz_namespace_keeps_base_and_alias_exports() -> None:
+def test_stable_viz_namespace_keeps_only_unambiguous_base_primitives() -> None:
     assert heatmap is heatmap_core
     assert violin is violin_core
-    assert stable_viz.base_scatter is stable_viz._base_scatter
-    assert scatter is recipe_scatter_core
-    assert embedding is embedding_core
-    assert qc_completeness is qc_completeness_core
-    assert qc_matrix_spy is qc_matrix_spy_core
 
 
-def test_root_package_only_reexports_visualization_subset() -> None:
+def test_stable_viz_namespace_does_not_reexport_recipe_aliases() -> None:
+    for name in (
+        "base_scatter",
+        "scatter",
+        "embedding",
+        "umap",
+        "pca",
+        "tsne",
+        "qc_completeness",
+        "qc_matrix_spy",
+    ):
+        assert name not in stable_viz.__all__
+        assert not hasattr(stable_viz, name)
+
+
+def test_root_package_does_not_reexport_visualization_surface() -> None:
     for name in (
         "scatter",
         "heatmap",
@@ -108,7 +138,8 @@ def test_root_package_only_reexports_visualization_subset() -> None:
         "plot_saved_artifact_sizes",
         "plot_recent_operations",
     ):
-        assert name in scp.__all__
+        assert name not in scp.__all__
+        assert not hasattr(scp, name)
 
     for name in (
         "plot_embedding_scatter",
@@ -119,16 +150,20 @@ def test_root_package_only_reexports_visualization_subset() -> None:
         "ReportTheme",
     ):
         assert name not in scp.__all__
+        assert not hasattr(scp, name)
 
 
-def test_root_visualization_reexports_match_current_subset_objects() -> None:
-    assert scp.scatter is recipe_scatter_core
-    assert scp.heatmap is heatmap_core
-    assert scp.violin is violin_core
-    assert scp.embedding is embedding_core
-    assert scp.qc_completeness is qc_completeness_core
-    assert scp.qc_matrix_spy is qc_matrix_spy_core
-    assert scp.plot_data_overview is plot_data_overview_core
-    assert scp.plot_qc_filtering_summary is plot_qc_filtering_summary_core
-    assert scp.plot_embedding_panels is plot_embedding_panels_core
-    assert scp.plot_recent_operations is plot_recent_operations_core
+def test_root_visualization_convenience_exports_are_removed() -> None:
+    for name in (
+        "scatter",
+        "heatmap",
+        "violin",
+        "embedding",
+        "qc_completeness",
+        "qc_matrix_spy",
+        "plot_data_overview",
+        "plot_qc_filtering_summary",
+        "plot_embedding_panels",
+        "plot_recent_operations",
+    ):
+        assert not hasattr(scp, name)

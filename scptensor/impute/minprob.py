@@ -1,17 +1,17 @@
-"""
-MinProb imputation (probabilistic minimum imputation for MNAR data).
+"""MinProb imputation (probabilistic minimum imputation for MNAR data).
 
 References:
     Wei R, et al. Sci Rep 2018;8:663.
 
 Designed for left-censored MNAR (Missing Not At Random) data where
 missingness is due to low abundance - values below detection limit.
+
 """
 
 import numpy as np
 
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import ScpContainer
 from scptensor.impute._utils import (
     add_imputed_layer,
     log_imputation_operation,
@@ -48,6 +48,7 @@ def minprob_impute(
     -------
     np.ndarray
         Data with imputed values.
+
     """
     X = np.asarray(data, dtype=np.float64).copy()
     n_samples, _ = X.shape
@@ -138,8 +139,7 @@ def impute_minprob(
     random_state: int | None = None,
     q: float = 0.01,
 ) -> ScpContainer:
-    """
-    Impute missing values using probabilistic minimum imputation (MinProb).
+    """Impute missing values using probabilistic minimum imputation (MinProb).
 
     Parameters
     ----------
@@ -174,10 +174,11 @@ def impute_minprob(
 
     Examples
     --------
-    >>> from scptensor import impute_minprob
+    >>> from scptensor.impute import impute_minprob
     >>> result = impute_minprob(container, "proteins", sigma=2.0)
     >>> "imputed_minprob" in result.assays["proteins"].layers
     True
+
     """
     # Validate parameters
     if sigma <= 0:
@@ -247,5 +248,5 @@ register_impute_method(
         supports_sparse=False,
         validate=validate_minprob,
         apply=impute_minprob,
-    )
+    ),
 )

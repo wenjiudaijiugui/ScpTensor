@@ -1,5 +1,4 @@
-"""
-Imputation methods for DIA-based single-cell proteomics data.
+"""Imputation methods for DIA-based single-cell proteomics data.
 
 This module provides various missing value imputation algorithms:
 - none: no-op passthrough (explicit no-imputation baseline)
@@ -18,11 +17,14 @@ This module provides various missing value imputation algorithms:
 
 Unified interface:
     Use `impute()` function for method-agnostic imputation.
+
+Registry and mechanism helpers live in ``scptensor.impute.base`` and are not
+re-exported from the package root.
 """
 
 # Import individual methods
 # Import unified interface
-from .base import impute, infer_missing_mechanism, list_impute_methods, recommend_impute_method
+from .base import impute
 from .baseline import (
     impute_half_row_min,
     impute_none,
@@ -55,7 +57,4 @@ __all__ = [
     "impute_minprob",
     # Unified interface
     "impute",
-    "list_impute_methods",
-    "infer_missing_mechanism",
-    "recommend_impute_method",
 ]

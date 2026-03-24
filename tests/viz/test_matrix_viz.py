@@ -26,7 +26,7 @@ def matrix_container() -> ScpContainer:
         {
             "_index": [f"S{i}" for i in range(6)],
             "group": ["G1", "G1", "G1", "G2", "G2", "G2"],
-        }
+        },
     )
     var = pl.DataFrame({"_index": ["P0", "P1", "P2", "P3"]})
 
@@ -39,7 +39,7 @@ def matrix_container() -> ScpContainer:
             [10.0, 11.0, 12.0, 13.0],
             [10.0, 11.0, 12.0, 13.0],
             [10.0, 11.0, 12.0, 13.0],
-        ]
+        ],
     )
     assay = Assay(var=var, layers={"norm": ScpMatrix(X=x)})
     return ScpContainer(obs=obs, assays={"proteins": assay})

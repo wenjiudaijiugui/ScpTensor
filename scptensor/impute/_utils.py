@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 import scipy.sparse as sp
 
-from scptensor.core.structures import MaskCode, ScpMatrix
+from scptensor.core._structure_matrix import MaskCode, ScpMatrix
 
 if TYPE_CHECKING:
     from scptensor.core.structures import Assay, ScpContainer
@@ -31,6 +31,7 @@ def _update_imputed_mask(
     np.ndarray, sp.spmatrix, or None
         Updated mask with IMPUTED code for previously missing entries.
         Returns None if M_original was None and no values were missing.
+
     """
     if not np.any(missing_mask):
         return M_original.copy() if M_original is not None else None
@@ -41,21 +42,19 @@ def _update_imputed_mask(
             M_dense = new_M.toarray()  # type: ignore[union-attr]
             M_dense[missing_mask] = MaskCode.IMPUTED
             return sp.csr_matrix(M_dense, dtype=np.int8)
-        else:
-            new_M[missing_mask] = MaskCode.IMPUTED
-            return new_M
-    else:
-        # Create new mask with IMPUTED values for previously missing entries,
-        # VALID (0) for observed entries
-        new_M = np.zeros(missing_mask.shape, dtype=np.int8)
         new_M[missing_mask] = MaskCode.IMPUTED
         return new_M
+    # Create new mask with IMPUTED values for previously missing entries,
+    # VALID (0) for observed entries
+    new_M = np.zeros(missing_mask.shape, dtype=np.int8)
+    new_M[missing_mask] = MaskCode.IMPUTED
+    return new_M
 
 
 def to_dense_float_copy(x: np.ndarray | sp.spmatrix) -> np.ndarray:
     """Return a dense float64 copy for imputation algorithms."""
     if sp.issparse(x):
-        return cast(sp.spmatrix, x).toarray().astype(np.float64, copy=False)
+        return cast("sp.spmatrix", x).toarray().astype(np.float64, copy=False)
     return np.asarray(x, dtype=np.float64).copy()
 
 

@@ -97,6 +97,7 @@ def correlation_matrix(
     >>> container.assays["proteins"] = assay
     >>> fig = correlation_matrix(container, layer="normalized",
     ...                          groupby="cluster", show=False)
+
     """
     validate_container(container)
     validate_layer(container, assay_name, layer)
@@ -285,6 +286,7 @@ def dendrogram(
     >>> container.assays["proteins"] = assay
     >>> fig = dendrogram(container, layer="normalized",
     ...                  groupby="cluster", show=False)
+
     """
     validate_container(container)
     validate_layer(container, assay_name, layer)

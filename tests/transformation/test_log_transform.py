@@ -9,7 +9,7 @@ import polars as pl
 import pytest
 import scipy.sparse as sp
 
-import scptensor.normalization as normalization
+from scptensor import normalization
 from scptensor.core.exceptions import ScpValueError, ValidationError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.transformation import log_transform
@@ -42,7 +42,9 @@ def _make_low_range_linear_container(n_samples: int = 16, n_features: int = 8) -
 
 
 def _make_logged_container(
-    layer_name: str = "log2", n_samples: int = 16, n_features: int = 8
+    layer_name: str = "log2",
+    n_samples: int = 16,
+    n_features: int = 8,
 ) -> ScpContainer:
     rng = np.random.default_rng(42)
     obs = pl.DataFrame({"_index": [f"s{i}" for i in range(n_samples)]})
@@ -58,7 +60,10 @@ def _make_logged_container(
 def test_log_transform_in_transformation_module() -> None:
     container = _make_container()
     result = log_transform(
-        container, assay_name="protein", source_layer="raw", new_layer_name="log2"
+        container,
+        assay_name="protein",
+        source_layer="raw",
+        new_layer_name="log2",
     )
 
     assert "log2" in result.assays["protein"].layers
@@ -369,12 +374,14 @@ def test_log_transform_sparse_negative_path_uses_single_copy_helper_when_offset_
 
     def fail_sparse_safe_log1p_with_scale(*args: object, **kwargs: object) -> object:
         raise AssertionError(
-            "negative sparse path should not re-enter sparse_safe_log1p_with_scale"
+            "negative sparse path should not re-enter sparse_safe_log1p_with_scale",
         )
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(
-        module, "_copy_and_transform_sparse_log", fake_copy_and_transform_sparse_log
+        module,
+        "_copy_and_transform_sparse_log",
+        fake_copy_and_transform_sparse_log,
     )
     monkeypatch.setattr(module, "sparse_safe_log1p_with_scale", fail_sparse_safe_log1p_with_scale)
     try:
@@ -402,7 +409,8 @@ def test_log_transform_sparse_negative_path_uses_single_copy_helper_when_offset_
         "clip_negative": True,
     }
     np.testing.assert_allclose(
-        container.assays["protein"].layers["raw"].X.toarray(), x_before.toarray()
+        container.assays["protein"].layers["raw"].X.toarray(),
+        x_before.toarray(),
     )
 
 

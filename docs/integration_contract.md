@@ -60,17 +60,10 @@
 
 ### 2.3 当前公开 API
 
-`scptensor.integration.__all__` 当前导出三类公共入口：
+`scptensor.integration.__all__` 当前只导出 user-facing integration 入口：
 
-- unified interface / registry helpers：
+- unified interface：
   - `integrate`
-  - `list_integrate_methods`
-  - `get_integrate_method`
-  - `IntegrateMethod`
-  - `IntegrationMethodInfo`
-  - `register_integrate_method`
-  - `get_integrate_method_info`
-  - `list_integrate_method_info`
 - individual integration methods：
   - `integrate_none`
   - `integrate_combat`
@@ -78,15 +71,29 @@
   - `integrate_harmony`
   - `integrate_mnn`
   - `integrate_scanorama`
-- diagnostics helpers：
-  - `compute_batch_mixing_metric`
-  - `compute_batch_asw`
-  - `compute_lisi_approx`
-  - `compute_kbet`
-  - `compute_ilisi`
-  - `integration_quality_report`
 
-`scptensor.__all__` 当前只从 integration 模块顶层重导出 individual methods：
+`scptensor.integration.base.__all__` 当前导出 registry / method metadata：
+
+- `list_integrate_methods`
+- `get_integrate_method`
+- `IntegrateMethod`
+- `IntegrationMethodInfo`
+- `register_integrate_method`
+- `get_integrate_method_info`
+- `list_integrate_method_info`
+
+`scptensor.integration.diagnostics.__all__` 当前导出 diagnostics helpers：
+
+- `compute_batch_mixing_metric`
+- `compute_batch_asw`
+- `compute_lisi_approx`
+- `compute_kbet`
+- `compute_ilisi`
+- `integration_quality_report`
+
+`scptensor.__all__` 当前不再从 integration 模块顶层重导出这些 methods。
+
+不会重导出：
 
 - `integrate_none`
 - `integrate_combat`
@@ -94,9 +101,6 @@
 - `integrate_harmony`
 - `integrate_mnn`
 - `integrate_scanorama`
-
-不会重导出：
-
 - `integrate`
 - `list_integrate_methods`
 - `get_integrate_method`
@@ -107,8 +111,10 @@
 
 因此当前稳定边界是：
 
-- `scptensor.integration` 子包是 unified dispatch、registry metadata 与 diagnostics 的公共入口；
-- 顶层 `scptensor` 只暴露 direct integration methods，不把 unified dispatch 或 diagnostics 升格为顶层 stable API。
+- `scptensor.integration` 子包是 user-facing integration operation 的公共入口；
+- `scptensor.integration.base` 承担 registry metadata 与 method contract 查询；
+- `scptensor.integration.diagnostics` 承担 post-hoc diagnostics；
+- 顶层 `scptensor` 不再承担 integration facade，调用方应显式从 `scptensor.integration` 导入。
 
 ## 3. 稳定场景边界
 
@@ -127,7 +133,7 @@
 
 ### 3.2 稳定 vs exploratory
 
-当前实现中，integration 方法的稳定性不是靠文档口头描述决定，而是由 `IntegrationMethodInfo` 元数据显式声明：
+当前实现中，integration 方法的稳定性不是靠文档口头描述决定，而是由 `scptensor.integration.base.IntegrationMethodInfo` 元数据显式声明：
 
 - `integration_level="matrix"` 且 `recommended_for_de=True`：稳定矩阵级方法
 - `integration_level="matrix"` 且 `recommended_for_de=False`：矩阵级，但不进入稳定 DE-oriented candidate set
@@ -739,6 +745,6 @@ integration diagnostics 当前不复用 `AssayNotFoundError` / `LayerNotFoundErr
 - exploratory integration：`mnn`、`harmony`、`scanorama`
 - `harmony` 是唯一显式要求 embedding-like 输入的方法
 - `limma` 是当前唯一明确保留 `NaN` 语义的 batch-correction 方法
-- diagnostics 默认以 `pca/X` 为评估空间，且保持只读
+- diagnostics 默认以 `pca/X` 为评估空间，且保持只读，并通过 `scptensor.integration.diagnostics` 显式访问
 
 后续任何核心代码优化，都应围绕这组合同推进，而不是在未更新文档与测试的前提下改变其边界。

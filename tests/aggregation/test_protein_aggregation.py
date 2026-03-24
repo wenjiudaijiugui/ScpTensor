@@ -24,7 +24,7 @@ def _build_container(
         {
             "_index": feature_ids or ["pep1", "pep2", "pep3"],
             protein_col: protein_ids or ["P1", "P1", "P2"],
-        }
+        },
     )
 
     m = np.array(
@@ -142,7 +142,8 @@ def test_aggregate_to_protein_keep_unmapped_preserves_each_peptide_separately() 
     assert not any(any(ch in '<>:"/\\\\|?*' for ch in feature_id) for feature_id in unmapped_ids)
 
     np.testing.assert_allclose(
-        protein.layers["raw"].X[:, feature_to_col["P1"]], np.array([10.0, 1.0])
+        protein.layers["raw"].X[:, feature_to_col["P1"]],
+        np.array([10.0, 1.0]),
     )
     np.testing.assert_allclose(
         protein.layers["raw"].X[:, feature_to_col["__UNMAPPED__--NA--pep2"]],
@@ -251,7 +252,7 @@ def test_aggregate_to_protein_top_n() -> None:
 
 def test_aggregate_to_protein_maxlfq() -> None:
     container = _build_container(
-        np.array([[10.0, 20.0, 5.0], [20.0, 40.0, 10.0]], dtype=np.float64)
+        np.array([[10.0, 20.0, 5.0], [20.0, 40.0, 10.0]], dtype=np.float64),
     )
 
     out = aggregate_to_protein(container, method="maxlfq")
@@ -264,7 +265,7 @@ def test_aggregate_to_protein_maxlfq() -> None:
 
 def test_aggregate_to_protein_maxlfq_fallback_preserves_intensity_scale() -> None:
     container = _build_container(
-        np.array([[5.0, np.nan, np.nan], [np.nan, np.nan, np.nan]], dtype=np.float64)
+        np.array([[5.0, np.nan, np.nan], [np.nan, np.nan, np.nan]], dtype=np.float64),
     )
 
     out = aggregate_to_protein(container, method="maxlfq")
@@ -276,7 +277,7 @@ def test_aggregate_to_protein_maxlfq_fallback_preserves_intensity_scale() -> Non
 
 def test_aggregate_to_protein_tmp() -> None:
     container = _build_container(
-        np.array([[10.0, 100.0, 6.0], [20.0, 200.0, 12.0]], dtype=np.float64)
+        np.array([[10.0, 100.0, 6.0], [20.0, 200.0, 12.0]], dtype=np.float64),
     )
 
     out = aggregate_to_protein(container, method="tmp")
@@ -302,7 +303,7 @@ def test_aggregate_to_protein_ibaq_with_denominator() -> None:
 
 def test_aggregate_to_protein_ibaq_preserves_all_missing_as_nan() -> None:
     container = _build_container(
-        np.array([[10.0, 20.0, 5.0], [5.0, 5.0, np.nan]], dtype=np.float64)
+        np.array([[10.0, 20.0, 5.0], [5.0, 5.0, np.nan]], dtype=np.float64),
     )
 
     out = aggregate_to_protein(

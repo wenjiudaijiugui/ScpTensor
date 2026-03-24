@@ -100,7 +100,13 @@ def _scatter_subtle(
     if np.any(valid):
         c_valid = None if c is None else c[valid]
         ax.scatter(
-            X[valid, 0], X[valid, 1], c=c_valid, alpha=1.0, zorder=10, label="Measured", **kwargs
+            X[valid, 0],
+            X[valid, 1],
+            c=c_valid,
+            alpha=1.0,
+            zorder=10,
+            label="Measured",
+            **kwargs,
         )
 
     if np.any(invalid):
@@ -137,7 +143,12 @@ def _scatter_explicit(
     if np.any(valid):
         c_valid = None if c is None else c[valid]
         ax.scatter(
-            X[valid, 0], X[valid, 1], c=c_valid, marker="o", label="Measured", **valid_kwargs
+            X[valid, 0],
+            X[valid, 1],
+            c=c_valid,
+            marker="o",
+            label="Measured",
+            **valid_kwargs,
         )
 
     if np.any(invalid):

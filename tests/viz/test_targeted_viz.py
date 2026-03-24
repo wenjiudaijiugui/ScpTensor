@@ -41,7 +41,7 @@ def test_plot_aggregation_summary() -> None:
                 "P5",
                 "P6",
             ],
-        }
+        },
     )
     x = rng.uniform(10, 100, size=(8, 12))
     peptides = Assay(var=var, layers={"raw": ScpMatrix(X=x)})

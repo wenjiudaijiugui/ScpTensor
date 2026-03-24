@@ -20,8 +20,8 @@ import scipy.sparse as sp
 from scipy.cluster.hierarchy import leaves_list, linkage
 from scipy.stats import pearsonr
 
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
-from scptensor.core.structures import ScpContainer
 from scptensor.viz.base.style import PlotStyle
 
 if TYPE_CHECKING:
@@ -96,6 +96,7 @@ def plot_imputation_comparison(
     ...     container, "proteins", "raw", methods=["knn", "qrilc"]
     ... )
     >>> results = ax.imputation_results  # Access comparison data
+
     """
     # Apply style
     PlotStyle.apply_style(theme="science")
@@ -146,7 +147,7 @@ def plot_imputation_comparison(
     if not methods:
         raise ValueError(
             "No imputed layers found. Please specify methods parameter or "
-            "run imputation functions to create imputed layers."
+            "run imputation functions to create imputed layers.",
         )
 
     # Compute metrics for each method
@@ -168,7 +169,10 @@ def plot_imputation_comparison(
             continue
 
         method_metrics = _compute_imputation_metrics(
-            X_orig, X_imp, imputed_mask, metric_names=metrics
+            X_orig,
+            X_imp,
+            imputed_mask,
+            metric_names=metrics,
         )
         results[method] = method_metrics
 
@@ -290,6 +294,7 @@ def plot_imputation_scatter(
     >>> ax = plot_imputation_scatter(
     ...     container_true, container_imp, "proteins", "raw", "knn"
     ... )
+
     """
     # Apply style
     PlotStyle.apply_style(theme="science")
@@ -450,6 +455,7 @@ def plot_imputation_metrics(
     ...     "BPCA": {"nrmse": 0.12, "pcc": 0.95},
     ... }
     >>> ax = plot_imputation_metrics(metrics, metric_names=["NRMSE", "PCC"])
+
     """
     # Apply style
     PlotStyle.apply_style(theme="science")
@@ -562,6 +568,7 @@ def plot_missing_pattern(
     >>> from scptensor.viz.recipes.impute import plot_missing_pattern
     >>> container = create_test_container(n_samples=50)
     >>> ax = plot_missing_pattern(container, "proteins", "raw")
+
     """
     # Apply style
     PlotStyle.apply_style(theme="science")
@@ -631,7 +638,8 @@ def plot_missing_pattern(
                 feature_dist[j, i] = feature_dist[i, j]
 
         linkage_matrix = linkage(
-            feature_dist[np.triu_indices(n_features_sub, k=1)], method="average"
+            feature_dist[np.triu_indices(n_features_sub, k=1)],
+            method="average",
         )
         feature_order = leaves_list(linkage_matrix)
 
@@ -729,6 +737,7 @@ def _compute_imputation_metrics(
     -------
     dict
         Dictionary of metric values.
+
     """
     results = {}
     true_vals = X_true[imputed_mask]

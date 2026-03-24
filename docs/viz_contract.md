@@ -38,7 +38,7 @@
 本文档覆盖：
 
 - `scptensor.viz` 顶层导出的 canonical `plot_*` API
-- backward-compatible alias
+- 顶层保留的少量 `base` primitives
 - `base` primitives 的输入/输出合同
 - recipe 层对 assay / layer / obs / var / history 的当前依赖
 - 单面板、多面板、报告级函数的返回结构
@@ -75,7 +75,6 @@
 
 `scptensor.viz` 顶层当前暴露：
 
-- `base_scatter`
 - `heatmap`
 - `violin`
 
@@ -83,6 +82,8 @@
 
 - 面向通用绘图原语
 - 通常直接返回 `matplotlib.axes.Axes`
+
+其中 `scatter` primitive 仍位于 `scptensor.viz.base.scatter`，不再从 `scptensor.viz` 顶层重导出，避免与 recipe-level embedding alias 混淆。
 
 ### 4.2 canonical `plot_*` API
 
@@ -128,46 +129,45 @@
   - `generate_analysis_report`
   - `ReportTheme`
 
-### 4.3 backward-compatible alias
+### 4.3 显式子模块 alias
 
-当前仍保留 alias：
+`scptensor.viz` 顶层不再重导出 recipe alias。
 
-- `scatter`
-- `umap`
-- `pca`
-- `tsne`
-- `embedding`
-- `qc_completeness`
-- `qc_matrix_spy`
-- 以及 recipe 子模块中的 `dotplot` / `matrixplot` / `tracksplot` / `correlation_matrix` / `dendrogram`
+这些 alias 仍存在于显式子模块中，例如：
 
-仓库级文档与教程应优先使用 canonical `plot_*` 名称；alias 主要用于兼容旧代码。
+- `scptensor.viz.recipes.scatter`
+- `scptensor.viz.recipes.embedding`
+- `scptensor.viz.recipes.umap`
+- `scptensor.viz.recipes.pca`
+- `scptensor.viz.recipes.tsne`
+- `scptensor.viz.recipes.qc_completeness`
+- `scptensor.viz.recipes.qc_matrix_spy`
+
+仓库级文档与教程应优先使用 canonical `plot_*` 名称；如果必须访问 legacy alias，应显式写出子模块路径，而不是继续扩大 `scptensor.viz` 顶层表面。
 
 ### 4.4 根包 `scptensor` 的重导出边界
 
 需要和 `scptensor.viz` 顶层区分开：
 
 - `scptensor.viz` 是 canonical plotting namespace
-- 根包 `scptensor` 当前只重导出一个 **子集**
+- 根包 `scptensor` 当前不再重导出可视化 API
 
-当前根包 `scptensor.__all__` 保留的可视化导出主要是：
+当前不会从根包 `scptensor` 重导出这些可视化入口，包括：
 
-- base / alias：
-  - `scatter`
-  - `heatmap`
-  - `violin`
-  - `embedding`
-  - `qc_completeness`
-  - `qc_matrix_spy`
-- workflow summary helpers：
-  - `plot_data_overview`
-  - `plot_qc_filtering_summary`
-  - `plot_preprocessing_summary`
-  - `plot_missingness_reduction`
-  - `plot_reduction_summary`
-  - `plot_embedding_panels`
-  - `plot_saved_artifact_sizes`
-  - `plot_recent_operations`
+- `scatter`
+- `heatmap`
+- `violin`
+- `embedding`
+- `qc_completeness`
+- `qc_matrix_spy`
+- `plot_data_overview`
+- `plot_qc_filtering_summary`
+- `plot_preprocessing_summary`
+- `plot_missingness_reduction`
+- `plot_reduction_summary`
+- `plot_embedding_panels`
+- `plot_saved_artifact_sizes`
+- `plot_recent_operations`
 
 当前**不会**从根包 `scptensor` 重导出大多数 canonical `plot_*` API，例如：
 
@@ -181,22 +181,25 @@
 因此冻结解释应为：
 
 - 若写稳定 plotting 文档与教程，优先使用 `scptensor.viz`
-- 根包 `scptensor` 的可视化导出更多是 convenience/compatibility 子集，而不是完整 canonical plotting surface
+- 根包 `scptensor` 不再承担 plotting facade，避免把 convenience import 固化成稳定契约
 
 ## 5. 当前数据边界与默认假设
 
-### 5.1 assay 主线默认是 `proteins`
+### 5.1 protein-level 仍是主线，但 embedding metadata plot 不再硬编码 assay
 
 从实现与测试看，`viz` 当前绝大多数 recipe 默认都围绕：
 
 - `assay_name="proteins"`
 - `layer="raw"` 或其直接后续层
 
-尤其是 `embedding.scatter()` 当前直接硬编码先找 `container.assays["proteins"]`。
+但 `embedding.scatter()` 已不再为了 metadata-only plot 硬编码先找
+`container.assays["proteins"]`。
 
 因此稳定解释必须是：
 
 - `viz` 主线是 protein-level visualization
+- metadata-only embedding plot 可以在没有 `proteins` assay 的容器上工作
+- feature-coloring 不再静默假定 `proteins`，而是要求调用方显式提供 `assay_name`
 - peptide 级别展示可以存在，但不是当前默认路径
 
 这与项目总合同一致。
@@ -358,6 +361,8 @@
 
 若是 feature 着色：
 
+- 调用方必须显式给出 `assay_name`
+- layer 也必须显式给出，或通过 `use_raw=True` 明确选择 `raw`
 - 从指定 assay/layer 取一列表达值
 - 同时取对应 mask
 
@@ -375,11 +380,14 @@ embedding 家族当前支持 `show_missing_values=True`。
 - 含 imputed/missing code 时会产生额外 overlay
 - `mask_style="subtle"` / `mask_style="explicit"` 两种风格都必须工作
 
-### 8.4 默认 assay 的当前限制
+### 8.4 当前 assay 限制
 
-`embedding.scatter()` 当前内部固定先使用 assay `"proteins"`。
+`embedding.scatter()` 当前不再对 metadata-only plot 硬编码 `"proteins"`，但它也不是完全 assay-agnostic 的自由接口：
 
-这意味着它还不是一个完全 assay-agnostic 的通用接口。后续若要放宽此限制，需要显式加参数并补测试，而不是默默改默认行为。
+- metadata-only plot 可以不指定 assay
+- feature-coloring 仍然要求调用方显式选择 assay/layer
+
+这条边界的目的不是“多兼容一点”，而是避免继续把 protein-level 假设偷偷塞进通用绘图入口。
 
 ## 9. Feature / Matrix / Statistics 家族合同
 
@@ -613,8 +621,8 @@ embedding 家族当前支持 `show_missing_values=True`。
 后续若要重构 `scptensor.viz`，必须优先保留：
 
 1. canonical `plot_*` API 名称
-2. alias 的 backward compatibility
-3. 单图 / 多图 / figure 三类返回结构
+2. 单图 / 多图 / figure 三类返回结构
+3. recipe alias 只留在显式子模块、不再回流顶层
 4. `embedding` 对 obs 坐标列 `{basis}_1/{basis}_2` 的读取约定
 5. protein-level 主线默认假设
 6. validation helper 的错误分工

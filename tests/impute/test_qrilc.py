@@ -1,5 +1,4 @@
-"""
-Comprehensive tests for QRILC imputation.
+"""Comprehensive tests for QRILC imputation.
 
 Tests cover:
 - Basic functionality
@@ -70,7 +69,9 @@ def create_qrilc_container():
         if with_mask:
             M = np.zeros(X_true.shape, dtype=np.int8)
             M[missing_mask] = np.where(
-                np.random.rand(np.sum(missing_mask)) < 0.5, MaskCode.MBR, MaskCode.LOD
+                np.random.rand(np.sum(missing_mask)) < 0.5,
+                MaskCode.MBR,
+                MaskCode.LOD,
             )
         else:
             M = None
@@ -238,7 +239,9 @@ class TestQRILCBasic:
 
         for rate in missing_rates:
             container, X_true, missing_mask = create_qrilc_container(
-                n_samples=100, n_features=50, missing_rate=rate
+                n_samples=100,
+                n_features=50,
+                missing_rate=rate,
             )
 
             result = impute_qrilc(
@@ -257,7 +260,10 @@ class TestQRILCBasic:
     def test_qrilc_sparse_matrix(self, create_qrilc_container):
         """Test QRILC with sparse input matrix."""
         container, X_true, missing_mask = create_qrilc_container(
-            n_samples=100, n_features=50, missing_rate=0.2, use_sparse=True
+            n_samples=100,
+            n_features=50,
+            missing_rate=0.2,
+            use_sparse=True,
         )
 
         result = impute_qrilc(
@@ -365,10 +371,18 @@ class TestQRILCParameters:
         """Test that different random states give different results."""
         # Create two separate containers to avoid in-place modification issues
         container1, _, _ = create_qrilc_container(
-            n_samples=100, n_features=50, missing_rate=0.2, with_mask=False, random_state=42
+            n_samples=100,
+            n_features=50,
+            missing_rate=0.2,
+            with_mask=False,
+            random_state=42,
         )
         container2, _, _ = create_qrilc_container(
-            n_samples=100, n_features=50, missing_rate=0.2, with_mask=False, random_state=42
+            n_samples=100,
+            n_features=50,
+            missing_rate=0.2,
+            with_mask=False,
+            random_state=42,
         )
 
         result1 = impute_qrilc(
@@ -426,7 +440,10 @@ class TestQRILCMaskUpdate:
     def test_qrilc_existing_mask_updated(self, create_qrilc_container):
         """Test that QRILC updates existing mask correctly."""
         container, X_true, missing_mask = create_qrilc_container(
-            n_samples=100, n_features=50, missing_rate=0.2, with_mask=True
+            n_samples=100,
+            n_features=50,
+            missing_rate=0.2,
+            with_mask=True,
         )
 
         M_original = container.assays["protein"].layers["raw"].M

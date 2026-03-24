@@ -42,6 +42,7 @@ class IntegrationEvaluator(BaseEvaluator):
     ...     assay_name="proteins",
     ...     source_layer="imputed"
     ... )
+
     """
 
     def __init__(
@@ -64,6 +65,7 @@ class IntegrationEvaluator(BaseEvaluator):
             MNN/Harmony/Scanorama. Disabled by default so stable integration
             only compares matrix-level methods recommended for downstream
             differential analysis.
+
         """
         self._batch_key = batch_key
         self._bio_key = bio_key
@@ -72,7 +74,7 @@ class IntegrationEvaluator(BaseEvaluator):
 
     def _method_is_allowed(self, method_name: str) -> bool:
         """Return whether a method satisfies the current integration contract."""
-        from scptensor.integration import get_integrate_method_info
+        from scptensor.integration.base import get_integrate_method_info
 
         method_info = get_integrate_method_info(method_name)
         if method_info.integration_level == "matrix" and method_info.recommended_for_de:
@@ -81,7 +83,7 @@ class IntegrationEvaluator(BaseEvaluator):
 
     def _build_method_contracts(self, method_names: list[str]) -> dict[str, dict[str, object]]:
         """Collect per-method contract metadata for the stage report."""
-        from scptensor.integration import get_integrate_method_info
+        from scptensor.integration.base import get_integrate_method_info
 
         contracts: dict[str, dict[str, object]] = {}
         for method_name in method_names:
@@ -103,7 +105,7 @@ class IntegrationEvaluator(BaseEvaluator):
     ) -> None:
         """Attach contract metadata to the stage report and each method result."""
         report.method_contracts = self._build_method_contracts(
-            [result.method_name for result in report.results]
+            [result.method_name for result in report.results],
         )
         for result in report.results:
             result.method_contract = report.method_contracts.get(result.method_name)
@@ -115,6 +117,7 @@ class IntegrationEvaluator(BaseEvaluator):
         -------
         dict[str, Callable]
             Dictionary of available methods
+
         """
         from scptensor.autoselect.evaluators.base import create_wrapper
 
@@ -219,6 +222,7 @@ class IntegrationEvaluator(BaseEvaluator):
         -------
         str
             Stage name ("integrate")
+
         """
         return "integrate"
 
@@ -231,6 +235,7 @@ class IntegrationEvaluator(BaseEvaluator):
         dict[str, Callable]
             Dictionary mapping method names to their implementation functions.
             Only methods with installed dependencies are included.
+
         """
         return self._get_available_methods()
 
@@ -294,6 +299,7 @@ class IntegrationEvaluator(BaseEvaluator):
         -------
         dict[str, float]
             Dictionary mapping metric names to their weights
+
         """
         weights = {
             "batch_asw": 0.25,  # Batch ASW (lower is better, returns 1-asw)
@@ -335,6 +341,7 @@ class IntegrationEvaluator(BaseEvaluator):
         -------
         dict[str, float]
             Dictionary mapping metric names to their scores (0.0 to 1.0)
+
         """
         import numpy as np
 
@@ -364,7 +371,8 @@ class IntegrationEvaluator(BaseEvaluator):
         scores: dict[str, float] = {}
 
         source_layer = self._infer_source_layer(
-            self._get_metric_assay(original_container), layer_name
+            self._get_metric_assay(original_container),
+            layer_name,
         )
 
         # Batch ASW (1 - ASW so higher is better)
@@ -377,7 +385,10 @@ class IntegrationEvaluator(BaseEvaluator):
 
         # Variance preservation
         scores["variance_preserved"] = self._compute_variance_preserved(
-            container, original_container, layer_name, source_layer=source_layer
+            container,
+            original_container,
+            layer_name,
+            source_layer=source_layer,
         )
 
         # Biological ASW (if bio_key is provided)
@@ -425,7 +436,10 @@ class IntegrationEvaluator(BaseEvaluator):
             return 0.0
 
     def _compute_batch_mixing(
-        self, x_data: np.ndarray, batches: np.ndarray, n_neighbors: int = 30
+        self,
+        x_data: np.ndarray,
+        batches: np.ndarray,
+        n_neighbors: int = 30,
     ) -> float:
         """Compute the current heuristic batch-mixing proxy used for selection."""
         from scptensor.autoselect.metrics.batch import batch_mixing_score
@@ -436,7 +450,10 @@ class IntegrationEvaluator(BaseEvaluator):
             return 0.0
 
     def _compute_batch_kbet(
-        self, x_data: np.ndarray, batches: np.ndarray, n_neighbors: int = 30
+        self,
+        x_data: np.ndarray,
+        batches: np.ndarray,
+        n_neighbors: int = 30,
     ) -> float:
         """Compute standardized fixed-k kBET acceptance rate."""
         from scptensor.autoselect.metrics.batch import kbet_score
@@ -483,16 +500,8 @@ class IntegrationEvaluator(BaseEvaluator):
             if original_assay is None:
                 return 0.0
 
-            # Prefer inferred source layer from naming convention.
-            if source_layer not in original_assay.layers:
-                source_layer = None
-                for ln in ["imputed", "normalized", "raw"]:
-                    if ln in original_assay.layers:
-                        source_layer = ln
-                        break
-
-            if source_layer is None:
-                return 0.5  # Default score if no source layer
+            if source_layer is None or source_layer not in original_assay.layers:
+                return 0.0
 
             x_orig = original_assay.layers[source_layer].X
             if hasattr(x_orig, "toarray"):
@@ -511,25 +520,29 @@ class IntegrationEvaluator(BaseEvaluator):
             var_int = np.nanvar(x_int, axis=0, ddof=1)
 
             # Compute correlation of variances
-            valid_mask = ~(np.isnan(var_orig) | np.isnan(var_int) | (var_orig == 0))
+            valid_mask = ~(
+                np.isnan(var_orig) | np.isnan(var_int) | (var_orig == 0) | (var_int == 0)
+            )
             if not np.any(valid_mask):
-                return 0.5
+                return 0.0
 
             var_orig_valid = var_orig[valid_mask]
             var_int_valid = var_int[valid_mask]
 
             if len(var_orig_valid) < 2:
-                return 0.5
+                return 0.0
+            if np.nanstd(var_orig_valid) < 1e-12 or np.nanstd(var_int_valid) < 1e-12:
+                return 0.0
 
             # Pearson correlation
             corr = np.corrcoef(var_orig_valid, var_int_valid)[0, 1]
             if np.isnan(corr):
-                return 0.5
+                return 0.0
 
             # Map correlation [-1, 1] to [0, 1]
             return float(np.clip((corr + 1) / 2, 0.0, 1.0))
         except Exception:
-            return 0.5
+            return 0.0
 
     def _infer_source_layer(self, assay, layer_name: str) -> str | None:
         """Infer source layer from output layer naming convention."""

@@ -240,7 +240,9 @@ class TestAssayNotFoundError:
 
         # Suggestion takes precedence over hint
         exc = AssayNotFoundError(
-            "prot", hint="Manual hint", available_assays=["proteins", "peptides"]
+            "prot",
+            hint="Manual hint",
+            available_assays=["proteins", "peptides"],
         )
         assert "Did you mean 'proteins'" in str(exc)
 
@@ -262,7 +264,9 @@ class TestLayerNotFoundError:
         from scptensor.core.exceptions import LayerNotFoundError
 
         exc = LayerNotFoundError(
-            "ra", assay_name="proteins", available_layers=["raw", "log", "normalized"]
+            "ra",
+            assay_name="proteins",
+            available_layers=["raw", "log", "normalized"],
         )
         assert "Did you mean 'raw'" in str(exc)
         assert exc.suggestion == "raw"
@@ -272,7 +276,9 @@ class TestLayerNotFoundError:
         from scptensor.core.exceptions import LayerNotFoundError
 
         exc = LayerNotFoundError(
-            "xyz", assay_name="proteins", available_layers=["raw", "log", "normalized"]
+            "xyz",
+            assay_name="proteins",
+            available_layers=["raw", "log", "normalized"],
         )
         assert "Available layers:" in str(exc)
         assert exc.suggestion is None

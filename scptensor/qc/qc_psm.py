@@ -7,13 +7,12 @@ Handles filtering and QC for Peptide Spectrum Matches (PSMs):
 - Sample-level CV summary across peptide/PSM features
 """
 
-import warnings
 from typing import Literal
 
 import numpy as np
 import polars as pl
 
-from scptensor.core.structures import ScpContainer
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.types import JsonValue
 from scptensor.qc._utils import (
     filter_features_with_provenance,
@@ -72,6 +71,7 @@ def filter_psms_by_pif(
     >>> result = filter_psms_by_pif(container, min_pif=0.8)
     >>> result.assays['peptides'].n_features
     2
+
     """
     validate_threshold(min_pif, "min_pif", min_val=0.0, max_val=1.0)
     resolved_assay_name, assay = resolve_assay(container, assay_name)
@@ -134,6 +134,7 @@ def filter_contaminants(
     Custom patterns:
     >>> custom = [r'^FLAG_', r'^HA_']
     >>> result = filter_contaminants(container, patterns=custom)
+
     """
     resolved_assay_name, assay = resolve_assay(container, assay_name)
     validate_column_exists(assay.var, feature_col, "assay.var")
@@ -198,6 +199,7 @@ def pep_to_qvalue(
     >>> pep = np.array([0.001, 0.01, 0.05, 0.1, 0.5, 0.9])
     >>> qvals = pep_to_qvalue(pep, method="storey")
     >>> significant = qvals < 0.01
+
     """
     if method not in ("storey", "bh"):
         raise ValueError(f"method must be 'storey' or 'bh', got '{method}'.")
@@ -269,6 +271,7 @@ def filter_psms_by_qvalue(
     >>> result = filter_psms_by_qvalue(container, qvalue_threshold=0.01)
     >>> result.assays['peptides'].n_features
     2
+
     """
     validate_threshold(qvalue_threshold, "qvalue_threshold", min_val=0.0, max_val=1.0)
     resolved_assay_name, assay = resolve_assay(container, assay_name)
@@ -333,7 +336,7 @@ def _compute_sample_cv_summary(
         [
             pl.Series(cv_col, cv_values),
             pl.Series(flag_col, cv_values > cv_threshold),
-        ]
+        ],
     )
 
     n_high_cv = int(np.sum(cv_values > cv_threshold))
@@ -391,6 +394,7 @@ def compute_sample_cv(
     --------
     >>> result = compute_sample_cv(container, cv_threshold=0.5)
     >>> result.obs[['sample_cv', 'is_high_sample_cv']]
+
     """
     return _compute_sample_cv_summary(
         container,
@@ -403,44 +407,10 @@ def compute_sample_cv(
     )
 
 
-def compute_median_cv(
-    container: ScpContainer,
-    assay_name: str = "peptides",
-    layer_name: str = "raw",
-    cv_threshold: float = 0.65,
-) -> ScpContainer:
-    """Legacy compatibility alias for :func:`compute_sample_cv`.
-
-    This alias is preserved because existing code may still expect the legacy
-    function name and the legacy output columns ``median_cv`` / ``is_high_cv``.
-    The canonical helper is ``compute_sample_cv``. New code should migrate to
-    the canonical helper. Removal of this alias requires a future contract
-    update after repository-wide migration.
-    """
-    warnings.warn(
-        "`compute_median_cv` is a legacy compatibility alias whose name does not "
-        "match the actual behavior. Use `compute_sample_cv` instead. "
-        "Removal requires a future contract update after repository-wide migration.",
-        FutureWarning,
-        stacklevel=2,
-    )
-    return _compute_sample_cv_summary(
-        container,
-        assay_name,
-        layer_name,
-        cv_threshold,
-        action="compute_median_cv",
-        cv_col="median_cv",
-        flag_col="is_high_cv",
-        alias_note="compute_median_cv",
-    )
-
-
 __all__ = [
     "filter_psms_by_pif",
     "filter_contaminants",
     "pep_to_qvalue",
     "filter_psms_by_qvalue",
     "compute_sample_cv",
-    "compute_median_cv",
 ]

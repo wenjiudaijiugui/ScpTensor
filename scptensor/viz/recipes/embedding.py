@@ -12,7 +12,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import polars as pl
 
-from scptensor.core.structures import ScpContainer
+from scptensor.core._structure_container import ScpContainer
+from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.viz.base.missing_value import MissingValueHandler
 from scptensor.viz.base.style import PlotStyle
 from scptensor.viz.base.validation import validate_container, validate_layer
@@ -39,7 +40,7 @@ __all__ = [
 
 def scatter(
     container: ScpContainer,
-    layer: str,
+    layer: str | None = None,
     basis: str = "umap",
     color: str | list[str] | None = None,
     groupby: str | None = None,
@@ -47,6 +48,7 @@ def scatter(
     size: float = 5.0,
     alpha: float = 0.8,
     use_raw: bool = False,
+    assay_name: str | None = None,
     show_missing_values: bool = True,
     legend_loc: str = "right margin",
     frameon: bool = True,
@@ -64,8 +66,10 @@ def scatter(
     ----------
     container : ScpContainer
         Input data container containing embedding coordinates in obs.
-    layer : str
-        Layer name in the assay to use for feature-based coloring.
+    layer : str | None, default None
+        Layer name to use for feature-based coloring. Metadata-only coloring
+        does not require a layer. Feature coloring requires either ``layer``
+        or ``use_raw=True``.
     basis : str, default "umap"
         Embedding basis name. Expects {basis}_1 and {basis}_2 columns in obs.
         Common values: "umap", "pca", "tsne".
@@ -84,6 +88,9 @@ def scatter(
         Transparency (0=transparent, 1=opaque).
     use_raw : bool, default False
         If True, use 'raw' layer instead of specified layer for feature coloring.
+    assay_name : str | None, default None
+        Assay name for feature-based coloring. Metadata-only coloring does not
+        require an assay. Feature coloring requires an explicit assay.
     show_missing_values : bool, default True
         If True, display missing values with distinct markers/colors.
     legend_loc : str, default "right margin"
@@ -120,16 +127,12 @@ def scatter(
     >>> ax = scatter(container, layer="normalized", basis="umap", color="cluster")
     >>> # Color by feature expression
     >>> ax = scatter(container, layer="normalized", basis="umap", color="CD3D")
+
     """
     # Validate inputs
     validate_container(container)
 
-    # Default assay name
-    assay_name = "proteins"
-    if assay_name not in container.assays:
-        raise ValueError(f"Assay '{assay_name}' not found in container")
-
-    validate_layer(container, assay_name, layer)
+    resolved_assay_name = _resolve_assay_name(container, assay_name)
 
     # Apply SciencePlots style
     PlotStyle.apply_style()
@@ -148,14 +151,20 @@ def scatter(
         available = container.obs.columns
         raise ValueError(
             f"Embedding columns '{basis_1}' and '{basis_2}' not found in obs. "
-            f"Available columns: {list(available)}"
+            f"Available columns: {list(available)}",
         )
 
     x = container.obs[basis_1].to_numpy()
     y = container.obs[basis_2].to_numpy()
 
     # Resolve color values and mask
-    color_values, mask = _resolve_color_and_mask(container, assay_name, layer, color, use_raw)
+    color_values, mask = _resolve_color_and_mask(
+        container,
+        resolved_assay_name,
+        layer,
+        color,
+        use_raw,
+    )
 
     # Determine if color is categorical for colormap selection
     is_categorical = False
@@ -196,8 +205,8 @@ def scatter(
 
 def _resolve_color_and_mask(
     container: ScpContainer,
-    assay_name: str,
-    layer: str,
+    assay_name: str | None,
+    layer: str | None,
     color: str | list[str] | None,
     use_raw: bool,
 ) -> tuple[np.ndarray | str | None, np.ndarray | None]:
@@ -207,9 +216,9 @@ def _resolve_color_and_mask(
     ----------
     container : ScpContainer
         Input container.
-    assay_name : str
+    assay_name : str | None
         Name of assay containing features.
-    layer : str
+    layer : str | None
         Layer name for feature-based coloring.
     color : str | list[str] | None
         Color specification.
@@ -222,6 +231,7 @@ def _resolve_color_and_mask(
         Color values for each sample.
     mask : ndarray | None
         Mask values (0=valid, >0=missing).
+
     """
     n_samples = container.n_samples
 
@@ -242,12 +252,19 @@ def _resolve_color_and_mask(
         mask = np.zeros(n_samples, dtype=np.int8)
         return color_values, mask
 
-    # Check if color is a feature in var
-    assay = container.assays[assay_name]
-    actual_layer = "raw" if use_raw else layer
+    if assay_name is None:
+        raise ValueError(
+            "Feature coloring requires explicit assay_name; metadata-only coloring may omit it.",
+        )
 
-    if actual_layer not in assay.layers:
-        raise ValueError(f"Layer '{actual_layer}' not found in assay '{assay_name}'")
+    actual_layer = "raw" if use_raw else layer
+    if actual_layer is None:
+        raise ValueError(
+            "Feature coloring requires explicit layer selection; pass layer=... or use_raw=True.",
+        )
+
+    validate_layer(container, assay_name, actual_layer)
+    assay = container.assays[assay_name]
 
     scpmatrix = assay.layers[actual_layer]
 
@@ -272,6 +289,17 @@ def _resolve_color_and_mask(
     return color_values, mask
 
 
+def _resolve_assay_name(container: ScpContainer, assay_name: str | None) -> str | None:
+    """Resolve assay aliases when feature coloring is requested."""
+    if assay_name is None:
+        return None
+
+    resolved_assay_name = resolve_assay_name(container, assay_name)
+    if resolved_assay_name not in container.assays:
+        raise ValueError(f"Assay '{assay_name}' not found in container")
+    return resolved_assay_name
+
+
 def _find_feature_index(assay, feature_name: str) -> int | None:
     """Find feature index in assay var.
 
@@ -286,6 +314,7 @@ def _find_feature_index(assay, feature_name: str) -> int | None:
     -------
     int | None
         Feature index if found, None otherwise.
+
     """
     # Try common column names
     for col_name in ["protein", "gene", "feature", "name", "_index"]:
@@ -330,6 +359,7 @@ def _plot_with_missing_values(
         Whether color is categorical.
     **kwargs
         Additional scatter arguments.
+
     """
     import matplotlib.pyplot as plt
 
@@ -399,6 +429,7 @@ def _plot_simple(
         Whether color is categorical.
     **kwargs
         Additional scatter arguments.
+
     """
     import matplotlib.pyplot as plt
 
@@ -434,6 +465,7 @@ def _add_categorical_legend(
         Unique values in the column.
     legend_loc : str
         Legend location.
+
     """
     unique_values = np.unique(values)
 
@@ -456,7 +488,8 @@ def _add_categorical_legend(
 
 def umap(
     container: ScpContainer,
-    layer: str = "normalized",
+    layer: str | None = None,
+    assay_name: str | None = None,
     **kwargs,
 ) -> plt.Axes:
     """UMAP scatter plot.
@@ -468,8 +501,10 @@ def umap(
     ----------
     container : ScpContainer
         Input data container with UMAP coordinates in obs.
-    layer : str, default "normalized"
+    layer : str | None, default None
         Layer name for feature-based coloring.
+    assay_name : str | None, default None
+        Assay name for feature-based coloring.
     **kwargs
         Additional arguments passed to :func:`scatter`.
 
@@ -482,13 +517,15 @@ def umap(
     --------
     >>> from scptensor.viz.recipes.embedding import umap
     >>> ax = umap(container, layer="normalized", color="cluster")
+
     """
-    return scatter(container, layer=layer, basis="umap", **kwargs)
+    return scatter(container, layer=layer, basis="umap", assay_name=assay_name, **kwargs)
 
 
 def pca(
     container: ScpContainer,
-    layer: str = "normalized",
+    layer: str | None = None,
+    assay_name: str | None = None,
     **kwargs,
 ) -> plt.Axes:
     """PCA scatter plot.
@@ -500,8 +537,10 @@ def pca(
     ----------
     container : ScpContainer
         Input data container with PCA coordinates in obs.
-    layer : str, default "normalized"
+    layer : str | None, default None
         Layer name for feature-based coloring.
+    assay_name : str | None, default None
+        Assay name for feature-based coloring.
     **kwargs
         Additional arguments passed to :func:`scatter`.
 
@@ -514,13 +553,15 @@ def pca(
     --------
     >>> from scptensor.viz.recipes.embedding import pca
     >>> ax = pca(container, layer="normalized", color="batch")
+
     """
-    return scatter(container, layer=layer, basis="pca", **kwargs)
+    return scatter(container, layer=layer, basis="pca", assay_name=assay_name, **kwargs)
 
 
 def tsne(
     container: ScpContainer,
-    layer: str = "normalized",
+    layer: str | None = None,
+    assay_name: str | None = None,
     **kwargs,
 ) -> plt.Axes:
     """t-SNE scatter plot.
@@ -532,8 +573,10 @@ def tsne(
     ----------
     container : ScpContainer
         Input data container with t-SNE coordinates in obs.
-    layer : str, default "normalized"
+    layer : str | None, default None
         Layer name for feature-based coloring.
+    assay_name : str | None, default None
+        Assay name for feature-based coloring.
     **kwargs
         Additional arguments passed to :func:`scatter`.
 
@@ -546,14 +589,16 @@ def tsne(
     --------
     >>> from scptensor.viz.recipes.embedding import tsne
     >>> ax = tsne(container, layer="normalized", color="condition")
+
     """
-    return scatter(container, layer=layer, basis="tsne", **kwargs)
+    return scatter(container, layer=layer, basis="tsne", assay_name=assay_name, **kwargs)
 
 
 def embedding(
     container: ScpContainer,
-    layer: str = "normalized",
+    layer: str | None = None,
     basis: str = "umap",
+    assay_name: str | None = None,
     **kwargs,
 ) -> plt.Axes:
     """Generic embedding scatter plot.
@@ -566,11 +611,13 @@ def embedding(
     ----------
     container : ScpContainer
         Input data container with embedding coordinates in obs.
-    layer : str, default "normalized"
+    layer : str | None, default None
         Layer name for feature-based coloring.
     basis : str, default "umap"
         Embedding basis name. Expects {basis}_1 and {basis}_2 columns in obs.
         Common values: "umap", "pca", "tsne".
+    assay_name : str | None, default None
+        Assay name for feature-based coloring.
     **kwargs
         Additional arguments passed to :func:`scatter`.
 
@@ -583,8 +630,9 @@ def embedding(
     --------
     >>> from scptensor.viz.recipes.embedding import embedding
     >>> ax = embedding(container, basis="pca", color="cluster")
+
     """
-    return scatter(container, layer=layer, basis=basis, **kwargs)
+    return scatter(container, layer=layer, basis=basis, assay_name=assay_name, **kwargs)
 
 
 def plot_embedding_scatter(*args, **kwargs):

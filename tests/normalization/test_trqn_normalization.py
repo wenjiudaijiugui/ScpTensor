@@ -22,7 +22,7 @@ def _make_container() -> ScpContainer:
             [200.0, 10.0, 20.0, 30.0, 40.0],
             [300.0, 2.0, 4.0, 6.0, 8.0],
             [400.0, 5.0, 7.0, 9.0, 11.0],
-        ]
+        ],
     )
     m = np.array(
         [
@@ -56,7 +56,7 @@ def test_trqn_preserves_mask() -> None:
 def test_trqn_sparse_input_still_returns_dense_output() -> None:
     container = _make_container()
     container.assays["protein"].layers["raw"].X = sp.csr_matrix(
-        container.assays["protein"].layers["raw"].X
+        container.assays["protein"].layers["raw"].X,
     )
 
     norm_trqn(container, assay_name="protein", source_layer="raw", new_layer_name="trqn")
@@ -124,14 +124,14 @@ def test_rank_invariance_frequency_uses_assigned_positive_ranks_only() -> None:
             [10.0, 11.0, 12.0, np.nan],
             [1.0, 2.0, 3.0, 4.0],
             [7.0, 8.0, 9.0, 10.0],
-        ]
+        ],
     )
     qn_feature_sample = np.array(
         [
             [5.0, 5.0, 4.0, np.nan],
             [4.0, 3.0, 5.0, 2.0],
             [1.0, 2.0, 1.0, 1.0],
-        ]
+        ],
     )
 
     frequencies = _rank_invariance_frequency(

@@ -32,7 +32,7 @@ print(json.dumps({
     "seaborn": any(name.startswith("seaborn") for name in sys.modules),
     "sklearn": any(name.startswith("sklearn") for name in sys.modules),
 }))
-"""
+""",
     )
 
     assert payload == {
@@ -44,7 +44,32 @@ print(json.dumps({
     }
 
 
-def test_root_attribute_access_lazily_loads_viz_and_integration_exports() -> None:
+def test_root_package_surface_is_small_and_explicit() -> None:
+    payload = _run_python(
+        """
+import json
+
+import scptensor
+
+print(json.dumps({"all": scptensor.__all__}))
+""",
+    )
+
+    assert payload == {
+        "all": [
+            "__version__",
+            "ScpContainer",
+            "Assay",
+            "ScpMatrix",
+            "load_diann",
+            "load_peptide_pivot",
+            "load_spectronaut",
+            "aggregate_to_protein",
+        ],
+    }
+
+
+def test_root_attribute_access_only_lazily_loads_kept_exports() -> None:
     payload = _run_python(
         """
 import json
@@ -52,30 +77,65 @@ import sys
 
 import scptensor as scp
 
-_ = scp.plot_data_overview
-after_viz = {
-    "scptensor_viz": "scptensor.viz" in sys.modules,
-    "matplotlib": any(name.startswith("matplotlib") for name in sys.modules),
+_ = scp.load_diann
+after_io = {
+    "scptensor_io": "scptensor.io" in sys.modules,
 }
 
-_ = scp.integrate_limma
-after_integration = {
-    "scptensor_integration": "scptensor.integration" in sys.modules,
+_ = scp.aggregate_to_protein
+after_aggregation = {
+    "scptensor_aggregation": "scptensor.aggregation" in sys.modules,
 }
 
 print(json.dumps({
-    "after_viz": after_viz,
-    "after_integration": after_integration,
+    "after_io": after_io,
+    "after_aggregation": after_aggregation,
 }))
-"""
+""",
     )
 
     assert payload == {
-        "after_viz": {
-            "scptensor_viz": True,
-            "matplotlib": True,
+        "after_io": {
+            "scptensor_io": True,
         },
-        "after_integration": {
-            "scptensor_integration": True,
+        "after_aggregation": {
+            "scptensor_aggregation": True,
         },
+    }
+
+
+def test_removed_root_exports_do_not_trigger_heavy_module_imports() -> None:
+    payload = _run_python(
+        """
+import json
+import sys
+
+import scptensor as scp
+
+try:
+    _ = scp.plot_data_overview
+except AttributeError:
+    pass
+
+try:
+    _ = scp.integrate_limma
+except AttributeError:
+    pass
+
+print(json.dumps({
+    "has_plot_data_overview": hasattr(scp, "plot_data_overview"),
+    "has_integrate_limma": hasattr(scp, "integrate_limma"),
+    "scptensor_viz": "scptensor.viz" in sys.modules,
+    "scptensor_integration": "scptensor.integration" in sys.modules,
+    "matplotlib": any(name.startswith("matplotlib") for name in sys.modules),
+}))
+""",
+    )
+
+    assert payload == {
+        "has_plot_data_overview": False,
+        "has_integrate_limma": False,
+        "scptensor_viz": False,
+        "scptensor_integration": False,
+        "matplotlib": False,
     }

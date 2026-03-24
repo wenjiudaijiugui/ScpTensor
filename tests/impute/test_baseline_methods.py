@@ -14,8 +14,8 @@ from scptensor.impute import (
     impute_row_mean,
     impute_row_median,
     impute_zero,
-    list_impute_methods,
 )
+from scptensor.impute.base import list_impute_methods
 
 
 @pytest.fixture

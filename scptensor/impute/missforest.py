@@ -1,5 +1,4 @@
-"""
-MissForest imputation (Random Forest based imputation).
+"""MissForest imputation (Random Forest based imputation).
 
 Uses sklearn's IterativeImputer with RandomForestRegressor to iteratively
 train on observed values and predict missing values.
@@ -7,12 +6,12 @@ train on observed values and predict missing values.
 
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.experimental import enable_iterative_imputer  # noqa: F401
+from sklearn.experimental import enable_iterative_imputer as _enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import ScpValueError
 from scptensor.core.jit_ops import impute_missing_with_col_means_jit
-from scptensor.core.structures import ScpContainer
 from scptensor.impute._utils import (
     add_imputed_layer,
     log_imputation_operation,
@@ -20,6 +19,8 @@ from scptensor.impute._utils import (
     to_dense_float_copy,
 )
 from scptensor.impute.base import ImputeMethod, register_impute_method, validate_layer_context
+
+del _enable_iterative_imputer
 
 # =============================================================================
 # Core MissForest algorithm (pure function for registry)
@@ -55,6 +56,7 @@ def missforest_impute(
     -------
     np.ndarray
         Data with imputed values.
+
     """
     X = data.copy()
     missing_mask = np.isnan(X)
@@ -105,8 +107,7 @@ def impute_mf(
     random_state: int = 42,
     verbose: int = 0,
 ) -> ScpContainer:
-    """
-    Impute missing values using MissForest (Random Forest imputation).
+    """Impute missing values using MissForest (Random Forest imputation).
 
     Parameters
     ----------
@@ -147,10 +148,11 @@ def impute_mf(
 
     Examples
     --------
-    >>> from scptensor import impute_mf
+    >>> from scptensor.impute import impute_mf
     >>> result = impute_mf(container, "proteins", "raw", n_estimators=50)
     >>> "imputed_missforest" in result.assays["proteins"].layers
     True
+
     """
     # Validate parameters
     if max_iter <= 0:
@@ -248,5 +250,5 @@ register_impute_method(
         supports_sparse=False,
         validate=validate_missforest,
         apply=impute_mf,
-    )
+    ),
 )

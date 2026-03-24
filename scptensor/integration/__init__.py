@@ -50,27 +50,16 @@ References
 - Harmony: Korsunsky et al. Nature Methods (2019)
 - MNN: Haghverdi et al. Nature Biotechnology (2018)
 - Scanorama: Hie et al. Nature Biotechnology (2019)
+
+Notes
+-----
+Registry metadata lives in ``scptensor.integration.base``.
+Diagnostics live in ``scptensor.integration.diagnostics``.
+
 """
 
-from scptensor.integration.base import (
-    IntegrateMethod,
-    IntegrationMethodInfo,
-    get_integrate_method,
-    get_integrate_method_info,
-    integrate,
-    list_integrate_method_info,
-    list_integrate_methods,
-    register_integrate_method,
-)
+from scptensor.integration.base import integrate
 from scptensor.integration.combat import integrate_combat
-from scptensor.integration.diagnostics import (
-    compute_batch_asw,
-    compute_batch_mixing_metric,
-    compute_ilisi,
-    compute_kbet,
-    compute_lisi_approx,
-    integration_quality_report,
-)
 from scptensor.integration.harmony import integrate_harmony
 from scptensor.integration.limma import integrate_limma
 from scptensor.integration.mnn import integrate_mnn
@@ -80,13 +69,6 @@ from scptensor.integration.scanorama import integrate_scanorama
 __all__ = [
     # Unified interface
     "integrate",
-    "list_integrate_methods",
-    "get_integrate_method",
-    "IntegrateMethod",
-    "IntegrationMethodInfo",
-    "register_integrate_method",
-    "get_integrate_method_info",
-    "list_integrate_method_info",
     # Individual methods
     "integrate_none",
     "integrate_combat",
@@ -94,11 +76,4 @@ __all__ = [
     "integrate_harmony",
     "integrate_mnn",
     "integrate_scanorama",
-    # Diagnostics
-    "compute_batch_mixing_metric",
-    "compute_batch_asw",
-    "compute_lisi_approx",
-    "compute_kbet",
-    "compute_ilisi",
-    "integration_quality_report",
 ]

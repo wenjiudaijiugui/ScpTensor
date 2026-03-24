@@ -10,7 +10,8 @@ from ._structure_matrix import ScpMatrix
 
 
 def _copy_matrix_if_requested(
-    matrix: np.ndarray | sp.spmatrix | None, copy_data: bool
+    matrix: np.ndarray | sp.spmatrix | None,
+    copy_data: bool,
 ) -> np.ndarray | sp.spmatrix | None:
     """Return a copied matrix payload when requested."""
     if matrix is None or not copy_data:
@@ -49,7 +50,7 @@ class Assay:
         for name, matrix in self.layers.items():
             if matrix.X.shape[1] != self.n_features:
                 raise ValueError(
-                    f"Layer '{name}': Features {matrix.X.shape[1]} != Assay {self.n_features}"
+                    f"Layer '{name}': Features {matrix.X.shape[1]} != Assay {self.n_features}",
                 )
 
     def validate(self) -> None:
@@ -67,6 +68,7 @@ class Assay:
         return self.var[self.feature_id_col]
 
     @property
+    # Keep the uppercase shortcut to mirror the canonical layer name "X".
     def X(self) -> np.ndarray | sp.spmatrix | None:  # noqa: N802
         """Shortcut to access the 'X' layer matrix if it exists."""
         layer = self.layers.get("X")

@@ -1,5 +1,4 @@
-"""
-Tests for synthetic data generation and validation.
+"""Tests for synthetic data generation and validation.
 
 This module tests the synthetic data generator functions and validates
 that generated data has expected properties.
@@ -31,7 +30,7 @@ class TestSyntheticDataGenerator:
                 "group": groups,
                 "batch": batches,
                 "_index": [f"S{i + 1:03d}" for i in range(n_samples)],
-            }
+            },
         )
 
         # Create expression data
@@ -50,7 +49,7 @@ class TestSyntheticDataGenerator:
             {
                 "protein_id": [f"P{i + 1:04d}" for i in range(n_features)],
                 "_index": [f"P{i + 1:04d}" for i in range(n_features)],
-            }
+            },
         )
 
         matrix = ScpMatrix(X=X_observed, M=M)
@@ -84,7 +83,7 @@ class TestSyntheticDataGenerator:
                 "group": groups,
                 "batch": batches,
                 "_index": [f"S{i + 1:03d}" for i in range(n_samples)],
-            }
+            },
         )
 
         # Create data with batch effect
@@ -97,7 +96,7 @@ class TestSyntheticDataGenerator:
             {
                 "protein_id": [f"P{i + 1:04d}" for i in range(n_features)],
                 "_index": [f"P{i + 1:04d}" for i in range(n_features)],
-            }
+            },
         )
 
         matrix = ScpMatrix(X=X, M=M)
@@ -128,7 +127,7 @@ class TestSyntheticDataGenerator:
                 "group": groups,
                 "batch": batches,
                 "_index": [f"S{i + 1:03d}" for i in range(n_samples)],
-            }
+            },
         )
 
         # Create data with group effect in first 20 features
@@ -141,7 +140,7 @@ class TestSyntheticDataGenerator:
             {
                 "protein_id": [f"P{i + 1:04d}" for i in range(n_features)],
                 "_index": [f"P{i + 1:04d}" for i in range(n_features)],
-            }
+            },
         )
 
         matrix = ScpMatrix(X=X, M=M)
@@ -167,7 +166,7 @@ class TestSyntheticDataGenerator:
             {
                 "sample_id": [f"S{i + 1:03d}" for i in range(n_samples)],
                 "_index": [f"S{i + 1:03d}" for i in range(n_samples)],
-            }
+            },
         )
 
         X = np.random.lognormal(mean=2, sigma=0.5, size=(n_samples, n_features))
@@ -185,7 +184,9 @@ class TestSyntheticDataGenerator:
         valid_indices = np.argwhere(valid_mask)
         n_random_missing = 50
         random_indices_idx = np.random.choice(
-            len(valid_indices), size=n_random_missing, replace=False
+            len(valid_indices),
+            size=n_random_missing,
+            replace=False,
         )
         random_indices = valid_indices[random_indices_idx]
         X_observed[random_indices[:, 0], random_indices[:, 1]] = 0
@@ -195,7 +196,7 @@ class TestSyntheticDataGenerator:
             {
                 "protein_id": [f"P{i + 1:04d}" for i in range(n_features)],
                 "_index": [f"P{i + 1:04d}" for i in range(n_features)],
-            }
+            },
         )
 
         matrix = ScpMatrix(X=X_observed, M=M)
@@ -268,7 +269,7 @@ class TestSyntheticDataValidation:
                 "group": np.random.choice(["A", "B"], size=n_samples),
                 "batch": np.random.choice(["B1", "B2"], size=n_samples),
                 "_index": [f"S{i + 1:03d}" for i in range(n_samples)],
-            }
+            },
         )
 
         X = np.random.rand(n_samples, n_features)
@@ -278,7 +279,7 @@ class TestSyntheticDataValidation:
             {
                 "protein_id": [f"P{i + 1:04d}" for i in range(n_features)],
                 "_index": [f"P{i + 1:04d}" for i in range(n_features)],
-            }
+            },
         )
 
         matrix = ScpMatrix(X=X, M=M)
@@ -303,7 +304,7 @@ class TestSyntheticDataValidation:
                 "group": ["A", "B", "A"],
                 "batch": ["B1", "B2", "B1"],
                 "_index": ["S1", "S2", "S3"],
-            }
+            },
         )
 
         X = np.random.rand(3, 10)
@@ -313,7 +314,7 @@ class TestSyntheticDataValidation:
             {
                 "protein_id": [f"P{i + 1:04d}" for i in range(10)],
                 "_index": [f"P{i + 1:04d}" for i in range(10)],
-            }
+            },
         )
 
         matrix = ScpMatrix(X=X, M=M)
@@ -342,7 +343,7 @@ class TestSyntheticDataValidation:
             {
                 "sample_id": [f"S{i + 1:03d}" for i in range(n_samples)],
                 "_index": [f"S{i + 1:03d}" for i in range(n_samples)],
-            }
+            },
         )
 
         X = np.random.rand(n_samples, n_features)
@@ -357,7 +358,7 @@ class TestSyntheticDataValidation:
             {
                 "protein_id": [f"P{i + 1:04d}" for i in range(n_features)],
                 "_index": [f"P{i + 1:04d}" for i in range(n_features)],
-            }
+            },
         )
 
         matrix = ScpMatrix(X=X, M=M)
@@ -383,7 +384,7 @@ class TestSyntheticDataValidation:
             {
                 "protein_id": [f"P{i + 1:04d}" for i in range(10)],
                 "_index": [f"P{i + 1:04d}" for i in range(10)],
-            }
+            },
         )
 
         matrix = ScpMatrix(X=X, M=M)

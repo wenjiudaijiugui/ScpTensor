@@ -87,7 +87,9 @@ def test_checklist_shape_fill_mask_and_source_integrity(
 
     # Source layer integrity
     np.testing.assert_allclose(
-        container.assays["protein"].layers["raw"].X, source_snapshot, equal_nan=True
+        container.assays["protein"].layers["raw"].X,
+        source_snapshot,
+        equal_nan=True,
     )
     assert np.array_equal(container.assays["protein"].layers["raw"].M, source_mask_snapshot)
 

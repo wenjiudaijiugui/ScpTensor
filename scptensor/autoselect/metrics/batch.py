@@ -16,7 +16,25 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy.stats import chi2
-from sklearn.neighbors import NearestNeighbors
+
+from scptensor.core._batch_metrics_kernel import (
+    compute_inverse_simpson_scores as _compute_inverse_simpson_scores,
+)
+from scptensor.core._batch_metrics_kernel import (
+    compute_perplexity_probabilities as _compute_perplexity_probabilities,
+)
+from scptensor.core._batch_metrics_kernel import (
+    compute_self_excluded_knn as _compute_knn,
+)
+from scptensor.core._batch_metrics_kernel import (
+    validate_alpha as _validate_alpha,
+)
+from scptensor.core._batch_metrics_kernel import (
+    validate_n_neighbors as _validate_neighbors,
+)
+from scptensor.core._batch_metrics_kernel import (
+    validate_perplexity as _validate_perplexity,
+)
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -33,7 +51,7 @@ def _prepare_labeled_matrix(
     if len(labels) != X.shape[0]:
         raise ValueError(
             f"Shape mismatch: X has {X.shape[0]} samples but "
-            f"batch_labels has {len(labels)} elements"
+            f"batch_labels has {len(labels)} elements",
         )
 
     valid_mask = np.isfinite(X).all(axis=1)
@@ -50,161 +68,56 @@ def _prepare_labeled_matrix(
     return x_clean, labels_clean, label_codes
 
 
-def _validate_neighbors(n_neighbors: int) -> None:
-    """Validate kNN neighborhood size."""
-    if n_neighbors <= 0:
-        raise ValueError(f"n_neighbors must be positive, got {n_neighbors}")
+def _try_raw_label_silhouette(
+    X: NDArray[np.float64],
+    labels: np.ndarray,
+) -> tuple[float, bool]:
+    """Return raw silhouette width and whether the input was evaluable."""
+    from sklearn.metrics import silhouette_score
+
+    if X.size == 0 or X.shape[0] < 2:
+        return 0.0, False
+
+    x_clean, _, label_codes = _prepare_labeled_matrix(X, labels)
+    if x_clean.shape[0] < 2 or len(np.unique(label_codes)) < 2:
+        return 0.0, False
+
+    _, counts = np.unique(label_codes, return_counts=True)
+    if counts.size == 0 or int(np.min(counts)) < 2:
+        return 0.0, False
+
+    try:
+        score = float(np.clip(silhouette_score(x_clean, label_codes), -1.0, 1.0))
+        return score, True
+    except Exception:
+        return 0.0, False
 
 
-def _validate_alpha(alpha: float) -> None:
-    """Validate kBET acceptance threshold."""
-    if not 0.0 < alpha < 1.0:
-        raise ValueError(f"alpha must be between 0 and 1, got {alpha}")
-
-
-def _validate_perplexity(perplexity: float) -> None:
-    """Validate target perplexity."""
-    if perplexity <= 0:
-        raise ValueError(f"perplexity must be positive, got {perplexity}")
-
-
-def _compute_knn(
-    X: np.ndarray,
-    n_neighbors: int,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Compute a self-excluded kNN graph."""
-    local_k = min(n_neighbors, X.shape[0] - 1)
-    if local_k < 1:
-        return (
-            np.empty((X.shape[0], 0), dtype=float),
-            np.empty((X.shape[0], 0), dtype=int),
-        )
-
-    nbrs = NearestNeighbors(n_neighbors=local_k + 1, algorithm="auto").fit(X)
-    distances, indices = nbrs.kneighbors(X)
-
-    return distances[:, 1 : local_k + 1], indices[:, 1 : local_k + 1]
-
-
-def _hbeta(distances: np.ndarray, beta: float) -> tuple[float, np.ndarray]:
-    """Return Shannon entropy and normalized probabilities for one row."""
-    probabilities = np.exp(-distances * beta)
-    sum_probabilities = float(np.sum(probabilities))
-    if sum_probabilities <= 0.0:
-        if distances.size == 0:
-            return 0.0, probabilities
-        uniform = np.full(distances.shape, 1.0 / distances.size, dtype=float)
-        return float(np.log(distances.size)), uniform
-
-    weighted_distance_sum = float(np.sum(distances * probabilities))
-    entropy = np.log(sum_probabilities) + beta * weighted_distance_sum / sum_probabilities
-    return float(entropy), probabilities / sum_probabilities
-
-
-def _compute_perplexity_probabilities(
-    distances: np.ndarray,
-    perplexity: float,
-    *,
-    tol: float = 1e-5,
-    max_iter: int = 50,
-) -> np.ndarray:
-    """Binary-search neighbor probabilities to match a target perplexity."""
-    target_entropy = float(np.log(perplexity))
-    probabilities = np.zeros_like(distances, dtype=float)
-
-    for row_idx, row_distances in enumerate(distances):
-        beta = 1.0
-        beta_min = -np.inf
-        beta_max = np.inf
-        entropy, row_probabilities = _hbeta(row_distances, beta)
-        entropy_diff = entropy - target_entropy
-
-        n_iter = 0
-        while abs(entropy_diff) > tol and n_iter < max_iter:
-            if entropy_diff > 0.0:
-                beta_min = beta
-                beta = 2.0 * beta if np.isinf(beta_max) else 0.5 * (beta + beta_max)
-            else:
-                beta_max = beta
-                beta = 0.5 * beta if np.isinf(beta_min) else 0.5 * (beta + beta_min)
-
-            entropy, row_probabilities = _hbeta(row_distances, beta)
-            entropy_diff = entropy - target_entropy
-            n_iter += 1
-
-        probabilities[row_idx] = row_probabilities
-
-    return probabilities
-
-
-def _compute_inverse_simpson_scores(
-    label_codes: np.ndarray,
-    neighbor_indices: np.ndarray,
-    neighbor_probabilities: np.ndarray,
-    n_labels: int,
-) -> np.ndarray:
-    """Compute weighted inverse Simpson diversity for each sample."""
-    scores = np.ones(neighbor_indices.shape[0], dtype=float)
-    for row_idx, neighbors in enumerate(neighbor_indices):
-        weights = neighbor_probabilities[row_idx]
-        local_probabilities = np.bincount(
-            label_codes[neighbors],
-            weights=weights,
-            minlength=n_labels,
-        )
-        simpson_index = float(np.sum(local_probabilities**2))
-        if simpson_index > 0.0:
-            scores[row_idx] = 1.0 / simpson_index
-    return scores
+def _raw_batch_asw(X: NDArray[np.float64], batch_labels: np.ndarray) -> float:
+    """Return raw batch silhouette width with fail-closed semantics."""
+    score, evaluable = _try_raw_label_silhouette(X, batch_labels)
+    return score if evaluable else 0.0
 
 
 def batch_asw(X: NDArray[np.float64], batch_labels: np.ndarray) -> float:
     """Calculate 1-ASW batch mixing score.
 
-    Lower raw batch ASW indicates better mixing. This helper keeps the
-    historical AutoSelect convention and returns ``1 - ASW`` clipped to
-    ``[0, 1]`` so higher remains better.
+    Lower raw batch ASW indicates better mixing. This helper derives the
+    historical AutoSelect score from the authoritative raw silhouette result
+    and returns ``1 - ASW`` clipped to ``[0, 1]`` so higher remains better.
     """
-    from sklearn.metrics import silhouette_score
-
-    if X.size == 0 or X.shape[0] < 2:
+    raw_asw, evaluable = _try_raw_label_silhouette(X, batch_labels)
+    if not evaluable:
         return 0.0
-
-    x_clean, _, batch_codes = _prepare_labeled_matrix(X, batch_labels)
-    if x_clean.shape[0] < 2 or len(np.unique(batch_codes)) < 2:
-        return 0.0
-
-    _, counts = np.unique(batch_codes, return_counts=True)
-    if counts.size == 0 or int(np.min(counts)) < 2:
-        return 0.0
-
-    try:
-        asw = float(silhouette_score(x_clean, batch_codes))
-        return float(np.clip(1.0 - asw, 0.0, 1.0))
-    except Exception:
-        return 0.0
+    return float(np.clip(1.0 - raw_asw, 0.0, 1.0))
 
 
 def bio_asw(X: NDArray[np.float64], bio_labels: np.ndarray) -> float:
     """Calculate biological-group ASW score."""
-    from sklearn.metrics import silhouette_score
-
-    if X.size == 0 or X.shape[0] < 2:
+    raw_asw, evaluable = _try_raw_label_silhouette(X, bio_labels)
+    if not evaluable:
         return 0.0
-
-    x_clean, _, bio_codes = _prepare_labeled_matrix(X, bio_labels)
-    if x_clean.shape[0] < 2 or len(np.unique(bio_codes)) < 2:
-        return 0.0
-
-    _, counts = np.unique(bio_codes, return_counts=True)
-    if counts.size == 0 or int(np.min(counts)) < 2:
-        return 0.0
-
-    try:
-        asw = float(silhouette_score(x_clean, bio_codes))
-        return float(np.clip(asw, 0.0, 1.0))
-    except Exception:
-        return 0.0
+    return float(np.clip(raw_asw, 0.0, 1.0))
 
 
 def batch_mixing_score(
@@ -249,6 +162,45 @@ def batch_mixing_score(
 
         avg_score = float(np.mean(scores))
         return float(np.clip(avg_score / max_simpson, 0.0, 1.0))
+    except Exception:
+        return 0.0
+
+
+def lisi_approx_score(
+    X: NDArray[np.float64],
+    batch_labels: np.ndarray,
+    n_neighbors: int = 50,
+) -> float:
+    """Calculate fixed-k approximate LISI from unweighted neighborhoods.
+
+    This preserves the historical ScpTensor approximation used in integration
+    diagnostics and serves as the shared implementation for that API surface.
+    """
+    if X.size == 0 or X.shape[0] < 2:
+        return 0.0
+
+    _validate_neighbors(n_neighbors)
+    x_clean, _, batch_codes = _prepare_labeled_matrix(X, batch_labels)
+    n_samples = x_clean.shape[0]
+    n_batches = len(np.unique(batch_codes))
+
+    if n_samples < 2 or n_batches < 2:
+        return 0.0
+
+    _, neighbor_indices = _compute_knn(x_clean, n_neighbors)
+    if neighbor_indices.shape[1] == 0:
+        return 0.0
+
+    try:
+        lisi_scores: list[float] = []
+        for neighbors in neighbor_indices:
+            neighbor_codes = batch_codes[neighbors]
+            batch_counts = np.bincount(neighbor_codes, minlength=n_batches)
+            proportions = batch_counts / len(neighbor_codes)
+            simpson = float(np.sum(proportions**2))
+            lisi_scores.append(0.0 if simpson <= 0.0 else 1.0 / simpson)
+
+        return float(np.mean(lisi_scores))
     except Exception:
         return 0.0
 
@@ -349,6 +301,7 @@ __all__ = [
     "batch_asw",
     "bio_asw",
     "batch_mixing_score",
+    "lisi_approx_score",
     "kbet_score",
     "ilisi_score",
 ]

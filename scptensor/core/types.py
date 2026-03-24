@@ -24,19 +24,16 @@ Examples
 >>> matrix: DenseMatrix = np.array([[1.0, 2.0], [3.0, 4.0]])
 >>> result = func(matrix[0])
 >>> print(result)  # 1.5
+
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING
 
 import numpy as np
 import polars as pl
 import scipy.sparse as sp
-
-if TYPE_CHECKING:
-    pass
 
 # =============================================================================
 # Matrix Type Aliases

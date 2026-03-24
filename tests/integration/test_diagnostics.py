@@ -7,6 +7,13 @@ import polars as pl
 import pytest
 import scipy.sparse as sp
 
+from scptensor.autoselect.metrics.batch import (
+    batch_asw,
+    batch_mixing_score,
+    ilisi_score,
+    kbet_score,
+    lisi_approx_score,
+)
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.integration.diagnostics import (
     compute_batch_asw,
@@ -29,7 +36,7 @@ def _make_container(
         {
             "_index": [f"S{i:03d}" for i in range(len(batches))],
             "batch": batches,
-        }
+        },
     )
     var = pl.DataFrame({"_index": [f"F{i:03d}" for i in range(X.shape[1])]})
     assay = Assay(var=var, layers={layer_name: ScpMatrix(X=X)})
@@ -45,7 +52,7 @@ def test_compute_batch_asw_returns_float_in_range() -> None:
             [5.0, 5.0],
             [5.1, 5.0],
             [5.0, 5.1],
-        ]
+        ],
     )
     container = _make_container(X, ["A", "A", "A", "B", "B", "B"])
     score = compute_batch_asw(container)
@@ -59,7 +66,7 @@ def test_compute_batch_asw_small_valid_set_returns_zero() -> None:
             [0.0, 0.0],
             [np.nan, np.nan],
             [1.0, 1.0],
-        ]
+        ],
     )
     container = _make_container(X, ["A", "A", "B"])
     assert compute_batch_asw(container) == 0.0
@@ -75,7 +82,7 @@ def test_compute_batch_mixing_metric_handles_sparse_and_nan_rows() -> None:
             [1.1, 1.0],
             [np.nan, 1.1],
             [np.inf, 1.2],
-        ]
+        ],
     )
     X = sp.csr_matrix(np.nan_to_num(dense, nan=0.0))
     container = _make_container(X, ["A", "A", "A", "B", "B", "B", "B"])
@@ -87,10 +94,10 @@ def test_compute_batch_mixing_metric_handles_sparse_and_nan_rows() -> None:
     assert 0.0 <= score <= 1.0
 
 
-def test_compute_batch_mixing_metric_single_sample_returns_one() -> None:
+def test_compute_batch_mixing_metric_single_sample_fails_closed() -> None:
     X = np.array([[1.0, 2.0]])
     container = _make_container(X, ["A"])
-    assert compute_batch_mixing_metric(container) == 1.0
+    assert compute_batch_mixing_metric(container) == 0.0
 
 
 def test_compute_lisi_approx_range_two_batches() -> None:
@@ -102,7 +109,7 @@ def test_compute_lisi_approx_range_two_batches() -> None:
             [1.0, 1.0],
             [1.2, 1.0],
             [1.0, 1.2],
-        ]
+        ],
     )
     container = _make_container(X, ["A", "A", "A", "B", "B", "B"])
     score = compute_lisi_approx(container, n_neighbors=3)
@@ -110,10 +117,10 @@ def test_compute_lisi_approx_range_two_batches() -> None:
     assert 1.0 <= score <= 2.0
 
 
-def test_compute_lisi_approx_single_batch_returns_one() -> None:
+def test_compute_lisi_approx_single_batch_fails_closed() -> None:
     X = np.array([[0.0, 1.0], [0.5, 1.5], [1.0, 2.0]])
     container = _make_container(X, ["A", "A", "A"])
-    assert compute_lisi_approx(container) == 1.0
+    assert compute_lisi_approx(container) == 0.0
 
 
 def test_compute_kbet_distinguishes_mixed_from_segregated_batches() -> None:
@@ -134,7 +141,7 @@ def test_compute_kbet_distinguishes_mixed_from_segregated_batches() -> None:
             [10.3, 0.0],
             [10.4, 0.0],
             [10.5, 0.0],
-        ]
+        ],
     )
     segregated_container = _make_container(segregated_x, ["A"] * 6 + ["B"] * 6)
 
@@ -166,7 +173,7 @@ def test_compute_ilisi_scaled_and_raw_distinguish_mixing_quality() -> None:
             [10.3, 0.0],
             [10.4, 0.0],
             [10.5, 0.0],
-        ]
+        ],
     )
     segregated_container = _make_container(segregated_x, ["A"] * 6 + ["B"] * 6)
 
@@ -191,14 +198,75 @@ def test_compute_ilisi_scaled_and_raw_distinguish_mixing_quality() -> None:
     assert segregated_scaled < 0.25
 
 
-def test_compute_ilisi_single_batch_returns_one() -> None:
+def test_compute_ilisi_single_batch_fails_closed() -> None:
     X = np.array([[0.0, 1.0], [0.5, 1.5], [1.0, 2.0]])
     container = _make_container(X, ["A", "A", "A"])
-    assert compute_ilisi(container) == 1.0
+    assert compute_ilisi(container) == 0.0
+
+
+def test_compute_kbet_single_batch_fails_closed() -> None:
+    X = np.array([[0.0, 1.0], [0.5, 1.5], [1.0, 2.0]])
+    container = _make_container(X, ["A", "A", "A"])
+    assert compute_kbet(container) == 0.0
+
+
+def test_standardized_metrics_align_with_autoselect_metric_kernel() -> None:
+    X = np.array(
+        [
+            [0.0, 0.0],
+            [0.1, 0.0],
+            [0.2, 0.0],
+            [0.3, 0.0],
+            [5.0, 0.0],
+            [5.1, 0.0],
+            [5.2, 0.0],
+            [5.3, 0.0],
+            [np.nan, np.nan],
+        ],
+    )
+    batches = np.array(["A", "A", "B", "B", "A", "A", "B", "B", "A"])
+    container = _make_container(X, batches.tolist())
+
+    expected_batch_mixing = batch_mixing_score(X, batches, n_neighbors=3)
+    expected_lisi_approx = lisi_approx_score(X, batches, n_neighbors=3)
+    expected_kbet = kbet_score(X, batches, n_neighbors=3, alpha=0.05)
+    expected_ilisi = ilisi_score(X, batches, n_neighbors=3, perplexity=2.0, scale=True)
+    expected_ilisi_raw = ilisi_score(X, batches, n_neighbors=3, perplexity=2.0, scale=False)
+
+    assert compute_batch_mixing_metric(container, n_neighbors=3) == pytest.approx(
+        expected_batch_mixing,
+    )
+    assert compute_lisi_approx(container, n_neighbors=3) == pytest.approx(expected_lisi_approx)
+    assert compute_kbet(container, n_neighbors=3, alpha=0.05) == pytest.approx(expected_kbet)
+    assert compute_ilisi(container, n_neighbors=3, perplexity=2.0, scale=True) == pytest.approx(
+        expected_ilisi,
+    )
+    assert compute_ilisi(container, n_neighbors=3, perplexity=2.0, scale=False) == pytest.approx(
+        expected_ilisi_raw,
+    )
+
+
+def test_batch_asw_wrapper_matches_clipped_inverse_relation() -> None:
+    X = np.array(
+        [
+            [0.0, 0.0],
+            [0.1, 0.0],
+            [0.2, 0.0],
+            [5.0, 5.0],
+            [5.1, 5.0],
+            [5.2, 5.0],
+        ],
+    )
+    batches = np.array(["A", "A", "A", "B", "B", "B"])
+    container = _make_container(X, batches.tolist())
+
+    raw_asw = compute_batch_asw(container)
+    assert batch_asw(X, batches) == pytest.approx(1.0 - raw_asw)
 
 
 @pytest.mark.parametrize(
-    "fn", [compute_batch_mixing_metric, compute_lisi_approx, compute_kbet, compute_ilisi]
+    "fn",
+    [compute_batch_mixing_metric, compute_lisi_approx, compute_kbet, compute_ilisi],
 )
 def test_neighbor_based_metrics_reject_nonpositive_neighbor_count(fn) -> None:
     X = np.array([[0.0, 0.0], [1.0, 1.0]])
@@ -251,7 +319,7 @@ def test_integration_quality_report_structure() -> None:
             [0.1, 0.0],
             [1.0, 1.0],
             [1.1, 1.0],
-        ]
+        ],
     )
     container = _make_container(X, ["A", "A", "B", "B"])
     report = integration_quality_report(container)
@@ -270,7 +338,7 @@ def test_integration_quality_report_uses_valid_batch_count_in_lisi_interpretatio
             [0.1, 0.0],
             [np.nan, np.nan],
             [np.nan, np.nan],
-        ]
+        ],
     )
     container = _make_container(X, ["A", "A", "B", "B"])
 

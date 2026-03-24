@@ -5,16 +5,16 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from scptensor.core._layer_processing import clone_matrix_data
-from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import ScpContainer
-
-from .base import (
+from scptensor.core._layer_processing import (
     add_result_layer,
-    get_layer_name,
-    log_operation,
-    validate_layer_context,
+    clone_matrix_data,
+    log_container_operation,
+    resolve_result_layer_name,
 )
+from scptensor.core._structure_container import ScpContainer
+from scptensor.core.exceptions import ScpValueError
+
+from ._context import resolve_normalization_context
 from .mean_normalization import norm_mean
 from .median_normalization import norm_median
 from .quantile_normalization import norm_quantile
@@ -28,16 +28,16 @@ def norm_none(
     new_layer_name: str | None = "no_norm",
 ) -> ScpContainer:
     """Create a passthrough layer without applying normalization."""
-    ctx = validate_layer_context(container, assay_name, source_layer)
+    ctx = resolve_normalization_context(container, assay_name, source_layer)
     assay = ctx.assay
     input_layer = ctx.layer
-    layer_name = get_layer_name(new_layer_name, "no_norm")
+    layer_name = resolve_result_layer_name(new_layer_name, "no_norm")
 
     if layer_name != source_layer:
         passthrough = clone_matrix_data(input_layer.X)
         add_result_layer(assay, layer_name, passthrough, input_layer)
 
-    log_operation(
+    return log_container_operation(
         container,
         action="normalization_none",
         params={
@@ -47,7 +47,6 @@ def norm_none(
         },
         description=f"Normalization skipped on layer '{source_layer}' -> '{layer_name}'.",
     )
-    return container
 
 
 _METHODS: dict[str, Callable[..., ScpContainer]] = {
@@ -103,6 +102,7 @@ def normalize(
     -------
     ScpContainer
         Container with normalized layer added.
+
     """
     method_key = method.strip().lower()
     if method_key not in _METHODS:

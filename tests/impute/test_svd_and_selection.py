@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import sys
+import types
+from importlib.util import find_spec
+
 import numpy as np
 import polars as pl
 import pytest
@@ -12,9 +16,8 @@ from scptensor.impute import (
     impute,
     impute_iterative_svd,
     impute_softimpute,
-    list_impute_methods,
 )
-from scptensor.impute.base import infer_missing_mechanism
+from scptensor.impute.base import infer_missing_mechanism, list_impute_methods
 
 
 @pytest.fixture
@@ -128,6 +131,31 @@ def test_impute_auto_logs_selection_before_method_action(
     assert result.history[-2].params["missing_mechanism"] == "mnar"
 
 
+def test_impute_auto_fails_closed_when_recommended_method_unavailable(
+    svd_container: tuple[ScpContainer, np.ndarray, np.ndarray],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import scptensor.impute.base as impute_base
+
+    container, _, _ = svd_container
+    initial_len = len(container.history)
+    monkeypatch.setattr(impute_base, "recommend_impute_method", lambda mechanism: "nonexistent")
+
+    with pytest.raises(
+        ScpValueError,
+        match="recommended method 'nonexistent'.*unavailable.*Available methods",
+    ):
+        impute(
+            container,
+            method="auto",
+            missing_mechanism="mnar",
+            assay_name="protein",
+            source_layer="raw",
+        )
+
+    assert len(container.history) == initial_len
+
+
 def test_impute_explicit_mechanism_mismatch_logs_warning_before_method_action(
     svd_container: tuple[ScpContainer, np.ndarray, np.ndarray],
 ) -> None:
@@ -180,7 +208,7 @@ def test_infer_missing_mechanism_detects_mnar_pattern() -> None:
     feature_means = np.linspace(3.0, 12.0, n_features)
 
     x = np.vstack(
-        [rng.normal(loc=feature_means[j], scale=0.3, size=n_samples) for j in range(n_features)]
+        [rng.normal(loc=feature_means[j], scale=0.3, size=n_samples) for j in range(n_features)],
     ).T
 
     missing_mask = np.zeros_like(x, dtype=bool)
@@ -208,9 +236,7 @@ def test_softimpute_dependency_or_functionality(
 ) -> None:
     container, x_missing, missing_mask = svd_container
 
-    try:
-        import fancyimpute  # noqa: F401
-    except ImportError:
+    if find_spec("fancyimpute") is None:
         with pytest.raises(MissingDependencyError, match="fancyimpute"):
             impute_softimpute(container, assay_name="protein", source_layer="raw")
         return
@@ -227,3 +253,50 @@ def test_softimpute_dependency_or_functionality(
     x_out = result.assays["protein"].layers["imputed_softimpute"].X
     assert not np.any(np.isnan(x_out))
     np.testing.assert_allclose(x_out[~missing_mask], x_missing[~missing_mask], equal_nan=True)
+
+
+def test_softimpute_does_not_patch_sklearn_check_array(
+    svd_container: tuple[ScpContainer, np.ndarray, np.ndarray],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import sklearn.utils
+
+    class _FakeSoftImpute:
+        def __init__(self, **kwargs: object) -> None:
+            del kwargs
+
+        def fit_transform(self, x: np.ndarray) -> np.ndarray:
+            out = np.array(x, copy=True)
+            out[np.isnan(out)] = 0.0
+            return out
+
+    fake_module = types.ModuleType("fancyimpute")
+    fake_module.SoftImpute = _FakeSoftImpute  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "fancyimpute", fake_module)
+
+    original_check_array = sklearn.utils.check_array
+    container, _, _ = svd_container
+    impute_softimpute(container, assay_name="protein", source_layer="raw")
+
+    assert sklearn.utils.check_array is original_check_array
+
+
+def test_softimpute_incompatible_sklearn_interface_raises_actionable_error(
+    svd_container: tuple[ScpContainer, np.ndarray, np.ndarray],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _BrokenSoftImpute:
+        def __init__(self, **kwargs: object) -> None:
+            del kwargs
+
+        def fit_transform(self, x: np.ndarray) -> np.ndarray:
+            del x
+            raise TypeError("check_array() got an unexpected keyword argument 'force_all_finite'")
+
+    fake_module = types.ModuleType("fancyimpute")
+    fake_module.SoftImpute = _BrokenSoftImpute  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "fancyimpute", fake_module)
+
+    container, _, _ = svd_container
+    with pytest.raises(ScpValueError, match="dependency interface mismatch"):
+        impute_softimpute(container, assay_name="protein", source_layer="raw")

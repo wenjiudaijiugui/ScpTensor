@@ -1,7 +1,8 @@
 """Synthetic DIA-based single-cell proteomics data generator.
 
-This module generates realistic synthetic DIA-based single-cell proteomics data using statistical models
-that capture the key characteristics of real DIA-based single-cell proteomics data:
+This module generates realistic synthetic DIA-based single-cell proteomics
+data using statistical models that capture the key characteristics of real
+DIA-based single-cell proteomics data:
 
 1. MNAR + MAR missing mechanisms: Uses probabilistic dropout (sigmoid-based)
    to simulate intensity-dependent missing values, combined with random missing.
@@ -17,6 +18,7 @@ References
 - Vanderaa & Gatto (2021): Review of missing value mechanisms in proteomics
 - Zappia et al. (2017): Splatter for simulating single-cell RNA data
 - Rocke & Lorenzato (1995): Additive + multiplicative noise model
+
 """
 
 from __future__ import annotations
@@ -28,7 +30,9 @@ import polars as pl
 import scipy.sparse as sp
 from scipy.special import expit
 
-from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
+from scptensor.core._structure_assay import Assay
+from scptensor.core._structure_container import ScpContainer
+from scptensor.core._structure_matrix import ScpMatrix
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -121,24 +125,25 @@ class ScpDataGenerator:
     >>> container = generator.generate()
     >>> print(container)
     ScpContainer(n_samples=500, assays=['proteins'])
+
     """
 
     __slots__ = (
-        "n_samples",
-        "n_features",
-        "missing_rate",
-        "lod_ratio",
-        "n_batches",
-        "n_groups",
-        "random_seed",
         "assay_name",
-        "layer_name",
         "feature_id_col",
-        "sample_id_col",
+        "layer_name",
+        "lod_ratio",
         "mask_kind",
-        "use_sparse_X",
-        "use_sparse_M",
+        "missing_rate",
+        "n_batches",
+        "n_features",
+        "n_groups",
+        "n_samples",
+        "random_seed",
         "rng",
+        "sample_id_col",
+        "use_sparse_M",
+        "use_sparse_X",
     )
 
     def __init__(
@@ -194,6 +199,7 @@ class ScpDataGenerator:
             - Mask matrix M with missing value codes
             - Feature metadata (protein_id, gene_name, mean_abundance)
             - Sample metadata (sample_id, batch, group, efficiency)
+
         """
         # Generate complete data matrix
         X_complete = self._generate_complete_matrix()
@@ -226,6 +232,7 @@ class ScpDataGenerator:
         -------
         NDArray[np.float64]
             Complete data matrix of shape (n_samples, n_features).
+
         """
         # Number of latent pathways
         n_pathways = max(_MIN_PATHWAYS, int(self.n_features * _PATHWAY_RATIO))
@@ -259,7 +266,9 @@ class ScpDataGenerator:
         return np.array([i % self.n_batches for i in range(self.n_samples)])
 
     def _generate_biological_variation(
-        self, n_pathways: int, group_indices: NDArray[np.int64]
+        self,
+        n_pathways: int,
+        group_indices: NDArray[np.int64],
     ) -> NDArray[np.float64]:
         """Generate biological variation using latent factor model.
 
@@ -274,6 +283,7 @@ class ScpDataGenerator:
         -------
         NDArray[np.float64]
             Biological variation matrix of shape (n_samples, n_features).
+
         """
         # Pathway activity per sample
         pathway_activity = self.rng.normal(0.0, 1.0, size=(self.n_samples, n_pathways))
@@ -307,6 +317,7 @@ class ScpDataGenerator:
         -------
         NDArray[np.float64]
             Group shifts of shape (n_groups, n_pathways).
+
         """
         shifts = self.rng.normal(0.0, _DEFAULT_GROUP_SHIFT_STD, size=(self.n_groups, n_pathways))
         sparsity_mask = self.rng.random((self.n_groups, n_pathways)) < _GROUP_SPARSITY_RATIO
@@ -325,6 +336,7 @@ class ScpDataGenerator:
         -------
         NDArray[np.float64]
             Protein loadings of shape (n_pathways, n_features).
+
         """
         loadings = self.rng.normal(0.0, 1.0, size=(n_pathways, self.n_features))
         sparsity_mask = self.rng.random((n_pathways, self.n_features)) < _PROTEIN_SPARSITY_RATIO
@@ -338,6 +350,7 @@ class ScpDataGenerator:
         -------
         NDArray[np.float64]
             Protein means of shape (1, n_features).
+
         """
         return self.rng.normal(_DEFAULT_PROTEIN_MEAN, _DEFAULT_PROTEIN_STD, (1, self.n_features))
 
@@ -348,6 +361,7 @@ class ScpDataGenerator:
         -------
         NDArray[np.float64]
             Efficiency factors of shape (n_samples, 1).
+
         """
         return self.rng.normal(0.0, 0.5, (self.n_samples, 1))
 
@@ -363,9 +377,12 @@ class ScpDataGenerator:
         -------
         NDArray[np.float64]
             Batch effects of shape (n_samples, n_features).
+
         """
         batch_shifts = self.rng.normal(
-            0.0, _DEFAULT_BATCH_EFFECT_STD, (self.n_batches, self.n_features)
+            0.0,
+            _DEFAULT_BATCH_EFFECT_STD,
+            (self.n_batches, self.n_features),
         )
         return batch_shifts[batch_indices]
 
@@ -381,6 +398,7 @@ class ScpDataGenerator:
         -------
         NDArray[np.float64]
             Noisy data matrix.
+
         """
         # Normalize intensity to [0, 1]
         min_val, max_val = X_clean.min(), X_clean.max()
@@ -410,6 +428,7 @@ class ScpDataGenerator:
             - 0: Valid (detected)
             - 1: MCAR (random missing)
             - 2: MNAR (probabilistic dropout)
+
         """
         M = np.zeros((self.n_samples, self.n_features), dtype=np.int8)
 
@@ -432,7 +451,10 @@ class ScpDataGenerator:
         return M
 
     def _apply_probabilistic_dropout(
-        self, X: NDArray[np.float64], M: NDArray[np.int8], target_mnar: int
+        self,
+        X: NDArray[np.float64],
+        M: NDArray[np.int8],
+        target_mnar: int,
     ) -> NDArray[np.int8]:
         """Apply probabilistic dropout (MNAR) using sigmoid function.
 
@@ -451,6 +473,7 @@ class ScpDataGenerator:
         -------
         NDArray[np.int8]
             Updated mask matrix.
+
         """
         total_elements = self.n_samples * self.n_features
         target_rate = target_mnar / total_elements
@@ -482,6 +505,7 @@ class ScpDataGenerator:
         -------
         NDArray[np.int8]
             Updated mask matrix.
+
         """
         valid_mask = M == 0
         valid_indices = np.where(valid_mask.ravel())[0]
@@ -497,7 +521,9 @@ class ScpDataGenerator:
         return M
 
     def _prepare_output_matrices(
-        self, X: NDArray[np.float64], M: NDArray[np.int8]
+        self,
+        X: NDArray[np.float64],
+        M: NDArray[np.int8],
     ) -> tuple[Any, Any]:
         """Prepare output matrices with appropriate sparsity.
 
@@ -512,6 +538,7 @@ class ScpDataGenerator:
         -------
         tuple
             (X_out, M_out) with appropriate format.
+
         """
         X_out = X.astype(np.float64)
         if self.use_sparse_X:
@@ -537,6 +564,7 @@ class ScpDataGenerator:
         -------
         pl.DataFrame
             Feature metadata with columns: protein_id, gene_name, mean_abundance.
+
         """
         protein_means = self._generate_protein_means()
 
@@ -559,6 +587,7 @@ class ScpDataGenerator:
         -------
         pl.DataFrame
             Sample metadata with columns: sample_id, batch, group, efficiency.
+
         """
         batch_indices = self._get_batch_indices()
         group_indices = self._get_group_indices()
@@ -584,6 +613,7 @@ class ScpDataGenerator:
         ----------
         container : ScpContainer
             Container to log provenance to.
+
         """
         container.log_operation(
             action="generate_synthetic_data",

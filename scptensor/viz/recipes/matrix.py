@@ -110,6 +110,7 @@ def matrixplot(
     >>> container.assays["proteins"] = assay
     >>> ax = matrixplot(container, layer="normalized", var_names=["P0", "P1"],
     ...                 groupby="cluster", show=False)
+
     """
     validate_container(container)
     validate_layer(container, assay_name, layer)
@@ -133,7 +134,7 @@ def matrixplot(
 
     # Filter to selected features (preserve order from var_names)
     available_features = dict(
-        zip(assay.var[var_col].to_list(), range(len(assay.var)), strict=False)
+        zip(assay.var[var_col].to_list(), range(len(assay.var)), strict=False),
     )
     feature_idx = []
     for var in var_names:
@@ -267,6 +268,7 @@ def heatmap(
     >>> container.assays["proteins"] = assay
     >>> ax = heatmap(container, layer="normalized", var_names=["P0", "P1"],
     ...              groupby="cluster", show=False)
+
     """
     validate_container(container)
     validate_layer(container, assay_name, layer)
@@ -290,7 +292,7 @@ def heatmap(
 
     # Filter to selected features (preserve order from var_names)
     available_features = dict(
-        zip(assay.var[var_col].to_list(), range(len(assay.var)), strict=False)
+        zip(assay.var[var_col].to_list(), range(len(assay.var)), strict=False),
     )
     feature_idx = []
     for var in var_names:
@@ -432,6 +434,7 @@ def tracksplot(
     >>> container.assays["proteins"] = assay
     >>> ax = tracksplot(container, layer="normalized", var_names=["P0", "P1"],
     ...                 groupby="cluster", show=False)
+
     """
     validate_container(container)
     validate_layer(container, assay_name, layer)
@@ -455,7 +458,7 @@ def tracksplot(
 
     # Filter to selected features (preserve order from var_names)
     available_features = dict(
-        zip(assay.var[var_col].to_list(), range(len(assay.var)), strict=False)
+        zip(assay.var[var_col].to_list(), range(len(assay.var)), strict=False),
     )
     feature_idx = []
     for var in var_names:

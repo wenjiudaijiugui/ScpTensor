@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from scptensor.autoselect._heuristics import DIM_REDUCTION_HEURISTICS
 from scptensor.autoselect.evaluators.base import BaseEvaluator
 from scptensor.core.assay_alias import resolve_assay_name
 
@@ -43,6 +44,7 @@ class DimReductionEvaluator(BaseEvaluator):
     ...     assay_name="proteins",
     ...     source_layer="imputed"
     ... )
+
     """
 
     def __init__(
@@ -61,10 +63,12 @@ class DimReductionEvaluator(BaseEvaluator):
             Number of neighbors for UMAP, by default 15
         random_state : int, optional
             Random seed for reproducibility, by default 42
+
         """
         self._n_components = n_components
         self._n_neighbors = n_neighbors
         self._random_state = random_state
+        self._heuristics = DIM_REDUCTION_HEURISTICS
         self._available_methods: dict[str, Callable] | None = None
         self._metric_source_layer: str | None = None
 
@@ -75,6 +79,7 @@ class DimReductionEvaluator(BaseEvaluator):
         -------
         dict[str, Callable]
             Dictionary of available methods
+
         """
         from scptensor.autoselect.evaluators.base import create_wrapper
 
@@ -112,7 +117,10 @@ class DimReductionEvaluator(BaseEvaluator):
                 source_layer_param="base_layer",
                 layer_namer=lambda _, __: "umap",
                 new_assay_name="umap",
-                n_components=min(self._n_components, 2),  # UMAP usually 2D
+                n_components=min(
+                    self._n_components,
+                    self._heuristics.nonlinear_embedding_components,
+                ),
                 n_neighbors=self._n_neighbors,
                 random_state=self._random_state,
             )
@@ -128,7 +136,10 @@ class DimReductionEvaluator(BaseEvaluator):
                 source_layer_param="base_layer",
                 layer_namer=lambda _, __: "tsne",
                 new_assay_name="tsne",
-                n_components=min(self._n_components, 2),
+                n_components=min(
+                    self._n_components,
+                    self._heuristics.nonlinear_embedding_components,
+                ),
                 random_state=self._random_state,
             )
         except ImportError:
@@ -145,6 +156,7 @@ class DimReductionEvaluator(BaseEvaluator):
         -------
         str
             Stage name ("reduce")
+
         """
         return "reduce"
 
@@ -157,6 +169,7 @@ class DimReductionEvaluator(BaseEvaluator):
         dict[str, Callable]
             Dictionary mapping method names to their implementation functions.
             Only methods with installed dependencies are included.
+
         """
         return self._get_available_methods()
 
@@ -168,6 +181,7 @@ class DimReductionEvaluator(BaseEvaluator):
         -------
         dict[str, float]
             Dictionary mapping metric names to their weights
+
         """
         return {
             "variance_explained": 0.30,
@@ -197,8 +211,8 @@ class DimReductionEvaluator(BaseEvaluator):
         -------
         dict[str, float]
             Dictionary mapping metric names to their scores (0.0 to 1.0)
-        """
 
+        """
         # Check if assay exists
         if layer_name not in container.assays:
             return dict.fromkeys(self.metric_weights, 0.0)
@@ -216,17 +230,11 @@ class DimReductionEvaluator(BaseEvaluator):
         original_assay = self._get_metric_assay(original_container)
         if original_assay is None:
             return dict.fromkeys(self.metric_weights, 0.0)
-        # Prefer the actual input layer used by this evaluation.
+        # Prefer the explicit input layer tracked by evaluate_method().
+        # Do not guess fallback source layers (imputed/normalized/raw).
         source_layer = getattr(self, "_metric_source_layer", None)
-        if source_layer not in original_assay.layers:
-            source_layer = None
-            for ln in ["imputed", "normalized", "raw"]:
-                if ln in original_assay.layers:
-                    source_layer = ln
-                    break
-
-        if source_layer is None:
-            return dict.fromkeys(self.metric_weights, 0.5)
+        if source_layer is None or source_layer not in original_assay.layers:
+            return dict.fromkeys(self.metric_weights, 0.0)
 
         x_original = original_assay.layers[source_layer].X
         if hasattr(x_original, "toarray"):
@@ -237,7 +245,9 @@ class DimReductionEvaluator(BaseEvaluator):
 
         # Variance explained (for PCA, get from var; for others, estimate)
         scores["variance_explained"] = self._compute_variance_explained(
-            x_original, x_reduced, reduced_assay
+            x_original,
+            x_reduced,
+            reduced_assay,
         )
 
         # Reconstruction error
@@ -309,19 +319,19 @@ class DimReductionEvaluator(BaseEvaluator):
                 and "explained_variance_ratio" in reduced_assay.var.columns
             ):
                 ratios = reduced_assay.var["explained_variance_ratio"].to_numpy()
+                if ratios.size == 0 or not np.all(np.isfinite(ratios)):
+                    return 0.0
                 cumulative = np.cumsum(ratios)
-                # Target: 80% variance explained with n_components
-                target = 0.8
+                target = self._heuristics.variance_explained_target
                 achieved = min(cumulative[-1], 1.0)
                 # Score based on how close we are to target
                 return float(min(achieved / target, 1.0))
 
-            # Estimate variance explained using reconstruction
-            # For methods without explicit variance (like UMAP)
-            # Use a proxy based on neighbor preservation
-            return 0.7  # Default reasonable score
+            # Variance explained is only defined when the reduced assay
+            # carries explicit explained-variance provenance.
+            return 0.0
         except Exception:
-            return 0.5
+            return 0.0
 
     def _compute_reconstruction_error(self, x_original: np.ndarray, x_reduced: np.ndarray) -> float:
         """Compute reconstruction error score (inverted, higher is better)."""
@@ -337,14 +347,14 @@ class DimReductionEvaluator(BaseEvaluator):
             # Compute total variance
             total_var = np.nansum(x_centered**2)
             if total_var < 1e-10:
-                return 0.5
+                return 0.0
 
             # For PCA-like methods, we can approximate reconstruction quality
             # using the correlation structure
             # Higher correlation = lower reconstruction error = higher score
 
             # Sample pairs for efficiency
-            n_samples = min(1000, x_original.shape[0])
+            n_samples = min(self._heuristics.reconstruction_sample_limit, x_original.shape[0])
             if x_original.shape[0] > n_samples:
                 idx = np.random.choice(x_original.shape[0], n_samples, replace=False)
                 x_orig_sample = x_original[idx]
@@ -356,10 +366,10 @@ class DimReductionEvaluator(BaseEvaluator):
             # Compute distance matrices
             n = len(x_orig_sample)
             if n < 10:
-                return 0.5
+                return 0.0
 
             # Sample pairs
-            n_pairs = min(1000, n * (n - 1) // 2)
+            n_pairs = min(self._heuristics.reconstruction_pair_limit, n * (n - 1) // 2)
             pairs = []
             for _ in range(n_pairs):
                 i, j = np.random.choice(n, 2, replace=False)
@@ -376,47 +386,51 @@ class DimReductionEvaluator(BaseEvaluator):
 
             # Normalize distances
             if np.std(dist_orig_arr) < 1e-10 or np.std(dist_red_arr) < 1e-10:
-                return 0.5
+                return 0.0
 
             corr, _ = pearsonr(dist_orig_arr, dist_red_arr)
             if np.isnan(corr):
-                return 0.5
+                return 0.0
 
             # Map correlation to [0, 1]
             return float(np.clip((corr + 1) / 2, 0.0, 1.0))
         except Exception:
-            return 0.5
+            return 0.0
 
     def _compute_local_structure(
-        self, x_original: np.ndarray, x_reduced: np.ndarray, k: int = 15
+        self,
+        x_original: np.ndarray,
+        x_reduced: np.ndarray,
+        k: int | None = None,
     ) -> float:
         """Compute local structure preservation score using kNN agreement."""
         from sklearn.neighbors import NearestNeighbors
 
         try:
-            k = min(k, x_original.shape[0] - 1, x_reduced.shape[0] - 1)
-            if k < 1:
-                return 0.5
+            k_neighbors = self._heuristics.local_structure_neighbors if k is None else k
+            k_neighbors = min(k_neighbors, x_original.shape[0] - 1, x_reduced.shape[0] - 1)
+            if k_neighbors < 1:
+                return 0.0
 
             # Handle NaN in original
             valid_mask = ~np.isnan(x_original).any(axis=1)
             if not np.any(valid_mask):
-                return 0.5
+                return 0.0
 
             x_orig_clean = x_original[valid_mask]
             x_red_clean = x_reduced[valid_mask]
 
             n_samples = len(x_orig_clean)
-            if n_samples < k + 1:
-                return 0.5
+            if n_samples < k_neighbors + 1:
+                return 0.0
 
             # Find kNN in original space
-            nn_orig = NearestNeighbors(n_neighbors=k + 1)
+            nn_orig = NearestNeighbors(n_neighbors=k_neighbors + 1)
             nn_orig.fit(x_orig_clean)
             _, indices_orig = nn_orig.kneighbors(x_orig_clean)
 
             # Find kNN in reduced space
-            nn_red = NearestNeighbors(n_neighbors=k + 1)
+            nn_red = NearestNeighbors(n_neighbors=k_neighbors + 1)
             nn_red.fit(x_red_clean)
             _, indices_red = nn_red.kneighbors(x_red_clean)
 
@@ -431,11 +445,11 @@ class DimReductionEvaluator(BaseEvaluator):
                 similarities.append(jaccard)
 
             if not similarities:
-                return 0.5
+                return 0.0
 
             return float(np.mean(similarities))
         except Exception:
-            return 0.5
+            return 0.0
 
     def _compute_clustering_potential(self, x_reduced: np.ndarray) -> float:
         """Compute clustering potential using silhouette analysis."""
@@ -446,24 +460,28 @@ class DimReductionEvaluator(BaseEvaluator):
             # Handle NaN
             valid_mask = ~np.isnan(x_reduced).any(axis=1)
             if not np.any(valid_mask):
-                return 0.5
+                return 0.0
 
             x_clean = x_reduced[valid_mask]
             n_samples = len(x_clean)
 
             if n_samples < 10:
-                return 0.5
+                return 0.0
 
             # Subsample for efficiency
-            if n_samples > 1000:
-                idx = np.random.choice(n_samples, 1000, replace=False)
+            if n_samples > self._heuristics.clustering_sample_limit:
+                idx = np.random.choice(
+                    n_samples,
+                    self._heuristics.clustering_sample_limit,
+                    replace=False,
+                )
                 x_sample = x_clean[idx]
             else:
                 x_sample = x_clean
 
             # Try different numbers of clusters
             best_score = 0.0
-            for n_clusters in [3, 5, 7, 10]:
+            for n_clusters in self._heuristics.clustering_candidate_counts:
                 if n_clusters >= len(x_sample):
                     continue
                 try:
@@ -480,7 +498,7 @@ class DimReductionEvaluator(BaseEvaluator):
 
             return float(np.clip(best_score, 0.0, 1.0))
         except Exception:
-            return 0.5
+            return 0.0
 
     def evaluate_method(
         self,
@@ -514,6 +532,7 @@ class DimReductionEvaluator(BaseEvaluator):
         -------
         tuple[ScpContainer | None, EvaluationResult]
             Tuple of (result_container, evaluation_result).
+
         """
         import time
 
@@ -537,7 +556,7 @@ class DimReductionEvaluator(BaseEvaluator):
                 **kwargs,
             )
         except Exception as e:
-            error_msg = f"{type(e).__name__}: {str(e)}"
+            error_msg = f"{type(e).__name__}: {e!s}"
             result_container = None
 
         execution_time = time.perf_counter() - start_time
@@ -552,7 +571,7 @@ class DimReductionEvaluator(BaseEvaluator):
                     layer_name=new_assay_name,
                 )
             except Exception as e:
-                error_msg = f"Metric computation failed: {type(e).__name__}: {str(e)}"
+                error_msg = f"Metric computation failed: {type(e).__name__}: {e!s}"
                 scores = dict.fromkeys(self.metric_weights, 0.0)
         else:
             scores = dict.fromkeys(self.metric_weights, 0.0)

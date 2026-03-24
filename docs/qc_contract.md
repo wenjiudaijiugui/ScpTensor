@@ -97,34 +97,34 @@
 
 补充导出层级边界：
 
-- `scptensor.__all__` 当前会把上述 stable QC surface 同步重导出到根包
-- 但不会把 `scptensor.qc.metrics` helper 或 `qc_psm` 上浮到根包 `scptensor`
+- `scptensor.__all__` 当前不再把 stable QC surface 重导出到根包
+- `scptensor.qc.metrics` helper 与 `qc_psm` 也不会上浮到根包 `scptensor`
 
 因此当前推荐导入层级是：
 
 - stable QC package boundary：`scptensor.qc`
-- root convenience import：`scptensor`
 - 非 stable helper：仍需显式走模块路径，不应被误写成 root/package-level stable API
 
 ### 3.2 输入 assay / layer 选择语义
 
-当前 stable 代码在 layer 选择上存在不对称点。该不对称点已经被实现与测试固化，后续重构不能无声改写：
+当前 stable 代码已经把 layer 选择统一为显式 `raw` 合同。该规则已被实现与测试固化，后续重构不能无声改写：
 
 | 入口 | assay 解析 | layer 选择 |
 |---|---|---|
 | `calculate_sample_qc_metrics` | 先做 alias 解析 | 默认显式要求 `layer_name="raw"`；若 `raw` 不存在，直接报错，除非调用者显式传其他 layer |
-| `filter_low_quality_samples` | 先做 alias 解析 | 若有 `raw` 用 `raw`；否则回退到第一个 layer |
-| `filter_doublets_mad` | 先做 alias 解析 | 若有 `raw` 用 `raw`；否则回退到第一个 layer |
-| `assess_batch_effects` | 先做 alias 解析 | 若有 `raw` 用 `raw`；否则回退到第一个 layer |
-| `calculate_feature_qc_metrics` | 先做 alias 解析 | `layer_name=None` 时取第一个 layer |
-| `filter_features_by_missingness` | 先做 alias 解析 | `layer_name=None` 时取第一个 layer |
-| `filter_features_by_cv` | 先做 alias 解析 | `layer_name=None` 时取第一个 layer |
+| `filter_low_quality_samples` | 先做 alias 解析 | 默认显式要求 `layer_name="raw"`；若 `raw` 不存在，直接报错，除非调用者显式传其他 layer |
+| `filter_doublets_mad` | 先做 alias 解析 | 默认显式要求 `layer_name="raw"`；若 `raw` 不存在，直接报错，除非调用者显式传其他 layer |
+| `assess_batch_effects` | 先做 alias 解析 | 默认显式要求 `layer_name="raw"`；若 `raw` 不存在，直接报错，除非调用者显式传其他 layer |
+| `calculate_feature_qc_metrics` | 先做 alias 解析 | 默认显式要求 `layer_name="raw"`；若 `raw` 不存在，直接报错，除非调用者显式传其他 layer |
+| `filter_features_by_missingness` | 先做 alias 解析 | 默认显式要求 `layer_name="raw"`；若 `raw` 不存在，直接报错，除非调用者显式传其他 layer |
+| `filter_features_by_cv` | 先做 alias 解析 | 默认显式要求 `layer_name="raw"`；若 `raw` 不存在，直接报错，除非调用者显式传其他 layer |
 
 冻结含义：
 
 1. 这是当前 stable 行为，不是临时实现细节。
-2. 若未来要统一为显式 `source_layer` 合同，应视为接口变更，需同步更新文档和测试。
-3. QC 稳定入口不做隐式 aggregation、log transform、normalization 或 imputation。
+2. QC 稳定入口不会根据 `assay.layers` 的插入顺序自动猜测 source layer。
+3. 若未来要放宽为别的默认 layer 规则，应视为接口变更，需同步更新文档和测试。
+4. QC 稳定入口不做隐式 aggregation、log transform、normalization 或 imputation。
 
 ### 3.3 空 assay 行为不是 QC stable contract
 

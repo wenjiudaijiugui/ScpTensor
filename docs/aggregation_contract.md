@@ -17,7 +17,8 @@
 - `scptensor/aggregation/protein.py`
 - `scptensor/__init__.py`
 - `scptensor/io/__init__.py`
-- `scptensor/io/mass_spec.py`
+- `scptensor/io/__init__.py`
+- `scptensor/io/api.py`
 - `tests/core/test_aggregation_api.py`
 - `tests/aggregation/test_protein_aggregation.py`
 - `docs/core_data_contract.md`
@@ -33,7 +34,7 @@
 
 - `scptensor.aggregation.aggregate_to_protein`
 - `scptensor.aggregation.resolve_protein_mapping_column`
-- `scptensor.io.aggregate_to_protein` 的兼容包装层
+- `scptensor.io.aggregate_to_protein` 的稳定重导出入口
 - `AggregationLink` / `ProvenanceLog` 在聚合阶段的当前写法
 
 ### 2.2 非范围
@@ -71,7 +72,7 @@
 - `aggregate_to_protein`
 - `resolve_protein_mapping_column`
 
-### 4.2 I/O 层兼容入口
+### 4.2 I/O 层稳定重导出入口
 
 `scptensor.io.__all__` 也导出：
 
@@ -81,34 +82,21 @@
 
 - `aggregate_to_protein`
 
-这是对 `scptensor.aggregation.aggregate_to_protein` 的 backward-compatible wrapper。
+这是对 `scptensor.aggregation.aggregate_to_protein` 的稳定重导出入口。
 
-### 4.3 两个入口的当前差异
+### 4.3 两个入口的当前关系
 
 模块级真实实现签名包含：
 
 - `unmapped_label`
 
-而 `scptensor.io.aggregate_to_protein` 当前 **不暴露** 这个参数，只保留：
-
-- `source_assay`
-- `source_layer`
-- `target_assay`
-- `method`
-- `protein_column`
-- `keep_unmapped`
-- `top_n`
-- `top_n_aggregate`
-- `lfq_min_ratio_count`
-- `tmp_log_base`
-- `ibaq_denominator`
+而 `scptensor.io.aggregate_to_protein` 当前与 aggregation 入口保持同一函数签名。
 
 因此稳定解释应为：
 
-1. `scptensor.aggregation.aggregate_to_protein` 与 `scptensor.io.aggregate_to_protein` 当前不是同一个函数对象；后者是 thin wrapper。
+1. `scptensor.aggregation.aggregate_to_protein` 与 `scptensor.io.aggregate_to_protein` 当前是同一个函数对象。
 2. 对外 canonical I/O 入口仍可以写 `scptensor.io.aggregate_to_protein`
-3. 若调用方需要自定义 `unmapped_label`，当前必须直接调用 `scptensor.aggregation.aggregate_to_protein`
-4. 顶层 `scptensor` 当前不重导出：
+3. 顶层 `scptensor` 当前不重导出：
    - `AggMethod`
    - `BasicAggMethod`
    - `resolve_protein_mapping_column`

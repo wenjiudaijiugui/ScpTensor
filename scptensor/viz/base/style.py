@@ -4,6 +4,7 @@ This module provides unified style management for ScpTensor visualizations,
 including SciencePlots integration and proteomics-specific color schemes.
 """
 
+import importlib
 from typing import Literal
 
 from cycler import cycler
@@ -119,13 +120,14 @@ class PlotStyle:
         ------
         ValueError
             If the theme name is not recognized.
-        """
-        # Import scienceplots first to register its styles with matplotlib
-        try:
-            import scienceplots  # noqa: F401
 
-        except ImportError:
-            pass
+        """
+        # Import scienceplots first to register its styles with matplotlib.
+        if importlib.util.find_spec("scienceplots") is not None:
+            try:
+                importlib.import_module("scienceplots")
+            except Exception:
+                pass
 
         import matplotlib.pyplot as plt
 
@@ -164,6 +166,7 @@ class PlotStyle:
         ------
         ValueError
             If the purpose is not recognized.
+
         """
         if custom is not None:
             return custom

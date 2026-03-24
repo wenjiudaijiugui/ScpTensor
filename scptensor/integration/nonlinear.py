@@ -23,6 +23,7 @@ References
 ----------
 Korsunsky I, et al. Fast, sensitive and accurate integration of
 single-cell data with Harmony. Nature Methods (2019).
+
 """
 
 from __future__ import annotations
@@ -31,8 +32,8 @@ import inspect
 
 import numpy as np
 
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import MissingDependencyError, ScpValueError
-from scptensor.core.structures import ScpContainer
 from scptensor.integration.base import (
     add_integrated_layer,
     log_integration_operation,
@@ -155,6 +156,7 @@ def integrate_harmony(
     ...     theta=3,
     ...     nclust=15,
     ... )
+
     """
     assay, layer = validate_embedding_input(
         container,
@@ -163,7 +165,11 @@ def integrate_harmony(
         method_name="Harmony integration",
     )
     _, _, unique_batches, _ = validate_batch_integration_params(
-        container, batch_key, assay_name, min_batches=2, min_samples_per_batch=2
+        container,
+        batch_key,
+        assay_name,
+        min_batches=2,
+        min_samples_per_batch=2,
     )
 
     try:

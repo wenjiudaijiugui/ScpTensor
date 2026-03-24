@@ -1,5 +1,4 @@
-"""
-Bayesian PCA imputation.
+"""Bayesian PCA imputation.
 
 Reference:
     Oba S, Sato MA, Takemasa I, et al. A Bayesian missing value estimation
@@ -13,8 +12,8 @@ import numpy as np
 import numpy.typing as npt
 from scipy.sparse.linalg import svds
 
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import DimensionError, ScpValueError
-from scptensor.core.structures import ScpContainer
 from scptensor.impute._utils import (
     add_imputed_layer,
     log_imputation_operation,
@@ -173,6 +172,7 @@ def bpca_impute(
     -------
     np.ndarray
         Data with imputed values.
+
     """
     X = data.copy()
     N, d = X.shape
@@ -200,8 +200,7 @@ def bpca_impute(
         return np.nan_to_num(y, nan=0.0)
 
     k = min(n_components, d - 1, n_valid - 1)
-    if k < 1:
-        k = 1
+    k = max(k, 1)
 
     M = _bpca_init(X[valid], k)
 
@@ -239,8 +238,7 @@ def impute_bpca(
     tol: float = 1e-6,
     random_state: int | None = None,
 ) -> ScpContainer:
-    """
-    Impute missing values using Bayesian PCA (BPCA).
+    """Impute missing values using Bayesian PCA (BPCA).
 
     Parameters
     ----------
@@ -279,10 +277,11 @@ def impute_bpca(
 
     Examples
     --------
-    >>> from scptensor import impute_bpca
+    >>> from scptensor.impute import impute_bpca
     >>> result = impute_bpca(container, "proteins", "raw", n_components=10)
     >>> "imputed_bpca" in result.assays["proteins"].layers
     True
+
     """
     # Validate parameters
     if max_iter <= 0:
@@ -383,5 +382,5 @@ register_impute_method(
         supports_sparse=False,
         validate=validate_bpca,
         apply=impute_bpca,
-    )
+    ),
 )

@@ -15,7 +15,9 @@ from scptensor.autoselect.metrics.batch import (
     bio_asw,
     ilisi_score,
     kbet_score,
+    lisi_approx_score,
 )
+from scptensor.core._batch_metrics_kernel import compute_self_excluded_knn
 
 
 class TestBatchASW:
@@ -300,7 +302,7 @@ class TestStandardizedBatchMetrics:
                 [10.3, 0.0],
                 [10.4, 0.0],
                 [10.5, 0.0],
-            ]
+            ],
         )
         labels = np.array(["A", "B"] * 6)
         segregated_labels = np.array(["A"] * 6 + ["B"] * 6)
@@ -364,6 +366,69 @@ class TestStandardizedBatchMetrics:
 
         with pytest.raises(ValueError, match="perplexity must be positive"):
             ilisi_score(X, batch_labels, perplexity=0.0)
+
+
+class TestApproximateLISI:
+    """Tests for the shared historical approximate LISI metric."""
+
+    def test_lisi_approx_empty_array(self) -> None:
+        X = np.array([]).reshape(0, 0)
+        batch_labels = np.array([], dtype=int)
+        assert lisi_approx_score(X, batch_labels) == 0.0
+
+    def test_lisi_approx_single_batch_fails_closed(self) -> None:
+        X = np.random.randn(20, 5)
+        batch_labels = np.zeros(20, dtype=int)
+        assert lisi_approx_score(X, batch_labels, n_neighbors=5) == 0.0
+
+    def test_lisi_approx_distinguishes_mixed_from_segregated(self) -> None:
+        mixed_x = np.array([[i // 2, 0.0] for i in range(12)], dtype=float)
+        segregated_x = np.array(
+            [
+                [0.0, 0.0],
+                [0.1, 0.0],
+                [0.2, 0.0],
+                [0.3, 0.0],
+                [0.4, 0.0],
+                [0.5, 0.0],
+                [10.0, 0.0],
+                [10.1, 0.0],
+                [10.2, 0.0],
+                [10.3, 0.0],
+                [10.4, 0.0],
+                [10.5, 0.0],
+            ],
+        )
+        mixed_labels = np.array(["A", "B"] * 6)
+        segregated_labels = np.array(["A"] * 6 + ["B"] * 6)
+
+        mixed_score = lisi_approx_score(mixed_x, mixed_labels, n_neighbors=5)
+        segregated_score = lisi_approx_score(
+            segregated_x,
+            segregated_labels,
+            n_neighbors=5,
+        )
+
+        assert 1.0 <= mixed_score <= 2.0
+        assert 1.0 <= segregated_score <= 2.0
+        assert mixed_score > segregated_score
+
+
+def test_shared_knn_kernel_excludes_self_indices() -> None:
+    X = np.array(
+        [
+            [0.0, 0.0],
+            [0.0, 0.0],
+            [1.0, 1.0],
+            [1.0, 1.0],
+        ],
+    )
+
+    _, neighbor_indices = compute_self_excluded_knn(X, n_neighbors=2)
+
+    assert neighbor_indices.shape == (4, 2)
+    for row_idx, neighbors in enumerate(neighbor_indices):
+        assert row_idx not in set(neighbors.tolist())
 
 
 class TestMetricProperties:

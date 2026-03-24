@@ -32,6 +32,7 @@ def _ensure_dense(X: NDArray[np.float64] | sp.spmatrix) -> NDArray[np.float64]:
     -------
     NDArray[np.float64]
         Dense array.
+
     """
     return X.toarray() if sp.issparse(X) else X  # type: ignore[union-attr]
 
@@ -86,6 +87,7 @@ def correlation_matrix(
     >>> corr = correlation_matrix(X)
     >>> corr.shape
     (3, 3)
+
     """
     if method not in ("pearson", "spearman"):
         raise ValueError(f"Unsupported method: {method}. Use 'pearson' or 'spearman'.")
@@ -167,6 +169,7 @@ def partial_correlation(
     >>> pc = partial_correlation(X, 0, 1, conditioning_set={2, 3})
     >>> -1.0 <= pc <= 1.0
     True
+
     """
     X_dense = _ensure_2d_float_array(X, name="X")
     n_samples, n_features = X_dense.shape
@@ -247,6 +250,7 @@ def spearman_correlation(
     >>> corr = spearman_correlation(X)
     >>> corr.shape
     (2, 2)
+
     """
     X_dense = _ensure_2d_float_array(X, name="X")
 
@@ -306,6 +310,7 @@ def cosine_similarity(
     >>> sim = cosine_similarity(X)
     >>> sim.shape
     (2, 2)
+
     """
 
     def _compute_norm(matrix: NDArray[np.float64] | sp.spmatrix) -> NDArray[np.float64]:
@@ -330,7 +335,7 @@ def cosine_similarity(
     Y = _ensure_2d_float_array(Y, name="Y")
     if X.shape[1] != Y.shape[1]:
         raise ValueError(
-            f"X and Y must have the same number of features, got {X.shape[1]} and {Y.shape[1]}"
+            f"X and Y must have the same number of features, got {X.shape[1]} and {Y.shape[1]}",
         )
     Y_norm = _compute_norm(Y)
     sim = X @ Y.T

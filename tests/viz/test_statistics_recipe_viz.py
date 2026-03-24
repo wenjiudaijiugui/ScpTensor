@@ -26,7 +26,7 @@ def stats_container() -> ScpContainer:
         {
             "_index": [f"S{i:02d}" for i in range(n_samples)],
             "batch": np.array(["A"] * 5 + ["B"] * 5 + ["C"] * 5),
-        }
+        },
     )
     var = pl.DataFrame({"_index": [f"P{i:02d}" for i in range(n_features)]})
 
@@ -85,12 +85,17 @@ def test_correlation_matrix_single_group_raises() -> None:
     var = pl.DataFrame({"_index": [f"P{i}" for i in range(4)]})
     x = np.arange(20, dtype=float).reshape(5, 4)
     container = ScpContainer(
-        obs=obs, assays={"proteins": Assay(var=var, layers={"norm": ScpMatrix(X=x)})}
+        obs=obs,
+        assays={"proteins": Assay(var=var, layers={"norm": ScpMatrix(X=x)})},
     )
 
     with pytest.raises(ValueError, match="Need at least 2 groups for correlation matrix"):
         correlation_matrix(
-            container, layer="norm", assay_name="proteins", groupby="batch", show=False
+            container,
+            layer="norm",
+            assay_name="proteins",
+            groupby="batch",
+            show=False,
         )
 
 

@@ -1,6 +1,6 @@
 # ScpTensor Experimental PSM QC Helper 合同（`scptensor.experimental.qc_psm`，2026-03-17）
 
-## 状态更新（2026-03-20）
+## 状态更新（2026-03-23）
 
 `qc_psm` 在 experimental namespace 内的长期位置现已定案：
 
@@ -10,6 +10,7 @@
 - 不迁移到 stable `scptensor.qc`
 - 不与 downstream `reduce_* / cluster_*` 混写成同类 helper
 - 默认 assay naming 已统一到 canonical `peptides`，`peptide` 保留为兼容 alias
+- 历史别名 `compute_median_cv` 已退场，`compute_sample_cv` 为唯一 sample-CV 入口
 
 ## 1. 文档目标
 
@@ -50,7 +51,6 @@
 - `pep_to_qvalue`
 - `filter_psms_by_qvalue`
 - `compute_sample_cv`
-- `compute_median_cv`
 
 ### 2.2 非范围
 
@@ -138,7 +138,6 @@ from scptensor.experimental import qc_psm
 - `pep_to_qvalue`
 - `filter_psms_by_qvalue`
 - `compute_sample_cv`
-- `compute_median_cv`
 
 这意味着当前公开面不再依赖“源文件里恰好有哪些顶层名字”，而是依赖显式 export list。
 当前内置 contaminant regex 列表不再属于 module public surface。
@@ -152,7 +151,7 @@ from scptensor.experimental import qc_psm
 - `filter_psms_by_qvalue`
 - `pep_to_qvalue` 的 method / `lambda_param` 失败路径、NaN 保留与 `[0, 1]` 边界
 - `compute_sample_cv` 的 alias 解析、canonical `obs` 输出列、history action，以及 layer 缺失时报 `ScpValueError`
-- `compute_median_cv` 作为 legacy compatibility alias 的 warning、旧列名与旧 action 保留
+- `compute_median_cv` 名称已移除（模块 surface 与属性均不可用）的负向收口测试
 - `scptensor.experimental` 对 `qc_psm` 模块对象的重导出
 
 ### 4.3 已补基础专项回归，但仍不等于 stable 主线级锁定
@@ -161,13 +160,9 @@ from scptensor.experimental import qc_psm
 
 - `pep_to_qvalue`
 - `compute_sample_cv`
-- `compute_median_cv`
 
 但它们仍应被写成“当前 experimental public helper”，而不是“已像 stable 主线那样完全测试锁定的接口”。
-原因是：
-
-- 其当前语义仍以“冻结实现事实”为主，而不是长期抽象后的 stable API
-- `compute_median_cv()` 本身现在只是 compatibility alias，而不是推荐新入口
+原因是其当前语义仍以“冻结实现事实”为主，而不是长期抽象后的 stable API。
 
 ## 5. 当前输入与输出合同
 
@@ -237,62 +232,19 @@ from scptensor.experimental import qc_psm
 
 因此它是 peptide/PSM-level样本 QC 摘要 helper，而不是 feature filter。
 
-### 5.5 `compute_median_cv()` compatibility alias
+### 5.5 `compute_median_cv()` 退场状态
 
-`compute_median_cv()` 现在保留为 legacy compatibility alias：
+`compute_median_cv()` 已从 `qc_psm` 模块收口移除：
 
-- canonical 推荐入口不再是它
-- 它会发出 `FutureWarning`
-- 它仍返回新 `ScpContainer`
-- 它仍保留历史列名：
+- 不再导出于 `qc_psm.__all__`
+- 不再作为模块属性可调用
+- 不再承诺旧列名：
   - `median_cv`
   - `is_high_cv`
-- 它仍保留历史 provenance action：
+- 不再承诺旧 provenance action：
   - `compute_median_cv`
 
-这样做的目的不是继续扩大旧命名，而是给已有调用提供有边界的迁移路径。
-
-### 5.6 `compute_median_cv()` 迁移策略
-
-当前迁移策略已经定案，不再留作开放问题：
-
-#### 阶段 A：当前仓库状态
-
-- `compute_sample_cv` 是唯一 canonical helper
-- `compute_median_cv` 继续保留在 `qc_psm.__all__`
-- 旧 alias 每次调用都发 `FutureWarning`
-- warning 必须明确提示：
-  - 新代码应改用 `compute_sample_cv`
-  - alias 的移除不能静默发生
-  - 只能在 future contract update 之后移除
-
-#### 阶段 B：仓内迁移门禁
-
-在仓库仍处于迁移期时，允许保留 alias，但必须满足：
-
-- 新增文档、示例、教程、测试一律优先使用 `compute_sample_cv`
-- 旧 alias 只允许出现在：
-  - compatibility 测试
-  - 迁移说明
-  - 明确标注 legacy 的文档段落
-- canonical sample-level输出列只写：
-  - `sample_cv`
-  - `is_high_sample_cv`
-
-#### 阶段 C：最终移除门禁
-
-`compute_median_cv` 只有在以下条件同时满足时才允许删除：
-
-1. `docs/qc_psm_contract.md` 已先更新，明确它不再属于当前公共面
-2. `qc_psm.__all__` 已同步移除该名称
-3. 仓库内 README / docs / tutorial / tests 不再把它当作可调用入口
-4. compatibility 测试已从“warning + 旧列名保留”切换为“名称已移除或调用失败”的负向测试
-5. 若仍需兼容旧 `obs` 列名或旧 provenance action，必须在移除前给出单独迁移说明；不得一边删 alias，一边静默改变消费路径
-
-也就是说：
-
-- 允许未来删除
-- 但禁止无文档、无测试切换、无合同更新的静默删除
+当前 sample-level CV 的唯一入口是 `compute_sample_cv()`，并且只承诺 canonical 输出列与 action。
 
 ## 6. 当前失败合同
 
@@ -312,9 +264,9 @@ from scptensor.experimental import qc_psm
 - `method` 非 `storey / bh` -> `ValueError`
 - `lambda_param` 不在 `[0, 1)` -> `ValueError`
 
-### 6.3 `compute_sample_cv()` / `compute_median_cv()` 的 layer 失败路径
+### 6.3 `compute_sample_cv()` 的 layer 失败路径
 
-当前这两个 helper 共享同一段 layer 检查逻辑，没有复用 `qc._utils.validate_layer()`，而是在函数内部手写检查。
+当前该 helper 的 layer 检查逻辑没有复用 `qc._utils.validate_layer()`，而是在函数内部手写检查。
 
 因此 layer 缺失时当前抛的是：
 
@@ -332,28 +284,20 @@ from scptensor.experimental import qc_psm
 - `filter_contaminants`
 - `filter_psms_by_qvalue`
 - `compute_sample_cv`
-- `compute_median_cv`
 
-其中：
-
-- `compute_sample_cv` 是 canonical action
-- `compute_median_cv` 是 compatibility alias 的 legacy action
+其中 `compute_sample_cv` 是 canonical action。
 
 这些 action 名已经是可观察接口的一部分。后续若改动实现，不应无迁移地更改这些 action 名。
 
 ## 8. 当前已知实现不对称点
 
-### 8.1 `compute_median_cv` 仍作为 compatibility alias 暂时保留
+### 8.1 `compute_median_cv` 已完成退场
 
-当前 canonical 命名已经收口到：
+当前 canonical 命名已完全收口到：
 
 - `compute_sample_cv`
 
-但旧名：
-
-- `compute_median_cv`
-
-仍然保留，用于兼容已有调用。这不是新的 canonical 推荐，而是显式保留的迁移层。其迁移规则见 `5.6`。
+旧名 `compute_median_cv` 不再保留迁移层，不再提供 runtime 兼容。
 
 ### 8.2 内置 contaminant regex 集合仍是实现细节
 
@@ -383,12 +327,13 @@ from scptensor.experimental import qc_psm
 5. provenance action 名的基本稳定性
 6. 默认 assay naming 保持 `peptides`，同时继续接受 `peptide` 兼容写法
 7. `compute_sample_cv` 作为 canonical helper 写入 `sample_cv / is_high_sample_cv`
-8. `compute_median_cv` 只作为 compatibility alias 保留旧列名与旧 action
+8. 不恢复 `compute_median_cv` 兼容层，不新增旧列名/旧 action 的回流路径
 
 ## 10. 对后续重构的直接指导
 
-基于当前实现，最合理的下一步不是把 `qc_psm` 悄悄塞回 stable `scptensor.qc`，而是先做以下收口：
+基于当前实现，最合理的下一步不是把 `qc_psm` 悄悄塞回 stable `scptensor.qc`，而是继续保持当前边界：
 
-- 若将来继续清理旧命名，按 `5.6` 的门禁执行 `compute_median_cv` alias 移除
+- `compute_sample_cv` 作为唯一 sample-CV 入口
+- 禁止重新引入 `compute_median_cv` 兼容别名
 
 这意味着：`qc_psm` 当前值得单独立约，但它的正确定位仍然是 experimental helper，而不是 stable preprocessing contract 的一部分。

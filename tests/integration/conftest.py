@@ -1,5 +1,4 @@
-"""
-Pytest fixtures for integration tests.
+"""Pytest fixtures for integration tests.
 
 This module provides reusable fixtures for generating synthetic test data
 and setting up test containers.
@@ -14,8 +13,7 @@ from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 
 @pytest.fixture
 def synthetic_container():
-    """
-    Generate a synthetic ScpContainer for testing.
+    """Generate a synthetic ScpContainer for testing.
 
     Creates a small test dataset with known structure:
     - 100 samples x 500 features
@@ -27,6 +25,7 @@ def synthetic_container():
     -------
     ScpContainer
         Synthetic test container with 'raw' layer.
+
     """
     np.random.seed(42)
 
@@ -43,7 +42,7 @@ def synthetic_container():
             "group": groups,
             "batch": batches,
             "_index": [f"S{i + 1:03d}" for i in range(n_samples)],
-        }
+        },
     )
 
     # 2. Expression Data
@@ -82,7 +81,7 @@ def synthetic_container():
         {
             "protein_id": [f"P{i + 1:04d}" for i in range(n_features)],
             "_index": [f"P{i + 1:04d}" for i in range(n_features)],
-        }
+        },
     )
 
     matrix = ScpMatrix(X=X_observed, M=M)
@@ -95,8 +94,7 @@ def synthetic_container():
 
 @pytest.fixture
 def small_synthetic_container():
-    """
-    Generate a very small synthetic container for fast tests.
+    """Generate a very small synthetic container for fast tests.
 
     Creates a minimal test dataset:
     - 20 samples x 50 features
@@ -107,6 +105,7 @@ def small_synthetic_container():
     -------
     ScpContainer
         Small synthetic test container.
+
     """
     np.random.seed(42)
 
@@ -122,7 +121,7 @@ def small_synthetic_container():
             "group": groups,
             "batch": batches,
             "_index": [f"S{i + 1:03d}" for i in range(n_samples)],
-        }
+        },
     )
 
     X_true = np.random.lognormal(mean=2, sigma=0.5, size=(n_samples, n_features))
@@ -145,7 +144,9 @@ def small_synthetic_container():
     valid_indices = np.argwhere(valid_mask)
     if len(valid_indices) > n_random_missing:
         random_indices_idx = np.random.choice(
-            len(valid_indices), size=n_random_missing, replace=False
+            len(valid_indices),
+            size=n_random_missing,
+            replace=False,
         )
         random_indices = valid_indices[random_indices_idx]
         X_observed[random_indices[:, 0], random_indices[:, 1]] = 0
@@ -155,7 +156,7 @@ def small_synthetic_container():
         {
             "protein_id": [f"P{i + 1:04d}" for i in range(n_features)],
             "_index": [f"P{i + 1:04d}" for i in range(n_features)],
-        }
+        },
     )
 
     matrix = ScpMatrix(X=X_observed, M=M)
@@ -168,8 +169,7 @@ def small_synthetic_container():
 
 @pytest.fixture
 def temp_output_dir(tmp_path):
-    """
-    Create a temporary directory for test outputs.
+    """Create a temporary directory for test outputs.
 
     Parameters
     ----------
@@ -180,6 +180,7 @@ def temp_output_dir(tmp_path):
     -------
     pathlib.Path
         Path to temporary output directory.
+
     """
     output_dir = tmp_path / "test_outputs"
     output_dir.mkdir(exist_ok=True)

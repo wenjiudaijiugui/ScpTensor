@@ -28,7 +28,7 @@ def qc_overview_container() -> ScpContainer:
         {
             "_index": [f"S{i:02d}" for i in range(n_samples)],
             "batch": np.array(["A"] * 6 + ["B"] * 6),
-        }
+        },
     )
 
     protein_var = pl.DataFrame(
@@ -37,7 +37,7 @@ def qc_overview_container() -> ScpContainer:
             "pca_PC1_loading": rng.normal(size=n_features),
             "pca_PC2_loading": rng.normal(size=n_features),
             "pca_PC3_loading": rng.normal(size=n_features),
-        }
+        },
     )
     protein_x = rng.normal(size=(n_samples, n_features))
     protein_m = rng.choice([0, 1, 2, 5], size=(n_samples, n_features), p=[0.7, 0.1, 0.1, 0.1])
@@ -47,7 +47,7 @@ def qc_overview_container() -> ScpContainer:
         {
             "_index": [f"PC{i + 1}" for i in range(n_pcs)],
             "explained_variance_ratio": [0.5, 0.3, 0.2],
-        }
+        },
     )
     scores = rng.normal(size=(n_samples, n_pcs))
     pca_assay = Assay(var=pca_var, layers={"scores": ScpMatrix(X=scores)})

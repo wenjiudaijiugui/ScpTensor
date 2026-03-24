@@ -32,6 +32,7 @@ def validate_container(container: ScpContainer) -> None:
     ------
     VisualizationError
         If container is None or not a ScpContainer instance.
+
     """
     if container is None:
         raise VisualizationError("Container cannot be None")
@@ -57,6 +58,7 @@ def validate_layer(container: ScpContainer, assay_name: str, layer: str) -> None
         If assay does not exist.
     LayerNotFoundError
         If layer does not exist in the assay.
+
     """
     if assay_name not in container.assays:
         raise VisualizationError(f"Assay '{assay_name}' not found in container")
@@ -86,6 +88,7 @@ def validate_features(
     ------
     VisualizationError
         If assay does not exist or features are not found.
+
     """
     if assay_name not in container.assays:
         raise VisualizationError(f"Assay '{assay_name}' not found in container")
@@ -127,15 +130,16 @@ def validate_groupby(container: ScpContainer, groupby: str) -> None:
     ------
     VisualizationError
         If column does not exist in obs.
+
     """
     if groupby not in container.obs.columns:
         available = container.obs.columns
         raise VisualizationError(
-            f"Column '{groupby}' not found in obs. Available columns: {list(available)}"
+            f"Column '{groupby}' not found in obs. Available columns: {list(available)}",
         )
 
 
-def validate_plot_data(X: np.ndarray, n_min: int = 1) -> None:  # noqa: N803
+def validate_plot_data(X: np.ndarray, n_min: int = 1) -> None:
     """Validate sufficient data for plotting.
 
     Parameters
@@ -149,8 +153,9 @@ def validate_plot_data(X: np.ndarray, n_min: int = 1) -> None:  # noqa: N803
     ------
     VisualizationError
         If data size is less than n_min.
+
     """
     if X.size < n_min:
         raise VisualizationError(
-            f"Insufficient data for plotting: {X.size} elements < {n_min} required"
+            f"Insufficient data for plotting: {X.size} elements < {n_min} required",
         )

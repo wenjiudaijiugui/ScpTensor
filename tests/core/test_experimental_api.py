@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import scptensor as scp
-import scptensor.experimental as experimental
 import scptensor.qc as stable_qc
 import scptensor.qc.qc_psm as qc_psm_core
+from scptensor import experimental
 from scptensor.cluster import cluster_kmeans as cluster_kmeans_core
 from scptensor.cluster import cluster_leiden as cluster_leiden_core
 from scptensor.dim_reduction import SolverType as SolverType_core

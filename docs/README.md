@@ -55,7 +55,9 @@ Benchmark scripts and benchmark outputs should stay under `benchmark/`.
 
 - `experimental_downstream_alignment_plan.md`: non-contract convergence record for experimental helper asymmetries; current mandatory gaps are closed, keep it as a resolution log until an archive slot is introduced
 - `optimization_checklist.md`: document-driven execution checklist for future code optimization; defines authority-doc priority, PR gates, staged execution order, and stop conditions for contract drift
+- `compatibility_policy.md`: stable-surface compatibility rules; defines which aliases and facades remain allowed, which compatibility patterns are explicitly banned, and how tests/docs should treat canonical APIs
 - `runtime_baseline.md`: PR-0 runtime baseline spec for stable preprocessing paths; separates engineering runtime regression checks from scientific method benchmarks and distinguishes full-chain gates from normalization-only micro-gates
+- `repo_file_tiering.md`: repository file importance tiers and cleanup rules; defines what is release-critical, support-only, reference-only, and local-generated noise
 
 ### Tutorial
 
@@ -130,8 +132,9 @@ Canonical citation policy:
   whether that layer is vendor-normalized must be stated through provenance
   fields such as `is_vendor_normalized`, not by introducing a second default
   layer-name family.
-- Treat `ScpContainer.shape` and `Assay.X` as compatibility helpers, not as the
-  preferred access pattern for stable preprocessing documentation.
+- Treat `Assay.X` as a compatibility-facing shortcut only; document explicit
+  assay-level access patterns such as `container.assay_shape(assay_name)` and
+  `container.assays[assay_name].layers[source_layer]` for stable preprocessing.
 - Prefer `scptensor.experimental` imports when documenting `reduce_*` and
   `cluster_*` workflows.
 - Prefer `from scptensor.experimental import qc_psm` when documenting

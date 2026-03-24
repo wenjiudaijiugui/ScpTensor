@@ -93,10 +93,12 @@ def test_qrilc_uses_sample_wise_distribution_when_one_feature_is_missing_everywh
 
 
 @pytest.mark.parametrize(
-    "fn, kwargs", [(minprob_impute, {"sigma": 2.0}), (qrilc_impute, {"q": 0.01})]
+    "fn, kwargs",
+    [(minprob_impute, {"sigma": 2.0}), (qrilc_impute, {"q": 0.01})],
 )
 def test_left_censored_imputers_reject_nonfinite_observed_values(
-    fn: object, kwargs: dict[str, float]
+    fn: object,
+    kwargs: dict[str, float],
 ) -> None:
     """Regression: only NaN may represent missingness; Inf must be rejected explicitly."""
     x = np.array(

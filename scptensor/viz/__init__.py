@@ -1,17 +1,15 @@
 """Public visualization API.
 
-Canonical public names prefer ``plot_*`` for clarity. Legacy names are
-retained as aliases for backward compatibility.
+Top-level exports prefer canonical ``plot_*`` names plus a small set of base
+primitives. Backward-compatible recipe aliases stay in explicit submodules and
+are not re-exported here.
 """
 
 from .base.heatmap import heatmap as _base_heatmap
-from .base.scatter import scatter as _base_scatter
 from .base.violin import violin as _base_violin
 from .recipes import (
     ReportTheme,
-    embedding,
     generate_analysis_report,
-    pca,
     plot_aggregation_summary,
     plot_correlation_matrix,
     plot_data_overview,
@@ -42,20 +40,13 @@ from .recipes import (
     plot_reduction_summary,
     plot_saved_artifact_sizes,
     plot_tracksplot,
-    qc_completeness,
-    qc_matrix_spy,
-    scatter,
-    tsne,
-    umap,
 )
 
-base_scatter = _base_scatter
 heatmap = _base_heatmap
 violin = _base_violin
 
 __all__ = [
     # Base primitives
-    "base_scatter",
     "heatmap",
     "violin",
     # Canonical plot_* names
@@ -92,12 +83,4 @@ __all__ = [
     # Report
     "generate_analysis_report",
     "ReportTheme",
-    # Backward-compatible aliases
-    "scatter",
-    "umap",
-    "pca",
-    "tsne",
-    "embedding",
-    "qc_completeness",
-    "qc_matrix_spy",
 ]

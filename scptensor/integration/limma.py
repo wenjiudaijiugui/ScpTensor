@@ -13,8 +13,8 @@ import polars as pl
 import scipy.linalg as la
 import scipy.sparse as sp
 
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import ScpContainer
 from scptensor.integration.base import (
     add_integrated_layer,
     log_integration_operation,
@@ -56,10 +56,15 @@ def integrate_limma(
         Optional ScpTensor extension that keeps the chosen batch unchanged after
         correction. If None, batch effects are removed to limma's centered
         default rather than anchoring to the first observed batch.
+
     """
     assay, layer = validate_layer_params(container, assay_name, base_layer)
     obs_df, batches, unique_batches, _ = validate_batch_integration_params(
-        container, batch_key, assay_name, min_batches=2, min_samples_per_batch=2
+        container,
+        batch_key,
+        assay_name,
+        min_batches=2,
+        min_samples_per_batch=2,
     )
 
     input_was_sparse = sp.issparse(layer.X)
@@ -86,7 +91,7 @@ def integrate_limma(
         raise ValueError(
             f"Design matrix is rank deficient (rank={rank}, cols={design_matrix.shape[1]}). "
             "Batch and covariates are likely confounded. "
-            f"Design columns: [{cols}]"
+            f"Design columns: [{cols}]",
         )
 
     x_corrected = _remove_batch_effect_with_missing(

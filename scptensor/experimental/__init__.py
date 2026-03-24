@@ -14,9 +14,9 @@ Current experimental APIs:
 but it should not be interpreted as a downstream embedding/clustering helper.
 """
 
-import scptensor.qc.qc_psm as qc_psm
 from scptensor.cluster import cluster_kmeans, cluster_leiden
 from scptensor.dim_reduction import SolverType, reduce_pca, reduce_tsne, reduce_umap
+from scptensor.qc import qc_psm
 
 __all__ = [
     "reduce_pca",

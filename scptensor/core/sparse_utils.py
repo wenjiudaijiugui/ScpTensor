@@ -1,5 +1,4 @@
-"""
-Sparse matrix utility functions for ScpTensor.
+"""Sparse matrix utility functions for ScpTensor.
 
 Provides efficient sparse matrix operations and memory management utilities.
 
@@ -12,6 +11,7 @@ Performance Notes:
 
 import os
 from collections.abc import Callable
+from importlib.util import find_spec
 from typing import Any
 
 import numpy as np
@@ -22,20 +22,15 @@ import scipy.sparse as sp
 # trigger for very large sparse buffers unless explicitly overridden.
 _JIT_THRESHOLD = int(os.getenv("SCPTENSOR_JIT_THRESHOLD", "10000000"))
 
-# Lazy import of numba - only import if actually needed
-_JIT_AVAILABLE = False
+# Lazy availability check for numba; actual import happens only when needed.
+_JIT_AVAILABLE: bool | None = None
 
 
 def _ensure_numba() -> bool:
-    """Lazily import numba only when needed."""
+    """Check numba availability without importing it eagerly."""
     global _JIT_AVAILABLE
-    if not _JIT_AVAILABLE:
-        try:
-            import numba  # noqa: F401
-
-            _JIT_AVAILABLE = True
-        except ImportError:
-            _JIT_AVAILABLE = False
+    if _JIT_AVAILABLE is None:
+        _JIT_AVAILABLE = find_spec("numba") is not None
     return _JIT_AVAILABLE
 
 
@@ -57,8 +52,7 @@ def _get_jit_log_with_scale_kernel():
 
         @njit(cache=True, parallel=True, fastmath=True)
         def _log_with_scale_numba(data: np.ndarray, offset: float, inv_scale: float) -> np.ndarray:
-            """
-            Combined log transformation and scaling operation for very large arrays.
+            """Combined log transformation and scaling operation for very large arrays.
 
             Uses parallel processing and fastmath optimizations.
             Pre-computes inverse scale to avoid division in the loop.
@@ -76,8 +70,7 @@ def _get_jit_log_with_scale_kernel():
 
 
 def is_sparse_matrix(X: np.ndarray | sp.spmatrix) -> bool:
-    """
-    Check if input is a scipy sparse matrix.
+    """Check if input is a scipy sparse matrix.
 
     Parameters
     ----------
@@ -97,13 +90,13 @@ def is_sparse_matrix(X: np.ndarray | sp.spmatrix) -> bool:
     False
     >>> is_sparse_matrix(sparse.csr_matrix([[1, 0], [0, 4]]))
     True
+
     """
     return sp.issparse(X)
 
 
 def get_sparsity_ratio(X: np.ndarray | sp.spmatrix) -> float:
-    """
-    Calculate the ratio of zero (or missing) values in the matrix.
+    """Calculate the ratio of zero (or missing) values in the matrix.
 
     Parameters
     ----------
@@ -120,18 +113,19 @@ def get_sparsity_ratio(X: np.ndarray | sp.spmatrix) -> float:
     >>> X = np.array([[1, 0, 2], [0, 0, 3]])
     >>> get_sparsity_ratio(X)
     0.5
+
     """
     if is_sparse_matrix(X):
         return 1.0 - (X.nnz / (X.shape[0] * X.shape[1]))  # type: ignore[union-attr]
-    else:
-        return np.sum(X == 0) / X.size
+    return np.sum(X == 0) / X.size
 
 
 def to_sparse_if_beneficial(
-    X: np.ndarray | sp.spmatrix, threshold: float = 0.5, format: str = "csr"
+    X: np.ndarray | sp.spmatrix,
+    threshold: float = 0.5,
+    format: str = "csr",
 ) -> np.ndarray | sp.spmatrix:
-    """
-    Convert dense matrix to sparse if sparsity exceeds threshold.
+    """Convert dense matrix to sparse if sparsity exceeds threshold.
 
     Parameters
     ----------
@@ -153,6 +147,7 @@ def to_sparse_if_beneficial(
     >>> X_sparse = to_sparse_if_beneficial(X, threshold=0.5)
     >>> is_sparse_matrix(X_sparse)
     True
+
     """
     if is_sparse_matrix(X):
         return X
@@ -161,18 +156,16 @@ def to_sparse_if_beneficial(
     if sparsity > threshold:
         if format == "csr":
             return sp.csr_matrix(X)
-        elif format == "csc":
+        if format == "csc":
             return sp.csc_matrix(X)
-        elif format == "coo":
+        if format == "coo":
             return sp.coo_matrix(X)
-        else:
-            raise ValueError(f"Unsupported sparse format: {format}")
+        raise ValueError(f"Unsupported sparse format: {format}")
     return X
 
 
 def ensure_sparse_format(X: np.ndarray | sp.spmatrix, format: str = "csr") -> sp.spmatrix:
-    """
-    Ensure matrix is in specific sparse format.
+    """Ensure matrix is in specific sparse format.
 
     Parameters
     ----------
@@ -198,35 +191,33 @@ def ensure_sparse_format(X: np.ndarray | sp.spmatrix, format: str = "csr") -> sp
     >>> X_csr = ensure_sparse_format(X_csc, format='csr')
     >>> type(X_csr).__name__
     'csr_matrix'
+
     """
     if is_sparse_matrix(X):
         if format == "csr":
             return X.tocsr()  # type: ignore[union-attr]
-        elif format == "csc":
+        if format == "csc":
             return X.tocsc()  # type: ignore[union-attr]
-        elif format == "coo":
+        if format == "coo":
             return X.tocoo()  # type: ignore[union-attr]
-        elif format == "lil":
+        if format == "lil":
             return X.tolil()  # type: ignore[union-attr]
-        else:
-            raise ValueError(f"Unsupported sparse format: {format}")
+        raise ValueError(f"Unsupported sparse format: {format}")
+    # Convert dense to sparse
+    elif format == "csr":
+        return sp.csr_matrix(X)
+    elif format == "csc":
+        return sp.csc_matrix(X)
+    elif format == "coo":
+        return sp.coo_matrix(X)
+    elif format == "lil":
+        return sp.lil_matrix(X)
     else:
-        # Convert dense to sparse
-        if format == "csr":
-            return sp.csr_matrix(X)
-        elif format == "csc":
-            return sp.csc_matrix(X)
-        elif format == "coo":
-            return sp.coo_matrix(X)
-        elif format == "lil":
-            return sp.lil_matrix(X)
-        else:
-            raise ValueError(f"Unsupported sparse format: {format}")
+        raise ValueError(f"Unsupported sparse format: {format}")
 
 
 def sparse_copy(X: np.ndarray | sp.spmatrix) -> np.ndarray | sp.spmatrix:
-    """
-    Efficient copy of sparse or dense matrix.
+    """Efficient copy of sparse or dense matrix.
 
     Parameters
     ----------
@@ -246,11 +237,11 @@ def sparse_copy(X: np.ndarray | sp.spmatrix) -> np.ndarray | sp.spmatrix:
     >>> X_copy[0, 0] = 99
     >>> X[0, 0]
     1
+
     """
     if is_sparse_matrix(X):
         return X.copy()
-    else:
-        return X.copy()
+    return X.copy()
 
 
 def cleanup_layers(
@@ -258,8 +249,7 @@ def cleanup_layers(
     assay_name: str,
     keep_layers: list[str],
 ) -> None:
-    """
-    Remove unused layers from an assay to free memory.
+    """Remove unused layers from an assay to free memory.
 
     This is useful after imputation or normalization when intermediate
     layers are no longer needed.
@@ -288,6 +278,7 @@ def cleanup_layers(
     >>> # Add multiple layers...
     >>> # After processing, keep only final result
     >>> cleanup_layers(container, 'proteins', keep_layers=['imputed', 'norm'])
+
     """
     if assay_name not in container.assays:
         raise ValueError(f"Assay '{assay_name}' not found in container.")
@@ -300,7 +291,8 @@ def cleanup_layers(
 
 
 def _preserve_sparsity_format(
-    result: np.ndarray | sp.spmatrix, input_was_sparse: bool
+    result: np.ndarray | sp.spmatrix,
+    input_was_sparse: bool,
 ) -> np.ndarray | sp.spmatrix:
     """Ensure result format matches input sparsity.
 
@@ -315,6 +307,7 @@ def _preserve_sparsity_format(
     -------
     Union[np.ndarray, sp.spmatrix]
         Sparse converted back if input was sparse
+
     """
     if input_was_sparse and not is_sparse_matrix(result):
         return to_sparse_if_beneficial(result, threshold=0.1)
@@ -418,6 +411,7 @@ def sparse_safe_operation(
     -------
     Union[np.ndarray, sp.spmatrix]
         Result of operation, format preserved from input
+
     """
     input_is_sparse = is_sparse_matrix(X)
     result = operation(X, *args, **kwargs)
@@ -425,8 +419,7 @@ def sparse_safe_operation(
 
 
 def get_memory_usage(X: np.ndarray | sp.spmatrix) -> dict[str, Any]:
-    """
-    Get memory usage statistics for matrix.
+    """Get memory usage statistics for matrix.
 
     Parameters
     ----------
@@ -449,6 +442,7 @@ def get_memory_usage(X: np.ndarray | sp.spmatrix) -> dict[str, Any]:
     >>> stats = get_memory_usage(X)
     >>> stats['is_sparse']
     True
+
     """
     if is_sparse_matrix(X):
         nbytes = X.data.nbytes + X.indices.nbytes + X.indptr.nbytes  # type: ignore[union-attr]
@@ -464,8 +458,7 @@ def get_memory_usage(X: np.ndarray | sp.spmatrix) -> dict[str, Any]:
 
 
 def optimal_format_for_operation(X: np.ndarray | sp.spmatrix, operation: str) -> str:
-    """
-    Determine the optimal sparse format for a given operation.
+    """Determine the optimal sparse format for a given operation.
 
     Parameters
     ----------
@@ -499,6 +492,7 @@ def optimal_format_for_operation(X: np.ndarray | sp.spmatrix, operation: str) ->
     'csr'
     >>> optimal_format_for_operation(X, 'col_wise')
     'csc'
+
     """
     if not is_sparse_matrix(X):
         return "dense"
@@ -516,8 +510,7 @@ def optimal_format_for_operation(X: np.ndarray | sp.spmatrix, operation: str) ->
 
 
 def auto_convert_for_operation(X: np.ndarray | sp.spmatrix, operation: str) -> sp.spmatrix:
-    """
-    Automatically convert matrix to optimal format for the given operation.
+    """Automatically convert matrix to optimal format for the given operation.
 
     This is a convenience function that combines optimal_format_for_operation
     with ensure_sparse_format.
@@ -541,6 +534,7 @@ def auto_convert_for_operation(X: np.ndarray | sp.spmatrix, operation: str) -> s
     >>> X_csr = auto_convert_for_operation(X_csc, 'row_wise')
     >>> type(X_csr).__name__
     'csr_matrix'
+
     """
     if not is_sparse_matrix(X):
         return X  # Keep dense matrices as is
@@ -550,10 +544,11 @@ def auto_convert_for_operation(X: np.ndarray | sp.spmatrix, operation: str) -> s
 
 
 def sparse_row_operation(
-    X: sp.spmatrix, func: Callable[[np.ndarray], Any], **kwargs: Any
+    X: sp.spmatrix,
+    func: Callable[[np.ndarray], Any],
+    **kwargs: Any,
 ) -> np.ndarray:
-    """
-    Apply a function to each row of a sparse matrix efficiently with JIT acceleration.
+    """Apply a function to each row of a sparse matrix efficiently with JIT acceleration.
 
     Fast path: Uses JIT kernels for common operations (sum, mean).
     Fallback: Vectorized approach for custom functions.
@@ -579,6 +574,7 @@ def sparse_row_operation(
     >>> result = sparse_row_operation(X, np.sum)
     >>> result
     array([3, 3])
+
     """
     X_csr = X.tocsr() if is_sparse_matrix(X) else X
     n_rows = X_csr.shape[0]
@@ -614,10 +610,11 @@ def sparse_row_operation(
 
 
 def sparse_col_operation(
-    X: sp.spmatrix, func: Callable[[np.ndarray], Any], **kwargs: Any
+    X: sp.spmatrix,
+    func: Callable[[np.ndarray], Any],
+    **kwargs: Any,
 ) -> np.ndarray:
-    """
-    Apply a function to each column of a sparse matrix efficiently.
+    """Apply a function to each column of a sparse matrix efficiently.
 
     Parameters
     ----------
@@ -640,6 +637,7 @@ def sparse_col_operation(
     >>> result = sparse_col_operation(X, np.sum)
     >>> result
     array([1., 0., 5.])
+
     """
     X_csc = X.tocsc() if is_sparse_matrix(X) else X
     n_cols = X_csc.shape[1]
@@ -660,8 +658,7 @@ def sparse_col_operation(
 
 
 def sparse_multiply_rowwise(X: sp.spmatrix, factors: np.ndarray) -> sp.spmatrix:
-    """
-    Multiply each row of a sparse matrix by a corresponding factor.
+    """Multiply each row of a sparse matrix by a corresponding factor.
 
     Efficient CSR-based operation that avoids densification.
     Uses vectorized operations for better performance.
@@ -687,6 +684,7 @@ def sparse_multiply_rowwise(X: sp.spmatrix, factors: np.ndarray) -> sp.spmatrix:
     >>> result.toarray()
     array([[2., 0.],
            [1., 1.5]])
+
     """
     X_csr = ensure_sparse_format(X, "csr")
     n_rows = X_csr.shape[0]
@@ -712,8 +710,7 @@ def sparse_multiply_rowwise(X: sp.spmatrix, factors: np.ndarray) -> sp.spmatrix:
 
 
 def sparse_multiply_colwise(X: sp.spmatrix, factors: np.ndarray) -> sp.spmatrix:
-    """
-    Multiply each column of a sparse matrix by a corresponding factor.
+    """Multiply each column of a sparse matrix by a corresponding factor.
 
     Efficient CSC-based operation that avoids densification.
     Uses vectorized operations for better performance.
@@ -739,6 +736,7 @@ def sparse_multiply_colwise(X: sp.spmatrix, factors: np.ndarray) -> sp.spmatrix:
     >>> result.toarray()
     array([[2., 0.],
            [4., 1.5]])
+
     """
     X_csc = ensure_sparse_format(X, "csc")
     n_cols = X_csc.shape[1]
@@ -764,10 +762,10 @@ def sparse_multiply_colwise(X: sp.spmatrix, factors: np.ndarray) -> sp.spmatrix:
 
 
 def sparse_center_rows(
-    X: sp.spmatrix, row_means: np.ndarray | None = None
+    X: sp.spmatrix,
+    row_means: np.ndarray | None = None,
 ) -> tuple[sp.spmatrix, np.ndarray]:
-    """
-    Center each row of a sparse matrix by subtracting its mean.
+    """Center each row of a sparse matrix by subtracting its mean.
 
     This operation preserves sparsity by only storing deviations from the mean.
 
@@ -790,6 +788,7 @@ def sparse_center_rows(
     >>> X_centered, means = sparse_center_rows(X)
     >>> means
     array([2., 3.])
+
     """
     X_csr = ensure_sparse_format(X, "csr")
     n_rows, _ = X_csr.shape
@@ -804,10 +803,11 @@ def sparse_center_rows(
 
 
 def sparse_safe_log1p(
-    X: np.ndarray | sp.spmatrix, offset: float = 1.0, use_jit: bool = True
+    X: np.ndarray | sp.spmatrix,
+    offset: float = 1.0,
+    use_jit: bool = True,
 ) -> np.ndarray | sp.spmatrix:
-    """
-    Apply log(x + offset), preserving sparsity only when structural zeros stay zero.
+    """Apply log(x + offset), preserving sparsity only when structural zeros stay zero.
 
     For sparse matrices, sparsity is preserved only when ``offset == 1.0``.
     In that case, structural zeros map to ``log(0 + 1) = 0`` and can remain
@@ -837,6 +837,7 @@ def sparse_safe_log1p(
     >>> result.toarray()
     array([[0.69314718, 0.        ],
            [0.        , 1.60943791]])
+
     """
     if is_sparse_matrix(X):
         if offset == 1.0:
@@ -844,15 +845,16 @@ def sparse_safe_log1p(
 
         dense = np.asarray(X.toarray(), dtype=np.float64)  # type: ignore[union-attr]
         return np.log1p(dense + offset - 1.0)
-    else:
-        return np.log1p(X + offset - 1.0)
+    return np.log1p(X + offset - 1.0)
 
 
 def sparse_safe_log1p_with_scale(
-    X: np.ndarray | sp.spmatrix, offset: float = 1.0, scale: float = 1.0, use_jit: bool = True
+    X: np.ndarray | sp.spmatrix,
+    offset: float = 1.0,
+    scale: float = 1.0,
+    use_jit: bool = True,
 ) -> np.ndarray | sp.spmatrix:
-    """
-    Apply log(x + offset) / scale, preserving sparsity only when offset is 1.
+    """Apply log(x + offset) / scale, preserving sparsity only when offset is 1.
 
     This function combines the log transformation and scaling into a single
     expression, reducing memory allocations and improving cache locality.
@@ -892,6 +894,7 @@ def sparse_safe_log1p_with_scale(
     >>> X = sparse.csr_matrix([[1, 0], [0, 4]])
     >>> # Equivalent to log2(X + 1) since log(2) ≈ 0.693
     >>> result = sparse_safe_log1p_with_scale(X, offset=1.0, scale=np.log(2))
+
     """
     if is_sparse_matrix(X):
         if offset == 1.0:
@@ -899,14 +902,12 @@ def sparse_safe_log1p_with_scale(
 
         dense = np.asarray(X.toarray(), dtype=np.float64)  # type: ignore[union-attr]
         return np.log1p(dense + offset - 1.0) / scale
-    else:
-        # Dense matrix: single combined operation
-        return np.log1p(X + offset - 1.0) / scale
+    # Dense matrix: single combined operation
+    return np.log1p(X + offset - 1.0) / scale
 
 
 def get_format_recommendation(n_rows: int, n_cols: int, nnz: int, operations: list) -> str:
-    """
-    Recommend the optimal sparse format based on matrix properties and operations.
+    """Recommend the optimal sparse format based on matrix properties and operations.
 
     Parameters
     ----------
@@ -930,6 +931,7 @@ def get_format_recommendation(n_rows: int, n_cols: int, nnz: int, operations: li
     'csr'
     >>> get_format_recommendation(100, 1000, 50000, ['col_wise'])
     'csc'
+
     """
     sparsity = 1.0 - (nnz / (n_rows * n_cols))
 
@@ -944,10 +946,9 @@ def get_format_recommendation(n_rows: int, n_cols: int, nnz: int, operations: li
 
     if modify_ops > 0:
         return "lil"
-    elif row_ops > col_ops:
+    if row_ops > col_ops:
         return "csr"
-    elif col_ops > row_ops:
+    if col_ops > row_ops:
         return "csc"
-    else:
-        # Default for arithmetic operations
-        return "csr" if n_rows >= n_cols else "csc"
+    # Default for arithmetic operations
+    return "csr" if n_rows >= n_cols else "csc"

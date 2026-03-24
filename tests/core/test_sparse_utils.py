@@ -188,7 +188,8 @@ def test_sparse_safe_log1p_preserves_structural_zeros_and_input():
 
     assert sp.isspmatrix_csr(out)
     np.testing.assert_allclose(
-        out.toarray(), np.array([[np.log1p(1.0), 0.0], [0.0, np.log1p(4.0)]])
+        out.toarray(),
+        np.array([[np.log1p(1.0), 0.0], [0.0, np.log1p(4.0)]]),
     )
     np.testing.assert_array_equal(X.toarray(), X_before.toarray())
 
@@ -211,7 +212,8 @@ def test_sparse_safe_log1p_with_scale_casts_integer_sparse_data_to_float():
 
     assert out.dtype.kind == "f"
     np.testing.assert_allclose(
-        out.toarray(), np.array([[np.log1p(1.0) / 2.0, 0.0], [0.0, np.log1p(3.0) / 2.0]])
+        out.toarray(),
+        np.array([[np.log1p(1.0) / 2.0, 0.0], [0.0, np.log1p(3.0) / 2.0]]),
     )
 
 
@@ -231,7 +233,8 @@ def test_sparse_safe_log1p_skips_kernel_below_threshold(monkeypatch):
 
     assert calls["count"] == 0
     np.testing.assert_allclose(
-        out.toarray(), np.array([[np.log1p(1.0), 0.0], [0.0, np.log1p(4.0)]])
+        out.toarray(),
+        np.array([[np.log1p(1.0), 0.0], [0.0, np.log1p(4.0)]]),
     )
 
 

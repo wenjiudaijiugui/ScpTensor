@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sp
 
-from scptensor.core.structures import ScpContainer
+from scptensor.core._structure_container import ScpContainer
 from scptensor.viz.base.style import setup_style
 from scptensor.viz.base.validation import validate_container, validate_layer
 
@@ -46,7 +46,7 @@ __all__ = [
 def _to_dense_array(x: np.ndarray | sp.spmatrix) -> np.ndarray:
     """Convert matrix-like input to dense NumPy array."""
     if sp.issparse(x):
-        return cast(sp.spmatrix, x).toarray()
+        return cast("sp.spmatrix", x).toarray()
     return np.asarray(x)
 
 
@@ -57,7 +57,9 @@ def _detected_mask(x: np.ndarray | sp.spmatrix) -> np.ndarray:
 
 
 def _sample_finite_values(
-    x: np.ndarray | sp.spmatrix, max_points: int = 200_000, seed: int = 42
+    x: np.ndarray | sp.spmatrix,
+    max_points: int = 200_000,
+    seed: int = 42,
 ) -> np.ndarray:
     """Sample finite values for stable histogram rendering."""
     dense = _to_dense_array(x)
@@ -128,7 +130,8 @@ def _batch_dispersion_score(x_embed: np.ndarray, batch_codes: np.ndarray) -> flo
 
 
 def _compute_batch_quality_metrics(
-    x_embed: np.ndarray, batch_labels: np.ndarray
+    x_embed: np.ndarray,
+    batch_labels: np.ndarray,
 ) -> dict[str, float]:
     """Compute batch-mixing quality metrics in a higher-is-better direction."""
     from scptensor.autoselect.metrics.batch import batch_asw, batch_mixing_score
@@ -169,7 +172,7 @@ def plot_aggregation_summary(
     if link is None:
         raise ValueError(
             "No aggregation link found for requested assays. "
-            "Run aggregate_to_protein first or provide matching source/target assay names."
+            "Run aggregate_to_protein first or provide matching source/target assay names.",
         )
 
     linkage = link.linkage
@@ -195,7 +198,10 @@ def plot_aggregation_summary(
 
     counts = peptides_per_target["n_source"].to_numpy()
     axes[1].hist(
-        counts, bins=min(40, max(8, int(np.sqrt(counts.size)))), color="#64B5CD", alpha=0.9
+        counts,
+        bins=min(40, max(8, int(np.sqrt(counts.size)))),
+        color="#64B5CD",
+        alpha=0.9,
     )
     axes[1].set_title("Sources per Target Distribution")
     axes[1].set_xlabel("# source features per target")
@@ -292,7 +298,8 @@ def plot_qc_filtering_summary(
         sample_qc_before = container_before.obs[sample_qc_col].to_numpy()
     else:
         sample_qc_before = np.sum(
-            _detected_mask(container_before.assays[assay_name].layers[layer].X), axis=1
+            _detected_mask(container_before.assays[assay_name].layers[layer].X),
+            axis=1,
         )
 
     before_samples = container_before.n_samples
@@ -536,10 +543,10 @@ def plot_integration_batch_summary(
         raise ValueError("container_before and container_after have different sample counts.")
 
     x_before = _impute_finite_column_mean(
-        _to_dense_array(container_before.assays[assay_name].layers[before_layer].X)
+        _to_dense_array(container_before.assays[assay_name].layers[before_layer].X),
     )
     x_after = _impute_finite_column_mean(
-        _to_dense_array(container_after.assays[assay_name].layers[after_layer].X)
+        _to_dense_array(container_after.assays[assay_name].layers[after_layer].X),
     )
 
     z_before = PCA(n_components=2, random_state=42).fit_transform(x_before)
@@ -658,7 +665,7 @@ def plot_embedding_panels(
     ]
     if not valid_assays:
         raise ValueError(
-            f"No valid embedding assays found. Requested={list(assay_names)}, layer='{layer}'."
+            f"No valid embedding assays found. Requested={list(assay_names)}, layer='{layer}'.",
         )
 
     _, axes = plt.subplots(1, len(valid_assays), figsize=figsize)
@@ -684,7 +691,8 @@ def plot_embedding_panels(
         emb = _to_dense_array(container.assays[assay_name].layers[layer].X)
         if emb.shape[1] < 2:
             raise ValueError(
-                f"Assay '{assay_name}/{layer}' must have at least 2 dimensions, got {emb.shape[1]}."
+                f"Assay '{assay_name}/{layer}' must have at least 2 dimensions, "
+                f"got {emb.shape[1]}.",
             )
         scatter_ref = ax.scatter(emb[:, 0], emb[:, 1], c=color_values, s=12, cmap="tab10")
         ax.set_title(f"{assay_name.upper()} (colored by {color_by or 'default'})")
@@ -698,7 +706,11 @@ def plot_embedding_panels(
         and scatter_ref is not None
     ):
         axes[0].figure.colorbar(
-            scatter_ref, ax=axes.tolist(), fraction=0.03, pad=0.02, label=color_by
+            scatter_ref,
+            ax=axes.tolist(),
+            fraction=0.03,
+            pad=0.02,
+            label=color_by,
         )
     elif category_mapping:
         from matplotlib.patches import Patch

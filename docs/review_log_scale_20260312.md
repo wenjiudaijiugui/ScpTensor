@@ -214,7 +214,7 @@
 
 ### 5.4 Importer 应把 vendor-normalized 识别提升为显式元信息
 
-- 当前 `scptensor.io.mass_spec` 已经用 `_is_vendor_normalized_column()` 识别 `normalized/normalised` 列名。
+- 当前 `scptensor.io` importer 层已经用 `is_vendor_normalized_column()` 识别 `normalized/normalised` 列名。
 - 下一步应在文档中明确：
   - `PG.MaxLFQ`、`PG.Normalised`、`Precursor.Normalised`、`F.NormalizedPeakArea` 一类字段导入后不应再被叫做“未经说明的 raw”
   - 若用户需要“真 raw”，应显式选择 `Quantity` / `Area` 类未归一化列

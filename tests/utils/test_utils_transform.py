@@ -53,7 +53,7 @@ class TestQuantileNormalize:
                 [17.0 / 6.0, 2.0, 2.0],
                 [17.0 / 6.0, 11.0 / 3.0, 11.0 / 3.0],
                 [17.0 / 3.0, 17.0 / 3.0, 17.0 / 3.0],
-            ]
+            ],
         )
         np.testing.assert_allclose(result, expected)
 

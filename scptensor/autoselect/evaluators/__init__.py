@@ -25,6 +25,7 @@ Examples
 >>> class MyEvaluator(BaseEvaluator):
 ...     # Implement abstract methods
 ...     pass
+
 """
 
 from __future__ import annotations

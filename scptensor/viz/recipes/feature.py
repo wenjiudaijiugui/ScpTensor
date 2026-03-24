@@ -40,7 +40,7 @@ __all__ = [
 def _to_dense_array(matrix: np.ndarray | sparse.spmatrix) -> np.ndarray:
     """Convert dense/sparse matrix-like input to a 2D NumPy array."""
     if sparse.issparse(matrix):
-        sparse_matrix = cast(sparse.spmatrix, matrix)
+        sparse_matrix = cast("sparse.spmatrix", matrix)
         return np.asarray(sparse_matrix.toarray())
     return np.asarray(matrix)
 
@@ -147,6 +147,7 @@ def dotplot(
     >>> container.assays["proteins"] = assay
     >>> ax = dotplot(container, layer="normalized", var_names=["P0", "P1"],
     ...              groupby="cluster", show=False)
+
     """
     validate_container(container)
     validate_layer(container, assay_name, layer)
@@ -156,11 +157,11 @@ def dotplot(
         raise VisualizationError("var_names must contain at least one feature")
     if dendrogram:
         raise VisualizationError(
-            "dendrogram=True is not supported in plot_feature_dotplot/dotplot yet"
+            "dendrogram=True is not supported in plot_feature_dotplot/dotplot yet",
         )
     if standard_scale not in {"var", "obs", None}:
         raise VisualizationError(
-            f"standard_scale must be one of ['var', 'obs', None], got: {standard_scale}"
+            f"standard_scale must be one of ['var', 'obs', None], got: {standard_scale}",
         )
 
     PlotStyle.apply_style()
@@ -173,7 +174,7 @@ def dotplot(
 
     # Filter to selected features (preserve order from var_names)
     available_features = dict(
-        zip(assay.var[var_col].to_list(), range(len(assay.var)), strict=False)
+        zip(assay.var[var_col].to_list(), range(len(assay.var)), strict=False),
     )
     feature_idx = [available_features[var] for var in var_names]
 

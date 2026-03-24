@@ -8,9 +8,3 @@ This package contains tests for the fundamental data structures:
 - AggregationLink: Inter-assay relationship mapping
 - MaskCode: Provenance tracking enum
 """
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    # This is a test package - no public exports needed
-    pass

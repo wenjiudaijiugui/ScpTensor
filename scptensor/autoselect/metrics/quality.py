@@ -14,12 +14,20 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy.stats import kurtosis, skew
 
+from scptensor.autoselect._heuristics import DYNAMIC_RANGE_HEURISTICS
+
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 
 # Numerical stability constant
 _EPS = 1e-10
+
+
+def _flatten_finite_values(X: NDArray[np.float64]) -> np.ndarray:
+    """Return a 1D finite-valued view for scalar summary metrics."""
+    arr = np.asarray(X, dtype=float).ravel()
+    return arr[np.isfinite(arr)]
 
 
 def cv_stability(X: NDArray[np.float64]) -> float:
@@ -52,6 +60,7 @@ def cv_stability(X: NDArray[np.float64]) -> float:
     >>> score = cv_stability(X)
     >>> 0.0 <= score <= 1.0
     True
+
     """
     if X.size == 0 or X.shape[0] < 2:
         return 0.0
@@ -80,7 +89,7 @@ def cv_stability(X: NDArray[np.float64]) -> float:
         return 0.0
 
     if cvs.size < 2:
-        return 1.0
+        return 0.0
 
     stability = 1.0 - min(np.std(cvs, ddof=0) / cv_mean, 1.0)
     return float(np.clip(stability, 0.0, 1.0))
@@ -124,6 +133,7 @@ def skewness_improvement(X_before: NDArray[np.float64], X_after: NDArray[np.floa
     >>> score = skewness_improvement(X_before, X_after)
     >>> 0.0 <= score <= 1.0
     True
+
     """
     if X_before.shape != X_after.shape:
         raise ValueError(f"Shape mismatch: X_before {X_before.shape} vs X_after {X_after.shape}")
@@ -131,17 +141,25 @@ def skewness_improvement(X_before: NDArray[np.float64], X_after: NDArray[np.floa
     if X_before.size == 0:
         return 0.0
 
-    # scipy.stats skew already has nan_policy='omit'
-    skew_before = np.abs(skew(X_before, axis=None, nan_policy="omit"))
-    skew_after = np.abs(skew(X_after, axis=None, nan_policy="omit"))
+    before_vals = _flatten_finite_values(X_before)
+    after_vals = _flatten_finite_values(X_after)
+    if before_vals.size == 0 or after_vals.size == 0:
+        return 0.0
+
+    if np.std(before_vals, ddof=0) < _EPS or np.std(after_vals, ddof=0) < _EPS:
+        return 0.0
+
+    skew_before = np.abs(skew(before_vals))
+    skew_after = np.abs(skew(after_vals))
 
     # Handle NaN skewness (e.g., constant data)
     if np.isnan(skew_before) or np.isnan(skew_after):
         return 0.0
 
-    # If already perfect, no room for improvement
+    # Improvement is undefined when the baseline is already perfect.
+    # Refuse optimistic credit for a zero-denominator case.
     if skew_before < _EPS:
-        return 1.0 if skew_after < _EPS else 0.0
+        return 0.0
 
     improvement = (skew_before - skew_after) / skew_before
     return float(np.clip(improvement, 0.0, 1.0))
@@ -185,6 +203,7 @@ def kurtosis_improvement(X_before: NDArray[np.float64], X_after: NDArray[np.floa
     >>> score = kurtosis_improvement(X_before, X_after)
     >>> 0.0 <= score <= 1.0
     True
+
     """
     if X_before.shape != X_after.shape:
         raise ValueError(f"Shape mismatch: X_before {X_before.shape} vs X_after {X_after.shape}")
@@ -192,15 +211,23 @@ def kurtosis_improvement(X_before: NDArray[np.float64], X_after: NDArray[np.floa
     if X_before.size == 0:
         return 0.0
 
+    before_vals = _flatten_finite_values(X_before)
+    after_vals = _flatten_finite_values(X_after)
+    if before_vals.size == 0 or after_vals.size == 0:
+        return 0.0
+
+    if np.std(before_vals, ddof=0) < _EPS or np.std(after_vals, ddof=0) < _EPS:
+        return 0.0
+
     # Calculate deviation from normal kurtosis (3)
-    kurt_before = np.abs(kurtosis(X_before, axis=None, fisher=True, nan_policy="omit") + 3)
-    kurt_after = np.abs(kurtosis(X_after, axis=None, fisher=True, nan_policy="omit") + 3)
+    kurt_before = np.abs(kurtosis(before_vals, fisher=True) + 3)
+    kurt_after = np.abs(kurtosis(after_vals, fisher=True) + 3)
 
     if np.isnan(kurt_before) or np.isnan(kurt_after):
         return 0.0
 
     if kurt_before < _EPS:
-        return 1.0 if kurt_after < _EPS else 0.0
+        return 0.0
 
     improvement = (kurt_before - kurt_after) / kurt_before
     return float(np.clip(improvement, 0.0, 1.0))
@@ -236,6 +263,7 @@ def dynamic_range(X: NDArray[np.float64]) -> float:
     >>> score = dynamic_range(X)
     >>> 0.0 <= score <= 1.0
     True
+
     """
     if X.size == 0:
         return 0.0
@@ -248,8 +276,14 @@ def dynamic_range(X: NDArray[np.float64]) -> float:
     # Calculate dynamic range in orders of magnitude
     dyn_range = np.log10(np.max(X_nonzero) / np.min(X_nonzero))
 
-    # Gaussian-like scoring centered at 6 orders of magnitude
-    score = np.exp(-0.5 * ((dyn_range - 6.0) / 3.0) ** 2)
+    score = np.exp(
+        -0.5
+        * (
+            (dyn_range - DYNAMIC_RANGE_HEURISTICS.target_orders_of_magnitude)
+            / DYNAMIC_RANGE_HEURISTICS.spread_orders_of_magnitude
+        )
+        ** 2,
+    )
     return float(np.clip(score, 0.0, 1.0))
 
 
@@ -287,6 +321,7 @@ def outlier_ratio(X: NDArray[np.float64]) -> float:
     >>> score = outlier_ratio(X)
     >>> 0.0 <= score <= 1.0
     True
+
     """
     if X.size == 0:
         return 0.0

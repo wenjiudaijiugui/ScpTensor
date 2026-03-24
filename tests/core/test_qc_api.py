@@ -60,22 +60,14 @@ def test_stable_qc_namespace_reexports_stable_implementations() -> None:
     assert filter_features_by_cv is filter_features_by_cv_core
 
 
-def test_root_package_reexports_stable_qc_surface_but_not_experimental_helpers() -> None:
-    assert scp.qc_sample is qc_sample_core
-    assert scp.qc_feature is qc_feature_core
-    assert scp.calculate_sample_qc_metrics is calculate_sample_qc_metrics_core
-    assert scp.filter_low_quality_samples is filter_low_quality_samples_core
-    assert scp.filter_doublets_mad is filter_doublets_mad_core
-    assert scp.assess_batch_effects is assess_batch_effects_core
-    assert scp.calculate_feature_qc_metrics is calculate_feature_qc_metrics_core
-    assert scp.filter_features_by_missingness is filter_features_by_missingness_core
-    assert scp.filter_features_by_cv is filter_features_by_cv_core
-
+def test_root_package_does_not_reexport_qc_surface_or_experimental_helpers() -> None:
     for name in stable_qc.__all__:
-        assert name in scp.__all__
+        assert name not in scp.__all__
+        assert not hasattr(scp, name)
 
     for name in ("qc_psm", "compute_mad", "is_outlier_mad", "compute_cv"):
         assert name not in scp.__all__
+        assert not hasattr(scp, name)
 
 
 def test_metrics_and_experimental_helpers_not_exported_from_stable_qc_namespace() -> None:

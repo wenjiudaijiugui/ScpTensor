@@ -8,7 +8,13 @@ import pytest
 
 from scptensor.core.exceptions import ValidationError
 from scptensor.core.structures import MaskCode
-from scptensor.io import load_diann, load_peptide_pivot, load_quant_table, load_spectronaut
+from scptensor.io import (
+    aggregate_to_protein,
+    load_diann,
+    load_peptide_pivot,
+    load_quant_table,
+    load_spectronaut,
+)
 
 
 def _write_tsv(tmp_path: Path, name: str, frame: pl.DataFrame) -> Path:
@@ -28,7 +34,7 @@ def test_load_diann_protein_matrix(tmp_path: Path) -> None:
                 "Genes": ["G1", "G2"],
                 "S1.raw": [100.0, 300.0],
                 "S2.raw": [200.0, None],
-            }
+            },
         ),
     )
 
@@ -58,7 +64,7 @@ def test_load_diann_peptide_matrix_bgs_columns(tmp_path: Path) -> None:
                 "Protein.Group": ["P1", "P1"],
                 "[1] SampleA.raw.PEP.Quantity": [10.0, None],
                 "[2] SampleB.raw.PEP.Quantity": [None, 30.0],
-            }
+            },
         ),
     )
 
@@ -88,7 +94,7 @@ def test_load_diann_peptide_default_assay_name_is_peptides(tmp_path: Path) -> No
                 "Precursor.Id": ["pep1", "pep1"],
                 "Precursor.Normalised": [10.0, 12.0],
                 "Q.Value": [0.001, 0.002],
-            }
+            },
         ),
     )
 
@@ -108,7 +114,7 @@ def test_load_spectronaut_protein_long_with_fdr_filter(tmp_path: Path) -> None:
                 "PG.Quantity": [100.0, 120.0, 50.0, 60.0],
                 "Q.Value": [0.005, 0.009, 0.02, 0.005],
                 "PG.Q.Value": [0.005, 0.009, 0.005, 0.02],
-            }
+            },
         ),
     )
 
@@ -143,7 +149,7 @@ def test_load_spectronaut_protein_long_with_pg_qvalue_filter(tmp_path: Path) -> 
                 "R.FileName": ["S1.raw", "S2.raw", "S1.raw", "S2.raw"],
                 "PG.Quantity": [100.0, 120.0, 50.0, 60.0],
                 "PG.Qvalue": [0.005, 0.009, 0.02, 0.02],
-            }
+            },
         ),
     )
 
@@ -172,7 +178,7 @@ def test_load_spectronaut_peptide_matrix_quantity_suffix(tmp_path: Path) -> None
                 "PG.ProteinGroups": ["P1", "P2"],
                 "S1.raw_Quantity": [1.5, 2.5],
                 "S2.raw_Quantity": [None, 3.5],
-            }
+            },
         ),
     )
 
@@ -203,12 +209,15 @@ def test_load_spectronaut_matrix_prefers_suffix_sample_columns_over_other_numeri
                 "ExtraNumeric": [999.0, 888.0],
                 "S1.raw_Quantity": [1.5, 2.5],
                 "S2.raw_Quantity": [None, 3.5],
-            }
+            },
         ),
     )
 
     container = load_spectronaut(
-        path, assay_name="proteins", level="protein", table_format="matrix"
+        path,
+        assay_name="proteins",
+        level="protein",
+        table_format="matrix",
     )
     assay = container.assays["proteins"]
 
@@ -220,7 +229,7 @@ def test_load_spectronaut_matrix_prefers_suffix_sample_columns_over_other_numeri
     )
 
 
-def test_load_peptide_pivot_with_protein_aggregation(tmp_path: Path) -> None:
+def test_load_peptide_pivot_keeps_io_and_aggregation_as_separate_stages(tmp_path: Path) -> None:
     path = _write_tsv(
         tmp_path,
         "spectronaut_peptide_for_agg.tsv",
@@ -230,18 +239,25 @@ def test_load_peptide_pivot_with_protein_aggregation(tmp_path: Path) -> None:
                 "PG.ProteinGroups": ["P1", "P1", "P2"],
                 "S1.raw_Quantity": [1.0, 3.0, 5.0],
                 "S2.raw_Quantity": [2.0, 4.0, None],
-            }
+            },
         ),
     )
 
-    container = load_peptide_pivot(
+    peptide_container = load_peptide_pivot(
         path,
         software="spectronaut",
         assay_name="peptides",
-        protein_agg=True,
-        protein_assay_name="proteins",
-        agg_method="sum",
         layer_name="raw",
+    )
+
+    assert set(peptide_container.assays) == {"peptides"}
+    assert peptide_container.links == []
+
+    container = aggregate_to_protein(
+        peptide_container,
+        source_assay="peptides",
+        target_assay="proteins",
+        method="sum",
     )
 
     assert set(container.assays) == {"peptides", "proteins"}
@@ -268,7 +284,7 @@ def test_load_peptide_pivot_with_protein_aggregation(tmp_path: Path) -> None:
     assert int(m[1, idx_p2]) == MaskCode.UNCERTAIN.value
 
 
-def test_load_peptide_pivot_with_top_n_aggregation(tmp_path: Path) -> None:
+def test_load_peptide_pivot_then_aggregate_to_protein_top_n(tmp_path: Path) -> None:
     path = _write_tsv(
         tmp_path,
         "spectronaut_peptide_topn.tsv",
@@ -278,20 +294,24 @@ def test_load_peptide_pivot_with_top_n_aggregation(tmp_path: Path) -> None:
                 "PG.ProteinGroups": ["P1", "P1", "P2"],
                 "S1.raw_Quantity": [1.0, 10.0, 5.0],
                 "S2.raw_Quantity": [2.0, 20.0, 6.0],
-            }
+            },
         ),
     )
 
-    container = load_peptide_pivot(
+    peptide_container = load_peptide_pivot(
         path,
         software="spectronaut",
         assay_name="peptides",
-        protein_agg=True,
-        protein_assay_name="proteins",
-        agg_method="top_n",
-        agg_top_n=1,
-        agg_top_n_aggregate="mean",
         layer_name="raw",
+    )
+
+    container = aggregate_to_protein(
+        peptide_container,
+        source_assay="peptides",
+        target_assay="proteins",
+        method="top_n",
+        top_n=1,
+        top_n_aggregate="mean",
     )
 
     protein_assay = container.assays["proteins"]
@@ -308,6 +328,29 @@ def test_load_peptide_pivot_with_top_n_aggregation(tmp_path: Path) -> None:
     assert x[1, idx_p2] == pytest.approx(6.0)
 
 
+def test_load_peptide_pivot_no_longer_accepts_cross_stage_aggregation_flag(
+    tmp_path: Path,
+) -> None:
+    path = _write_tsv(
+        tmp_path,
+        "spectronaut_peptide_no_cross_stage.tsv",
+        pl.DataFrame(
+            {
+                "EG.PrecursorId": ["pep1"],
+                "PG.ProteinGroups": ["P1"],
+                "S1.raw_Quantity": [1.0],
+            },
+        ),
+    )
+
+    with pytest.raises(TypeError, match="protein_agg"):
+        load_peptide_pivot(  # type: ignore[call-arg]
+            path,
+            software="spectronaut",
+            protein_agg=True,
+        )
+
+
 def test_load_quant_table_diann_matrix_success_path(tmp_path: Path) -> None:
     path = _write_tsv(
         tmp_path,
@@ -317,7 +360,7 @@ def test_load_quant_table_diann_matrix_success_path(tmp_path: Path) -> None:
                 "Protein.Group": ["P1", "P2"],
                 "S1.raw": [100.0, 300.0],
                 "S2.raw": [200.0, None],
-            }
+            },
         ),
     )
 
@@ -352,7 +395,7 @@ def test_load_quant_table_auto_detect_spectronaut_long_success(tmp_path: Path) -
                 "R.FileName": ["S1.raw", "S2.raw", "S1.raw", "S2.raw"],
                 "PG.Quantity": [100.0, 120.0, 50.0, 60.0],
                 "PG.Q.Value": [0.005, 0.009, 0.005, 0.02],
-            }
+            },
         ),
     )
 
@@ -387,13 +430,17 @@ def test_load_quant_table_invalid_fdr_threshold(tmp_path: Path) -> None:
                 "Run": ["S1.raw"],
                 "Protein.Group": ["P1"],
                 "PG.MaxLFQ": [100.0],
-            }
+            },
         ),
     )
 
     with pytest.raises(ValidationError, match="fdr_threshold must be within"):
         load_quant_table(
-            path, software="diann", level="protein", table_format="long", fdr_threshold=1.5
+            path,
+            software="diann",
+            level="protein",
+            table_format="long",
+            fdr_threshold=1.5,
         )
 
 
@@ -417,7 +464,7 @@ def test_load_diann_matrix_missing_feature_column_has_clear_error(tmp_path: Path
                 "SomeOtherId": ["P1", "P2"],
                 "S1.raw": [100.0, 200.0],
                 "S2.raw": [300.0, 400.0],
-            }
+            },
         ),
     )
 
@@ -441,7 +488,7 @@ def test_load_quant_table_invalid_table_format_raises_error(tmp_path: Path) -> N
             {
                 "Protein.Group": ["P1"],
                 "S1.raw": [100.0],
-            }
+            },
         ),
     )
 
@@ -456,7 +503,7 @@ def test_load_quant_table_parquet_matrix_auto_detect(tmp_path: Path) -> None:
             "Protein.Group": ["P1", "P2"],
             "S1.raw": [100.0, 300.0],
             "S2.raw": [200.0, None],
-        }
+        },
     ).write_parquet(path)
 
     container = load_diann(path, level="protein", table_format="auto")
@@ -480,7 +527,7 @@ def test_load_quant_table_matrix_applies_fdr_filter(tmp_path: Path) -> None:
                 "PG.Qvalue": [0.005, 0.02],
                 "S1.raw_Quantity": [10.0, 20.0],
                 "S2.raw_Quantity": [11.0, 21.0],
-            }
+            },
         ),
     )
 
@@ -503,7 +550,7 @@ def test_load_diann_protein_default_assay_works_with_protein_alias_downstream(
                 "Protein.Group": ["P1", "P1"],
                 "PG.MaxLFQ": [100.0, 120.0],
                 "PG.Q.Value": [0.001, 0.002],
-            }
+            },
         ),
     )
 
@@ -524,7 +571,7 @@ def test_load_quant_table_logs_vendor_normalized_input(tmp_path: Path) -> None:
                 "PG.Normalized": [10.0, 20.0],
                 "R.FileName": ["S1.raw", "S1.raw"],
                 "PG.Qvalue": [0.001, 0.001],
-            }
+            },
         ),
     )
 
@@ -545,7 +592,7 @@ def test_normalization_warns_on_vendor_normalized_raw_input(tmp_path: Path) -> N
                 "PG.Normalized": [10.0, 20.0],
                 "R.FileName": ["S1.raw", "S1.raw"],
                 "PG.Qvalue": [0.001, 0.001],
-            }
+            },
         ),
     )
 

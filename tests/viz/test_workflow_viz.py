@@ -21,7 +21,10 @@ def test_plot_data_overview(sample_container):
     """Data overview should create 3-panel summary."""
     plt.close("all")
     axes = plot_data_overview(
-        sample_container, assay_name="proteins", layer="raw", groupby="condition"
+        sample_container,
+        assay_name="proteins",
+        layer="raw",
+        groupby="condition",
     )
     assert isinstance(axes, np.ndarray)
     assert axes.size == 3

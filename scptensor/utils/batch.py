@@ -86,9 +86,10 @@ class batch_iterator:
     (32, 10)
     (32, 10)
     (4, 10)
+
     """
 
-    __slots__ = ("data", "batch_size", "axis", "drop_last", "indices", "n_items")
+    __slots__ = ("axis", "batch_size", "data", "drop_last", "indices", "n_items")
 
     def __init__(
         self,
@@ -193,6 +194,7 @@ def apply_by_batch(
     >>> result = apply_by_batch(X, normalize_batch, batch_size=32)
     >>> result.shape
     (100, 10)
+
     """
     results = [func(batch, **kwargs) for batch in batch_iterator(data, batch_size, axis)]
 
@@ -243,6 +245,7 @@ def batch_apply_along_axis(
     >>> result = batch_apply_along_axis(row_sum, axis=1, data=X, batch_size=32)
     >>> result.shape
     (100,)
+
     """
     X_dense = data.toarray() if sp.issparse(data) else data  # type: ignore[union-attr]
     n_slices = X_dense.shape[axis]
@@ -301,15 +304,16 @@ class BatchProcessor:
     >>> result = processor.process(X, process_fn)
     >>> processor.total_samples
     100
+
     """
 
     __slots__ = (
+        "_history",
         "batch_size",
-        "shuffle",
         "random_seed",
+        "shuffle",
         "total_batches",
         "total_samples",
-        "_history",
     )
 
     def __init__(
@@ -352,6 +356,7 @@ class BatchProcessor:
         -------
         Any
             Processed result (concatenated or as list).
+
         """
         results = []
         batch_count = sample_count = 0
@@ -379,7 +384,7 @@ class BatchProcessor:
                 "batch_count": batch_count,
                 "sample_count": sample_count,
                 "batch_size": self.batch_size,
-            }
+            },
         )
 
         return _merge_batch_results(results, axis, flatten_lists=False)
@@ -397,5 +402,6 @@ class BatchProcessor:
         -------
         Dict[str, int]
             Dictionary with total_batches and total_samples.
+
         """
         return {"total_batches": self.total_batches, "total_samples": self.total_samples}

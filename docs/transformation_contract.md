@@ -16,8 +16,8 @@
 
 本文档基于以下仓库内事实：
 
+- `scptensor/core/_layer_processing.py`
 - `scptensor/transformation/__init__.py`
-- `scptensor/transformation/base.py`
 - `scptensor/transformation/log_transform.py`
 - `scptensor/__init__.py`
 - `scptensor/autoselect/evaluators/normalization.py`
@@ -35,8 +35,7 @@
 本文档只覆盖：
 
 - `log_transform`
-- `validate_assay_and_layer`
-- `create_result_layer`
+- transformation 阶段对内部 layer-processing helper 的依赖边界
 
 ### 2.2 非范围
 
@@ -67,7 +66,7 @@
 
 - `log_transform`
 
-`scptensor.__all__` 当前也只从 transformation 顶层重导出：
+`scptensor.__all__` 当前不再从 transformation 顶层重导出：
 
 - `log_transform`
 
@@ -88,13 +87,13 @@
 1. 文档级 canonical 输出层是 `log`。
 2. 当前 API 默认开启显式 logged 检测，但默认不启用 distribution heuristic。
 3. `use_jit=True` 表示允许底层 sparse helper 按阈值判断是否尝试 JIT，不保证一定进入 numba 分支。
-4. `log_transform` 是 transformation 唯一的顶层 stable API；helper 不升格到顶层 `scptensor`。
+4. `log_transform` 是 transformation 唯一的 package-level stable API；helper 不升格到顶层 `scptensor`。
 
 ## 5. assay / layer 输入合同
 
 ### 5.1 assay alias
 
-`validate_assay_and_layer()` 当前通过 `resolve_assay_name()` 支持：
+当前 transformation 在内部通过 `resolve_layer_context()` 支持：
 
 - `protein <-> proteins`
 - `peptide <-> peptides`
@@ -169,9 +168,9 @@ tests 已固定以上两条路径。
 
 ### 6.4 transformation 与 normalization 的 logged 边界
 
-`scptensor.autoselect.evaluators.normalization.NormalizationEvaluator` 当前不会自己发明一套新的 logged 判别规则，而是复用：
+`scptensor.autoselect.evaluators.normalization.NormalizationEvaluator` 当前不会自己发明一套新的 logged 判别规则，而是与 transformation 共享同一套内部 detector：
 
-- `scptensor.transformation.log_transform._detect_already_logged(...)`
+- `scptensor.core._log_scale_detection.detect_logged_source_layer(...)`
 
 但调用时明确固定：
 
@@ -293,7 +292,7 @@ log(x + offset) / log(base)
 
 ### 8.4 mask 与 metadata 的当前事实
 
-`create_result_layer()` 当前定义为：
+当前 transformation 复用 `scptensor.core._layer_processing.create_result_layer()`，其行为是：
 
 - `X = transformed values`
 - `M = source_layer.M`
@@ -313,7 +312,7 @@ log(x + offset) / log(base)
 
 - 会创建 passthrough layer
 - `X` 是 source 的安全拷贝
-- `M` 仍通过 `create_result_layer()` 复用源层 mask 引用
+- `M` 仍通过 core layer helper 复用源层 mask 引用
 
 因此 passthrough 层的数值不共享，但 mask 当前共享。
 
@@ -366,7 +365,7 @@ tests 已固定：
 
 ### 9.4 与 normalization scale gate 的 provenance 协作
 
-当前 normalization 的 scale-sensitive candidate gate 直接消费 transformation 的 logged provenance 结果：
+当前 normalization 的 scale-sensitive candidate gate 与 transformation 共用同一套 logged provenance detector，并直接消费 transformation 写出的 logged provenance 结果：
 
 - `log_transform` 写出的目标层
 - `log_transform_skipped` 写出的 passthrough 目标层
@@ -377,7 +376,7 @@ tests 已固定：
 
 - `log_transform` / `log_transform_skipped` action 名
 - history params 中的 `new_layer_name`
-- `_detect_already_logged()` 的 history 判定条件
+- `scptensor.core._log_scale_detection.history_suggests_logged()` 的判定条件
 
 都必须同步评估 normalization / AutoSelect 的兼容性影响，不能只改 transformation 单侧。
 

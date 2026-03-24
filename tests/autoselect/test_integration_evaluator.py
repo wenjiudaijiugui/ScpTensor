@@ -30,13 +30,13 @@ def container_with_batches() -> ScpContainer:
         {
             "_index": [f"S{i}" for i in range(n_samples)],
             "batch": batches,
-        }
+        },
     )
 
     var = pl.DataFrame(
         {
             "_index": [f"P{i}" for i in range(n_features)],
-        }
+        },
     )
 
     matrix = ScpMatrix(X=X)
@@ -169,6 +169,24 @@ class TestIntegrationEvaluatorComputeMetrics:
         assert scores["batch_kbet"] == 0.0
         assert scores["batch_ilisi"] == 0.0
 
+    def test_compute_metrics_sets_zero_variance_preserved_without_source_lineage(
+        self,
+        container_with_batches,
+    ):
+        """Unknown output lineage should fail closed for variance preservation."""
+        evaluator = IntegrationEvaluator()
+        assay = container_with_batches.assays["proteins"]
+        assay.add_layer("custom_integrated", ScpMatrix(X=assay.layers["raw"].X * 0.95))
+        evaluator._metric_assay_name = "proteins"
+
+        scores = evaluator.compute_metrics(
+            container=container_with_batches,
+            original_container=container_with_batches,
+            layer_name="custom_integrated",
+        )
+
+        assert scores["variance_preserved"] == 0.0
+
 
 class TestIntegrationEvaluatorRunAll:
     """Test IntegrationEvaluator run_all method."""
@@ -201,7 +219,7 @@ class TestIntegrationEvaluatorRunAll:
             for contract in report.method_contracts.values()
         )
         assert report.recommendation_reason.startswith(
-            "Candidate set restricted to matrix-level methods "
+            "Candidate set restricted to matrix-level methods ",
         )
 
     def test_run_all_identifies_best_method(self, container_with_batches):
@@ -233,7 +251,7 @@ class TestIntegrationEvaluatorRunAll:
         assert report.method_contracts["mnn"]["recommended_for_de"] is False
         assert report.method_contracts["mnn"]["candidate_scope"] == "exploratory"
         assert report.recommendation_reason.startswith(
-            "Exploratory embedding-level integration methods were included."
+            "Exploratory embedding-level integration methods were included.",
         )
 
     def test_auto_integrate_defaults_to_stable_contract(self, container_with_batches):
@@ -310,6 +328,47 @@ class TestIntegrationEvaluatorHelpers:
         assay.add_layer("raw_integrated", integrated_matrix)
 
         score = evaluator._compute_variance_preserved(
-            container_with_batches, container_with_batches, "raw_integrated"
+            container_with_batches,
+            container_with_batches,
+            "raw_integrated",
         )
         assert 0.0 <= score <= 1.0
+
+    def test_compute_variance_preserved_returns_zero_without_source_contract(
+        self,
+        container_with_batches,
+    ):
+        """Variance preservation should fail closed when the source layer is unknown."""
+        evaluator = IntegrationEvaluator()
+        assay = container_with_batches.assays["proteins"]
+        assay.add_layer("custom_integrated", ScpMatrix(X=assay.layers["raw"].X * 0.95))
+        evaluator._metric_assay_name = "proteins"
+
+        score = evaluator._compute_variance_preserved(
+            container_with_batches,
+            container_with_batches,
+            "custom_integrated",
+            source_layer=None,
+        )
+
+        assert score == 0.0
+
+    def test_compute_variance_preserved_returns_zero_for_non_comparable_variances(
+        self,
+        container_with_batches,
+    ):
+        """Invalid variance comparison should fail closed instead of returning neutral."""
+        evaluator = IntegrationEvaluator()
+        assay = container_with_batches.assays["proteins"]
+        flat = np.ones_like(assay.layers["raw"].X)
+        assay.add_layer("raw_flat", ScpMatrix(X=flat))
+        evaluator._metric_assay_name = "proteins"
+
+        score = evaluator._compute_variance_preserved(
+            container_with_batches,
+            container_with_batches,
+            "raw_flat",
+            source_layer="raw",
+        )
+
+        assert score == 0.0

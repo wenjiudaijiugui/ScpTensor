@@ -62,7 +62,7 @@ def violin(
 
     # Style violins with publication-friendly categorical colors.
     palette = plt.rcParams["axes.prop_cycle"].by_key().get("color", ["#4C72B0"])
-    bodies = cast(list[PolyCollection], parts["bodies"])
+    bodies = cast("list[PolyCollection]", parts["bodies"])
     for idx, body in enumerate(bodies):
         body.set_facecolor(palette[idx % len(palette)])
         body.set_edgecolor("#222222")

@@ -157,19 +157,22 @@ ScpTensor 当前稳定方向是：
 - `proteins` assay 与 `peptides` assay 可以合法地拥有不同 feature universe。
 - 它们的关系必须通过 `AggregationLink` 表达，而不是通过同列位置或同列名隐式猜测。
 
-### 4.6 `shape` 与 `Assay.X` 的兼容性边界
+### 4.6 显式 assay 维度访问边界
 
-当前代码保留了两处兼容性 shortcut：
+`ScpContainer` 是多 assay 容器，不承诺单一 feature 维度。因此当前稳定合同明确：
 
-- `ScpContainer.shape` 返回 `(n_samples, n_features)`，但 `n_features` 取自“第一个 assay”。
-- `Assay.X` 是 layer `'X'` 的快捷访问，而不是所有 layer 的统一别名。
+- `ScpContainer` 不提供容器级 `shape`
+- `ScpContainer` 不提供容器级 `n_features`
+- 多 assay 代码必须显式按 assay 查询 feature 维度
+
+兼容性 shortcut 只剩一处仍可存在：
+
+- `Assay.X` 是 layer `'X'` 的快捷访问，而不是所有 layer 的统一别名
 
 因此稳定合同中应明确：
 
-- 多 assay 代码不能把 `container.shape[1]` 当作全容器 feature 总数。
-- 稳定 preprocessing API 不应依赖 `Assay.X`，而应显式要求 `assay_name + source_layer`。
-
-这两处兼容接口可以保留，但不应成为后续核心代码优化的主轴。
+- feature 维度访问应通过 `container.assay_shape(assay_name)`、`container.assays[assay_name].n_features` 或显式 layer shape 完成
+- 稳定 preprocessing API 不应依赖 `Assay.X`，而应显式要求 `assay_name + source_layer`
 
 ### 4.7 稳定访问模式
 
@@ -182,11 +185,9 @@ ScpTensor 当前稳定方向是：
 
 不推荐把以下接口当作 stable 主路径：
 
-- `container.shape`
-- `container.n_features`
 - `assay.X`
 
-原因是这些兼容接口会在多 assay 场景下弱化“显式 assay / layer 选择”这一核心合同。
+原因是这类 shortcut 会弱化“显式 assay / layer 选择”这一核心合同。
 
 ## 5. 元数据合同
 
@@ -428,7 +429,7 @@ AnnData 官方支持 backed mode 与 on-disk arrays。ScpTensor 当前 stable co
 - 通用 `.save()` / `.load()` 对象持久化格式
 - 一个类似 `.h5ad` / `.zarr` 的主线对象序列化标准
 
-现有代码已经把 `ScpContainer.save()` / `load()` 明确降为不支持，稳定 I/O 边界转移到了：
+稳定 I/O 边界明确限定为：
 
 - `scptensor.io.load_quant_table`
 - `scptensor.io.load_diann`
@@ -493,7 +494,7 @@ AnnData 官方支持 backed mode 与 on-disk arrays。ScpTensor 当前 stable co
 5. `MaskCode` 仍是分类状态矩阵，而不是简化布尔 mask。
 6. `history` 仍是 append-only、JSON-friendly provenance。
 7. public preprocessing API 继续显式要求 `assay_name` 与 `source_layer`。
-8. 多 assay 场景下，不把 `container.shape` 当作 feature source of truth。
+8. 多 assay 场景下，feature 维度必须显式从 assay 查询，而不是从容器级 shortcut 推断。
 9. 仓库文档继续优先使用 `proteins / peptides` 与 `raw / log / norm / imputed / zscore` 这套 canonical naming。
 
 相应地，以下方向可以大胆优化，而不会破坏稳定合同：
@@ -521,12 +522,11 @@ AnnData 官方支持 backed mode 与 on-disk arrays。ScpTensor 当前 stable co
 - `AggregationLink` 已做 assay 与 feature ID 校验。
 - `filter_*` 默认返回新容器，而不是 in-place 修改。
 - `history` 已广泛用于 importer 与后续处理 provenance。
-- 通用 `save/load` 已明确不再属于稳定 I/O 设计。
+- 通用 `save/load` 已从 `ScpContainer` 公共表面移除。
 
-当前需要在文档层进一步强调的细节有两点：
+当前需要在文档层进一步强调的细节有一点：
 
 1. `Assay.X` 只是 layer `'X'` 的兼容捷径，不应成为 stable preprocessing 主接口。
-2. `ScpContainer.shape` 只是 AnnData 风格兼容外观；多 assay 代码必须显式使用 assay 级 feature 维度。
 
 ## 12. 外部来源（访问日期：2026-03-16）
 

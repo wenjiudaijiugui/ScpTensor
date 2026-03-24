@@ -1,5 +1,4 @@
-"""
-Tests for ScpMatrix core structure.
+"""Tests for ScpMatrix core structure.
 
 This module contains tests for ScpMatrix functionality.
 """

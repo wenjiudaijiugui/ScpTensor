@@ -83,7 +83,9 @@ class TestAssayLazyValidation:
             )
 
     def test_assay_multiple_layers_lazy(
-        self, sample_var: pl.DataFrame, sample_dense_X: np.ndarray
+        self,
+        sample_var: pl.DataFrame,
+        sample_dense_X: np.ndarray,
     ) -> None:
         """Test lazy validation with multiple layers."""
         X_log = np.log1p(sample_dense_X)
@@ -121,7 +123,9 @@ class TestScpContainerLazyValidation:
         assert "proteins" in container.assays
 
     def test_container_explicit_validate(
-        self, sample_obs: pl.DataFrame, sample_assay: Assay
+        self,
+        sample_obs: pl.DataFrame,
+        sample_assay: Assay,
     ) -> None:
         """Test manual validation of ScpContainer after creation."""
         container = ScpContainer(
@@ -137,7 +141,9 @@ class TestScpContainerLazyValidation:
         assert container.n_samples == 5
 
     def test_container_invalid_data_lazy(
-        self, sample_obs: pl.DataFrame, sample_var: pl.DataFrame
+        self,
+        sample_obs: pl.DataFrame,
+        sample_var: pl.DataFrame,
     ) -> None:
         """Test that invalid data is caught when validate() is called."""
         # Create assay with wrong sample dimension (10 instead of 5)
@@ -162,7 +168,9 @@ class TestScpContainerLazyValidation:
             container.validate()
 
     def test_container_default_validates(
-        self, sample_obs: pl.DataFrame, sample_var: pl.DataFrame
+        self,
+        sample_obs: pl.DataFrame,
+        sample_var: pl.DataFrame,
     ) -> None:
         """Test that default behavior validates on init (backward compatibility)."""
         # Create container with wrong dimensions
@@ -178,7 +186,9 @@ class TestScpContainerLazyValidation:
             ScpContainer(obs=sample_obs, assays={"proteins": assay})
 
     def test_container_explicit_true_validates(
-        self, sample_obs: pl.DataFrame, sample_var: pl.DataFrame
+        self,
+        sample_obs: pl.DataFrame,
+        sample_var: pl.DataFrame,
     ) -> None:
         """Test that validate_on_init=True validates immediately."""
         X_wrong = np.random.randn(10, 5)  # Wrong: 10 samples
@@ -247,7 +257,7 @@ class TestScpContainerLazyValidation:
             {
                 "source_id": ["PEP1", "PEP2"],
                 "target_id": ["PROT1", "PROT1"],
-            }
+            },
         )
         bad_link = AggregationLink(
             source_assay="nonexistent",
@@ -274,7 +284,9 @@ class TestBackwardCompatibility:
     """Test backward compatibility with default validation behavior."""
 
     def test_assay_backward_compatibility(
-        self, sample_var: pl.DataFrame, sample_dense_X: np.ndarray
+        self,
+        sample_var: pl.DataFrame,
+        sample_dense_X: np.ndarray,
     ) -> None:
         """Test that default behavior hasn't changed."""
         # This should work exactly as before
@@ -284,7 +296,9 @@ class TestBackwardCompatibility:
         assert "raw" in assay.layers
 
     def test_container_backward_compatibility(
-        self, sample_obs: pl.DataFrame, sample_assay: Assay
+        self,
+        sample_obs: pl.DataFrame,
+        sample_assay: Assay,
     ) -> None:
         """Test that default behavior hasn't changed."""
         # This should work exactly as before
@@ -301,7 +315,9 @@ class TestBackwardCompatibility:
             Assay(var=sample_var, layers={"raw": ScpMatrix(X=X_wrong)})
 
     def test_container_validation_catches_errors(
-        self, sample_obs: pl.DataFrame, sample_var: pl.DataFrame
+        self,
+        sample_obs: pl.DataFrame,
+        sample_var: pl.DataFrame,
     ) -> None:
         """Test that validation still catches dimension mismatches."""
         X_wrong = np.random.randn(10, 5)  # Wrong: 10 samples

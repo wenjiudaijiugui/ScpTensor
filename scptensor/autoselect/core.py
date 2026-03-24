@@ -12,7 +12,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from scptensor.autoselect.strategy import get_strategy_preset
 from scptensor.core.assay_alias import resolve_assay_name
@@ -31,15 +31,19 @@ class EvaluationResult:
     method_name : str
         Name of the evaluated method
     scores : dict[str, float]
-        Individual metric scores
+        Selection-scoring metric scores used for ranking
+    report_metrics : dict[str, float]
+        Additional reporting/diagnostic metrics not used for ranking
     overall_score : float
         Weighted composite score
     execution_time : float
         Execution time in seconds
     layer_name : str
-        Name of the result layer
+        Result identifier. For most stages this is the output layer name; for
+        obs-based stages such as clustering this stores the output obs key.
     error : str | None
         Error message if method failed, None if successful
+
     """
 
     method_name: str
@@ -47,6 +51,8 @@ class EvaluationResult:
     overall_score: float
     execution_time: float
     layer_name: str
+    report_metrics: dict[str, float] = field(default_factory=dict)
+    output_kind: Literal["layer", "assay", "obs"] = "layer"
     error: str | None = None
     method_contract: dict[str, Any] | None = None
     selection_score: float | None = None
@@ -63,13 +69,16 @@ class EvaluationResult:
         -------
         dict[str, Any]
             Dictionary containing all evaluation result data
+
         """
         return {
             "method_name": self.method_name,
             "scores": self.scores,
+            "report_metrics": self.report_metrics,
             "overall_score": self.overall_score,
             "execution_time": self.execution_time,
             "layer_name": self.layer_name,
+            "output_kind": self.output_kind,
             "error": self.error,
             "method_contract": self.method_contract,
             "selection_score": self.selection_score,
@@ -97,6 +106,7 @@ class StageReport:
         Evaluation result of the best method
     recommendation_reason : str
         Explanation for why this method was selected
+
     """
 
     stage_name: str
@@ -124,6 +134,7 @@ class StageReport:
         -------
         float
             Proportion of methods that completed successfully (0.0 to 1.0)
+
         """
         if not self.results:
             return 0.0
@@ -173,6 +184,7 @@ class AutoSelectReport:
         Total execution time in seconds
     warnings : list[str]
         List of warning messages generated during selection
+
     """
 
     stages: dict[str, StageReport] = field(default_factory=dict)
@@ -186,6 +198,7 @@ class AutoSelectReport:
         -------
         str
             Human-readable summary of the automatic selection process
+
         """
         lines: list[str] = []
 
@@ -252,6 +265,7 @@ class AutoSelectReport:
         >>> report.save("report.md")  # Markdown
         >>> report.save("report.json", format="json")
         >>> report.save("report.csv", format="csv")
+
         """
         from scptensor.autoselect.report import save_csv, save_json, save_markdown
 
@@ -265,7 +279,7 @@ class AutoSelectReport:
             save_csv(self, filepath)
         else:
             raise ValueError(
-                f"Unsupported format: {format}. Supported formats: markdown, json, csv"
+                f"Unsupported format: {format}. Supported formats: markdown, json, csv",
             )
 
 
@@ -277,12 +291,12 @@ class AutoSelector:
     clustering). It uses stage-specific evaluators to test methods and select
     the best performing ones.
 
-    Note
+    Note:
     ----
     ``reduce`` and ``cluster`` are downstream stages currently classified as
     experimental in ScpTensor release scope.
 
-    Attributes
+    Attributes:
     ----------
     SUPPORTED_STAGES : list[str]
         List of supported analysis stage names
@@ -297,11 +311,12 @@ class AutoSelector:
     n_jobs : int
         Number of parallel jobs (-1 for all cores)
 
-    Examples
+    Examples:
     --------
     >>> selector = AutoSelector(stages=["normalize", "impute"])
     >>> result_container, report = selector.run(container)
     >>> print(report.summary())
+
     """
 
     SUPPORTED_STAGES = ["normalize", "impute", "integrate", "reduce", "cluster"]
@@ -362,6 +377,7 @@ class AutoSelector:
         ------
         ValueError
             If stages contains invalid stage names
+
         """
         # Validate stages
         if stages is None:
@@ -371,7 +387,8 @@ class AutoSelector:
             invalid_stages = [s for s in stages if s not in self.SUPPORTED_STAGES]
             if invalid_stages:
                 raise ValueError(
-                    f"Invalid stage(s): {invalid_stages}. Supported stages: {self.SUPPORTED_STAGES}"
+                    "Invalid stage(s): "
+                    f"{invalid_stages}. Supported stages: {self.SUPPORTED_STAGES}",
                 )
             self.stages = stages.copy()
 
@@ -406,6 +423,7 @@ class AutoSelector:
         ------
         ValueError
             If stage is not in the evaluator map
+
         """
         cached = self._evaluator_cache.get(stage)
         if cached is not None:
@@ -438,15 +456,16 @@ class AutoSelector:
             available = sorted(container.assays.keys())
             raise ValueError(
                 f"Stage '{stage}' requires assay '{assay_name}', but it was not found. "
-                f"Available assays: {available}"
+                f"Available assays: {available}",
             )
 
         assay = container.assays[resolved_assay_name]
         if source_layer not in assay.layers:
             available_layers = sorted(assay.layers.keys())
             raise ValueError(
-                f"Stage '{stage}' requires layer '{source_layer}' in assay '{resolved_assay_name}', "
-                f"but it was not found. Available layers: {available_layers}"
+                f"Stage '{stage}' requires layer '{source_layer}' "
+                f"in assay '{resolved_assay_name}', "
+                f"but it was not found. Available layers: {available_layers}",
             )
 
         if stage == "integrate":
@@ -454,7 +473,7 @@ class AutoSelector:
             if batch_key not in container.obs.columns:
                 raise ValueError(
                     f"Stage 'integrate' requires batch_key '{batch_key}' in obs, "
-                    f"but it was not found. Available obs columns: {container.obs.columns}"
+                    f"but it was not found. Available obs columns: {container.obs.columns}",
                 )
 
     def _infer_next_context(
@@ -528,6 +547,7 @@ class AutoSelector:
         ------
         ValueError
             If stage is not supported
+
         """
         # Validate stage
         if stage not in self.SUPPORTED_STAGES:
@@ -597,6 +617,7 @@ class AutoSelector:
         >>> selector = AutoSelector(stages=["normalize", "impute"])
         >>> result, report = selector.run(container, assay_name="proteins")
         >>> print(f"Best normalization: {report.stages['normalize'].best_method}")
+
         """
         # Initialize report
         report = AutoSelectReport()
@@ -629,7 +650,7 @@ class AutoSelector:
 
             except Exception as e:
                 # Stage failed - add warning and continue
-                warning_msg = f"Stage '{stage}' failed: {type(e).__name__}: {str(e)}"
+                warning_msg = f"Stage '{stage}' failed: {type(e).__name__}: {e!s}"
                 warnings.append(warning_msg)
                 report.warnings.append(warning_msg)
                 # Re-raise the exception to maintain expected behavior

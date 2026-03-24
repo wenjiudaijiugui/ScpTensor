@@ -59,7 +59,6 @@
 - 有完整的包级 `__all__`
 - 有独立测试目录，覆盖面很大
 - 已经暴露出多个用户可直接导入的 helper
-- 其中 `ScpDataGenerator` 还被顶层 `scptensor` 重导出
 
 因此 `utils` 已不再只是“仓库内部杂项函数桶”，而是一个需要边界说明的公共 helper 包。
 
@@ -98,7 +97,7 @@
 
 ### 4.2 顶层 `scptensor` 的重导出边界
 
-`scptensor.__all__` 当前只从 `utils` 顶层重导出：
+`scptensor.__all__` 当前不再从 `utils` 顶层重导出：
 
 - `ScpDataGenerator`
 
@@ -112,7 +111,7 @@
 
 因此当前稳定边界是：
 
-- `ScpDataGenerator` 是 package-top-level public utility
+- `ScpDataGenerator` 是 `scptensor.utils` 包级 public utility
 - 其他 utility helper 是 `scptensor.utils` 包级 public surface，但不是顶层 `scptensor` 主入口
 
 ## 5. Batch Utilities 合同
@@ -280,6 +279,8 @@
 - sparse 输入先 densify
 - 返回 dense `np.ndarray`
 - 输出 shape 与输入一致
+- 当前实现委托给共享内部 rank-normalization kernel，而不是跨模块直接引用
+  `scptensor.normalization` 的 stage-private helper
 
 语义上：
 
@@ -306,9 +307,9 @@
 
 ### 8.1 模块定位
 
-`ScpDataGenerator` 是当前唯一被顶层 `scptensor` 重导出的 utility。
+`ScpDataGenerator` 是 `scptensor.utils` 包级 public utility。
 
-因此它已经不是纯内部测试 helper，而是稳定用户辅助入口。
+因此它已经不是纯内部测试 helper，而是稳定用户辅助入口，但不再通过顶层 `scptensor` 平铺导出。
 
 ### 8.2 生成结果结构
 
@@ -413,7 +414,7 @@
 
 ### 9.1 顶层导出与包级导出不对称
 
-当前只有 `ScpDataGenerator` 被顶层 `scptensor` 重导出，其余 helper 仍需从 `scptensor.utils` 访问。
+当前所有 utils helper 都需从 `scptensor.utils` 访问。
 
 这意味着：
 
@@ -468,7 +469,7 @@
 
 后续若要重构 `utils`，必须优先保留：
 
-1. `ScpDataGenerator` 作为顶层 utility export 的地位
+1. `ScpDataGenerator` 作为 `scptensor.utils` 包级 public utility 的地位
 2. `scptensor.utils.__all__` 当前 helper 集合的大体稳定性
 3. batch utilities 的基本返回语义与 stats tracking
 4. stats helpers 的数组级而非容器级定位

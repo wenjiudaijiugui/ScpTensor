@@ -1,5 +1,4 @@
-"""
-Edge case tests for ScpMatrix.
+"""Edge case tests for ScpMatrix.
 
 This module tests edge cases, boundary conditions, and error handling for ScpMatrix.
 """

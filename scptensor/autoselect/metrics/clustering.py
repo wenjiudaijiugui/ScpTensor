@@ -69,6 +69,7 @@ def silhouette_score(X: NDArray[np.float64], labels: NDArray[np.int_]) -> float:
     >>> score = silhouette_score(X, labels)
     >>> 0.0 <= score <= 1.0
     True
+
     """
     # Handle edge cases
     if X.size == 0 or X.shape[0] < 2:
@@ -76,7 +77,7 @@ def silhouette_score(X: NDArray[np.float64], labels: NDArray[np.int_]) -> float:
 
     if len(labels) != X.shape[0]:
         raise ValueError(
-            f"Shape mismatch: X has {X.shape[0]} samples but labels has {len(labels)} elements"
+            f"Shape mismatch: X has {X.shape[0]} samples but labels has {len(labels)} elements",
         )
 
     # Check for minimum number of clusters
@@ -149,6 +150,7 @@ def calinski_harabasz_score(X: NDArray[np.float64], labels: NDArray[np.int_]) ->
     >>> score = calinski_harabasz_score(X, labels)
     >>> 0.0 <= score <= 1.0
     True
+
     """
     # Handle edge cases
     if X.size == 0 or X.shape[0] < 2:
@@ -156,7 +158,7 @@ def calinski_harabasz_score(X: NDArray[np.float64], labels: NDArray[np.int_]) ->
 
     if len(labels) != X.shape[0]:
         raise ValueError(
-            f"Shape mismatch: X has {X.shape[0]} samples but labels has {len(labels)} elements"
+            f"Shape mismatch: X has {X.shape[0]} samples but labels has {len(labels)} elements",
         )
 
     # Check for minimum number of clusters
@@ -239,6 +241,7 @@ def davies_bouldin_score(X: NDArray[np.float64], labels: NDArray[np.int_]) -> fl
     >>> score = davies_bouldin_score(X, labels)
     >>> 0.0 <= score <= 1.0
     True
+
     """
     # Handle edge cases
     if X.size == 0 or X.shape[0] < 2:
@@ -246,7 +249,7 @@ def davies_bouldin_score(X: NDArray[np.float64], labels: NDArray[np.int_]) -> fl
 
     if len(labels) != X.shape[0]:
         raise ValueError(
-            f"Shape mismatch: X has {X.shape[0]} samples but labels has {len(labels)} elements"
+            f"Shape mismatch: X has {X.shape[0]} samples but labels has {len(labels)} elements",
         )
 
     # Check for minimum number of clusters
@@ -334,6 +337,7 @@ def clustering_stability(
     >>> score = clustering_stability(X, labels, n_subsamples=5)
     >>> 0.0 <= score <= 1.0
     True
+
     """
     from sklearn.metrics import adjusted_rand_score
 
@@ -343,7 +347,7 @@ def clustering_stability(
 
     if len(labels) != X.shape[0]:
         raise ValueError(
-            f"Shape mismatch: X has {X.shape[0]} samples but labels has {len(labels)} elements"
+            f"Shape mismatch: X has {X.shape[0]} samples but labels has {len(labels)} elements",
         )
 
     # Check for minimum number of clusters

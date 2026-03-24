@@ -63,10 +63,12 @@ def test_count_above_threshold_keeps_axis_contract() -> None:
     )
 
     np.testing.assert_array_equal(
-        count_above_threshold(X, threshold=1.0, axis=0), np.array([2, 2, 2])
+        count_above_threshold(X, threshold=1.0, axis=0),
+        np.array([2, 2, 2]),
     )
     np.testing.assert_array_equal(
-        count_above_threshold(X, threshold=1.0, axis=1), np.array([2, 2, 2])
+        count_above_threshold(X, threshold=1.0, axis=1),
+        np.array([2, 2, 2]),
     )
 
 

@@ -1,5 +1,4 @@
-"""
-QRILC imputation (Quantile Regression Imputation of Left-Censored Data).
+"""QRILC imputation (Quantile Regression Imputation of Left-Censored Data).
 
 Reference:
     Wei R, et al. "Missing Value Imputation Approach for Mass Spectrometry-based
@@ -12,8 +11,8 @@ is due to low abundance (left-censored) values.
 import numpy as np
 from scipy.stats import norm, truncnorm
 
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import ScpContainer
 from scptensor.impute._utils import (
     add_imputed_layer,
     log_imputation_operation,
@@ -49,6 +48,7 @@ def qrilc_impute(
     -------
     np.ndarray
         Data with imputed values.
+
     """
     X = np.asarray(data, dtype=np.float64).copy()
     n_samples, n_features = X.shape
@@ -167,8 +167,7 @@ def impute_qrilc(
     q: float = 0.01,
     random_state: int | None = None,
 ) -> ScpContainer:
-    """
-    Impute missing values using Quantile Regression Imputation of Left-Censored Data.
+    """Impute missing values using Quantile Regression Imputation of Left-Censored Data.
 
     Parameters
     ----------
@@ -202,10 +201,11 @@ def impute_qrilc(
 
     Examples
     --------
-    >>> from scptensor import impute_qrilc
+    >>> from scptensor.impute import impute_qrilc
     >>> result = impute_qrilc(container, "proteins", "raw", q=0.01)
     >>> "qrilc" in result.assays["proteins"].layers
     True
+
     """
     # Validate parameters
     if not 0 < q < 1:
@@ -265,5 +265,5 @@ register_impute_method(
         supports_sparse=False,
         validate=validate_qrilc,
         apply=impute_qrilc,
-    )
+    ),
 )

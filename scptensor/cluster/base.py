@@ -8,8 +8,7 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
-from scptensor.core.assay_alias import resolve_assay_name
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError
+from scptensor.core._layer_processing import ensure_dense_matrix, resolve_layer_context
 
 if TYPE_CHECKING:
     from scptensor.core.structures import Assay, ScpContainer
@@ -42,27 +41,10 @@ def _validate_assay_layer(
         If assay not found.
     LayerNotFoundError
         If layer not found.
+
     """
-    resolved_assay_name = resolve_assay_name(container, assay_name)
-
-    if resolved_assay_name not in container.assays:
-        available = list(container.assays.keys())
-        raise AssayNotFoundError(
-            assay_name=assay_name,
-            available_assays=available,
-        )
-
-    assay = container.assays[resolved_assay_name]
-
-    if layer_name not in assay.layers:
-        available = list(assay.layers.keys())
-        raise LayerNotFoundError(
-            layer_name=layer_name,
-            assay_name=resolved_assay_name,
-            available_layers=available,
-        )
-
-    return assay, assay.layers[layer_name].X
+    ctx = resolve_layer_context(container, assay_name, layer_name)
+    return ctx.assay, ctx.layer.X
 
 
 def _prepare_matrix(X: np.ndarray | sp.spmatrix) -> np.ndarray:
@@ -77,10 +59,9 @@ def _prepare_matrix(X: np.ndarray | sp.spmatrix) -> np.ndarray:
     -------
     np.ndarray
         Dense numpy array.
+
     """
-    if sp.issparse(X):
-        return X.toarray()  # type: ignore[union-attr]
-    return np.asarray(X)
+    return ensure_dense_matrix(X)
 
 
 def _get_default_key(method: str, params: dict) -> str:
@@ -97,6 +78,7 @@ def _get_default_key(method: str, params: dict) -> str:
     -------
     str
         Generated key name (e.g., 'leiden_r1.0', 'kmeans_k5').
+
     """
     parts = [method]
     for key, value in params.items():
@@ -131,11 +113,12 @@ def _add_labels_to_obs(
     -------
     ScpContainer
         New container with updated obs.
+
     """
     new_obs = container.obs.with_columns(pl.Series(name=key, values=labels.astype(str)))
 
     # Create new container with updated obs
-    from scptensor.core.structures import ScpContainer as _ScpContainer
+    from scptensor.core._structure_container import ScpContainer as _ScpContainer
 
     return _ScpContainer(
         obs=new_obs,

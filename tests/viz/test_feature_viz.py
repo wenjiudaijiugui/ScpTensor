@@ -15,7 +15,7 @@ from scptensor.viz.recipes.feature import dotplot, plot_feature_dotplot
 
 
 def test_dotplot_basic(sample_container: ScpContainer) -> None:
-    """dotplot should render one marker per (group, feature) cell."""
+    """Dotplot should render one marker per (group, feature) cell."""
     plt.close("all")
     ax = dotplot(
         sample_container,
@@ -71,7 +71,7 @@ def test_dotplot_preserves_group_order() -> None:
 
 
 def test_dotplot_sparse_input_supported() -> None:
-    """dotplot should accept sparse expression layer."""
+    """Dotplot should accept sparse expression layer."""
     plt.close("all")
     obs = pl.DataFrame({"_index": ["S1", "S2", "S3"], "grp": ["G1", "G1", "G2"]})
     var = pl.DataFrame({"_index": ["P1", "P2"]})
@@ -94,7 +94,7 @@ def test_dotplot_sparse_input_supported() -> None:
 
 
 def test_dotplot_invalid_runtime_params_raise(sample_container: ScpContainer) -> None:
-    """dotplot should reject empty var_names and invalid standard_scale."""
+    """Dotplot should reject empty var_names and invalid standard_scale."""
     with pytest.raises(VisualizationError, match="at least one feature"):
         dotplot(
             sample_container,
@@ -118,7 +118,7 @@ def test_dotplot_invalid_runtime_params_raise(sample_container: ScpContainer) ->
 
 
 def test_dotplot_dendrogram_not_supported(sample_container: ScpContainer) -> None:
-    """dendrogram flag should fail fast with explicit unsupported error."""
+    """Dendrogram flag should fail fast with explicit unsupported error."""
     with pytest.raises(VisualizationError, match="dendrogram=True is not supported"):
         dotplot(
             sample_container,

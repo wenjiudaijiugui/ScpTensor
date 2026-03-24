@@ -66,10 +66,9 @@ def test_stable_utils_namespace_reexports_stable_implementations() -> None:
     assert BatchProcessor is BatchProcessorCore
 
 
-def test_only_scp_data_generator_is_reexported_from_top_level_package() -> None:
-    assert scp.ScpDataGenerator is ScpDataGeneratorCore
-
-    assert "ScpDataGenerator" in scp.__all__
+def test_utils_api_is_not_reexported_from_top_level_package() -> None:
+    assert "ScpDataGenerator" not in scp.__all__
+    assert not hasattr(scp, "ScpDataGenerator")
     for name in (
         "correlation_matrix",
         "partial_correlation",
@@ -83,3 +82,4 @@ def test_only_scp_data_generator_is_reexported_from_top_level_package() -> None:
         "BatchProcessor",
     ):
         assert name not in scp.__all__
+        assert not hasattr(scp, name)

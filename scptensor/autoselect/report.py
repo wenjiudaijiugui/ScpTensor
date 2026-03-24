@@ -44,6 +44,7 @@ def save_markdown(report: AutoSelectReport, filepath: str | Path) -> None:
     >>> from scptensor.autoselect import AutoSelectReport
     >>> report = AutoSelectReport()
     >>> save_markdown(report, "autoselect_report.md")
+
     """
     filepath = Path(filepath)
     filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -79,7 +80,7 @@ def save_markdown(report: AutoSelectReport, filepath: str | Path) -> None:
                 lines.append(
                     "- **Strategy Weights:** "
                     f"quality={preset.quality_weight:.2f}, "
-                    f"runtime={preset.runtime_weight:.2f}"
+                    f"runtime={preset.runtime_weight:.2f}",
                 )
             except ValueError:
                 # Keep markdown export resilient even if stage report was externally crafted.
@@ -88,13 +89,13 @@ def save_markdown(report: AutoSelectReport, filepath: str | Path) -> None:
             lines.append(f"- **Confidence Level:** {stage_report.confidence_level:.2f}")
             if stage_report.input_assay and stage_report.input_layer:
                 lines.append(
-                    f"- **Input:** `{stage_report.input_assay}/{stage_report.input_layer}`"
+                    f"- **Input:** `{stage_report.input_assay}/{stage_report.input_layer}`",
                 )
             if stage_report.output_obs_key:
                 lines.append(f"- **Output:** `obs[{stage_report.output_obs_key}]`")
             elif stage_report.output_assay and stage_report.output_layer:
                 lines.append(
-                    f"- **Output:** `{stage_report.output_assay}/{stage_report.output_layer}`"
+                    f"- **Output:** `{stage_report.output_assay}/{stage_report.output_layer}`",
                 )
             lines.append("")
 
@@ -102,10 +103,10 @@ def save_markdown(report: AutoSelectReport, filepath: str | Path) -> None:
                 lines.append(f"**Best Method:** `{stage_report.best_method}`")
                 if stage_report.best_result:
                     lines.append(
-                        f"- **Overall Score:** {stage_report.best_result.overall_score:.4f}"
+                        f"- **Overall Score:** {stage_report.best_result.overall_score:.4f}",
                     )
                     lines.append(
-                        f"- **Execution Time:** {stage_report.best_result.execution_time:.2f}s"
+                        f"- **Execution Time:** {stage_report.best_result.execution_time:.2f}s",
                     )
                 if stage_report.recommendation_reason:
                     lines.append(f"- **Reason:** {stage_report.recommendation_reason}")
@@ -117,10 +118,10 @@ def save_markdown(report: AutoSelectReport, filepath: str | Path) -> None:
                 lines.append("")
                 lines.append(
                     "| Method | Selection Score | Overall Score | Std | CI | "
-                    "Execution Time | Status |"
+                    "Execution Time | Status |",
                 )
                 lines.append(
-                    "|--------|------------------|---------------|-----|----|----------------|--------|"
+                    "|--------|------------------|---------------|-----|----|----------------|--------|",
                 )
 
                 for result in stage_report.results:
@@ -151,9 +152,31 @@ def save_markdown(report: AutoSelectReport, filepath: str | Path) -> None:
                         f"{score_std} | "
                         f"{score_ci} | "
                         f"{result.execution_time:.2f}s | "
-                        f"{status} |"
+                        f"{status} |",
                     )
                 lines.append("")
+
+                if any(result.scores or result.report_metrics for result in stage_report.results):
+                    lines.append("### Metric Details")
+                    lines.append("")
+                    for result in stage_report.results:
+                        lines.append(f"#### `{result.method_name}`")
+                        lines.append("")
+                        if result.scores:
+                            selection_metrics = ", ".join(
+                                f"`{key}`={value:.4f}"
+                                for key, value in sorted(result.scores.items())
+                            )
+                            lines.append(f"- **Selection Metrics:** {selection_metrics}")
+                        if result.report_metrics:
+                            report_metrics = ", ".join(
+                                f"`{key}`={value:.4f}"
+                                for key, value in sorted(result.report_metrics.items())
+                            )
+                            lines.append(f"- **Report Metrics:** {report_metrics}")
+                        if not result.scores and not result.report_metrics:
+                            lines.append("- No metric payload recorded.")
+                        lines.append("")
 
     # Warnings
     if report.warnings:
@@ -188,6 +211,7 @@ def save_json(report: AutoSelectReport, filepath: str | Path) -> None:
     >>> from scptensor.autoselect import AutoSelectReport
     >>> report = AutoSelectReport()
     >>> save_json(report, "autoselect_report.json")
+
     """
     filepath = Path(filepath)
     filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -225,6 +249,7 @@ def save_csv(report: AutoSelectReport, filepath: str | Path) -> None:
     >>> from scptensor.autoselect import AutoSelectReport
     >>> report = AutoSelectReport()
     >>> save_csv(report, "autoselect_report.csv")
+
     """
     filepath = Path(filepath)
     filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -258,9 +283,10 @@ def save_csv(report: AutoSelectReport, filepath: str | Path) -> None:
                     "overall_score_ci_upper": result.overall_score_ci_upper,
                     "repeat_overall_scores": json.dumps(result.repeat_overall_scores),
                     "scores": json.dumps(result.scores, sort_keys=True),
+                    "report_metrics": json.dumps(result.report_metrics, sort_keys=True),
                     "metric_weights": json.dumps(stage_report.metric_weights, sort_keys=True),
                     "is_best": is_best,
-                }
+                },
             )
 
     # Write to CSV
@@ -285,6 +311,7 @@ def save_csv(report: AutoSelectReport, filepath: str | Path) -> None:
         "overall_score_ci_upper",
         "repeat_overall_scores",
         "scores",
+        "report_metrics",
         "metric_weights",
         "recommendation_reason",
         "error",

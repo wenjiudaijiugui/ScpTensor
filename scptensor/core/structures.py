@@ -21,17 +21,6 @@ from ._structure_matrix import (
     ScpMatrix,
 )
 
-for _public_cls in (
-    AggregationLink,
-    Assay,
-    MaskCode,
-    MatrixMetadata,
-    ProvenanceLog,
-    ScpContainer,
-    ScpMatrix,
-):
-    _public_cls.__module__ = __name__
-
 __all__ = [
     "AggregationLink",
     "Assay",

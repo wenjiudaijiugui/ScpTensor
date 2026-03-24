@@ -1,5 +1,4 @@
-"""
-K-nearest neighbors imputation.
+"""K-nearest neighbors imputation.
 
 .. math::
 
@@ -13,8 +12,8 @@ where:
 import numpy as np
 from sklearn.metrics.pairwise import nan_euclidean_distances
 
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import ScpContainer
 from scptensor.impute._utils import (
     add_imputed_layer,
     log_imputation_operation,
@@ -54,6 +53,7 @@ def knn_impute(
     -------
     np.ndarray
         Data with imputed values.
+
     """
     X = np.asarray(data, dtype=np.float64).copy()
     n_samples, n_features = X.shape
@@ -169,8 +169,7 @@ def impute_knn(
     batch_size: int = 500,
     oversample_factor: int = 3,
 ) -> ScpContainer:
-    """
-    Impute missing values using k-Nearest Neighbors with over-sampling.
+    """Impute missing values using k-Nearest Neighbors with over-sampling.
 
     Parameters
     ----------
@@ -207,10 +206,11 @@ def impute_knn(
 
     Examples
     --------
-    >>> from scptensor import impute_knn
+    >>> from scptensor.impute import impute_knn
     >>> result = impute_knn(container, "proteins", "raw", k=5)
     >>> "imputed_knn" in result.assays["proteins"].layers
     True
+
     """
     # Validate parameters
     if k <= 0:
@@ -298,5 +298,5 @@ register_impute_method(
         supports_sparse=False,
         validate=validate_knn,
         apply=impute_knn,
-    )
+    ),
 )

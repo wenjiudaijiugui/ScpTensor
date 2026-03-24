@@ -23,18 +23,17 @@ def make_repo_fixture(tmp_path: Path, *, break_review_url: bool = False) -> tupl
     manifest_path = tmp_path / "docs/review_manifest_20260312.json"
     review_path = tmp_path / "docs/review_example_20260312.md"
     stable_url = "https://example.org/stable-entry"
-    review_body = """# Example Review
-
-## 3. Sources
-
-说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 `论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；具体 accession 或 dataset page 记为 `数据入口`；可脚本化分发包记为 `资源包`。
-
-- Stable URL: {stable_url}
-
-### 3.7 二次核查补充（资源分型、稳定入口与场景边界）
-
-- checked
-""".format(stable_url="https://example.org/other" if break_review_url else stable_url)
+    review_body = (
+        "# Example Review\n\n"
+        "## 3. Sources\n\n"
+        "说明：本节统一沿用全仓库资源分型。除特别标注外，单篇文献条目默认记为 "
+        "`论文证据`；官方软件/手册页记为 `模块规范 / 软件文档`；"
+        "具体 accession 或 dataset page 记为 `数据入口`；"
+        "可脚本化分发包记为 `资源包`。\n\n"
+        "- Stable URL: {stable_url}\n\n"
+        "### 3.7 二次核查补充（资源分型、稳定入口与场景边界）\n\n"
+        "- checked\n"
+    ).format(stable_url="https://example.org/other" if break_review_url else stable_url)
     write_file(review_path, review_body)
 
     write_file(
@@ -98,10 +97,10 @@ Manifest: `review_manifest_20260312.json`
                         "role": "模块规范 / 软件文档",
                         "label": "Example stable page",
                         "url": stable_url,
-                    }
+                    },
                 ],
                 "notes": "example notes",
-            }
+            },
         ],
     }
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")

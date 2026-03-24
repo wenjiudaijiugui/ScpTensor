@@ -24,6 +24,7 @@ def sample_report() -> AutoSelectReport:
     norm_result1 = EvaluationResult(
         method_name="log_normalize",
         scores={"variance": 0.9, "batch_effect": 0.85, "completeness": 0.95},
+        report_metrics={"loading_bias_reduction": 0.93, "batch_asw": 0.81},
         overall_score=0.90,
         execution_time=1.2,
         layer_name="log",
@@ -37,6 +38,7 @@ def sample_report() -> AutoSelectReport:
     norm_result2 = EvaluationResult(
         method_name="median_normalize",
         scores={"variance": 0.85, "batch_effect": 0.9, "completeness": 0.9},
+        report_metrics={"loading_bias_reduction": 0.88, "batch_asw": 0.79},
         overall_score=0.88,
         execution_time=0.8,
         layer_name="median",
@@ -145,6 +147,9 @@ class TestSaveMarkdown:
             assert "Warning" in content  # Warnings section
             assert "Selection Score" in content
             assert "Strategy Weights" in content
+            assert "Metric Details" in content
+            assert "Report Metrics" in content
+            assert "`loading_bias_reduction`=0.9300" in content
             assert "[0.8600, 0.9200]" in content
 
     def test_save_markdown_empty_report(self):
@@ -272,6 +277,9 @@ class TestSaveJson:
             assert "results" in norm_stage
             assert "best_method" in norm_stage
             assert norm_stage["best_method"] == "log_normalize"
+            assert norm_stage["results"][0]["report_metrics"][
+                "loading_bias_reduction"
+            ] == pytest.approx(0.93)
 
     def test_save_json_empty_report(self):
         """Test saving empty report as JSON."""
@@ -328,6 +336,7 @@ class TestSaveCsv:
             assert "selection_score" in header
             assert "overall_score_ci_lower" in header
             assert "scores" in header
+            assert "report_metrics" in header
 
     def test_save_csv_row_count(self, sample_report):
         """Test that save_csv has correct number of rows."""
@@ -361,6 +370,8 @@ class TestSaveCsv:
             first_row = rows[0]
             repeat_scores = json.loads(first_row["repeat_overall_scores"])
             assert repeat_scores == [0.88, 0.9, 0.92]
+            report_metrics = json.loads(first_row["report_metrics"])
+            assert report_metrics["loading_bias_reduction"] == pytest.approx(0.93)
             metric_weights = json.loads(first_row["metric_weights"])
             assert metric_weights["variance"] == pytest.approx(0.4)
 

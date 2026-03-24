@@ -20,14 +20,16 @@ References
 ----------
 Hie B, et al. Efficient integration of heterogeneous single-cell
 transcriptomics data using Scanorama. Nature Biotechnology (2019).
+
 """
 
 from __future__ import annotations
 
 import numpy as np
 
+from scptensor.core._structure_assay import Assay
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import Assay, ScpContainer
 from scptensor.core.utils import requires_dependency
 from scptensor.integration.base import (
     add_integrated_layer,
@@ -91,6 +93,7 @@ def integrate_scanorama(
     --------
     >>> container = integrate_scanorama(container, batch_key='batch')
     >>> container = integrate_scanorama(container, batch_key='batch', sigma=20.0)
+
     """
     import scanorama
 
@@ -99,7 +102,9 @@ def integrate_scanorama(
         raise ScpValueError(f"sigma must be positive, got {sigma}.", parameter="sigma", value=sigma)
     if not (0 < alpha < 1):
         raise ScpValueError(
-            f"alpha must be in (0, 1), got {alpha}.", parameter="alpha", value=alpha
+            f"alpha must be in (0, 1), got {alpha}.",
+            parameter="alpha",
+            value=alpha,
         )
     if knn is not None and knn <= 0:
         raise ScpValueError(f"knn must be positive or None, got {knn}.", parameter="knn", value=knn)
@@ -119,7 +124,10 @@ def integrate_scanorama(
     assay = ctx.assay
     layer = ctx.layer
     _, batches, unique_batches, _ = validate_batch_integration_params(
-        container, batch_key, ctx.resolved_assay_name, min_batches=2
+        container,
+        batch_key,
+        ctx.resolved_assay_name,
+        min_batches=2,
     )
 
     # Get and prepare data

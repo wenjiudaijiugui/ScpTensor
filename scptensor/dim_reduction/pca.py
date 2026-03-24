@@ -17,8 +17,10 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
+from scptensor.core._structure_assay import Assay
+from scptensor.core._structure_container import ScpContainer
+from scptensor.core._structure_matrix import ScpMatrix
 from scptensor.core.assay_alias import resolve_assay_name
-from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.dim_reduction.base import (
     _check_no_nan_inf,
     _prepare_matrix,
@@ -105,6 +107,7 @@ def reduce_pca(
     - Small matrices: full
     - Large + few components: randomized
     - Otherwise: arpack
+
     """
     # Validation
     resolved_assay_name = resolve_assay_name(container, assay_name)
@@ -121,17 +124,17 @@ def reduce_pca(
         raise ValueError(f"n_components must be positive, got {n_components}")
     if svd_solver not in valid_solvers:
         raise ValueError(
-            f"Invalid svd_solver '{svd_solver}'. Must be one of {sorted(valid_solvers)}."
+            f"Invalid svd_solver '{svd_solver}'. Must be one of {sorted(valid_solvers)}.",
         )
 
     if n_components > min_dim:
         raise ValueError(
-            f"n_components ({n_components}) cannot exceed min(n_samples, n_features) ({min_dim})."
+            f"n_components ({n_components}) cannot exceed min(n_samples, n_features) ({min_dim}).",
         )
     if svd_solver == "arpack" and n_components >= min_dim:
         raise ValueError(
             "svd_solver='arpack' requires n_components < min(n_samples, n_features). "
-            f"Got n_components={n_components}, min_dim={min_dim}."
+            f"Got n_components={n_components}, min_dim={min_dim}.",
         )
 
     # Solver selection
@@ -265,6 +268,7 @@ def _select_solver(
     -------
     str
         Selected solver name.
+
     """
     n_samples, n_features = X.shape
 
@@ -309,6 +313,7 @@ def _compute_svd(
     -------
     tuple of ndarray
         (scores, loadings, eigenvalues)
+
     """
     n_samples, n_features = X.shape
     min_dim = min(n_samples, n_features)
@@ -384,11 +389,11 @@ def _compute_total_variance(X: np.ndarray, center: bool) -> float:
     -------
     float
         Total variance.
+
     """
     if center:
         return np.sum(np.var(X, axis=0, ddof=1))
-    else:
-        return np.sum(np.square(X)) / (X.shape[0] - 1)
+    return np.sum(np.square(X)) / (X.shape[0] - 1)
 
 
 __all__ = ["reduce_pca", "SolverType"]

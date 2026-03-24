@@ -6,9 +6,9 @@ import numpy as np
 import polars as pl
 import pytest
 
-from scptensor import zscore
 from scptensor.core.exceptions import ScpValueError, ValidationError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
+from scptensor.standardization import zscore
 
 
 def _make_container(
@@ -31,7 +31,7 @@ def test_zscore_feature_wise_standardization() -> None:
             [2.0, 3.0, 4.0],
             [3.0, 4.0, 5.0],
             [4.0, 5.0, 6.0],
-        ]
+        ],
     )
     container = _make_container(x)
 
@@ -74,7 +74,7 @@ def test_zscore_rejects_invalid_axis() -> None:
         zscore(container, axis=2)
 
 
-def test_zscore_exported_from_top_level() -> None:
+def test_zscore_exported_from_standardization_namespace() -> None:
     assert callable(zscore)
 
 
@@ -84,7 +84,7 @@ def test_zscore_runs_on_complete_raw_layer_without_logged_gate() -> None:
             [10.0, 100.0],
             [20.0, 120.0],
             [40.0, 140.0],
-        ]
+        ],
     )
     container = _make_container(x, layer_name="raw")
 

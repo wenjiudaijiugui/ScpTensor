@@ -33,14 +33,14 @@ def impute_viz_container():
             "_index": [f"S{i}" for i in range(1, 21)],
             "batch": ["A"] * 10 + ["B"] * 10,
             "group": ["control"] * 10 + ["treated"] * 10,
-        }
+        },
     )
 
     var = pl.DataFrame(
         {
             "_index": [f"P{i}" for i in range(1, 51)],
             "protein_name": [f"Protein{i}" for i in range(1, 51)],
-        }
+        },
     )
 
     # Create base data with some missing values

@@ -30,7 +30,7 @@ def test_get_expression_matrix_filters_in_requested_order(sample_container: ScpC
 
     obs_id_col = sample_container.obs.columns.index(sample_container.sample_id_col)
     var_id_col = sample_container.assays["proteins"].var.columns.index(
-        sample_container.assays["proteins"].feature_id_col
+        sample_container.assays["proteins"].feature_id_col,
     )
     assert obs[:, obs_id_col].tolist() == selected_samples
     assert var[:, var_id_col].tolist() == selected_features
@@ -93,21 +93,27 @@ def test_handle_missing_values_modes_and_validation() -> None:
     np.testing.assert_array_equal(np.sort(m_types), np.array([1, 5], dtype=np.int8))
 
     x_transparent, _, m_transparent = DataExtractor.handle_missing_values(
-        x, m, method="transparent"
+        x,
+        m,
+        method="transparent",
     )
     assert np.isnan(x_transparent[0, 1])
     assert np.isnan(x_transparent[1, 0])
     np.testing.assert_array_equal(np.sort(m_transparent), np.array([1, 5], dtype=np.int8))
 
     x_imputed, x_missing_imputed, m_imputed = DataExtractor.handle_missing_values(
-        x, m, method="imputed"
+        x,
+        m,
+        method="imputed",
     )
     np.testing.assert_allclose(x_imputed, x)
     assert x_missing_imputed.size == 0
     assert m_imputed.size == 0
 
     x_no_mask_valid, x_no_mask_missing, m_no_mask_types = DataExtractor.handle_missing_values(
-        x, None, method="separate"
+        x,
+        None,
+        method="separate",
     )
     np.testing.assert_allclose(np.sort(x_no_mask_valid), np.sort(x.ravel()))
     assert x_no_mask_missing.size == 0

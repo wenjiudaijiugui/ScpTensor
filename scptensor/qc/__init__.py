@@ -4,12 +4,13 @@ Provides hierarchical QC workflow:
 1. Sample Level (qc_sample): Filter cells (Empty wells, Doublets via MAD)
 2. Feature Level (qc_feature): Filter proteins (Missingness, CV)
 
-Note
+Note:
 ----
 Peptide/PSM-level QC helpers are kept in source form but are not part of the
 stable preprocessing contract. Import them from
 ``from scptensor.experimental import qc_psm`` rather than the stable
 ``scptensor.qc`` namespace.
+
 """
 
 from scptensor.qc import qc_feature, qc_sample

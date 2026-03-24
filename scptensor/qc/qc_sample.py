@@ -10,7 +10,7 @@ Handles QC for cells/samples including:
 import numpy as np
 import polars as pl
 
-from scptensor.core.structures import ScpContainer
+from scptensor.core._structure_container import ScpContainer
 from scptensor.qc._utils import (
     compute_sample_qc_vectors,
     filter_samples_with_provenance,
@@ -23,7 +23,7 @@ from scptensor.qc.metrics import is_outlier_mad
 
 def calculate_sample_qc_metrics(
     container: ScpContainer,
-    assay_name: str = "protein",
+    assay_name: str = "proteins",
     layer_name: str = "raw",
 ) -> ScpContainer:
     """Calculate quality control metrics for samples.
@@ -37,7 +37,7 @@ def calculate_sample_qc_metrics(
     ----------
     container : ScpContainer
         ScpContainer containing sample data.
-    assay_name : str, default="protein"
+    assay_name : str, default="proteins"
         Name of the assay to use for QC metric calculation.
     layer_name : str, default="raw"
         Name of the layer to analyze.
@@ -53,6 +53,7 @@ def calculate_sample_qc_metrics(
     --------
     >>> result = calculate_sample_qc_metrics(container)
     >>> result.obs[['n_features_protein', 'total_intensity_protein']]
+
     """
     resolved_assay_name, assay = resolve_assay(container, assay_name)
     _, layer = resolve_layer(assay, assay_name=resolved_assay_name, layer_name=layer_name)
@@ -65,7 +66,7 @@ def calculate_sample_qc_metrics(
             f"n_features_{resolved_assay_name}": n_features,
             f"total_intensity_{resolved_assay_name}": total_intensity,
             f"log1p_total_intensity_{resolved_assay_name}": log1p_total,
-        }
+        },
     )
 
     new_container = container.copy()
@@ -75,7 +76,8 @@ def calculate_sample_qc_metrics(
 
 def filter_low_quality_samples(
     container: ScpContainer,
-    assay_name: str = "protein",
+    assay_name: str = "proteins",
+    layer_name: str = "raw",
     min_features: int = 100,
     nmads: float = 3.0,
     use_mad: bool = True,
@@ -90,8 +92,10 @@ def filter_low_quality_samples(
     ----------
     container : ScpContainer
         ScpContainer containing sample data to filter.
-    assay_name : str, default="protein"
+    assay_name : str, default="proteins"
         Name of the assay to use for filtering.
+    layer_name : str, default="raw"
+        Name of the layer to use for filtering.
     min_features : int, default=100
         Hard threshold for minimum detected features.
     nmads : float, default=3.0
@@ -109,13 +113,13 @@ def filter_low_quality_samples(
     >>> result = filter_low_quality_samples(container, min_features=5, use_mad=False)
     >>> result.n_samples
     4
+
     """
     resolved_assay_name, assay = resolve_assay(container, assay_name)
     _, layer = resolve_layer(
         assay,
         assay_name=resolved_assay_name,
-        preferred_layer="raw",
-        fallback_to_first=True,
+        layer_name=layer_name,
     )
     n_features, _ = compute_sample_qc_vectors(layer)
 
@@ -149,6 +153,7 @@ def filter_low_quality_samples(
         action="filter_low_quality_samples",
         params={
             "assay": resolved_assay_name,
+            "layer": layer_name,
             "min_features": min_features,
             "use_mad": use_mad,
             "nmads": nmads,
@@ -159,7 +164,8 @@ def filter_low_quality_samples(
 
 def filter_doublets_mad(
     container: ScpContainer,
-    assay_name: str = "protein",
+    assay_name: str = "proteins",
+    layer_name: str = "raw",
     nmads: float = 3.0,
 ) -> ScpContainer:
     """Filter potential doublets using MAD-based outlier detection.
@@ -172,8 +178,10 @@ def filter_doublets_mad(
     ----------
     container : ScpContainer
         ScpContainer containing sample data.
-    assay_name : str, default="protein"
+    assay_name : str, default="proteins"
         Name of the assay to use for doublet detection.
+    layer_name : str, default="raw"
+        Name of the layer to use for doublet detection.
     nmads : float, default=3.0
         Number of MADs for doublet detection.
         Recommended: 2.0 (aggressive), 3.0 (standard), 4.0 (conservative).
@@ -188,13 +196,13 @@ def filter_doublets_mad(
     >>> result = filter_doublets_mad(container, nmads=2.0)
     >>> result.n_samples
     3
+
     """
     resolved_assay_name, assay = resolve_assay(container, assay_name)
     _, layer = resolve_layer(
         assay,
         assay_name=resolved_assay_name,
-        preferred_layer="raw",
-        fallback_to_first=True,
+        layer_name=layer_name,
     )
     _, total_intensity = compute_sample_qc_vectors(layer)
 
@@ -217,6 +225,7 @@ def filter_doublets_mad(
         action="filter_doublets_mad",
         params={
             "assay": resolved_assay_name,
+            "layer": layer_name,
             "nmads": nmads,
             "method": "MAD_upper_tail",
         },
@@ -230,7 +239,8 @@ def filter_doublets_mad(
 def assess_batch_effects(
     container: ScpContainer,
     batch_col: str,
-    assay_name: str = "protein",
+    assay_name: str = "proteins",
+    layer_name: str = "raw",
 ) -> pl.DataFrame:
     """Assess batch effects by calculating QC metrics per batch.
 
@@ -242,8 +252,10 @@ def assess_batch_effects(
         ScpContainer containing sample data with batch information in obs.
     batch_col : str
         Column name in container.obs containing batch identifiers.
-    assay_name : str, default="protein"
+    assay_name : str, default="proteins"
         Name of the assay to analyze.
+    layer_name : str, default="raw"
+        Name of the layer to summarize.
 
     Returns
     -------
@@ -268,14 +280,14 @@ def assess_batch_effects(
     │ A     ┆ 10     ┆ 15.0            ┆ 2.5         ┆ 100.0           │
     │ B     ┆ 10     ┆ 16.0            ┆ 2.0         ┆ 110.0           │
     └───────┴────────┴────────────────┴─────────────┴─────────────────┘
+
     """
     resolved_assay_name, assay = resolve_assay(container, assay_name)
     validate_column_exists(container.obs, batch_col)
     _, layer = resolve_layer(
         assay,
         assay_name=resolved_assay_name,
-        preferred_layer="raw",
-        fallback_to_first=True,
+        layer_name=layer_name,
     )
     n_features, total_intensity = compute_sample_qc_vectors(layer)
 
@@ -284,7 +296,7 @@ def assess_batch_effects(
         [
             pl.Series("n_features", n_features),
             pl.Series("total_intensity", total_intensity),
-        ]
+        ],
     )
 
     # Calculate summary statistics per batch
@@ -296,7 +308,7 @@ def assess_batch_effects(
                 pl.col("n_features").median().alias("median_features"),
                 pl.col("n_features").std().alias("std_features"),
                 pl.col("total_intensity").median().alias("median_intensity"),
-            ]
+            ],
         )
         .sort(batch_col)
     )

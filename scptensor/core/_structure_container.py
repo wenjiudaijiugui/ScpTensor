@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import copy
 from datetime import datetime
-from pathlib import Path
 
 import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
+from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import AssayNotFoundError
 from scptensor.core.filtering import FilterCriteria, resolve_filter_criteria
 from scptensor.core.types import ProvenanceParams
@@ -19,7 +19,8 @@ from ._structure_matrix import AggregationLink, ProvenanceLog, ScpMatrix
 
 
 def _copy_matrix_if_requested(
-    matrix: np.ndarray | sp.spmatrix, copy_data: bool
+    matrix: np.ndarray | sp.spmatrix,
+    copy_data: bool,
 ) -> np.ndarray | sp.spmatrix:
     """Copy matrix payload when requested."""
     if not copy_data:
@@ -65,21 +66,21 @@ class ScpContainer:
         return self.obs.height
 
     @property
-    def n_features(self) -> int:
-        """Number of features in the first assay."""
-        if not self.assays:
-            return 0
-        return next(iter(self.assays.values())).n_features
-
-    @property
     def sample_ids(self) -> pl.Series:
         """Unique sample identifiers."""
         return self.obs[self.sample_id_col]
 
-    @property
-    def shape(self) -> tuple[int, int]:
-        """Shape as (n_samples, n_features)."""
-        return (self.n_samples, self.n_features)
+    def assay_shape(self, assay_name: str) -> tuple[int, int]:
+        """Return ``(n_samples, n_features)`` for an explicit assay."""
+        resolved_assay_name = resolve_assay_name(self, assay_name)
+        if resolved_assay_name not in self.assays:
+            raise AssayNotFoundError(
+                assay_name=assay_name,
+                available_assays=list(self.assays.keys()),
+            )
+
+        assay = self.assays[resolved_assay_name]
+        return (self.n_samples, assay.n_features)
 
     def _validate(self) -> None:
         """Validate all assays have matching sample dimensions."""
@@ -88,7 +89,7 @@ class ScpContainer:
                 if matrix.X.shape[0] != self.n_samples:
                     raise ValueError(
                         f"Assay '{assay_name}', Layer '{layer_name}': "
-                        f"Samples {matrix.X.shape[0]} != {self.n_samples}"
+                        f"Samples {matrix.X.shape[0]} != {self.n_samples}",
                     )
 
     def validate(self) -> None:
@@ -109,37 +110,37 @@ class ScpContainer:
             if "source_id" not in linkage_cols or "target_id" not in linkage_cols:
                 raise ValueError(
                     "Linkage table must contain 'source_id' and 'target_id' columns. "
-                    f"Got columns: {link.linkage.columns}"
+                    f"Got columns: {link.linkage.columns}",
                 )
 
             source_assay = self.assays[link.source_assay]
             target_assay = self.assays[link.target_assay]
             source_ids = set(
-                source_assay.feature_ids.cast(pl.Utf8, strict=False).fill_null("").to_list()
+                source_assay.feature_ids.cast(pl.Utf8, strict=False).fill_null("").to_list(),
             )
             target_ids = set(
-                target_assay.feature_ids.cast(pl.Utf8, strict=False).fill_null("").to_list()
+                target_assay.feature_ids.cast(pl.Utf8, strict=False).fill_null("").to_list(),
             )
 
             source_series = link.linkage["source_id"].cast(pl.Utf8, strict=False).fill_null("")
             target_series = link.linkage["target_id"].cast(pl.Utf8, strict=False).fill_null("")
 
             missing_source = sorted(
-                {val for val in source_series.to_list() if val not in source_ids}
+                {val for val in source_series.to_list() if val not in source_ids},
             )
             missing_target = sorted(
-                {val for val in target_series.to_list() if val not in target_ids}
+                {val for val in target_series.to_list() if val not in target_ids},
             )
 
             if missing_source:
                 preview = ", ".join(missing_source[:5])
                 raise ValueError(
-                    f"Link source_id values not found in assay '{link.source_assay}': {preview}"
+                    f"Link source_id values not found in assay '{link.source_assay}': {preview}",
                 )
             if missing_target:
                 preview = ", ".join(missing_target[:5])
                 raise ValueError(
-                    f"Link target_id values not found in assay '{link.target_assay}': {preview}"
+                    f"Link target_id values not found in assay '{link.target_assay}': {preview}",
                 )
 
     def add_assay(self, name: str, assay: Assay) -> ScpContainer:
@@ -151,7 +152,7 @@ class ScpContainer:
             if matrix.X.shape[0] != self.n_samples:
                 raise ValueError(
                     f"New Assay '{name}', Layer '{layer_name}': "
-                    f"Samples {matrix.X.shape[0]} != {self.n_samples}"
+                    f"Samples {matrix.X.shape[0]} != {self.n_samples}",
                 )
         self.assays[name] = assay
         return self
@@ -310,7 +311,11 @@ class ScpContainer:
         return new_assays
 
     def _filter_assay_features(
-        self, assay_name: str, assay: Assay, indices: np.ndarray, copy: bool
+        self,
+        assay_name: str,
+        assay: Assay,
+        indices: np.ndarray,
+        copy: bool,
     ) -> dict[str, Assay]:
         """Filter specified assay to keep only specified features."""
         new_assays: dict[str, Assay] = {}
@@ -340,7 +345,10 @@ class ScpContainer:
         return new_assays
 
     def _updated_history(
-        self, action: str, params: ProvenanceParams, description: str
+        self,
+        action: str,
+        params: ProvenanceParams,
+        description: str,
     ) -> list[ProvenanceLog]:
         """Create new history list with added log entry."""
         new_history = list(self.history)
@@ -350,7 +358,7 @@ class ScpContainer:
                 action=action,
                 params=params,
                 description=description,
-            )
+            ),
         )
         return new_history
 
@@ -386,34 +394,10 @@ class ScpContainer:
                         source_assay=link.source_assay,
                         target_assay=link.target_assay,
                         linkage=linkage,
-                    )
+                    ),
                 )
 
         return new_links
-
-    def save(
-        self,
-        path: str | Path,
-        *,
-        compression: str | None = "gzip",
-        compression_level: int = 4,
-        overwrite: bool = False,
-    ) -> None:
-        """Save container to file."""
-        _ = (path, compression, compression_level, overwrite)
-        raise NotImplementedError(
-            "ScpContainer.save() is no longer supported in the mass-spec-only I/O design. "
-            "Use scptensor.io.load_diann/load_spectronaut for vendor quant-table imports."
-        )
-
-    @classmethod
-    def load(cls, path: str | Path) -> ScpContainer:
-        """Load container from file."""
-        _ = path
-        raise NotImplementedError(
-            "ScpContainer.load() is no longer supported in the mass-spec-only I/O design. "
-            "Use scptensor.io.load_diann/load_spectronaut for vendor quant-table imports."
-        )
 
     def list_assays(self) -> list[str]:
         """Return list of assay names in the container."""
@@ -457,7 +441,7 @@ class ScpContainer:
         for name, assay in self.assays.items():
             layers_count = len(assay.layers)
             lines.append(
-                f"&nbsp;&nbsp;* {name}: {assay.n_features} features, {layers_count} layers<br>"
+                f"&nbsp;&nbsp;* {name}: {assay.n_features} features, {layers_count} layers<br>",
             )
         lines.append("</div>")
         return "".join(lines)

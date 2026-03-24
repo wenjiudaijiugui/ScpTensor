@@ -1,5 +1,4 @@
-"""
-Tests for MaskCode enum and mask code operations.
+"""Tests for MaskCode enum and mask code operations.
 
 This module tests the provenance tracking system through mask codes.
 """

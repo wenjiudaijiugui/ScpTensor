@@ -23,14 +23,9 @@ from scptensor.impute import (
     impute_row_median,
     impute_softimpute,
     impute_zero,
-    infer_missing_mechanism,
-    list_impute_methods,
-    recommend_impute_method,
 )
 from scptensor.impute.base import impute as impute_core
 from scptensor.impute.base import infer_missing_mechanism as infer_missing_mechanism_core
-from scptensor.impute.base import list_impute_methods as list_impute_methods_core
-from scptensor.impute.base import recommend_impute_method as recommend_impute_method_core
 from scptensor.impute.baseline import impute_half_row_min as impute_half_row_min_core
 from scptensor.impute.baseline import impute_none as impute_none_core
 from scptensor.impute.baseline import impute_row_mean as impute_row_mean_core
@@ -78,9 +73,6 @@ def test_stable_impute_namespace_all_freezes_package_surface() -> None:
         "impute_qrilc",
         "impute_minprob",
         "impute",
-        "list_impute_methods",
-        "infer_missing_mechanism",
-        "recommend_impute_method",
     ]
 
 
@@ -99,26 +91,19 @@ def test_stable_impute_namespace_reexports_stable_implementations() -> None:
     assert impute_qrilc is impute_qrilc_core
     assert impute_minprob is impute_minprob_core
     assert impute is impute_core
-    assert list_impute_methods is list_impute_methods_core
-    assert infer_missing_mechanism is infer_missing_mechanism_core
-    assert recommend_impute_method is recommend_impute_method_core
 
 
-def test_only_individual_imputation_wrappers_are_reexported_from_top_level_package() -> None:
-    assert scp.impute_none is impute_none_core
-    assert scp.impute_zero is impute_zero_core
-    assert scp.impute_row_mean is impute_row_mean_core
-    assert scp.impute_row_median is impute_row_median_core
-    assert scp.impute_half_row_min is impute_half_row_min_core
-    assert scp.impute_knn is impute_knn_core
-    assert scp.impute_lls is impute_lls_core
-    assert scp.impute_iterative_svd is impute_iterative_svd_core
-    assert scp.impute_softimpute is impute_softimpute_core
-    assert scp.impute_bpca is impute_bpca_core
-    assert scp.impute_mf is impute_mf_core
-    assert scp.impute_qrilc is impute_qrilc_core
-    assert scp.impute_minprob is impute_minprob_core
+def test_stable_impute_namespace_does_not_reexport_selection_helpers() -> None:
+    for name in (
+        "list_impute_methods",
+        "infer_missing_mechanism",
+        "recommend_impute_method",
+    ):
+        assert name not in stable_impute.__all__
+        assert not hasattr(stable_impute, name)
 
+
+def test_imputation_api_is_not_reexported_from_top_level_package() -> None:
     for name in (
         "impute_none",
         "impute_zero",
@@ -134,7 +119,8 @@ def test_only_individual_imputation_wrappers_are_reexported_from_top_level_packa
         "impute_qrilc",
         "impute_minprob",
     ):
-        assert name in scp.__all__
+        assert name not in scp.__all__
+        assert not hasattr(scp, name)
 
     for name in (
         "impute",
@@ -143,6 +129,10 @@ def test_only_individual_imputation_wrappers_are_reexported_from_top_level_packa
         "recommend_impute_method",
     ):
         assert name not in scp.__all__
+
+    # Importing `scptensor.impute` binds the submodule on the parent package
+    # as `scp.impute`, but that is not a top-level function reexport.
+    assert not callable(getattr(scp, "impute", None))
 
 
 def test_impute_none_history_uses_resolved_container_assay_key() -> None:
@@ -158,7 +148,11 @@ def test_impute_knn_history_uses_resolved_assay_name_for_aliases() -> None:
     container = _make_container(assay_key="protein")
 
     impute_knn(
-        container, assay_name="proteins", source_layer="raw", new_layer_name="knn_alias", k=1
+        container,
+        assay_name="proteins",
+        source_layer="raw",
+        new_layer_name="knn_alias",
+        k=1,
     )
 
     assert "knn_alias" in container.assays["protein"].layers
@@ -168,7 +162,11 @@ def test_impute_knn_history_uses_resolved_assay_name_for_aliases() -> None:
 def test_infer_missing_mechanism_resolves_assay_alias() -> None:
     container = _make_container(assay_key="proteins")
 
-    mechanism, reason = infer_missing_mechanism(container, assay_name="protein", source_layer="raw")
+    mechanism, reason = infer_missing_mechanism_core(
+        container,
+        assay_name="protein",
+        source_layer="raw",
+    )
 
     assert mechanism in {"mcar", "mar", "mnar"}
     assert "missing_rate=" in reason

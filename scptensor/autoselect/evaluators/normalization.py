@@ -13,6 +13,8 @@ import numpy as np
 from sklearn.cluster import KMeans
 
 from scptensor.autoselect.evaluators.base import BaseEvaluator
+from scptensor.core._log_scale_detection import detect_logged_source_layer
+from scptensor.core._rank_normalization import rank_invariance_frequency
 from scptensor.core.assay_alias import resolve_assay_name
 
 if TYPE_CHECKING:
@@ -22,6 +24,23 @@ if TYPE_CHECKING:
 
 # Numerical stability constant
 _EPS = 1e-10
+_SELECTION_METRIC_WEIGHTS = {
+    "batch_removal": 0.30,
+    "bio_conservation": 0.30,
+    "technical_quality": 0.20,
+    "balance_score": 0.20,
+}
+_REPORT_METRIC_NAMES = (
+    "loading_bias_reduction",
+    "intragroup_variation",
+    "intergroup_preservation",
+    "technical_variance",
+    "clustering_quality",
+    "batch_asw",
+    "batch_mixing",
+    "bio_asw",
+    "signal_preservation",
+)
 
 
 class NormalizationEvaluator(BaseEvaluator):
@@ -50,6 +69,7 @@ class NormalizationEvaluator(BaseEvaluator):
     ...     assay_name="proteins",
     ...     source_layer="log"
     ... )
+
     """
 
     def __init__(self) -> None:
@@ -69,6 +89,9 @@ class NormalizationEvaluator(BaseEvaluator):
         self._source_layer_logged: bool | None = None
         self._source_layer_log_reason = "no scale context"
         self._scale_sensitive_methods = frozenset({"norm_quantile", "norm_trqn"})
+        self._metric_cache_key: tuple[int, int, str] | None = None
+        self._cached_selection_metrics: dict[str, float] | None = None
+        self._cached_report_metrics: dict[str, float] | None = None
 
     def _detect_logged_source_layer(
         self,
@@ -77,14 +100,12 @@ class NormalizationEvaluator(BaseEvaluator):
         source_layer: str,
     ) -> tuple[bool, str]:
         """Return whether the source layer has explicit log provenance."""
-        from scptensor.transformation.log_transform import _detect_already_logged
-
         resolved_assay_name = resolve_assay_name(container, assay_name)
         assay = container.assays.get(resolved_assay_name)
         if assay is None or source_layer not in assay.layers:
             return False, "source layer unavailable for log-scale detection"
 
-        return _detect_already_logged(
+        return detect_logged_source_layer(
             container=container,
             assay_name=resolved_assay_name,
             source_layer=source_layer,
@@ -146,7 +167,7 @@ class NormalizationEvaluator(BaseEvaluator):
     def _attach_result_contracts(self, report) -> None:
         """Attach normalization method contracts to the stage report."""
         report.method_contracts = self._build_method_contracts(
-            [result.method_name for result in report.results]
+            [result.method_name for result in report.results],
         )
         for result in report.results:
             result.method_contract = report.method_contracts.get(result.method_name)
@@ -173,7 +194,6 @@ class NormalizationEvaluator(BaseEvaluator):
     ) -> ScpContainer:
         """Run TRQN with adaptive RI threshold to avoid QN-degenerate runs."""
         from scptensor.normalization import norm_trqn
-        from scptensor.normalization.trqn_normalization import _rank_invariance_frequency
 
         resolved_assay_name = resolve_assay_name(container, assay_name)
         assay = container.assays.get(resolved_assay_name)
@@ -193,7 +213,7 @@ class NormalizationEvaluator(BaseEvaluator):
         if x.size == 0 or x.shape[0] < 2:
             adaptive_low_thr = 0.5
         else:
-            ri_freq = _rank_invariance_frequency(x.T)
+            ri_freq = rank_invariance_frequency(x.T)
             finite = ri_freq[np.isfinite(ri_freq)]
             if finite.size == 0:
                 adaptive_low_thr = 0.5
@@ -219,6 +239,7 @@ class NormalizationEvaluator(BaseEvaluator):
         -------
         str
             Stage name ("normalize")
+
         """
         return "normalize"
 
@@ -232,6 +253,7 @@ class NormalizationEvaluator(BaseEvaluator):
             Dictionary mapping method names to their implementation functions.
             Only includes true normalization methods (not log_transform, which is
             a preprocessing step).
+
         """
         if self._available_methods is None:
             self._available_methods = self._build_candidate_methods()
@@ -285,25 +307,44 @@ class NormalizationEvaluator(BaseEvaluator):
         -------
         dict[str, float]
             Dictionary mapping metric names to their weights
+
         """
-        return {
-            # Literature-aligned composite axes:
-            # batch removal, biological conservation, and their balance.
-            "batch_removal": 0.30,
-            "bio_conservation": 0.30,
-            "technical_quality": 0.20,
-            "balance_score": 0.20,
-            # Legacy keys kept for compatibility and reporting.
-            "loading_bias_reduction": 0.0,
-            "intragroup_variation": 0.0,
-            "intergroup_preservation": 0.0,
-            "technical_variance": 0.0,
-            "clustering_quality": 0.0,
-            "batch_asw": 0.0,
-            "batch_mixing": 0.0,
-            "bio_asw": 0.0,
-            "signal_preservation": 0.0,
-        }
+        return dict(_SELECTION_METRIC_WEIGHTS)
+
+    def _zero_report_metrics(self) -> dict[str, float]:
+        """Return the fail-closed reporting metric payload."""
+        return dict.fromkeys(_REPORT_METRIC_NAMES, 0.0)
+
+    def _get_cached_metric_channels(
+        self,
+        container: ScpContainer,
+        original_container: ScpContainer,
+        layer_name: str,
+    ) -> tuple[dict[str, float], dict[str, float]] | None:
+        """Return cached metric channels for the current evaluation call."""
+        cache_key = (id(container), id(original_container), layer_name)
+        if cache_key != self._metric_cache_key:
+            return None
+        if self._cached_selection_metrics is None or self._cached_report_metrics is None:
+            return None
+        return (
+            self._cached_selection_metrics.copy(),
+            self._cached_report_metrics.copy(),
+        )
+
+    def _set_cached_metric_channels(
+        self,
+        container: ScpContainer,
+        original_container: ScpContainer,
+        layer_name: str,
+        selection_metrics: dict[str, float],
+        report_metrics: dict[str, float],
+    ) -> tuple[dict[str, float], dict[str, float]]:
+        """Store and return metric channels for one evaluation call."""
+        self._metric_cache_key = (id(container), id(original_container), layer_name)
+        self._cached_selection_metrics = selection_metrics.copy()
+        self._cached_report_metrics = report_metrics.copy()
+        return selection_metrics.copy(), report_metrics.copy()
 
     def compute_metrics(
         self,
@@ -326,21 +367,71 @@ class NormalizationEvaluator(BaseEvaluator):
         -------
         dict[str, float]
             Dictionary mapping metric names to their scores (0.0 to 1.0)
+
         """
+        selection_metrics, _ = self._compute_metric_channels(
+            container=container,
+            original_container=original_container,
+            layer_name=layer_name,
+        )
+        return selection_metrics
+
+    def compute_report_metrics(
+        self,
+        container: ScpContainer,
+        original_container: ScpContainer,
+        layer_name: str,
+        scores: dict[str, float],
+    ) -> dict[str, float]:
+        """Return normalization diagnostics that are not part of ranking."""
+        del scores
+        _, report_metrics = self._compute_metric_channels(
+            container=container,
+            original_container=original_container,
+            layer_name=layer_name,
+        )
+        return report_metrics
+
+    def _compute_metric_channels(
+        self,
+        container: ScpContainer,
+        original_container: ScpContainer,
+        layer_name: str,
+    ) -> tuple[dict[str, float], dict[str, float]]:
+        """Compute ranking metrics and reporting diagnostics together."""
+        cached = self._get_cached_metric_channels(container, original_container, layer_name)
+        if cached is not None:
+            return cached
+
+        zero_selection = dict.fromkeys(self.metric_weights, 0.0)
+        zero_report = self._zero_report_metrics()
+
         # Check if layer exists
         assay = self._get_metric_assay(container)
         if assay is None:
-            return dict.fromkeys(self.metric_weights, 0.0)
+            return self._set_cached_metric_channels(
+                container,
+                original_container,
+                layer_name,
+                zero_selection,
+                zero_report,
+            )
         if layer_name not in assay.layers:
-            return dict.fromkeys(self.metric_weights, 0.0)
+            return self._set_cached_metric_channels(
+                container,
+                original_container,
+                layer_name,
+                zero_selection,
+                zero_report,
+            )
 
         # Get normalized data
         matrix = assay.layers[layer_name]
-        X_normalized = matrix.X  # noqa: N806
+        x_normalized = matrix.X
 
         # Convert sparse matrix to dense if needed
-        if hasattr(X_normalized, "toarray"):
-            X_normalized = X_normalized.toarray()  # noqa: N806
+        if hasattr(x_normalized, "toarray"):
+            x_normalized = x_normalized.toarray()
 
         # Get source data for comparison.
         original_assay = self._get_metric_assay(original_container)
@@ -348,57 +439,72 @@ class NormalizationEvaluator(BaseEvaluator):
             self._infer_source_layer(original_assay, layer_name) if original_assay else None
         )
 
-        if source_layer is not None and original_assay is not None:
-            X_original = original_assay.layers[source_layer].X  # noqa: N806
-            if hasattr(X_original, "toarray"):
-                X_original = X_original.toarray()  # noqa: N806
-        else:
-            # Fall back to current layer if source cannot be inferred.
-            X_original = X_normalized  # noqa: N806
+        if (
+            original_assay is None
+            or source_layer is None
+            or source_layer not in original_assay.layers
+        ):
+            # Refuse optimistic self-comparison when the true source layer
+            # cannot be reconstructed from evaluator context + naming contract.
+            return self._set_cached_metric_channels(
+                container,
+                original_container,
+                layer_name,
+                zero_selection,
+                zero_report,
+            )
+
+        x_original = original_assay.layers[source_layer].X
+        if hasattr(x_original, "toarray"):
+            x_original = x_original.toarray()
 
         groups = self._get_group_labels(container)
         batches = self._get_batch_labels(container)
 
         # Compute legacy metrics (kept for compatibility/reporting)
-        intragroup_score = self._compute_intragroup_variation(X_normalized, container)
+        intragroup_score = self._compute_intragroup_variation(x_normalized, container)
         intergroup_score = self._compute_intergroup_preservation(
-            X_normalized, X_original, container
+            x_normalized,
+            x_original,
+            container,
         )
-        technical_score = self._compute_technical_variance(X_normalized, X_original, container)
-        clustering_score = self._compute_clustering_quality(X_normalized, container, groups=groups)
-        signal_score = self._compute_signal_preservation(X_normalized, X_original)
-        loading_bias_score = self._compute_loading_bias_reduction(X_normalized, X_original)
-        batch_asw_score = self._compute_batch_asw(X_normalized, batches)
-        batch_mixing_score = self._compute_batch_mixing(X_normalized, batches)
-        bio_asw_score = self._compute_bio_asw(X_normalized, groups)
+        technical_score = self._compute_technical_variance(x_normalized, x_original, container)
+        clustering_score = self._compute_clustering_quality(x_normalized, container, groups=groups)
+        signal_score = self._compute_signal_preservation(x_normalized, x_original)
+        loading_bias_score = self._compute_loading_bias_reduction(x_normalized, x_original)
+        batch_asw_score = self._compute_batch_asw(x_normalized, batches)
+        batch_mixing_score = self._compute_batch_mixing(x_normalized, batches)
+        bio_asw_score = self._compute_bio_asw(x_normalized, groups)
 
         # Composite metrics based on published benchmark practices:
         # - batch removal and bio conservation are jointly optimized
         # - balance term penalizes one-sided optimization.
         if batches is None:
-            # Without batch labels, the batch-removal axis is undefined;
-            # keep it neutral so no method gains artificial advantage.
-            batch_removal = 0.5
+            # Without batch labels, the batch-removal axis is undefined.
+            # Fail closed instead of assigning a neutral default.
+            batch_removal = 0.0
         else:
             batch_removal = self._safe_mean(
                 [technical_score, batch_asw_score, batch_mixing_score],
-                default=0.5,
+                default=0.0,
             )
         bio_conservation = self._safe_mean(
             [intergroup_score, bio_asw_score, clustering_score],
-            default=0.5,
+            default=0.0,
         )
         technical_quality = self._safe_mean(
             [intragroup_score, signal_score, loading_bias_score],
-            default=0.5,
+            default=0.0,
         )
         balance_score = float(np.clip(1.0 - abs(batch_removal - bio_conservation), 0.0, 1.0))
 
-        return {
+        selection_metrics = {
             "batch_removal": batch_removal,
             "bio_conservation": bio_conservation,
             "technical_quality": technical_quality,
             "balance_score": balance_score,
+        }
+        report_metrics = {
             "loading_bias_reduction": loading_bias_score,
             "intragroup_variation": intragroup_score,
             "intergroup_preservation": intergroup_score,
@@ -409,9 +515,23 @@ class NormalizationEvaluator(BaseEvaluator):
             "bio_asw": bio_asw_score,
             "signal_preservation": signal_score,
         }
+        return self._set_cached_metric_channels(
+            container,
+            original_container,
+            layer_name,
+            selection_metrics,
+            report_metrics,
+        )
 
-    def _safe_mean(self, values: list[float], default: float = 0.5) -> float:
-        """Compute a finite mean with a neutral fallback."""
+    def _clear_evaluation_context(self) -> None:
+        """Clear evaluator-local bookkeeping and metric caches."""
+        super()._clear_evaluation_context()
+        self._metric_cache_key = None
+        self._cached_selection_metrics = None
+        self._cached_report_metrics = None
+
+    def _safe_mean(self, values: list[float], default: float = 0.0) -> float:
+        """Compute a finite mean with a fail-closed fallback."""
         arr = np.asarray(values, dtype=float)
         finite = arr[np.isfinite(arr)]
         if finite.size == 0:
@@ -426,11 +546,11 @@ class NormalizationEvaluator(BaseEvaluator):
             return default
         return float(np.mean(finite))
 
-    def _nanmean_axis(self, X: np.ndarray, axis: int) -> np.ndarray:  # noqa: N803
+    def _nanmean_axis(self, x: np.ndarray, axis: int) -> np.ndarray:
         """Compute axis-wise mean without empty-slice warnings."""
-        finite = np.isfinite(X)
+        finite = np.isfinite(x)
         counts = np.sum(finite, axis=axis)
-        sums = np.sum(np.where(finite, X, 0.0), axis=axis)
+        sums = np.sum(np.where(finite, x, 0.0), axis=axis)
         return np.divide(
             sums,
             counts,
@@ -438,12 +558,12 @@ class NormalizationEvaluator(BaseEvaluator):
             where=counts > 0,
         )
 
-    def _nanstd_axis(self, X: np.ndarray, axis: int) -> np.ndarray:  # noqa: N803
+    def _nanstd_axis(self, x: np.ndarray, axis: int) -> np.ndarray:
         """Compute axis-wise std without empty-slice warnings."""
-        means = self._nanmean_axis(X, axis=axis)
+        means = self._nanmean_axis(x, axis=axis)
         means_expanded = np.expand_dims(means, axis=axis)
-        finite = np.isfinite(X)
-        sq = np.where(finite, (X - means_expanded) ** 2, 0.0)
+        finite = np.isfinite(x)
+        sq = np.where(finite, (x - means_expanded) ** 2, 0.0)
         counts = np.sum(finite, axis=axis)
         var = np.divide(
             np.sum(sq, axis=axis),
@@ -453,9 +573,9 @@ class NormalizationEvaluator(BaseEvaluator):
         )
         return np.sqrt(var)
 
-    def _nanmedian_axis(self, X: np.ndarray, axis: int) -> np.ndarray:  # noqa: N803
+    def _nanmedian_axis(self, x: np.ndarray, axis: int) -> np.ndarray:
         """Compute axis-wise median over finite values only."""
-        arr = np.asarray(X, dtype=float)
+        arr = np.asarray(x, dtype=float)
         if arr.ndim != 2:
             raise ValueError(f"Expected 2D array, got ndim={arr.ndim}")
 
@@ -479,7 +599,7 @@ class NormalizationEvaluator(BaseEvaluator):
 
     def _prepare_metric_matrix(
         self,
-        X: np.ndarray,  # noqa: N803
+        x: np.ndarray,
         min_samples: int = 4,
         min_features: int = 2,
     ) -> tuple[np.ndarray, np.ndarray] | None:
@@ -489,7 +609,7 @@ class NormalizationEvaluator(BaseEvaluator):
         - matrix with finite values (NaN imputed by per-feature medians),
         - boolean mask indicating retained samples from the original matrix.
         """
-        arr = np.asarray(X, dtype=float)
+        arr = np.asarray(x, dtype=float)
         if arr.ndim != 2 or arr.shape[0] < min_samples or arr.shape[1] < min_features:
             return None
 
@@ -548,7 +668,7 @@ class NormalizationEvaluator(BaseEvaluator):
 
     def _compute_intragroup_variation(
         self,
-        X: np.ndarray,  # noqa: N803
+        x: np.ndarray,
         container: ScpContainer,
     ) -> float:
         """Compute intragroup variation reduction score.
@@ -558,7 +678,7 @@ class NormalizationEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-        X : np.ndarray
+        x : np.ndarray
             Normalized data matrix (samples x features)
         container : ScpContainer
             Container with sample metadata
@@ -567,16 +687,17 @@ class NormalizationEvaluator(BaseEvaluator):
         -------
         float
             Score between 0.0 and 1.0 (higher is better)
+
         """
         groups = self._get_group_labels(container)
         if groups is None:
             # No group info: use CV stability as fallback
-            return self._compute_cv_stability(X)
+            return self._compute_cv_stability(x)
 
         unique_groups = np.unique(groups)
 
         if len(unique_groups) < 2:
-            return self._compute_cv_stability(X)
+            return self._compute_cv_stability(x)
 
         # Compute within-group CV for each group
         group_cvs = []
@@ -585,12 +706,12 @@ class NormalizationEvaluator(BaseEvaluator):
             if np.sum(group_mask) < 2:
                 continue
 
-            X_group = X[group_mask]  # noqa: N806
+            x_group = x[group_mask]
 
             # Compute CV for each feature
-            means = self._nanmean_axis(X_group, axis=0)
-            stds = self._nanstd_axis(X_group, axis=0)
-            valid_counts = np.sum(np.isfinite(X_group), axis=0)
+            means = self._nanmean_axis(x_group, axis=0)
+            stds = self._nanstd_axis(x_group, axis=0)
+            valid_counts = np.sum(np.isfinite(x_group), axis=0)
 
             # Avoid division by zero
             valid_mask = (means > _EPS) & (valid_counts >= 2)
@@ -606,7 +727,7 @@ class NormalizationEvaluator(BaseEvaluator):
                 group_cvs.append(float(np.median(finite_cvs)))
 
         if len(group_cvs) == 0:
-            return 0.5
+            return 0.0
 
         # Average CV across groups
         mean_cv = np.mean(group_cvs)
@@ -620,8 +741,8 @@ class NormalizationEvaluator(BaseEvaluator):
 
     def _compute_intergroup_preservation(
         self,
-        X_normalized: np.ndarray,  # noqa: N803
-        X_original: np.ndarray,  # noqa: N803
+        x_normalized: np.ndarray,
+        x_original: np.ndarray,
         container: ScpContainer,
     ) -> float:
         """Compute intergroup preservation score.
@@ -632,9 +753,9 @@ class NormalizationEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-        X_normalized : np.ndarray
+        x_normalized : np.ndarray
             Normalized data matrix (samples x features)
-        X_original : np.ndarray
+        x_original : np.ndarray
             Original data matrix before normalization
         container : ScpContainer
             Container with sample metadata
@@ -643,21 +764,21 @@ class NormalizationEvaluator(BaseEvaluator):
         -------
         float
             Score between 0.0 and 1.0 (higher is better)
+
         """
         groups = self._get_group_labels(container)
         if groups is None:
             # No group info: use signal preservation as fallback
-            return self._compute_signal_preservation(X_normalized, X_original)
+            return self._compute_signal_preservation(x_normalized, x_original)
 
         unique_groups = np.unique(groups)
 
         if len(unique_groups) < 2:
-            return self._compute_signal_preservation(X_normalized, X_original)
+            return self._compute_signal_preservation(x_normalized, x_original)
 
         # Weak-separation groups are not reliable for preservation scoring.
-        # In those cases we use a neutral score to avoid systematically
-        # over-favoring "no normalization".
-        feature_stds = self._nanstd_axis(X_original, axis=0)
+        # Skip non-informative comparisons and fail closed if none remain.
+        feature_stds = self._nanstd_axis(x_original, axis=0)
         global_scale = self._finite_mean(feature_stds, default=0.0)
         min_effect = 0.08 * max(global_scale, _EPS)
 
@@ -671,10 +792,10 @@ class NormalizationEvaluator(BaseEvaluator):
                 if int(np.sum(mask_i)) < 2 or int(np.sum(mask_j)) < 2:
                     continue
 
-                orig_i = self._nanmean_axis(X_original[mask_i], axis=0)
-                orig_j = self._nanmean_axis(X_original[mask_j], axis=0)
-                norm_i = self._nanmean_axis(X_normalized[mask_i], axis=0)
-                norm_j = self._nanmean_axis(X_normalized[mask_j], axis=0)
+                orig_i = self._nanmean_axis(x_original[mask_i], axis=0)
+                orig_j = self._nanmean_axis(x_original[mask_j], axis=0)
+                norm_i = self._nanmean_axis(x_normalized[mask_i], axis=0)
+                norm_j = self._nanmean_axis(x_normalized[mask_j], axis=0)
 
                 effect_orig = orig_i - orig_j
                 effect_norm = norm_i - norm_j
@@ -687,33 +808,33 @@ class NormalizationEvaluator(BaseEvaluator):
 
                 effect_strength = float(np.mean(np.abs(eo)))
                 if effect_strength < min_effect:
-                    pair_scores.append(0.5)
                     continue
 
                 if np.std(eo, ddof=0) < _EPS or np.std(en, ddof=0) < _EPS:
-                    corr_score = 0.5
-                else:
-                    corr = float(np.corrcoef(eo, en)[0, 1])
-                    corr_score = float(np.clip((corr + 1.0) / 2.0, 0.0, 1.0))
+                    continue
+
+                corr = float(np.corrcoef(eo, en)[0, 1])
+                if not np.isfinite(corr):
+                    continue
+                corr_score = float(np.clip((corr + 1.0) / 2.0, 0.0, 1.0))
 
                 norm_eo = float(np.linalg.norm(eo))
                 norm_en = float(np.linalg.norm(en))
                 if norm_eo < _EPS:
-                    mag_score = 0.5
-                else:
-                    ratio = max(norm_en / (norm_eo + _EPS), _EPS)
-                    mag_score = float(np.exp(-abs(np.log(ratio))))
+                    continue
+                ratio = max(norm_en / (norm_eo + _EPS), _EPS)
+                mag_score = float(np.exp(-abs(np.log(ratio))))
 
                 pair_scores.append(float(np.clip(0.6 * corr_score + 0.4 * mag_score, 0.0, 1.0)))
 
         if not pair_scores:
-            return 0.5
+            return 0.0
         return float(np.clip(np.mean(pair_scores), 0.0, 1.0))
 
     def _compute_technical_variance(
         self,
-        X_normalized: np.ndarray,  # noqa: N803
-        X_original: np.ndarray,  # noqa: N803
+        x_normalized: np.ndarray,
+        x_original: np.ndarray,
         container: ScpContainer,
     ) -> float:
         """Compute technical variance reduction score.
@@ -723,9 +844,9 @@ class NormalizationEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-        X_normalized : np.ndarray
+        x_normalized : np.ndarray
             Normalized data matrix (samples x features)
-        X_original : np.ndarray
+        x_original : np.ndarray
             Original data matrix before normalization
         container : ScpContainer
             Container with sample metadata (including batch info)
@@ -734,24 +855,26 @@ class NormalizationEvaluator(BaseEvaluator):
         -------
         float
             Score between 0.0 and 1.0 (higher is better)
+
         """
         batches = self._get_batch_labels(container)
         if batches is None:
-            # No batch info: use variance stability as fallback
-            return self._compute_variance_stability(X_normalized, X_original)
+            # Technical batch-variance reduction is undefined without
+            # explicit batch labels; refuse surrogate scoring.
+            return 0.0
 
         unique_batches = np.unique(batches)
 
         if len(unique_batches) < 2:
-            return self._compute_variance_stability(X_normalized, X_original)
+            return 0.0
 
         # Compute batch centroid distances before and after normalization
-        def compute_batch_separation(X: np.ndarray, batches: np.ndarray) -> float:  # noqa: N803
+        def compute_batch_separation(x: np.ndarray, batches: np.ndarray) -> float:
             batch_means = []
             for batch_id in unique_batches:
                 mask = batches == batch_id
                 if np.sum(mask) > 0:
-                    batch_mean = self._nanmean_axis(X[mask], axis=0)
+                    batch_mean = self._nanmean_axis(x[mask], axis=0)
                     if np.any(np.isfinite(batch_mean)):
                         batch_means.append(batch_mean)
 
@@ -772,11 +895,11 @@ class NormalizationEvaluator(BaseEvaluator):
 
             return total_dist / count if count > 0 else 0.0
 
-        original_separation = compute_batch_separation(X_original, batches)
-        normalized_separation = compute_batch_separation(X_normalized, batches)
+        original_separation = compute_batch_separation(x_original, batches)
+        normalized_separation = compute_batch_separation(x_normalized, batches)
 
         if original_separation < _EPS:
-            return 0.5  # No batch effect to begin with
+            return 0.0
 
         # Score based on reduction in batch separation
         # Lower separation after normalization = better batch effect removal
@@ -794,7 +917,7 @@ class NormalizationEvaluator(BaseEvaluator):
 
     def _compute_clustering_quality(
         self,
-        X: np.ndarray,  # noqa: N803
+        x: np.ndarray,
         container: ScpContainer,
         groups: np.ndarray | None = None,
     ) -> float:
@@ -805,7 +928,7 @@ class NormalizationEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-        X : np.ndarray
+        x : np.ndarray
             Normalized data matrix (samples x features)
         container : ScpContainer
             Container with sample metadata
@@ -814,10 +937,11 @@ class NormalizationEvaluator(BaseEvaluator):
         -------
         float
             Score between 0.0 and 1.0 (higher is better)
+
         """
-        prepared = self._prepare_metric_matrix(X, min_samples=4, min_features=2)
+        prepared = self._prepare_metric_matrix(x, min_samples=4, min_features=2)
         if prepared is None:
-            return 0.5
+            return 0.0
         x_eval, sample_mask = prepared
 
         if groups is None:
@@ -832,11 +956,11 @@ class NormalizationEvaluator(BaseEvaluator):
 
                 y_eval = groups[sample_mask]
                 if len(np.unique(y_eval)) < 2:
-                    return 0.5
+                    return 0.0
 
                 _, counts = np.unique(y_eval, return_counts=True)
                 if int(np.min(counts)) < 2:
-                    return 0.5
+                    return 0.0
 
                 encoded = self._encode_labels(y_eval)
                 sil_raw = float(silhouette_score(x_eval, encoded))
@@ -845,13 +969,13 @@ class NormalizationEvaluator(BaseEvaluator):
                 ch_normalized = float(np.clip(ch_raw / (ch_raw + 100.0), 0.0, 1.0))
                 return float(np.clip(0.6 * sil_score + 0.4 * ch_normalized, 0.0, 1.0))
             except Exception:
-                return 0.5
+                return 0.0
 
         # Unsupervised fallback branch when no labels are available.
         n_clusters = max(2, int(np.sqrt(x_eval.shape[0] / 2)))
         n_clusters = min(n_clusters, x_eval.shape[0] - 1)
         if n_clusters < 2:
-            return 0.5
+            return 0.0
 
         try:
             # Perform K-means clustering
@@ -861,7 +985,7 @@ class NormalizationEvaluator(BaseEvaluator):
             # Check if clustering produced valid labels
             unique_labels = np.unique(labels)
             if len(unique_labels) < 2:
-                return 0.5
+                return 0.0
 
             # Compute silhouette score
             from sklearn.metrics import silhouette_score
@@ -885,102 +1009,93 @@ class NormalizationEvaluator(BaseEvaluator):
             return float(np.clip(combined_score, 0.0, 1.0))
 
         except Exception:
-            # Fallback to variance-based score
-            sample_variances = np.var(x_eval, axis=1)
-            mean_variance = self._finite_mean(sample_variances, default=0.0)
-
-            if mean_variance > 0:
-                score = 1.0 / (1.0 + np.log1p(mean_variance))
-            else:
-                score = 1.0
-
-            return float(np.clip(score, 0.0, 1.0))
+            return 0.0
 
     def _compute_batch_asw(
         self,
-        X: np.ndarray,  # noqa: N803
+        x: np.ndarray,
         batches: np.ndarray | None,
     ) -> float:
         """Compute 1-ASW batch mixing score (higher is better)."""
         if batches is None:
-            return 0.5
+            return 0.0
 
         try:
             from sklearn.metrics import silhouette_score
 
-            prepared = self._prepare_metric_matrix(X, min_samples=4, min_features=2)
+            prepared = self._prepare_metric_matrix(x, min_samples=4, min_features=2)
             if prepared is None:
-                return 0.5
+                return 0.0
 
             x_eval, sample_mask = prepared
             y_eval = self._encode_labels(np.asarray(batches)[sample_mask])
             if len(np.unique(y_eval)) < 2:
-                return 0.5
+                return 0.0
             _, counts = np.unique(y_eval, return_counts=True)
             if int(np.min(counts)) < 2:
-                return 0.5
+                return 0.0
 
             asw = float(silhouette_score(x_eval, y_eval))
             return float(np.clip(1.0 - ((asw + 1.0) / 2.0), 0.0, 1.0))
         except Exception:
-            return 0.5
+            return 0.0
 
     def _compute_bio_asw(
         self,
-        X: np.ndarray,  # noqa: N803
+        x: np.ndarray,
         groups: np.ndarray | None,
     ) -> float:
         """Compute biological ASW score (higher is better)."""
         if groups is None:
-            return 0.5
+            return 0.0
 
         try:
             from sklearn.metrics import silhouette_score
 
-            prepared = self._prepare_metric_matrix(X, min_samples=4, min_features=2)
+            prepared = self._prepare_metric_matrix(x, min_samples=4, min_features=2)
             if prepared is None:
-                return 0.5
+                return 0.0
 
             x_eval, sample_mask = prepared
             y_eval = self._encode_labels(np.asarray(groups)[sample_mask])
             if len(np.unique(y_eval)) < 2:
-                return 0.5
+                return 0.0
             _, counts = np.unique(y_eval, return_counts=True)
             if int(np.min(counts)) < 2:
-                return 0.5
+                return 0.0
 
             asw = float(silhouette_score(x_eval, y_eval))
             return float(np.clip((asw + 1.0) / 2.0, 0.0, 1.0))
         except Exception:
-            return 0.5
+            return 0.0
 
     def _compute_batch_mixing(
         self,
-        X: np.ndarray,  # noqa: N803
+        x: np.ndarray,
         batches: np.ndarray | None,
         n_neighbors: int = 30,
     ) -> float:
         """Compute local batch mixing (simplified LISI proxy)."""
-        if batches is None or X.shape[0] < 3:
-            return 0.5
+        if batches is None or x.shape[0] < 3:
+            return 0.0
 
         try:
             from sklearn.neighbors import NearestNeighbors
 
-            prepared = self._prepare_metric_matrix(X, min_samples=4, min_features=2)
+            prepared = self._prepare_metric_matrix(x, min_samples=4, min_features=2)
             if prepared is None:
-                return 0.5
+                return 0.0
 
             x_eval, sample_mask = prepared
             y_eval = np.asarray(batches)[sample_mask]
             unique_batches = np.unique(y_eval)
             n_batches = len(unique_batches)
             if n_batches < 2:
-                return 0.5
+                return 0.0
 
             k = min(n_neighbors, x_eval.shape[0] - 1)
             if k < 2:
-                return 0.5
+                return 0.0
 
             knn = NearestNeighbors(n_neighbors=k + 1)
             knn.fit(x_eval)
@@ -995,32 +1110,33 @@ class NormalizationEvaluator(BaseEvaluator):
 
             return float(np.clip(np.mean(scores), 0.0, 1.0))
         except Exception:
-            return 0.5
+            return 0.0
 
-    def _compute_cv_stability(self, X: np.ndarray) -> float:  # noqa: N803
+    def _compute_cv_stability(self, x: np.ndarray) -> float:
         """Compute coefficient of variation stability.
 
         Fallback metric when group information is not available.
 
         Parameters
         ----------
-        X : np.ndarray
+        x : np.ndarray
             Data matrix (samples x features)
 
         Returns
         -------
         float
             Score between 0.0 and 1.0 (higher is better)
-        """
-        if X.size == 0 or X.shape[0] < 2:
-            return 0.5
 
-        finite_counts = np.sum(np.isfinite(X), axis=0)
+        """
+        if x.size == 0 or x.shape[0] < 2:
+            return 0.0
+
+        finite_counts = np.sum(np.isfinite(x), axis=0)
         evaluable_features = finite_counts >= 2
         if not np.any(evaluable_features):
-            return 0.5
+            return 0.0
 
-        x_eval = X[:, evaluable_features]
+        x_eval = x[:, evaluable_features]
 
         # Compute CV for each feature
         means = self._nanmean_axis(x_eval, axis=0)
@@ -1029,7 +1145,7 @@ class NormalizationEvaluator(BaseEvaluator):
         # Avoid division by zero
         valid_mask = means > _EPS
         if not np.any(valid_mask):
-            return 0.5
+            return 0.0
 
         cvs = np.zeros_like(means)
         cvs[valid_mask] = stds[valid_mask] / means[valid_mask]
@@ -1044,15 +1160,15 @@ class NormalizationEvaluator(BaseEvaluator):
         cv_std = float(np.std(finite_cvs, ddof=0))
 
         if cv_mean < _EPS:
-            return 0.5
+            return 0.0
 
         stability = 1.0 - min(cv_std / cv_mean, 1.0)
         return float(np.clip(stability, 0.0, 1.0))
 
     def _compute_loading_bias_reduction(
         self,
-        X_normalized: np.ndarray,  # noqa: N803
-        X_original: np.ndarray,  # noqa: N803
+        x_normalized: np.ndarray,
+        x_original: np.ndarray,
     ) -> float:
         """Score reduction of sample-level global intensity offsets.
 
@@ -1060,11 +1176,11 @@ class NormalizationEvaluator(BaseEvaluator):
         good normalization should reduce spread of per-sample global location
         (sample medians) while avoiding unstable behavior.
         """
-        if X_normalized.shape[0] < 2 or X_normalized.shape[1] < 2:
-            return 0.5
+        if x_normalized.shape[0] < 2 or x_normalized.shape[1] < 2:
+            return 0.0
 
-        sample_med_orig = self._nanmedian_axis(X_original, axis=1)
-        sample_med_norm = self._nanmedian_axis(X_normalized, axis=1)
+        sample_med_orig = self._nanmedian_axis(x_original, axis=1)
+        sample_med_norm = self._nanmedian_axis(x_normalized, axis=1)
 
         def robust_dispersion(values: np.ndarray) -> float:
             arr = np.asarray(values, dtype=float)
@@ -1078,7 +1194,7 @@ class NormalizationEvaluator(BaseEvaluator):
         disp_norm = robust_dispersion(sample_med_norm)
 
         if disp_orig < _EPS:
-            return 0.5
+            return 0.0
 
         reduction = (disp_orig - disp_norm) / disp_orig
         if reduction >= 0:
@@ -1089,8 +1205,8 @@ class NormalizationEvaluator(BaseEvaluator):
 
     def _compute_signal_preservation(
         self,
-        X_normalized: np.ndarray,  # noqa: N803
-        X_original: np.ndarray,  # noqa: N803
+        x_normalized: np.ndarray,
+        x_original: np.ndarray,
     ) -> float:
         """Compute signal preservation score.
 
@@ -1100,52 +1216,53 @@ class NormalizationEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-        X_normalized : np.ndarray
+        x_normalized : np.ndarray
             Normalized data matrix (samples x features)
-        X_original : np.ndarray
+        x_original : np.ndarray
             Original data matrix before normalization
 
         Returns
         -------
         float
             Score between 0.0 and 1.0 (higher is better)
+
         """
         # Handle edge cases
-        n_samples = X_normalized.shape[0]
+        n_samples = x_normalized.shape[0]
         if n_samples < 2:
-            return 0.5  # Need at least 2 samples for correlation
+            return 0.0  # Need at least 2 samples for correlation
 
         # Replace NaN with 0 for correlation computation
-        X_norm_clean = np.nan_to_num(X_normalized, nan=0.0)  # noqa: N806
-        X_orig_clean = np.nan_to_num(X_original, nan=0.0)  # noqa: N806
+        x_norm_clean = np.nan_to_num(x_normalized, nan=0.0)
+        x_orig_clean = np.nan_to_num(x_original, nan=0.0)
 
         try:
             # Guard against degenerate rows that can trigger invalid warnings
             # inside np.corrcoef (zero-variance sample profiles).
             if (
-                np.sum(np.nanvar(X_norm_clean, axis=1) > _EPS) < 2
-                or np.sum(np.nanvar(X_orig_clean, axis=1) > _EPS) < 2
+                np.sum(np.nanvar(x_norm_clean, axis=1) > _EPS) < 2
+                or np.sum(np.nanvar(x_orig_clean, axis=1) > _EPS) < 2
             ):
-                var_norm = np.nanvar(X_norm_clean)
-                var_orig = np.nanvar(X_orig_clean)
+                var_norm = np.nanvar(x_norm_clean)
+                var_orig = np.nanvar(x_orig_clean)
                 if var_orig < _EPS or var_norm < _EPS:
-                    return 0.5
+                    return 0.0
                 ratio = min(var_norm / var_orig, var_orig / var_norm)
                 return float(np.clip(ratio, 0.0, 1.0))
 
             # Compute sample correlation matrices
             # Shape: (n_samples, n_samples)
-            corr_normalized = np.corrcoef(X_norm_clean)
-            corr_original = np.corrcoef(X_orig_clean)
+            corr_normalized = np.corrcoef(x_norm_clean)
+            corr_original = np.corrcoef(x_orig_clean)
 
             # Handle cases where correlation is NaN (constant features)
             if np.any(np.isnan(corr_normalized)) or np.any(np.isnan(corr_original)):
                 # Use variance ratio as fallback
-                var_norm = np.nanvar(X_norm_clean)
-                var_orig = np.nanvar(X_orig_clean)
+                var_norm = np.nanvar(x_norm_clean)
+                var_orig = np.nanvar(x_orig_clean)
 
-                if var_orig < _EPS:
-                    return 0.5
+                if var_orig < _EPS or var_norm < _EPS:
+                    return 0.0
 
                 ratio = min(var_norm / var_orig, var_orig / var_norm)
                 return float(np.clip(ratio, 0.0, 1.0))
@@ -1159,13 +1276,13 @@ class NormalizationEvaluator(BaseEvaluator):
 
             # Compute correlation between the two correlation vectors
             if len(corr_norm_upper) < 2:
-                return 0.5
+                return 0.0
 
             # Pearson correlation between the correlation structures
             correlation = np.corrcoef(corr_norm_upper, corr_orig_upper)[0, 1]
 
             if np.isnan(correlation):
-                return 0.5
+                return 0.0
 
             # Map to [0, 1]: negative correlation -> low score
             score = (correlation + 1.0) / 2.0
@@ -1174,12 +1291,12 @@ class NormalizationEvaluator(BaseEvaluator):
 
         except (ValueError, RuntimeWarning):
             # Handle numerical issues
-            return 0.5
+            return 0.0
 
     def _compute_variance_stability(
         self,
-        X_normalized: np.ndarray,  # noqa: N803
-        X_original: np.ndarray,  # noqa: N803
+        x_normalized: np.ndarray,
+        x_original: np.ndarray,
     ) -> float:
         """Compute variance stability score.
 
@@ -1188,26 +1305,27 @@ class NormalizationEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-        X_normalized : np.ndarray
+        x_normalized : np.ndarray
             Normalized data matrix (samples x features)
-        X_original : np.ndarray
+        x_original : np.ndarray
             Original data matrix before normalization
 
         Returns
         -------
         float
             Score between 0.0 and 1.0 (higher is better)
+
         """
         # Handle edge cases
-        if X_normalized.shape[0] < 2 or X_normalized.shape[1] < 2:
-            return 0.5
+        if x_normalized.shape[0] < 2 or x_normalized.shape[1] < 2:
+            return 0.0
 
         # Compute total variance before and after normalization
-        var_original = np.nanvar(X_original)
-        var_normalized = np.nanvar(X_normalized)
+        var_original = np.nanvar(x_original)
+        var_normalized = np.nanvar(x_normalized)
 
         if var_original < _EPS:
-            return 0.5
+            return 0.0
 
         # Variance reduction ratio
         reduction_ratio = (var_original - var_normalized) / var_original

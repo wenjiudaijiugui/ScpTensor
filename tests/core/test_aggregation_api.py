@@ -49,11 +49,12 @@ def test_top_level_package_only_reexports_aggregate_function() -> None:
         assert name not in scp.__all__
 
 
-def test_io_aggregate_wrapper_remains_distinct_and_omits_unmapped_label() -> None:
-    assert io_aggregate_to_protein is not aggregate_to_protein_core
+def test_io_aggregate_reexport_matches_stable_aggregation_signature() -> None:
+    assert io_aggregate_to_protein is aggregate_to_protein_core
 
     aggregation_params = inspect.signature(aggregate_to_protein_core).parameters
     io_params = inspect.signature(io_aggregate_to_protein).parameters
 
     assert "unmapped_label" in aggregation_params
-    assert "unmapped_label" not in io_params
+    assert "unmapped_label" in io_params
+    assert tuple(io_params) == tuple(aggregation_params)

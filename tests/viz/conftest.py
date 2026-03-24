@@ -22,6 +22,7 @@ def sample_container() -> ScpContainer:
     ScpContainer
         Container with batch and condition metadata for visualization testing.
         Contains 50 samples and 20 features with random expression data.
+
     """
     np.random.seed(42)
 
@@ -30,7 +31,7 @@ def sample_container() -> ScpContainer:
             "_index": [f"S{i}" for i in range(50)],
             "batch": np.repeat(["A", "B"], 25),
             "condition": np.repeat(["ctrl", "treat"], 25),
-        }
+        },
     )
 
     var = pl.DataFrame({"_index": [f"P{i}" for i in range(20)]})
@@ -51,6 +52,7 @@ def container_with_norm() -> ScpContainer:
     ScpContainer
         Container with 'raw' and 'normalized' layers to test normalization
         visualization. Contains 50 samples and 20 features.
+
     """
     np.random.seed(42)
 
@@ -80,6 +82,7 @@ def container_with_batches() -> ScpContainer:
         Container with simulated batch effects for testing batch correction
         visualization. Different batches have different mean offsets.
         Contains 60 samples and 15 features.
+
     """
     np.random.seed(42)
 
@@ -88,7 +91,7 @@ def container_with_batches() -> ScpContainer:
             "_index": [f"S{i}" for i in range(60)],
             "batch": np.repeat(["batch1", "batch2", "batch3"], 20),
             "condition": np.repeat(["ctrl", "treat"], 30),
-        }
+        },
     )
 
     var = pl.DataFrame({"_index": [f"P{i}" for i in range(15)]})
@@ -113,6 +116,7 @@ def container_with_clusters() -> ScpContainer:
     ScpContainer
         Container with K-means clustering results stored in obs.
         Contains 100 samples, 10 features, and 3 clusters.
+
     """
     np.random.seed(42)
 

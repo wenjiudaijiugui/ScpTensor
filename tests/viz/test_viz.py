@@ -1,5 +1,4 @@
-"""
-Comprehensive tests for visualization modules.
+"""Comprehensive tests for visualization modules.
 
 Tests cover:
 - scptensor.viz.base.scatter: scatter() function with mask handling
@@ -68,7 +67,7 @@ def viz_container():
             "reduce_umap_2": np.random.rand(10),
             "reduce_pca_1": np.random.rand(10),
             "reduce_pca_2": np.random.rand(10),
-        }
+        },
     )
 
     var = pl.DataFrame(
@@ -76,7 +75,7 @@ def viz_container():
             "_index": ["P1", "P2", "P3", "P4", "P5"],
             "protein_id": ["P1", "P2", "P3", "P4", "P5"],
             "protein_name": ["Protein1", "Protein2", "Protein3", "Protein4", "Protein5"],
-        }
+        },
     )
 
     X = np.random.rand(10, 5) * 10
@@ -100,7 +99,7 @@ def viz_container():
     return ScpContainer(
         obs=obs,
         assays={
-            "proteins": assay,  # Note: embedding functions expect "proteins"
+            "proteins": assay,
         },
     )
 
@@ -118,7 +117,7 @@ def minimal_viz_container():
             "reduce_umap_2": [0.3, 0.4],
             "reduce_pca_1": [0.1, 0.2],
             "reduce_pca_2": [0.3, 0.4],
-        }
+        },
     )
 
     var = pl.DataFrame({"_index": ["P1"], "protein_id": ["P1"]})
@@ -127,7 +126,7 @@ def minimal_viz_container():
     M = np.array([[0], [1]], dtype=np.int8)  # One imputed value
 
     assay = Assay(var=var, layers={"raw": ScpMatrix(X=X, M=M)})
-    return ScpContainer(obs=obs, assays={"proteins": assay})  # Note: functions expect "proteins"
+    return ScpContainer(obs=obs, assays={"proteins": assay})
 
 
 # ============================================================================
@@ -529,7 +528,13 @@ class TestEmbedding:
     def test_embedding_with_color_feature(self, viz_container):
         """Test embedding colored by protein expression."""
         plt.close("all")
-        ax = embedding(viz_container, basis="reduce_umap", color="P1", layer="raw")
+        ax = embedding(
+            viz_container,
+            basis="reduce_umap",
+            color="P1",
+            assay_name="proteins",
+            layer="raw",
+        )
 
         assert isinstance(ax, Axes)
         plt.close("all")
@@ -538,8 +543,33 @@ class TestEmbedding:
         """Test embedding with explicit missing markers."""
         plt.close("all")
         ax = embedding(
-            viz_container, basis="reduce_umap", color="P1", layer="raw", show_missing_values=True
+            viz_container,
+            basis="reduce_umap",
+            color="P1",
+            assay_name="proteins",
+            layer="raw",
+            show_missing_values=True,
         )
+
+        assert isinstance(ax, Axes)
+        plt.close("all")
+
+    def test_embedding_metadata_only_does_not_require_protein_assay(self):
+        """Metadata-only embedding plots should not depend on a proteins assay."""
+        plt.close("all")
+        obs = pl.DataFrame(
+            {
+                "_index": ["S1", "S2"],
+                "batch": ["A", "B"],
+                "reduce_umap_1": [0.1, 0.2],
+                "reduce_umap_2": [0.3, 0.4],
+            },
+        )
+        var = pl.DataFrame({"_index": ["pep1"]})
+        assay = Assay(var=var, layers={"raw": ScpMatrix(X=np.array([[1.0], [2.0]]))})
+        container = ScpContainer(obs=obs, assays={"peptides": assay})
+
+        ax = embedding(container, basis="reduce_umap", color="batch")
 
         assert isinstance(ax, Axes)
         plt.close("all")
@@ -588,7 +618,19 @@ class TestEmbedding:
         """Test embedding with non-existent feature."""
         plt.close("all")
         with pytest.raises(ValueError, match="NONEXISTENT_PROTEIN"):
-            embedding(viz_container, basis="reduce_umap", color="NONEXISTENT_PROTEIN", layer="raw")
+            embedding(
+                viz_container,
+                basis="reduce_umap",
+                color="NONEXISTENT_PROTEIN",
+                assay_name="proteins",
+                layer="raw",
+            )
+
+    def test_embedding_feature_color_requires_explicit_assay(self, viz_container):
+        """Feature coloring should fail fast instead of assuming a proteins assay."""
+        plt.close("all")
+        with pytest.raises(ValueError, match="explicit assay_name"):
+            embedding(viz_container, basis="reduce_umap", color="P1", layer="raw")
 
     def test_embedding_without_color(self, viz_container):
         """Test embedding without color."""
@@ -795,7 +837,10 @@ class TestVisualizationIntegration:
 
         # Create completeness plot
         ax1 = qc_completeness(
-            viz_container, assay_name="proteins", layer="normalized", group_by="batch"
+            viz_container,
+            assay_name="proteins",
+            layer="normalized",
+            group_by="batch",
         )
         assert isinstance(ax1, Axes)
 

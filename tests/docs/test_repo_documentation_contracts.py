@@ -28,11 +28,11 @@ CODE_SPAN_PATTERN = re.compile(r"`([^`\n]+)`")
 WORKFLOW_EXTRA_PATTERN = re.compile(r"--extra\s+([A-Za-z0-9_-]+)")
 EDITABLE_EXTRA_PATTERN = re.compile(r'uv pip install -e "\.\[([^\]]+)\]"')
 BARE_LOCAL_PYTHON_PATTERN = re.compile(
-    r"^\s*(?:[A-Z_][A-Z0-9_]*=\S+\s+)*python(?:3)?\s+(?:benchmark/|scripts/)"
+    r"^\s*(?:[A-Z_][A-Z0-9_]*=\S+\s+)*python(?:3)?\s+(?:benchmark/|scripts/)",
 )
 NO_PROJECT_LOCAL_PYTHON_PATTERN = re.compile(
     r"^\s*(?:[A-Z_][A-Z0-9_]*=\S+\s+)*uv run --no-project python\s+"
-    r"(?:benchmark/|scripts/)"
+    r"(?:benchmark/|scripts/)",
 )
 
 

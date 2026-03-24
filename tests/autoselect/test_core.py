@@ -1,5 +1,4 @@
-"""
-Tests for autoselect core data classes.
+"""Tests for autoselect core data classes.
 
 This module contains tests for EvaluationResult, StageReport, and AutoSelectReport.
 """
@@ -24,9 +23,11 @@ class TestEvaluationResult:
 
         assert result.method_name == "log_normalize"
         assert result.scores == {"metric1": 0.9, "metric2": 0.85}
+        assert result.report_metrics == {}
         assert result.overall_score == 0.875
         assert result.execution_time == 1.23
         assert result.layer_name == "log"
+        assert result.output_kind == "layer"
         assert result.error is None
 
     def test_create_evaluation_result_with_error(self):
@@ -44,6 +45,7 @@ class TestEvaluationResult:
 
         assert result.method_name == "failed_method"
         assert result.scores == {}
+        assert result.report_metrics == {}
         assert result.overall_score == 0.0
         assert result.error == "Division by zero"
 
@@ -64,9 +66,11 @@ class TestEvaluationResult:
         assert isinstance(result_dict, dict)
         assert result_dict["method_name"] == "knn_impute"
         assert result_dict["scores"] == {"rmse": 0.15, "correlation": 0.92}
+        assert result_dict["report_metrics"] == {}
         assert result_dict["overall_score"] == 0.90
         assert result_dict["execution_time"] == 2.5
         assert result_dict["layer_name"] == "imputed"
+        assert result_dict["output_kind"] == "layer"
         assert result_dict["error"] is None
 
     def test_evaluation_result_to_dict_with_error(self):
@@ -86,6 +90,38 @@ class TestEvaluationResult:
 
         assert result_dict["error"] == "Out of memory"
         assert result_dict["method_name"] == "bad_method"
+
+    def test_evaluation_result_supports_separate_report_metrics(self):
+        """Selection metrics and report metrics should be serialized separately."""
+        from scptensor.autoselect import EvaluationResult
+
+        result = EvaluationResult(
+            method_name="norm_median",
+            scores={"technical_quality": 0.7},
+            report_metrics={"loading_bias_reduction": 0.9},
+            overall_score=0.7,
+            execution_time=0.5,
+            layer_name="raw_norm_median",
+        )
+
+        assert result.report_metrics == {"loading_bias_reduction": 0.9}
+        assert result.to_dict()["report_metrics"] == {"loading_bias_reduction": 0.9}
+
+    def test_evaluation_result_supports_obs_output_kind(self):
+        """Result metadata should distinguish obs-based outputs from layers."""
+        from scptensor.autoselect import EvaluationResult
+
+        result = EvaluationResult(
+            method_name="kmeans",
+            scores={"silhouette": 0.8},
+            overall_score=0.8,
+            execution_time=0.3,
+            layer_name="kmeans_k5",
+            output_kind="obs",
+        )
+
+        assert result.output_kind == "obs"
+        assert result.to_dict()["output_kind"] == "obs"
 
 
 class TestStageReport:
@@ -235,7 +271,8 @@ class TestAutoSelectReport:
 
         # Warnings are only shown when there are stages
         stage = StageReport(
-            stage_name="test", results=[EvaluationResult("method", {}, 0.9, 0.1, "layer")]
+            stage_name="test",
+            results=[EvaluationResult("method", {}, 0.9, 0.1, "layer")],
         )
         report = AutoSelectReport(stages={"test": stage}, warnings=["Warning 1", "Warning 2"])
 
@@ -254,7 +291,8 @@ class TestAutoSelectReport:
 
         report = AutoSelectReport()
         stage = StageReport(
-            stage_name="qc", results=[EvaluationResult("basic", {}, 0.9, 0.1, "qc")]
+            stage_name="qc",
+            results=[EvaluationResult("basic", {}, 0.9, 0.1, "qc")],
         )
 
         report.stages["qc"] = stage

@@ -6,8 +6,8 @@ correction. It is useful as an explicit baseline in method comparison.
 
 from __future__ import annotations
 
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import ScpContainer
 from scptensor.integration.base import (
     clone_layer_matrix,
     log_integration_operation,
@@ -39,6 +39,7 @@ def integrate_none(
         Source layer to copy.
     new_layer_name : str | None, default="none"
         Target layer name for copied values.
+
     """
     ctx = validate_layer_context(container, assay_name, base_layer)
     assay = ctx.assay

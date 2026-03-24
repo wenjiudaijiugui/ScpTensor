@@ -19,10 +19,10 @@ from scptensor.cluster.base import (
     _prepare_matrix,
     _validate_assay_layer,
 )
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import ScpValueError
 from scptensor.core.jit_ops import NUMBA_AVAILABLE, kmeans_core_numba, kmeans_plusplus_init_numba
-from scptensor.core.structures import ScpContainer
 
 
 def cluster_kmeans(
@@ -78,6 +78,7 @@ def cluster_kmeans(
     >>> result = cluster_kmeans(container, n_clusters=10)
     >>> "kmeans_k10" in result.obs.columns
     True
+
     """
     # Validate parameters
     if n_clusters <= 0:
@@ -119,7 +120,9 @@ def cluster_kmeans(
         )
     else:
         labels = SKLearnKMeans(
-            n_clusters=n_clusters, random_state=random_state, n_init="auto"
+            n_clusters=n_clusters,
+            random_state=random_state,
+            n_init="auto",
         ).fit_predict(X_dense)
 
     # Generate key

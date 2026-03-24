@@ -1,5 +1,4 @@
-"""
-Tests for integration (batch correction) module.
+"""Tests for integration (batch correction) module.
 
 This module provides comprehensive tests for batch effect correction methods:
 - MNN (Mutual Nearest Neighbors) - built-in
@@ -33,12 +32,25 @@ from scptensor.core.exceptions import (
     ValidationError,
 )
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
-from scptensor.integration import get_integrate_method_info, integrate_none
-from scptensor.integration import integrate_combat as combat
-from scptensor.integration import integrate_harmony as harmony
-from scptensor.integration import integrate_limma as limma_correct
-from scptensor.integration import integrate_mnn as mnn_correct
-from scptensor.integration import integrate_scanorama as scanorama_integrate
+from scptensor.integration import (
+    integrate_combat as combat,
+)
+from scptensor.integration import (
+    integrate_harmony as harmony,
+)
+from scptensor.integration import (
+    integrate_limma as limma_correct,
+)
+from scptensor.integration import (
+    integrate_mnn as mnn_correct,
+)
+from scptensor.integration import (
+    integrate_none,
+)
+from scptensor.integration import (
+    integrate_scanorama as scanorama_integrate,
+)
+from scptensor.integration.base import get_integrate_method_info
 from scptensor.integration.combat import _solve_eb
 from scptensor.integration.mnn import (
     _adjust_shift_variance,
@@ -62,8 +74,7 @@ def create_batch_container(
     group_effect_size: float = 1.5,
     random_state: int = 42,
 ) -> ScpContainer:
-    """
-    Create a test container with synthetic batch-effect data.
+    """Create a test container with synthetic batch-effect data.
 
     Parameters
     ----------
@@ -84,6 +95,7 @@ def create_batch_container(
     -------
     ScpContainer
         Container with batch-effect data
+
     """
     np.random.seed(random_state)
 
@@ -113,7 +125,7 @@ def create_batch_container(
             "_index": [f"S{i:03d}" for i in range(total_samples)],
             "batch": batches.tolist(),
             "group": groups.tolist(),
-        }
+        },
     )
 
     var = pl.DataFrame({"_index": [f"P{i:03d}" for i in range(n_features)]})
@@ -173,8 +185,7 @@ def add_pca_inputs(
 
 
 def compute_batch_effect_metric(X: np.ndarray, batches: np.ndarray) -> float:
-    """
-    Compute a metric for batch effect magnitude.
+    """Compute a metric for batch effect magnitude.
 
     Uses F-statistic from ANOVA on batch means.
 
@@ -189,6 +200,7 @@ def compute_batch_effect_metric(X: np.ndarray, batches: np.ndarray) -> float:
     -------
     float
         Batch effect metric (higher = more batch effect)
+
     """
     unique_batches = np.unique(batches)
     batch_means = [np.mean(X[batches == b], axis=0) for b in unique_batches]
@@ -210,10 +222,11 @@ def compute_batch_effect_metric(X: np.ndarray, batches: np.ndarray) -> float:
 
 
 def compute_biological_signal_retention(
-    X: np.ndarray, groups: np.ndarray, n_features: int | None = None
+    X: np.ndarray,
+    groups: np.ndarray,
+    n_features: int | None = None,
 ) -> float:
-    """
-    Compute retention of biological group differences.
+    """Compute retention of biological group differences.
 
     Parameters
     ----------
@@ -228,6 +241,7 @@ def compute_biological_signal_retention(
     -------
     float
         Signal retention metric (higher = better)
+
     """
     if n_features is None:
         n_features = X.shape[1] // 2
@@ -333,7 +347,10 @@ class TestMNNCorrection:
     def test_mnn_basic_two_batches(self):
         """Test MNN correction with two batches."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         # Get original batch effect
@@ -379,7 +396,10 @@ class TestMNNCorrection:
     def test_mnn_three_batches_anchor_correction(self):
         """Test multi-batch MNN uses progressive merging by default."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=3, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=3,
+            random_state=42,
         )
 
         # Apply MNN correction
@@ -402,7 +422,10 @@ class TestMNNCorrection:
     def test_mnn_validates_merge_order(self):
         """Explicit merge order must list each observed batch exactly once."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=20, n_batches=3, random_state=42
+            n_samples_per_batch=20,
+            n_features=20,
+            n_batches=3,
+            random_state=42,
         )
 
         with pytest.raises(ScpValueError, match="merge_order must contain each batch exactly once"):
@@ -417,7 +440,10 @@ class TestMNNCorrection:
     def test_mnn_rejects_legacy_pairwise_mode_for_multibatch(self):
         """Regression: multi-batch full MNN no longer supports pairwise-only mode."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=20, n_batches=3, random_state=42
+            n_samples_per_batch=20,
+            n_features=20,
+            n_batches=3,
+            random_state=42,
         )
 
         with pytest.raises(ScpValueError, match="Full MNN now uses progressive merging"):
@@ -432,7 +458,10 @@ class TestMNNCorrection:
     def test_mnn_with_sparse_input(self):
         """Test MNN correction with sparse input matrix."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         # Convert to sparse
@@ -459,7 +488,10 @@ class TestMNNCorrection:
     def test_mnn_with_nan_values(self):
         """Test MNN correction rejects NaN values without explicit imputation."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         # Add some NaN values
@@ -480,7 +512,10 @@ class TestMNNCorrection:
     def test_mnn_with_inf_values(self):
         """Full MNN should reject Inf values under the complete-finite input contract."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         X = container.assays["protein"].layers["raw"].X
@@ -500,7 +535,10 @@ class TestMNNCorrection:
     def test_mnn_preserves_mask(self):
         """Test MNN correction preserves mask matrix."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         # Create mask
@@ -509,7 +547,8 @@ class TestMNNCorrection:
         M[10:20, 10:20] = 2  # LOD
 
         container.assays["protein"].layers["raw"] = ScpMatrix(
-            X=container.assays["protein"].layers["raw"].X, M=M
+            X=container.assays["protein"].layers["raw"].X,
+            M=M,
         )
 
         # Apply MNN correction
@@ -530,7 +569,10 @@ class TestMNNCorrection:
     def test_mnn_custom_parameters(self):
         """Test MNN correction with custom parameters."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         # Test with different k and sigma
@@ -553,7 +595,10 @@ class TestMNNCorrection:
     def test_mnn_without_pca(self):
         """Test MNN correction without PCA preprocessing."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=30, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=30,
+            n_batches=2,
+            random_state=42,
         )
 
         result = mnn_correct(
@@ -571,7 +616,10 @@ class TestMNNCorrection:
     def test_mnn_custom_layer_name(self):
         """Test MNN correction with custom layer name."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         result = mnn_correct(
@@ -588,7 +636,10 @@ class TestMNNCorrection:
     def test_mnn_none_layer_name_uses_default(self):
         """Test MNN correction with None for layer name uses default."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         result = mnn_correct(
@@ -605,7 +656,10 @@ class TestMNNCorrection:
     def test_mnn_logs_history(self):
         """Test MNN correction logs operation to history."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         initial_history_len = len(container.history)
@@ -639,7 +693,10 @@ class TestMNNCorrection:
     def test_mnn_error_invalid_k(self):
         """Test MNN raises error for invalid k parameter."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         with pytest.raises(ScpValueError, match="k must be positive"):
@@ -663,7 +720,10 @@ class TestMNNCorrection:
     def test_mnn_error_invalid_sigma(self):
         """Test MNN raises error for invalid sigma parameter."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         with pytest.raises(ScpValueError, match="sigma must be positive"):
@@ -687,7 +747,10 @@ class TestMNNCorrection:
     def test_mnn_error_invalid_svd_dim(self):
         """Test MNN validates svd_dim values."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         with pytest.raises(ScpValueError, match="svd_dim must be >= 0"):
@@ -702,7 +765,10 @@ class TestMNNCorrection:
     def test_mnn_error_missing_assay(self):
         """Test MNN raises error for missing assay."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         with pytest.raises(AssayNotFoundError, match="nonexistent"):
@@ -717,7 +783,10 @@ class TestMNNCorrection:
     def test_mnn_error_missing_layer(self):
         """Test MNN raises error for missing layer."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         with pytest.raises(LayerNotFoundError, match="nonexistent"):
@@ -732,7 +801,10 @@ class TestMNNCorrection:
     def test_mnn_error_missing_batch_column(self):
         """Test MNN raises error for missing batch column."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         with pytest.raises(ScpValueError, match="Batch key.*not found"):
@@ -747,7 +819,10 @@ class TestMNNCorrection:
     def test_mnn_error_single_batch(self):
         """Test MNN raises error with only one batch."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         # Modify to have only one batch
@@ -775,7 +850,10 @@ class TestHarmonyIntegration:
     def test_harmony_basic_two_batches(self):
         """Test Harmony integration with two batches."""
         container = create_batch_container(
-            n_samples_per_batch=50, n_features=30, n_batches=2, random_state=42
+            n_samples_per_batch=50,
+            n_features=30,
+            n_batches=2,
+            random_state=42,
         )
         add_pca_assay(container, n_components=20)
 
@@ -801,7 +879,10 @@ class TestHarmonyIntegration:
     def test_harmony_with_sparse_input(self):
         """Test Harmony accepts a PCA-like layer on the protein assay."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=30, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=30,
+            n_batches=2,
+            random_state=42,
         )
 
         # Convert to sparse
@@ -824,7 +905,10 @@ class TestHarmonyIntegration:
     def test_harmony_custom_parameters(self):
         """Test Harmony with custom parameters."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=30, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=30,
+            n_batches=2,
+            random_state=42,
         )
         add_pca_assay(container, n_components=15)
 
@@ -847,7 +931,10 @@ class TestHarmonyIntegration:
     def test_harmony_preserves_mask(self):
         """Test Harmony preserves mask matrix."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=30, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=30,
+            n_batches=2,
+            random_state=42,
         )
 
         X_pca = add_pca_assay(container, n_components=10)
@@ -873,7 +960,10 @@ class TestHarmonyIntegration:
     def test_harmony_rejects_raw_protein_layer(self):
         """Harmony should reject raw protein matrices and require embeddings."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=30, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=30,
+            n_batches=2,
+            random_state=42,
         )
 
         with pytest.raises(ScpValueError, match="requires a low-dimensional embedding input"):
@@ -893,7 +983,10 @@ class TestHarmonyIntegration:
     def test_harmony_error_missing_assay(self):
         """Test Harmony raises error for missing assay."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=30, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=30,
+            n_batches=2,
+            random_state=42,
         )
 
         if not HARMONYPY_AVAILABLE:
@@ -910,7 +1003,10 @@ class TestHarmonyIntegration:
     def test_harmony_error_missing_batch_column(self):
         """Test Harmony raises error for missing batch column."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=30, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=30,
+            n_batches=2,
+            random_state=42,
         )
         add_pca_assay(container, n_components=10)
 
@@ -928,7 +1024,10 @@ class TestHarmonyIntegration:
     def test_harmony_error_single_batch(self):
         """Test Harmony raises error with only one batch."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=30, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=30,
+            n_batches=2,
+            random_state=42,
         )
         add_pca_assay(container, n_components=10)
 
@@ -956,7 +1055,7 @@ class TestHarmonyIntegration:
             {
                 "_index": [f"S{i:03d}" for i in range(n_samples)],
                 "batch": ["batch1"] * 9 + ["batch2"] * 1,  # singleton batch2
-            }
+            },
         )
 
         X = np.random.randn(n_samples, n_features)
@@ -986,13 +1085,19 @@ class TestHarmonyIntegration:
 class TestScanoramaIntegration:
     """Test Scanorama batch correction (requires scanorama)."""
 
-    def test_scanorama_wrapper_passes_genes_and_aligns_output_with_fake_module(self, monkeypatch):
-        """Wrapper should realign features and restore original sample order after per-batch correction."""
+    def test_scanorama_wrapper_passes_genes_and_aligns_output_with_fake_module(
+        self,
+        monkeypatch,
+    ):
+        """Wrapper should realign features and restore original sample order.
+
+        This must happen after per-batch correction.
+        """
         obs = pl.DataFrame(
             {
                 "_index": ["s1", "s2", "s3", "s4"],
                 "batch": ["A", "B", "A", "B"],
-            }
+            },
         )
         X = np.array(
             [
@@ -1039,7 +1144,10 @@ class TestScanoramaIntegration:
     def test_scanorama_explicit_dimred_is_forwarded_with_fake_module(self, monkeypatch):
         """Explicit dimred should be forwarded, while None should use Scanorama's own default."""
         container = create_batch_container(
-            n_samples_per_batch=5, n_features=3, n_batches=2, random_state=42
+            n_samples_per_batch=5,
+            n_features=3,
+            n_batches=2,
+            random_state=42,
         )
 
         captured: dict[str, object] = {}
@@ -1066,7 +1174,10 @@ class TestScanoramaIntegration:
     def test_scanorama_rejects_feature_mismatch_with_fake_module(self, monkeypatch):
         """Wrapper should fail if Scanorama returns a different feature set than the assay."""
         container = create_batch_container(
-            n_samples_per_batch=5, n_features=3, n_batches=2, random_state=42
+            n_samples_per_batch=5,
+            n_features=3,
+            n_batches=2,
+            random_state=42,
         )
         fake_scanorama = types.ModuleType("scanorama")
 
@@ -1085,10 +1196,19 @@ class TestScanoramaIntegration:
                 base_layer="raw",
             )
 
-    def test_scanorama_rejects_return_dimred_before_external_call(self, monkeypatch):
-        """Wrapper should fail before calling Scanorama when low-dimensional output cannot be stored."""
+    def test_scanorama_rejects_return_dimred_before_external_call(
+        self,
+        monkeypatch,
+    ):
+        """Wrapper should fail before calling Scanorama.
+
+        This should happen when low-dimensional output cannot be stored.
+        """
         container = create_batch_container(
-            n_samples_per_batch=5, n_features=3, n_batches=2, random_state=42
+            n_samples_per_batch=5,
+            n_features=3,
+            n_batches=2,
+            random_state=42,
         )
         fake_scanorama = types.ModuleType("scanorama")
 
@@ -1099,7 +1219,8 @@ class TestScanoramaIntegration:
         monkeypatch.setitem(sys.modules, "scanorama", fake_scanorama)
 
         with pytest.raises(
-            ScpValueError, match="cannot store low-dimensional Scanorama embeddings"
+            ScpValueError,
+            match="cannot store low-dimensional Scanorama embeddings",
         ):
             scanorama_integrate(
                 container,
@@ -1113,7 +1234,10 @@ class TestScanoramaIntegration:
     def test_scanorama_rejects_inf_values_with_fake_module(self, monkeypatch):
         """Scanorama should reject Inf under the complete-finite matrix contract."""
         container = create_batch_container(
-            n_samples_per_batch=5, n_features=3, n_batches=2, random_state=42
+            n_samples_per_batch=5,
+            n_features=3,
+            n_batches=2,
+            random_state=42,
         )
         x = container.assays["protein"].layers["raw"].X.copy()
         x[0, 0] = np.inf
@@ -1139,7 +1263,10 @@ class TestScanoramaIntegration:
     def test_scanorama_basic_two_batches(self):
         """Test Scanorama integration with two batches."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         # Apply Scanorama
@@ -1164,7 +1291,10 @@ class TestScanoramaIntegration:
     def test_scanorama_three_batches(self):
         """Test Scanorama with three batches."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=3, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=3,
+            random_state=42,
         )
 
         result = scanorama_integrate(
@@ -1181,7 +1311,10 @@ class TestScanoramaIntegration:
     def test_scanorama_with_sparse_input(self):
         """Test Scanorama with sparse input."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         X_sparse = sparse.csr_matrix(container.assays["protein"].layers["raw"].X)
@@ -1201,11 +1334,15 @@ class TestScanoramaIntegration:
     def test_scanorama_with_dimensionality_reduction(self):
         """Current wrapper should reject low-dimensional Scanorama output on assay layers."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         with pytest.raises(
-            ScpValueError, match="cannot store low-dimensional Scanorama embeddings"
+            ScpValueError,
+            match="cannot store low-dimensional Scanorama embeddings",
         ):
             scanorama_integrate(
                 container,
@@ -1221,7 +1358,10 @@ class TestScanoramaIntegration:
     def test_scanorama_custom_parameters(self):
         """Test Scanorama with custom parameters."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         result = scanorama_integrate(
@@ -1242,14 +1382,18 @@ class TestScanoramaIntegration:
     def test_scanorama_preserves_mask(self):
         """Test Scanorama preserves mask matrix."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         M = np.zeros((60, 50), dtype=np.int8)
         M[0:10, 0:10] = 1
 
         container.assays["protein"].layers["raw"] = ScpMatrix(
-            X=container.assays["protein"].layers["raw"].X, M=M
+            X=container.assays["protein"].layers["raw"].X,
+            M=M,
         )
 
         result = scanorama_integrate(
@@ -1268,7 +1412,10 @@ class TestScanoramaIntegration:
     def test_scanorama_with_nan_values(self):
         """Test Scanorama rejects NaN values without implicit imputation."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         X = container.assays["protein"].layers["raw"].X
@@ -1291,7 +1438,10 @@ class TestScanoramaIntegration:
     def test_scanorama_error_invalid_sigma(self):
         """Test Scanorama raises error for invalid sigma."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         if not SCANORAMA_AVAILABLE:
@@ -1317,7 +1467,10 @@ class TestScanoramaIntegration:
     def test_scanorama_error_invalid_alpha(self):
         """Test Scanorama raises error for invalid alpha."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         if not SCANORAMA_AVAILABLE:
@@ -1343,7 +1496,10 @@ class TestScanoramaIntegration:
     def test_scanorama_error_invalid_knn(self):
         """Test Scanorama raises error for invalid knn."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         if not SCANORAMA_AVAILABLE:
@@ -1369,7 +1525,10 @@ class TestScanoramaIntegration:
     def test_scanorama_error_missing_assay(self):
         """Test Scanorama raises error for missing assay."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         if not SCANORAMA_AVAILABLE:
@@ -1393,7 +1552,10 @@ class TestScanoramaIntegration:
     def test_scanorama_error_single_batch(self):
         """Test Scanorama raises error with only one batch."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         # Modify to single batch
@@ -1429,7 +1591,10 @@ class TestComBatAdditional:
     def test_combat_with_sparse_input(self):
         """Test ComBat with sparse input matrix."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         # Convert to sparse
@@ -1449,7 +1614,10 @@ class TestComBatAdditional:
     def test_combat_with_nan_values(self):
         """Test ComBat rejects NaN values instead of silently imputing."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         X = container.assays["protein"].layers["raw"].X
@@ -1471,7 +1639,10 @@ class TestComBatAdditional:
     def test_combat_with_inf_values(self):
         """Test ComBat rejects Inf values under the complete-finite matrix contract."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         X = container.assays["protein"].layers["raw"].X
@@ -1506,7 +1677,7 @@ class TestComBatAdditional:
                 "_index": [f"S{i:03d}" for i in range(2 * n_samples_per_batch)],
                 "batch": batches.tolist(),
                 "group": groups.tolist(),
-            }
+            },
         )
 
         X = np.random.randn(2 * n_samples_per_batch, n_features)
@@ -1537,7 +1708,7 @@ class TestComBatAdditional:
                 "_index": ["s1", "s2", "s3", "s4"],
                 "batch": ["A", "A", "B", "B"],
                 "group": ["g1", "g2", "g1", "g2"],
-            }
+            },
         )
         var = pl.DataFrame({"_index": ["p1", "p2", "p3"]})
         container = ScpContainer(
@@ -1575,7 +1746,7 @@ class TestComBatAdditional:
             {
                 "_index": [f"S{i:03d}" for i in range(n_samples)],
                 "batch": ["batch1"] * 9 + ["batch2"] * 1,
-            }
+            },
         )
 
         X = np.random.randn(n_samples, n_features)
@@ -1595,7 +1766,10 @@ class TestComBatAdditional:
     def test_combat_preserves_mask(self):
         """Test ComBat preserves mask matrix."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         M = np.zeros((60, 50), dtype=np.int8)
@@ -1603,7 +1777,8 @@ class TestComBatAdditional:
         M[10:20, 10:20] = 2
 
         container.assays["protein"].layers["raw"] = ScpMatrix(
-            X=container.assays["protein"].layers["raw"].X, M=M
+            X=container.assays["protein"].layers["raw"].X,
+            M=M,
         )
 
         result = combat(
@@ -1622,7 +1797,10 @@ class TestComBatAdditional:
     def test_combat_nonparametric_mode(self):
         """Test ComBat nonparametric EB mode."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=40, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=40,
+            n_batches=2,
+            random_state=42,
         )
 
         result = combat(
@@ -1643,7 +1821,10 @@ class TestComBatAdditional:
     def test_combat_invalid_eb_mode_raises_error(self):
         """Test ComBat validates EB mode values."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=30, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=30,
+            n_batches=2,
+            random_state=42,
         )
 
         with pytest.raises(ScpValueError, match="eb_mode must be one of"):
@@ -1658,7 +1839,10 @@ class TestComBatAdditional:
     def test_combat_missing_covariate_column_raises_error(self):
         """ComBat should report missing covariate columns with actionable message."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=30, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=30,
+            n_batches=2,
+            random_state=42,
         )
 
         with pytest.raises(ScpValueError, match="covariates contain missing columns"):
@@ -1673,10 +1857,13 @@ class TestComBatAdditional:
     def test_combat_rejects_nonfinite_covariates(self):
         """ComBat should fail clearly when covariates contain NaN/Inf values."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=12,
+            n_batches=2,
+            random_state=42,
         )
         container.obs = container.obs.with_columns(
-            pl.Series("score", [0.0] * 10 + [1.0] * 10 + [float("nan")] * 20)
+            pl.Series("score", [0.0] * 10 + [1.0] * 10 + [float("nan")] * 20),
         )
 
         with pytest.raises(ScpValueError, match="design matrix containing missing or non-finite"):
@@ -1724,7 +1911,7 @@ class TestComBatAdditional:
                 "_index": ["s1", "s2", "s3", "s4"],
                 "batch": ["A", "A", "B", "B"],
                 "group": ["g1", "g2", "g1", "g2"],
-            }
+            },
         )
         var = pl.DataFrame({"_index": ["p1"]})
         container = ScpContainer(
@@ -1757,7 +1944,7 @@ class TestLimmaIntegration:
             {
                 "_index": ["s1", "s2", "s3", "s4"],
                 "batch": ["A", "A", "B", "B"],
-            }
+            },
         )
         var = pl.DataFrame({"_index": ["p1", "p2", "p3"]})
         container = ScpContainer(
@@ -1791,7 +1978,7 @@ class TestLimmaIntegration:
             {
                 "_index": ["s1", "s2", "s3", "s4"],
                 "batch": ["A", "A", "B", "B"],
-            }
+            },
         )
         var = pl.DataFrame({"_index": ["p1", "p2", "p3"]})
         container = ScpContainer(
@@ -1821,7 +2008,10 @@ class TestLimmaIntegration:
     def test_limma_basic_two_batches(self):
         """Test limma correction adds output layer with preserved shape."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         result = limma_correct(
@@ -1849,7 +2039,7 @@ class TestLimmaIntegration:
                 "_index": [f"S{i:03d}" for i in range(2 * n_samples_per_batch)],
                 "batch": batches.tolist(),
                 "group": groups.tolist(),
-            }
+            },
         )
 
         X = np.random.randn(2 * n_samples_per_batch, n_features)
@@ -1875,7 +2065,10 @@ class TestLimmaIntegration:
     def test_limma_confounded_design_raises_error(self):
         """Test limma raises clear error when batch and covariates are confounded."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=40, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=40,
+            n_batches=2,
+            random_state=42,
         )
         # In this fixture, group is fully aligned with batch by construction.
         with pytest.raises(ValueError, match="rank deficient"):
@@ -1890,7 +2083,10 @@ class TestLimmaIntegration:
     def test_limma_preserves_mask(self):
         """Test limma preserves mask matrix."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=25, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=25,
+            n_batches=2,
+            random_state=42,
         )
         M = np.zeros((60, 25), dtype=np.int8)
         M[0:10, 0:10] = 1
@@ -1907,7 +2103,10 @@ class TestLimmaIntegration:
     def test_limma_reduces_batch_effect(self):
         """Test limma correction reduces ANOVA-style batch metric."""
         container = create_batch_container(
-            n_samples_per_batch=40, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=40,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
         X_orig = container.assays["protein"].layers["raw"].X
         batches = container.obs["batch"].to_numpy()
@@ -1920,7 +2119,10 @@ class TestLimmaIntegration:
     def test_limma_logs_history(self):
         """Test limma logs method metadata in provenance."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=20, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=20,
+            n_batches=2,
+            random_state=42,
         )
 
         result = limma_correct(container, batch_key="batch", assay_name="protein", base_layer="raw")
@@ -1932,7 +2134,10 @@ class TestLimmaIntegration:
     def test_limma_copies_mask_not_reference(self):
         """Regression: integration output M should be copied, not aliased."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=12,
+            n_batches=2,
+            random_state=42,
         )
         raw_layer = container.assays["protein"].layers["raw"]
         raw_layer.M = np.zeros(raw_layer.X.shape, dtype=np.int8)
@@ -1947,7 +2152,10 @@ class TestLimmaIntegration:
     def test_limma_preserves_missing_values_without_imputation(self):
         """Test limma fits on observed samples and keeps missing positions as NaN."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=12,
+            n_batches=2,
+            random_state=42,
         )
         x = container.assays["protein"].layers["raw"].X.copy()
         x[0:5, 0] = np.nan
@@ -1963,7 +2171,10 @@ class TestLimmaIntegration:
     def test_limma_rejects_inf_values(self):
         """Limma-style batch correction should allow NaN but reject Inf inputs."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=12,
+            n_batches=2,
+            random_state=42,
         )
         x = container.assays["protein"].layers["raw"].X.copy()
         x[0, 0] = np.inf
@@ -1975,10 +2186,13 @@ class TestLimmaIntegration:
     def test_limma_rejects_nonfinite_covariates(self):
         """Covariates must be fully observed and finite for the design matrix."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=12,
+            n_batches=2,
+            random_state=42,
         )
         container.obs = container.obs.with_columns(
-            pl.Series("score", [0.0] * 10 + [1.0] * 10 + [float("nan")] * 20)
+            pl.Series("score", [0.0] * 10 + [1.0] * 10 + [float("nan")] * 20),
         )
 
         with pytest.raises(ScpValueError, match="design matrix containing missing or non-finite"):
@@ -1993,7 +2207,10 @@ class TestLimmaIntegration:
     def test_mnn_rejects_nan_values_without_explicit_imputation(self):
         """Embedding-level integration should require complete input."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=10, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=10,
+            n_batches=2,
+            random_state=42,
         )
         x = container.assays["protein"].layers["raw"].X.copy()
         x[0, 0] = np.nan
@@ -2014,7 +2231,10 @@ class TestBatchEffectReduction:
     def test_mnn_reduces_batch_effect(self):
         """Test MNN correction reduces batch effect metric."""
         container = create_batch_container(
-            n_samples_per_batch=40, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=40,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         X_orig = container.assays["protein"].layers["raw"].X
@@ -2038,7 +2258,10 @@ class TestBatchEffectReduction:
     def test_combat_reduces_batch_effect(self):
         """Test ComBat correction reduces batch effect metric."""
         container = create_batch_container(
-            n_samples_per_batch=40, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=40,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         X_orig = container.assays["protein"].layers["raw"].X
@@ -2144,7 +2367,7 @@ class TestEdgeCases:
             {
                 "_index": [f"S{i:03d}" for i in range(n_samples)],
                 "batch": ["batch1"] * 5 + ["batch2"] * 5,
-            }
+            },
         )
 
         X = np.random.randn(n_samples, n_features)
@@ -2173,7 +2396,7 @@ class TestEdgeCases:
             {
                 "_index": [f"S{i:03d}" for i in range(n_samples)],
                 "batch": ["batch1"] * 5 + ["batch2"] * 5,
-            }
+            },
         )
 
         X = np.random.randn(n_samples, n_features)
@@ -2202,7 +2425,7 @@ class TestEdgeCases:
             {
                 "_index": [f"S{i:03d}" for i in range(n_samples_batch1 + n_samples_batch2)],
                 "batch": ["batch1"] * n_samples_batch1 + ["batch2"] * n_samples_batch2,
-            }
+            },
         )
 
         X = np.random.randn(n_samples_batch1 + n_samples_batch2, n_features)
@@ -2233,7 +2456,7 @@ class TestEdgeCases:
             {
                 "_index": [f"S{i:03d}" for i in range(n_samples_batch1 + n_samples_batch2)],
                 "batch": ["batch1"] * n_samples_batch1 + ["batch2"] * n_samples_batch2,
-            }
+            },
         )
 
         X = np.random.randn(n_samples_batch1 + n_samples_batch2, n_features)
@@ -2263,7 +2486,10 @@ class TestHistoryLogging:
     def test_mnn_logs_to_history(self):
         """Test MNN logs operation to history."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         initial_len = len(container.history)
@@ -2281,7 +2507,10 @@ class TestHistoryLogging:
     def test_mnn_history_uses_resolved_assay_name_for_aliases(self):
         """MNN provenance should record the resolved assay key, not the caller alias."""
         container = create_batch_container(
-            n_samples_per_batch=10, n_features=12, n_batches=2, random_state=42
+            n_samples_per_batch=10,
+            n_features=12,
+            n_batches=2,
+            random_state=42,
         )
         container.assays["proteins"] = container.assays.pop("protein")
 
@@ -2299,7 +2528,10 @@ class TestHistoryLogging:
     def test_combat_logs_to_history(self):
         """Test ComBat logs operation to history."""
         container = create_batch_container(
-            n_samples_per_batch=30, n_features=50, n_batches=2, random_state=42
+            n_samples_per_batch=30,
+            n_features=50,
+            n_batches=2,
+            random_state=42,
         )
 
         initial_len = len(container.history)
@@ -2324,7 +2556,10 @@ class TestIntegrationBaselineAndMetadata:
     def test_integrate_none_creates_copied_layer_and_logs(self):
         """No-op integration should copy values into a new layer and log metadata."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=12,
+            n_batches=2,
+            random_state=42,
         )
         x_before = container.assays["protein"].layers["raw"].X
         raw_layer = container.assays["protein"].layers["raw"]
@@ -2355,7 +2590,10 @@ class TestIntegrationBaselineAndMetadata:
     def test_integrate_none_history_uses_resolved_assay_name_for_aliases(self):
         """No-op integration should log the resolved assay key used by the container."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=12,
+            n_batches=2,
+            random_state=42,
         )
         container.assays["proteins"] = container.assays.pop("protein")
 
@@ -2374,7 +2612,10 @@ class TestIntegrationBaselineAndMetadata:
 def test_harmony_runs_with_stub_dependency_and_logs_metadata(monkeypatch):
     """Harmony optional path should stay testable without a real harmonypy install."""
     container = create_batch_container(
-        n_samples_per_batch=8, n_features=10, n_batches=2, random_state=42
+        n_samples_per_batch=8,
+        n_features=10,
+        n_batches=2,
+        random_state=42,
     )
     add_pca_layer_to_protein_assay(container)
 
@@ -2416,7 +2657,10 @@ def test_harmony_runs_with_stub_dependency_and_logs_metadata(monkeypatch):
     def test_integrate_none_preserves_missing_values_verbatim(self):
         """No-op integration should copy incomplete matrices without filling NaN."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=12,
+            n_batches=2,
+            random_state=42,
         )
         x = container.assays["protein"].layers["raw"].X.copy()
         x[0:4, 0] = np.nan
@@ -2439,7 +2683,10 @@ def test_harmony_runs_with_stub_dependency_and_logs_metadata(monkeypatch):
     def test_combat_keeps_source_layer_unchanged_when_target_name_differs(self):
         """Matrix-level correction should not mutate the source layer when writing elsewhere."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=12,
+            n_batches=2,
+            random_state=42,
         )
         raw_layer = container.assays["protein"].layers["raw"]
         raw_x_before = raw_layer.X.copy()
@@ -2462,7 +2709,10 @@ def test_harmony_runs_with_stub_dependency_and_logs_metadata(monkeypatch):
     def test_combat_overwrites_base_layer_when_target_name_matches_source(self):
         """Current layer-collision semantics also apply when target name equals base layer."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=12,
+            n_batches=2,
+            random_state=42,
         )
         raw_layer_before = container.assays["protein"].layers["raw"]
         raw_x_before = raw_layer_before.X.copy()
@@ -2482,7 +2732,10 @@ def test_harmony_runs_with_stub_dependency_and_logs_metadata(monkeypatch):
     def test_integrate_none_missing_batch_key_raises_error(self):
         """No-op integration still validates batch_key for API consistency."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=12,
+            n_batches=2,
+            random_state=42,
         )
 
         with pytest.raises(ScpValueError, match="Batch key.*not found"):
@@ -2496,7 +2749,10 @@ def test_harmony_runs_with_stub_dependency_and_logs_metadata(monkeypatch):
     def test_assay_alias_allows_proteins_for_default_protein_methods(self):
         """Methods with default assay='protein' should work on assay named 'proteins'."""
         container = create_batch_container(
-            n_samples_per_batch=20, n_features=12, n_batches=2, random_state=42
+            n_samples_per_batch=20,
+            n_features=12,
+            n_batches=2,
+            random_state=42,
         )
         protein_assay = container.assays.pop("protein")
         container.assays["proteins"] = protein_assay

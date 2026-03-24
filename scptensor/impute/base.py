@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 import scipy.sparse as sp
 
-from scptensor.core._layer_processing import resolve_layer_context
+from scptensor.core._layer_processing import resolve_assay_and_layer, resolve_layer_context
 from scptensor.core.exceptions import ScpValueError
 
 if TYPE_CHECKING:
@@ -50,6 +50,7 @@ class ImputeMethod:
         Validation function.
     apply : Callable
         Application function.
+
     """
 
     name: str
@@ -70,6 +71,7 @@ def register_impute_method(method: ImputeMethod) -> ImputeMethod:
     -------
     ImputeMethod
         The registered method.
+
     """
     _IMPUTE_METHODS[method.name] = method
     return method
@@ -92,6 +94,7 @@ def get_impute_method(name: str) -> ImputeMethod:
     ------
     ScpValueError
         If method not found.
+
     """
     if name not in _IMPUTE_METHODS:
         available = list(_IMPUTE_METHODS.keys())
@@ -110,6 +113,7 @@ def list_impute_methods() -> list[str]:
     -------
     list[str]
         List of method names.
+
     """
     return list(_IMPUTE_METHODS.keys())
 
@@ -165,8 +169,7 @@ def validate_layer_params(
     layer_name: str,
 ) -> tuple[Assay, ScpMatrix]:
     """Validate and return the assay/layer objects for imputation."""
-    ctx = validate_layer_context(container, assay_name, layer_name)
-    return ctx.assay, ctx.layer
+    return resolve_assay_and_layer(container, assay_name, layer_name)
 
 
 def infer_missing_mechanism(
@@ -291,6 +294,7 @@ def impute(
     --------
     >>> container = impute(container, method='knn', n_neighbors=5)
     >>> container = impute(container, method='bpca', n_components=10)
+
     """
     mechanism: Literal["mcar", "mar", "mnar"] | None = None
     mechanism_reason: str | None = None
@@ -316,17 +320,15 @@ def impute(
 
         selected_method = recommend_impute_method(mechanism_for_auto)
         if selected_method not in _IMPUTE_METHODS:
-            fallback_order = ("knn", "row_mean", "zero")
-            fallback = next((name for name in fallback_order if name in _IMPUTE_METHODS), None)
-            if fallback is None:
-                raise ScpValueError(
-                    "No registered imputation methods available for auto selection.",
-                    parameter="method",
-                    value=method,
-                )
-            selected_method = fallback
-            reason_for_auto = (
-                f"{reason_for_auto} Preferred method unavailable; fallback='{selected_method}'."
+            available = sorted(_IMPUTE_METHODS.keys())
+            raise ScpValueError(
+                "Auto imputation requires the recommended method to be registered. "
+                f"missing_mechanism='{mechanism_for_auto}' recommended method "
+                f"'{selected_method}', but it is unavailable. "
+                "Register/install the recommended method or choose an explicit "
+                f"method. Available methods: {available}",
+                parameter="method",
+                value=method,
             )
 
         kwargs.setdefault("new_layer_name", f"imputed_{selected_method}")

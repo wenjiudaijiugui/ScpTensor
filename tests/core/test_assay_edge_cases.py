@@ -1,5 +1,4 @@
-"""
-Edge case tests for Assay.
+"""Edge case tests for Assay.
 
 This module tests edge cases, boundary conditions, and error handling for Assay.
 """
@@ -322,7 +321,7 @@ class TestAssayWithMetadata:
                 "mean_expr": [1.5, 2.3],
                 "variance": [0.5, 1.2],
                 "n_cells": [100, 150],
-            }
+            },
         )
         X = np.random.rand(10, 2)
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
@@ -335,7 +334,7 @@ class TestAssayWithMetadata:
                 "_index": ["P1", "P2", "P3"],
                 "is_significant": [True, False, True],
                 "is_housekeeping": [False, False, True],
-            }
+            },
         )
         X = np.random.rand(10, 3)
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
@@ -348,7 +347,7 @@ class TestAssayWithMetadata:
                 "_index": ["P1", "P2"],
                 "chromosome": ["chr1", "chr2"],
                 "description": ["Protein 1", "Protein 2"],
-            }
+            },
         )
         X = np.random.rand(10, 2)
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
@@ -363,7 +362,7 @@ class TestAssayWithMetadata:
                 "pval": [0.01, 0.05],
                 "significant": [True, False],
                 "chromosome": ["chr1", "chr2"],
-            }
+            },
         )
         X = np.random.rand(10, 2)
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})

@@ -80,7 +80,7 @@ class TestBatchIterator:
         """Test shuffling of batches."""
         batches_no_shuffle = list(batch_iterator(sample_data, batch_size=32, shuffle=False))
         batches_shuffle = list(
-            batch_iterator(sample_data, batch_size=32, shuffle=True, random_seed=42)
+            batch_iterator(sample_data, batch_size=32, shuffle=True, random_seed=42),
         )
         assert len(batches_no_shuffle) == len(batches_shuffle)
         # Content should be different due to shuffling
@@ -366,7 +366,11 @@ class TestBatchApplyAlongAxis:
             return np.sum(x) * weight
 
         result = batch_apply_along_axis(
-            weighted_sum, axis=1, data=sample_data, batch_size=30, weight=2.0
+            weighted_sum,
+            axis=1,
+            data=sample_data,
+            batch_size=30,
+            weight=2.0,
         )
         assert isinstance(result, np.ndarray)
 
@@ -379,7 +383,11 @@ class TestBatchApplyAlongAxis:
     def test_batch_apply_along_axis_dtype(self, sample_data):
         """Test dtype parameter."""
         result = batch_apply_along_axis(
-            np.sum, axis=1, data=sample_data, batch_size=30, dtype=np.float32
+            np.sum,
+            axis=1,
+            data=sample_data,
+            batch_size=30,
+            dtype=np.float32,
         )
         assert result.dtype == np.float32
 

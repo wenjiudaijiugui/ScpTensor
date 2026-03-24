@@ -12,20 +12,20 @@ def _build_container() -> ScpContainer:
         {
             "sid": ["s1", "s2", "s3"],
             "qc_pass": [True, False, True],
-        }
+        },
     )
     var = pl.DataFrame(
         {
             "protein_id": ["p1", "p2", "p3"],
             "mean_intensity": [10.0, 20.0, 30.0],
-        }
+        },
     )
     X = np.array(
         [
             [1.0, 2.0, 3.0],
             [4.0, 5.0, 6.0],
             [7.0, 8.0, 9.0],
-        ]
+        ],
     )
 
     assay = Assay(var=var, layers={"X": ScpMatrix(X=X)}, feature_id_col="protein_id")

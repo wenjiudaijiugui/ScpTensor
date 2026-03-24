@@ -18,6 +18,11 @@
 - `scptensor.io.load_peptide_pivot`
 - `scptensor.io.aggregate_to_protein`
 
+边界说明：
+
+- `load_peptide_pivot` 只负责 peptide/precursor matrix 导入。
+- protein-level aggregation 必须由显式的 `aggregate_to_protein` 单独触发。
+
 
 ## 2. 适用范围与版本说明
 
@@ -183,7 +188,7 @@
 - `fdr_column_used`
 - `is_vendor_normalized`
 
-当前 `scptensor.io.mass_spec` 已将其中大部分信息记录到 `container.history[-1].params`，文档与后续错误消息应继续对齐这一合同。
+当前 `scptensor.io` importer 层已将其中大部分信息记录到 `container.history[-1].params`，文档与后续错误消息应继续对齐这一合同。
 
 ### 9.2 quantity 列的默认语义
 
@@ -222,7 +227,7 @@
 
 ### 9.4 当前实现快照与解释边界（2026-03-16）
 
-当前 `scptensor.io.mass_spec` 的 matrix/pivot 导入实现采用保守基线：
+当前 `scptensor.io` 的 matrix/pivot 导入实现采用保守基线：
 
 - finite cell -> `VALID`
 - non-finite cell -> `UNCERTAIN`

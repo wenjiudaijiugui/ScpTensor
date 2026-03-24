@@ -42,6 +42,7 @@ def _find_closest_match(input_name: str, options: Collection[str]) -> str | None
     'proteins'
     >>> _find_closest_match("xyz", ["raw", "log"]) is None
     True
+
     """
     if not options:
         return None
@@ -73,6 +74,7 @@ def compute_pca(
     -------
     np.ndarray
         PCA scores of shape (n_samples, n_components).
+
     """
     # Handle NaN: vectorized column median imputation
     if np.any(np.isnan(X)):
@@ -117,6 +119,7 @@ def compute_umap(
     -------
     np.ndarray
         Embedding of shape (n_samples, n_components).
+
     """
     # Handle NaN: vectorized column median imputation
     if np.any(np.isnan(X)):
@@ -144,7 +147,8 @@ def compute_umap(
 
 
 def requires_dependency(
-    package_name: str, install_hint: str
+    package_name: str,
+    install_hint: str,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Decorator to ensure a dependency is installed before executing a function.
 
@@ -154,6 +158,7 @@ def requires_dependency(
 
     Returns:
         Decorator function that checks for dependency before execution.
+
     """
 
     def decorator(func: Callable[P, T]) -> Callable[P, T]:

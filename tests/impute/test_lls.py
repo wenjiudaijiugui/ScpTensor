@@ -1,5 +1,4 @@
-"""
-Tests for LLS (Local Least Squares) imputation.
+"""Tests for LLS (Local Least Squares) imputation.
 
 Tests cover:
 - Basic imputation functionality
@@ -61,7 +60,9 @@ def create_lls_container():
         if with_mask:
             M = np.zeros(X_true.shape, dtype=np.int8)
             M[missing_mask] = np.where(
-                np.random.rand(np.sum(missing_mask)) < 0.5, MaskCode.MBR, MaskCode.LOD
+                np.random.rand(np.sum(missing_mask)) < 0.5,
+                MaskCode.MBR,
+                MaskCode.LOD,
             )
         else:
             M = None
@@ -194,7 +195,9 @@ class TestLLSImputation:
 
         for rate in missing_rates:
             container, X_true, missing_mask = create_lls_container(
-                n_samples=50, n_features=20, missing_rate=rate
+                n_samples=50,
+                n_features=20,
+                missing_rate=rate,
             )
 
             result = impute_lls(
@@ -213,7 +216,10 @@ class TestLLSImputation:
     def test_lls_sparse_matrix(self, create_lls_container):
         """Test LLS with sparse input matrix."""
         container, X_true, missing_mask = create_lls_container(
-            n_samples=50, n_features=20, missing_rate=0.2, use_sparse=True
+            n_samples=50,
+            n_features=20,
+            missing_rate=0.2,
+            use_sparse=True,
         )
 
         result = impute_lls(
@@ -308,7 +314,10 @@ class TestLLSImputation:
     def test_lls_existing_mask_update(self, create_lls_container):
         """Test LLS with existing mask matrix."""
         container, X_true, missing_mask = create_lls_container(
-            n_samples=50, n_features=20, missing_rate=0.2, with_mask=True
+            n_samples=50,
+            n_features=20,
+            missing_rate=0.2,
+            with_mask=True,
         )
 
         result = impute_lls(
@@ -330,12 +339,16 @@ class TestLLSImputation:
     def test_lls_sparse_mask_update(self, create_lls_container):
         """Test LLS with sparse mask matrix."""
         container, X_true, missing_mask = create_lls_container(
-            n_samples=50, n_features=20, missing_rate=0.2, with_mask=False
+            n_samples=50,
+            n_features=20,
+            missing_rate=0.2,
+            with_mask=False,
         )
 
         # Create sparse mask
         M_sparse = sp_sparse.csr_matrix(
-            container.assays["protein"].layers["raw"].X.shape, dtype=np.int8
+            container.assays["protein"].layers["raw"].X.shape,
+            dtype=np.int8,
         )
         container.assays["protein"].layers["raw"].M = M_sparse
 
@@ -443,7 +456,9 @@ class TestLLSImputation:
     def test_lls_imputation_accuracy(self, create_lls_container):
         """Test LLS imputation accuracy on correlated data."""
         container, X_true, missing_mask = create_lls_container(
-            n_samples=100, n_features=50, missing_rate=0.2
+            n_samples=100,
+            n_features=50,
+            missing_rate=0.2,
         )
 
         result = impute_lls(
@@ -576,7 +591,9 @@ class TestLLSEdgeCases:
     def test_high_missing_rate(self, create_lls_container):
         """Test LLS with very high missing rate (80%)."""
         container, X_true, missing_mask = create_lls_container(
-            n_samples=50, n_features=20, missing_rate=0.8
+            n_samples=50,
+            n_features=20,
+            missing_rate=0.8,
         )
 
         result = impute_lls(

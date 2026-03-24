@@ -9,14 +9,14 @@ from scptensor.viz.recipes.embedding import embedding
 
 
 def test_embedding_renders_imputed_mask_code_points() -> None:
-    """mask code 5 (IMPUTED) should still be rendered when showing missing values."""
+    """Mask code 5 (IMPUTED) should still be rendered when showing missing values."""
     plt.close("all")
     obs = pl.DataFrame(
         {
             "_index": ["S1", "S2", "S3", "S4"],
             "reduce_umap_1": [0.0, 1.0, 2.0, 3.0],
             "reduce_umap_2": [1.0, 2.0, 3.0, 4.0],
-        }
+        },
     )
     var = pl.DataFrame({"_index": ["P1"]})
     x = np.array([[1.0], [2.0], [3.0], [4.0]])
@@ -30,6 +30,7 @@ def test_embedding_renders_imputed_mask_code_points() -> None:
         container,
         basis="reduce_umap",
         color="P1",
+        assay_name="proteins",
         layer="raw",
         show_missing_values=True,
     )

@@ -244,7 +244,7 @@ class TestPartialCorrelation:
                 np.random.randn(50),
                 np.random.randn(50),
                 np.random.randn(50) * 0,  # Zero variance column
-            ]
+            ],
         )
         pc = partial_correlation(X, 0, 1, conditioning_set={2})
         assert isinstance(pc, float)

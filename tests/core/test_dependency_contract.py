@@ -45,7 +45,7 @@ def test_default_runtime_dependencies_stay_aligned_to_stable_core() -> None:
             "seaborn",
             "umap-learn",
             "h5py",
-        }
+        },
     )
 
 

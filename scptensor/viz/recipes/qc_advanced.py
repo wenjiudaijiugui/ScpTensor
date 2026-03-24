@@ -17,8 +17,8 @@ import numpy as np
 import scipy.sparse as sp
 from scipy.cluster.hierarchy import leaves_list, linkage
 
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
-from scptensor.core.structures import ScpContainer
 from scptensor.viz.base.style import PlotStyle
 
 try:
@@ -99,6 +99,7 @@ def plot_sensitivity_summary(
     >>> from scptensor.viz.recipes.qc_advanced import plot_sensitivity_summary
     >>> container = create_test_container(n_samples=100)
     >>> ax = plot_sensitivity_summary(container, group_by="batch")
+
     """
     # Apply style
     PlotStyle.apply_style(theme="science")
@@ -257,6 +258,7 @@ def plot_cumulative_sensitivity(
     >>> from scptensor.viz.recipes.qc_advanced import plot_cumulative_sensitivity
     >>> container = create_test_container(n_samples=100)
     >>> ax = plot_cumulative_sensitivity(container)
+
     """
     # Apply style
     PlotStyle.apply_style(theme="science")
@@ -449,6 +451,7 @@ def plot_jaccard_heatmap(
     >>> from scptensor.viz.recipes.qc_advanced import plot_jaccard_heatmap
     >>> container = create_test_container(n_samples=50)
     >>> ax = plot_jaccard_heatmap(container)
+
     """
     # Apply style
     PlotStyle.apply_style(theme="science")
@@ -628,6 +631,7 @@ def plot_missing_type_heatmap(
     >>> from scptensor.viz.recipes.qc_advanced import plot_missing_type_heatmap
     >>> container = create_test_container(n_samples=50)
     >>> ax = plot_missing_type_heatmap(container)
+
     """
     # Apply style
     PlotStyle.apply_style(theme="science")
@@ -710,7 +714,8 @@ def plot_missing_type_heatmap(
 
         # Perform clustering
         linkage_matrix = linkage(
-            feature_dist[np.triu_indices(n_features_sub, k=1)], method="average"
+            feature_dist[np.triu_indices(n_features_sub, k=1)],
+            method="average",
         )
         feature_order = leaves_list(linkage_matrix)
 
@@ -843,6 +848,7 @@ def plot_missing_summary(
     >>> container = create_test_container(n_samples=50)
     >>> fig = plot_missing_summary(container)
     >>> fig.savefig("missing_summary.png", dpi=300)
+
     """
     # Apply style
     PlotStyle.apply_style(theme="science")
@@ -878,7 +884,11 @@ def plot_missing_summary(
     colors_sample = plt.cm.RdYlGn_r(sorted_sample_rates)  # type: ignore[attr-defined]
 
     ax_sample.bar(
-        range(n_samples), sorted_sample_rates, color=colors_sample, edgecolor="black", linewidth=0.5
+        range(n_samples),
+        sorted_sample_rates,
+        color=colors_sample,
+        edgecolor="black",
+        linewidth=0.5,
     )
     ax_sample.set_xlabel("Samples (sorted by missing rate)")
     ax_sample.set_ylabel("Missing Rate")
@@ -891,7 +901,11 @@ def plot_missing_summary(
     # Add mean line
     mean_missing = np.mean(sample_missing_rate)
     ax_sample.axhline(
-        mean_missing, color="red", linestyle="--", linewidth=2, label=f"Mean: {mean_missing:.2%}"
+        mean_missing,
+        color="red",
+        linestyle="--",
+        linewidth=2,
+        label=f"Mean: {mean_missing:.2%}",
     )
     ax_sample.legend(loc="upper right")
     if show_sample_labels and n_samples <= 50:
@@ -927,7 +941,11 @@ def plot_missing_summary(
     else:
         # Show histogram for many features
         ax_feature.hist(
-            feature_missing_rate, bins=30, color="steelblue", edgecolor="black", alpha=0.7
+            feature_missing_rate,
+            bins=30,
+            color="steelblue",
+            edgecolor="black",
+            alpha=0.7,
         )
         ax_feature.set_xlabel("Missing Rate")
         ax_feature.set_ylabel("Number of Features")
@@ -1049,7 +1067,9 @@ def plot_missing_summary(
 
     # Overall title
     fig.suptitle(
-        f"Missing Value Summary: {assay_name} - {layer_name}", fontsize=14, fontweight="bold"
+        f"Missing Value Summary: {assay_name} - {layer_name}",
+        fontsize=14,
+        fontweight="bold",
     )
 
     # Tight layout
@@ -1112,6 +1132,7 @@ def plot_cv_distribution(
     >>> from scptensor.viz.recipes.qc_advanced import plot_cv_distribution
     >>> container = create_test_container(n_samples=50)
     >>> ax = plot_cv_distribution(container, cv_threshold=0.3)
+
     """
     # Apply style
     PlotStyle.apply_style(theme="science")
@@ -1237,7 +1258,11 @@ def plot_cv_distribution(
 
     # Add statistics box
     stats_text = f"Mean CV: {mean_cv:.3f}\nMedian CV: {median_cv:.3f}\n"
-    stats_text += f"Features > {cv_threshold}: {np.sum(all_cv_values_array > cv_threshold)} / {len(all_cv_values_array)}"
+    stats_text += (
+        f"Features > {cv_threshold}: "
+        f"{np.sum(all_cv_values_array > cv_threshold)} / "
+        f"{len(all_cv_values_array)}"
+    )
 
     ax.text(
         0.98,
@@ -1308,6 +1333,7 @@ def plot_cv_by_feature(
     >>> from scptensor.viz.recipes.qc_advanced import plot_cv_by_feature
     >>> container = create_test_container(n_samples=50)
     >>> ax = plot_cv_by_feature(container, cv_threshold=0.3)
+
     """
     # Apply style
     PlotStyle.apply_style(theme="science")
@@ -1470,6 +1496,7 @@ def plot_cv_comparison(
     >>> container = create_test_container(n_samples=100)
     >>> ax = plot_cv_comparison(container, batch_col="batch")
     >>> results = ax.cv_comparison  # Access comparison data
+
     """
     # Apply style
     PlotStyle.apply_style(theme="science")

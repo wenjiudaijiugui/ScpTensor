@@ -338,6 +338,7 @@ selection_score = quality_weight * overall_score + runtime_weight * runtime_scor
 
 - 只在 source layer 具有显式 log provenance 时，才自动纳入 `norm_quantile` 与 `norm_trqn`
 - 若 source layer 是 `raw` 或 unknown scale，则候选集限制为 `norm_none / norm_mean / norm_median`
+- logged 判定来自共享内部 detector，而不是对 `transformation` 私有 helper 的跨阶段直接导入
 - `method_contracts` 当前会为每个方法填充：
   - `input_scale_requirement`
   - `source_layer_logged`

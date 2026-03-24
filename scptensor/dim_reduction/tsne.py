@@ -16,8 +16,10 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 import polars as pl
 
+from scptensor.core._structure_assay import Assay
+from scptensor.core._structure_container import ScpContainer
+from scptensor.core._structure_matrix import ScpMatrix
 from scptensor.core.assay_alias import resolve_assay_name
-from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.dim_reduction.base import (
     _check_no_nan_inf,
     _prepare_matrix,
@@ -94,6 +96,7 @@ def reduce_tsne(
         If layer does not exist.
     ValueError
         If parameters are invalid or data has NaN/Inf.
+
     """
     valid_init = {"pca", "random"}
     valid_method = {"barnes_hut", "exact"}
@@ -130,7 +133,7 @@ def reduce_tsne(
     if init == "pca" and n_components > min(n_samples, n_features):
         raise ValueError(
             "init='pca' requires n_components <= min(n_samples, n_features). "
-            f"Got n_components={n_components}, min_dim={min(n_samples, n_features)}."
+            f"Got n_components={n_components}, min_dim={min(n_samples, n_features)}.",
         )
 
     from sklearn.manifold import TSNE

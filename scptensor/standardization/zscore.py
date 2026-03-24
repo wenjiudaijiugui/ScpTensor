@@ -8,6 +8,7 @@ References:
     Chawade, A., Alexandersson, E., & Levander, F. (2014). Normalyzer:
     a tool for rapid evaluation of normalization methods for omics data sets.
     Journal of Proteome Research.
+
 """
 
 from __future__ import annotations
@@ -15,6 +16,8 @@ from __future__ import annotations
 import numpy as np
 import scipy.sparse as sp
 
+from scptensor.core._structure_container import ScpContainer
+from scptensor.core._structure_matrix import ScpMatrix
 from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import (
     AssayNotFoundError,
@@ -22,7 +25,6 @@ from scptensor.core.exceptions import (
     ScpValueError,
     ValidationError,
 )
-from scptensor.core.structures import ScpContainer, ScpMatrix
 
 
 def zscore(
@@ -54,6 +56,7 @@ def zscore(
     -------
     ScpContainer
         The same container with an added z-score layer.
+
     """
     if axis not in (0, 1):
         raise ScpValueError(

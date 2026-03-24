@@ -17,9 +17,11 @@ from typing import TYPE_CHECKING
 import numpy as np
 import polars as pl
 
+from scptensor.core._structure_assay import Assay
+from scptensor.core._structure_container import ScpContainer
+from scptensor.core._structure_matrix import ScpMatrix
 from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import MissingDependencyError
-from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
 from scptensor.dim_reduction.base import (
     _check_no_nan_inf,
     _prepare_matrix,
@@ -94,6 +96,7 @@ def reduce_umap(
     Notes
     -----
     Input data should be imputed (no missing values) for best results.
+
     """
     # Validate parameters
     if n_components <= 0:
@@ -117,7 +120,7 @@ def reduce_umap(
         raise ValueError(f"UMAP requires at least 2 samples, got {n_samples}")
     if n_neighbors >= n_samples:
         raise ValueError(
-            f"n_neighbors ({n_neighbors}) must be < n_samples ({n_samples}) to avoid truncation."
+            f"n_neighbors ({n_neighbors}) must be < n_samples ({n_samples}) to avoid truncation.",
         )
 
     # Fit UMAP.

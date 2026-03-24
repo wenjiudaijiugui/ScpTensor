@@ -16,6 +16,6 @@ def test_zscore_is_reexported_from_stable_standardization_namespace() -> None:
     assert zscore is zscore_core
 
 
-def test_zscore_is_reexported_from_top_level_package() -> None:
-    assert scp.zscore is zscore_core
-    assert "zscore" in scp.__all__
+def test_zscore_is_not_reexported_from_top_level_package() -> None:
+    assert "zscore" not in scp.__all__
+    assert not hasattr(scp, "zscore")

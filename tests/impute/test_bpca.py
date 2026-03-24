@@ -1,5 +1,4 @@
-"""
-Comprehensive tests for BPCA (Bayesian PCA) imputation module.
+"""Comprehensive tests for BPCA (Bayesian PCA) imputation module.
 
 Tests cover:
 - Basic imputation functionality
@@ -62,7 +61,9 @@ def create_bpca_container():
         if with_mask:
             M = np.zeros(X_true.shape, dtype=np.int8)
             M[missing_mask] = np.where(
-                np.random.rand(np.sum(missing_mask)) < 0.5, MaskCode.MBR, MaskCode.LOD
+                np.random.rand(np.sum(missing_mask)) < 0.5,
+                MaskCode.MBR,
+                MaskCode.LOD,
             )
         else:
             M = None
@@ -192,7 +193,9 @@ class TestBPCAImputation:
 
         for rate in missing_rates:
             container, X_true, missing_mask = create_bpca_container(
-                n_samples=50, n_features=20, missing_rate=rate
+                n_samples=50,
+                n_features=20,
+                missing_rate=rate,
             )
 
             result = bpca(
@@ -211,7 +214,10 @@ class TestBPCAImputation:
     def test_bpca_sparse_matrix(self, create_bpca_container):
         """Test BPCA with sparse input matrix."""
         container, X_true, missing_mask = create_bpca_container(
-            n_samples=50, n_features=20, missing_rate=0.2, use_sparse=True
+            n_samples=50,
+            n_features=20,
+            missing_rate=0.2,
+            use_sparse=True,
         )
 
         result = bpca(
@@ -320,7 +326,10 @@ class TestBPCAImputation:
     def test_bpca_existing_mask_update(self, create_bpca_container):
         """Test BPCA with existing mask matrix."""
         container, X_true, missing_mask = create_bpca_container(
-            n_samples=50, n_features=20, missing_rate=0.2, with_mask=True
+            n_samples=50,
+            n_features=20,
+            missing_rate=0.2,
+            with_mask=True,
         )
 
         result = bpca(
@@ -342,12 +351,16 @@ class TestBPCAImputation:
     def test_bpca_sparse_mask_update(self, create_bpca_container):
         """Test BPCA with sparse mask matrix."""
         container, X_true, missing_mask = create_bpca_container(
-            n_samples=50, n_features=20, missing_rate=0.2, with_mask=False
+            n_samples=50,
+            n_features=20,
+            missing_rate=0.2,
+            with_mask=False,
         )
 
         # Create sparse mask
         M_sparse = sp_sparse.csr_matrix(
-            container.assays["protein"].layers["raw"].X.shape, dtype=np.int8
+            container.assays["protein"].layers["raw"].X.shape,
+            dtype=np.int8,
         )
         container.assays["protein"].layers["raw"].M = M_sparse
 
@@ -566,7 +579,9 @@ class TestBPCAImputation:
     def test_bpca_imputation_quality(self, create_bpca_container):
         """Test that BPCA produces reasonable imputation quality."""
         container, X_true, missing_mask = create_bpca_container(
-            n_samples=100, n_features=50, missing_rate=0.2
+            n_samples=100,
+            n_features=50,
+            missing_rate=0.2,
         )
 
         result = bpca(
@@ -602,7 +617,9 @@ class TestBPCAImputation:
 
         # Observed values should be preserved
         np.testing.assert_array_almost_equal(
-            X_imputed[~missing_mask], X_true[~missing_mask], decimal=10
+            X_imputed[~missing_mask],
+            X_true[~missing_mask],
+            decimal=10,
         )
 
 
@@ -652,7 +669,9 @@ class TestBPCAEdgeCases:
     def test_high_missing_rate(self, create_bpca_container):
         """Test BPCA with very high missing rate (80%)."""
         container, X_true, missing_mask = create_bpca_container(
-            n_samples=100, n_features=50, missing_rate=0.8
+            n_samples=100,
+            n_features=50,
+            missing_rate=0.8,
         )
 
         result = bpca(

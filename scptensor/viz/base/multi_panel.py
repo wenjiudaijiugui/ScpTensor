@@ -22,6 +22,7 @@ class PanelLayout:
     >>> layout.add_panel(0, lambda ax: ax.plot([1, 2, 3]))
     >>> layout.add_panel(1, lambda ax: ax.scatter([1, 2], [3, 4]))
     >>> fig = layout.finalize()
+
     """
 
     def __init__(
@@ -29,8 +30,7 @@ class PanelLayout:
         figsize: tuple[float, float] = (12, 8),
         grid: tuple[int, int] | None = None,
     ) -> None:
-        """
-        Initialize panel layout.
+        """Initialize panel layout.
 
         Parameters
         ----------
@@ -41,6 +41,7 @@ class PanelLayout:
             (n_rows, n_cols) grid specification. If None, grid is
             auto-computed based on the number of panels added.
             Default is None.
+
         """
         self.figsize = figsize
         self.grid = grid
@@ -63,6 +64,7 @@ class PanelLayout:
         -------
         tuple of (int, int)
             (n_rows, n_cols) grid specification.
+
         """
         if n_panels == 0:
             return (1, 1)
@@ -78,7 +80,10 @@ class PanelLayout:
 
         self.grid = target_grid
         figure, axes_array = plt.subplots(
-            target_grid[0], target_grid[1], figsize=self.figsize, squeeze=False
+            target_grid[0],
+            target_grid[1],
+            figsize=self.figsize,
+            squeeze=False,
         )
         self._figure = figure
         self._axes = axes_array.flatten().tolist()
@@ -129,7 +134,10 @@ class PanelLayout:
         return position
 
     def _render_panel(
-        self, idx: int, plot_func: Callable[[Axes], Any], kwargs: dict[str, Any]
+        self,
+        idx: int,
+        plot_func: Callable[[Axes], Any],
+        kwargs: dict[str, Any],
     ) -> Axes:
         """Execute panel plotting function and track mappable outputs."""
         if idx >= len(self._axes):
@@ -150,8 +158,7 @@ class PanelLayout:
         plot_func: Callable[[Axes], Any],
         **kwargs: Any,
     ) -> Axes:
-        """
-        Add subplot panel.
+        """Add subplot panel.
 
         Parameters
         ----------
@@ -172,11 +179,13 @@ class PanelLayout:
         >>> layout = PanelLayout(grid=(2, 2))
         >>> ax = layout.add_panel(0, lambda ax: ax.plot([1, 2, 3]))
         >>> ax = layout.add_panel((0, 1), lambda ax: ax.scatter([1, 2], [3, 4]))
+
         """
         idx = self._position_to_index(position)
 
         required_panels = max(
-            len(self._panel_specs) + (0 if idx in self._panel_specs else 1), idx + 1
+            len(self._panel_specs) + (0 if idx in self._panel_specs else 1),
+            idx + 1,
         )
         self._ensure_figure(required_panels)
 
@@ -189,8 +198,7 @@ class PanelLayout:
         labels: list[str] | None = None,
         **kwargs: Any,
     ) -> None:
-        """
-        Add shared legend across panels.
+        """Add shared legend across panels.
 
         Parameters
         ----------
@@ -206,12 +214,12 @@ class PanelLayout:
         Examples
         --------
         >>> layout.add_legend(labels=["Control", "Treatment"], position="right")
+
         """
         self._legend_elements.append({"position": position, "labels": labels, "kwargs": kwargs})
 
     def add_colorbar(self, position: str = "right", label: str = "") -> None:
-        """
-        Add shared colorbar across panels.
+        """Add shared colorbar across panels.
 
         Creates a colorbar based on the first mappable artist
         (e.g., from imshow, scatter, etc.) added to any panel.
@@ -227,6 +235,7 @@ class PanelLayout:
         --------
         >>> layout.add_panel(0, lambda ax: ax.imshow(data, cmap="viridis"))
         >>> layout.add_colorbar(label="Intensity")
+
         """
         if not self._panel_mappables:
             return
@@ -247,8 +256,7 @@ class PanelLayout:
                 self._figure.colorbar(mappable, ax=axes, label=label)
 
     def finalize(self, tight: bool = True) -> Figure | None:
-        """
-        Finalize layout and adjust spacing.
+        """Finalize layout and adjust spacing.
 
         Parameters
         ----------
@@ -265,6 +273,7 @@ class PanelLayout:
         --------
         >>> fig = layout.finalize()
         >>> fig.savefig("output.png", dpi=300)
+
         """
         self._ensure_figure(self._required_capacity())
 
@@ -310,6 +319,7 @@ class PanelLayout:
         -------
         matplotlib.figure.Figure
             The figure object.
+
         """
         self._ensure_figure(self._required_capacity())
         return self._figure
@@ -322,6 +332,7 @@ class PanelLayout:
         -------
         list of matplotlib.axes.Axes
             List of all axes objects in the grid.
+
         """
         if not self._axes:
             self._ensure_figure(self._required_capacity())

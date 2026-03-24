@@ -6,6 +6,8 @@ import numpy as np
 import polars as pl
 
 from scptensor.autoselect import AutoSelector
+from scptensor.autoselect._heuristics import IMPUTATION_HOLDOUT_HEURISTICS
+from scptensor.autoselect.evaluators.imputation import ImputationEvaluator
 from scptensor.core import Assay, ScpContainer, ScpMatrix
 
 
@@ -71,3 +73,19 @@ def test_impute_none_not_selected_as_best_when_missing_present() -> None:
     )
 
     assert report.best_method != "none"
+
+
+def test_holdout_mask_uses_centralized_holdout_policy() -> None:
+    """Holdout sizing should be derived from the centralized heuristic policy."""
+    evaluator = ImputationEvaluator()
+    observed_mask = np.ones(1000, dtype=bool)
+
+    holdout_mask = evaluator._build_holdout_mask(observed_mask)
+
+    assert holdout_mask is not None
+    expected = max(
+        IMPUTATION_HOLDOUT_HEURISTICS.min_entries,
+        int(observed_mask.sum() * IMPUTATION_HOLDOUT_HEURISTICS.fraction),
+    )
+    expected = min(expected, IMPUTATION_HOLDOUT_HEURISTICS.max_entries, observed_mask.sum())
+    assert int(np.sum(holdout_mask)) == expected

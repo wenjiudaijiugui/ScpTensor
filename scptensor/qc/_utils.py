@@ -8,10 +8,10 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
+from scptensor.core._structure_matrix import MaskCode
 from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ScpValueError
 from scptensor.core.filtering import FilterCriteria
-from scptensor.core.structures import MaskCode
 
 if TYPE_CHECKING:
     from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
@@ -42,6 +42,7 @@ def validate_assay(
     ------
     AssayNotFoundError
         If assay not found.
+
     """
     resolved_assay_name = resolve_assay_name(container, assay_name)
 
@@ -92,6 +93,7 @@ def validate_layer(
     ------
     LayerNotFoundError
         If layer not found.
+
     """
     if layer_name not in assay.layers:
         available = list(assay.layers.keys())
@@ -102,7 +104,7 @@ def validate_layer(
         )
     X = assay.layers[layer_name].X
     if sp.issparse(X):
-        sparse_x = cast(sp.spmatrix, X)
+        sparse_x = cast("sp.spmatrix", X)
         return np.asarray(sparse_x.toarray())
     return np.asarray(X)
 
@@ -113,18 +115,14 @@ def resolve_layer_name(
     assay_name: str,
     layer_name: str | None = None,
     preferred_layer: str | None = None,
-    fallback_to_first: bool = False,
 ) -> str:
-    """Resolve a QC layer name while preserving entrypoint-specific defaults."""
+    """Resolve a QC layer name under the stable explicit-layer contract."""
     if layer_name is not None:
         validate_layer(assay, layer_name, assay_name=assay_name)
         return layer_name
 
     if preferred_layer is not None and preferred_layer in assay.layers:
         return preferred_layer
-
-    if fallback_to_first:
-        return next(iter(assay.layers.keys()))
 
     if preferred_layer is not None:
         validate_layer(assay, preferred_layer, assay_name=assay_name)
@@ -143,7 +141,6 @@ def resolve_layer(
     assay_name: str,
     layer_name: str | None = None,
     preferred_layer: str | None = None,
-    fallback_to_first: bool = False,
 ) -> tuple[str, ScpMatrix]:
     """Resolve and return a QC layer."""
     resolved_layer_name = resolve_layer_name(
@@ -151,30 +148,29 @@ def resolve_layer(
         assay_name=assay_name,
         layer_name=layer_name,
         preferred_layer=preferred_layer,
-        fallback_to_first=fallback_to_first,
     )
     return resolved_layer_name, assay.layers[resolved_layer_name]
 
 
-def _to_dense_float64(X: np.ndarray | sp.spmatrix) -> np.ndarray:  # noqa: N803
+def _to_dense_float64(X: np.ndarray | sp.spmatrix) -> np.ndarray:
     """Convert dense/sparse matrices to dense float64 arrays."""
     if sp.issparse(X):
-        sparse_x = cast(sp.spmatrix, X)
+        sparse_x = cast("sp.spmatrix", X)
         return sparse_x.toarray().astype(np.float64, copy=False)
     return np.asarray(X, dtype=np.float64)
 
 
-def _to_dense_int8(M: np.ndarray | sp.spmatrix) -> np.ndarray:  # noqa: N803
+def _to_dense_int8(M: np.ndarray | sp.spmatrix) -> np.ndarray:
     """Convert dense/sparse mask matrices to dense int8 arrays."""
     if sp.issparse(M):
-        sparse_m = cast(sp.spmatrix, M)
+        sparse_m = cast("sp.spmatrix", M)
         return sparse_m.toarray().astype(np.int8, copy=False)
     return np.asarray(M, dtype=np.int8)
 
 
 def get_detection_mask(
-    X: np.ndarray | sp.spmatrix,  # noqa: N803
-    M: np.ndarray | sp.spmatrix | None = None,  # noqa: N803
+    X: np.ndarray | sp.spmatrix,
+    M: np.ndarray | sp.spmatrix | None = None,
     *,
     detected_codes: tuple[int, ...] = _DETECTED_MASK_CODES,
 ) -> np.ndarray:
@@ -187,7 +183,7 @@ def get_detection_mask(
     """
     if M is None:
         if sp.issparse(X):
-            sparse_x = cast(sp.spmatrix, X)
+            sparse_x = cast("sp.spmatrix", X)
             return sparse_x.toarray() != 0
         return np.isfinite(np.asarray(X))
 
@@ -197,24 +193,24 @@ def get_detection_mask(
 
 
 def count_detected(
-    X: np.ndarray | sp.spmatrix,  # noqa: N803
-    M: np.ndarray | sp.spmatrix | None = None,  # noqa: N803
+    X: np.ndarray | sp.spmatrix,
+    M: np.ndarray | sp.spmatrix | None = None,
     *,
     axis: int = 0,
     detected_codes: tuple[int, ...] = _DETECTED_MASK_CODES,
 ) -> np.ndarray:
     """Count detected values along an axis."""
     if M is None and sp.issparse(X):
-        sparse_x = cast(sp.spmatrix, X)
+        sparse_x = cast("sp.spmatrix", X)
         return np.asarray(sparse_x.getnnz(axis=axis))
     detected_mask = get_detection_mask(X, M, detected_codes=detected_codes)
     return np.sum(detected_mask, axis=axis)
 
 
-def compute_sample_total_intensity(X: np.ndarray | sp.spmatrix) -> np.ndarray:  # noqa: N803
+def compute_sample_total_intensity(X: np.ndarray | sp.spmatrix) -> np.ndarray:
     """Compute per-sample total intensity from the numeric matrix."""
     if sp.issparse(X):
-        sparse_x = cast(sp.spmatrix, X)
+        sparse_x = cast("sp.spmatrix", X)
         return np.asarray(sparse_x.sum(axis=1)).ravel()
     return np.nansum(np.asarray(X), axis=1)
 
@@ -249,6 +245,7 @@ def validate_threshold(
     ------
     ScpValueError
         If value is invalid.
+
     """
     if min_val is not None and value < min_val:
         raise ScpValueError(
@@ -284,6 +281,7 @@ def validate_column_exists(
     ------
     ScpValueError
         If column not found.
+
     """
     if column not in df.columns:
         raise ScpValueError(
@@ -294,7 +292,7 @@ def validate_column_exists(
 
 def compute_detection_stats(
     X: np.ndarray | sp.spmatrix,
-    M: np.ndarray | sp.spmatrix | None = None,  # noqa: N803
+    M: np.ndarray | sp.spmatrix | None = None,
     axis: int = 0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Compute detection statistics.
@@ -313,6 +311,7 @@ def compute_detection_stats(
     -------
     tuple[np.ndarray, np.ndarray, np.ndarray]
         Tuple of (n_detected, detection_rate, means).
+
     """
     x_dense = _to_dense_float64(X)
     detected_mask = get_detection_mask(X, M)
@@ -355,6 +354,7 @@ def log_filtering_operation(
     -------
     ScpContainer
         Updated container.
+
     """
     container.log_operation(action=action, params=params, description=description)
     return container

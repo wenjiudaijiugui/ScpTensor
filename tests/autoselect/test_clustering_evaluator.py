@@ -28,13 +28,13 @@ def container_for_clustering() -> ScpContainer:
     obs = pl.DataFrame(
         {
             "_index": [f"S{i}" for i in range(n_samples)],
-        }
+        },
     )
 
     var = pl.DataFrame(
         {
             "_index": [f"PC{i}" for i in range(n_features)],
-        }
+        },
     )
 
     matrix = ScpMatrix(X=X)
@@ -60,13 +60,13 @@ def container_with_clusters() -> ScpContainer:
         {
             "_index": [f"S{i}" for i in range(n_samples)],
             "kmeans_k5": np.repeat([0, 1, 2, 3, 4], 10),
-        }
+        },
     )
 
     var = pl.DataFrame(
         {
             "_index": [f"PC{i}" for i in range(n_features)],
-        }
+        },
     )
 
     matrix = ScpMatrix(X=X)
@@ -93,7 +93,10 @@ class TestClusteringEvaluatorInit:
     def test_init_custom_params(self):
         """Test initialization with custom parameters."""
         evaluator = ClusteringEvaluator(
-            n_clusters=10, resolution=0.8, n_neighbors=20, random_state=123
+            n_clusters=10,
+            resolution=0.8,
+            n_neighbors=20,
+            random_state=123,
         )
         assert evaluator._n_clusters == 10
         assert evaluator._resolution == 0.8
@@ -203,6 +206,51 @@ class TestClusteringEvaluatorHelpers:
         score = evaluator._compute_stability(X, labels)
         assert 0.0 <= score <= 1.0
 
+    def test_compute_stability_fails_closed_when_subsample_is_not_evaluable(self):
+        """Stability should not assign midpoint credit when subsampling is undefined."""
+        evaluator = ClusteringEvaluator()
+        x_data = np.array([[0.0, 0.0], [1.0, 1.0], [0.2, 0.2]], dtype=float)
+        labels = np.array([0, 1, 1])
+
+        score = evaluator._compute_stability(x_data, labels)
+        assert score == 0.0
+
+    def test_compute_stability_fails_closed_when_subsample_size_matches_cluster_count(self):
+        """Stability should fail closed when the subsample cannot support reclustering."""
+        evaluator = ClusteringEvaluator()
+        x_data = np.array(
+            [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0], [2.2, 2.2]],
+            dtype=float,
+        )
+        labels = np.array([0, 1, 2, 2])
+
+        score = evaluator._compute_stability(x_data, labels)
+        assert score == 0.0
+
+    def test_compute_stability_fails_closed_on_reclustering_exception(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """Unexpected stability errors should not produce surrogate midpoint scores."""
+        import sklearn.cluster
+
+        class BrokenKMeans:
+            def __init__(self, *args, **kwargs) -> None:
+                del args, kwargs
+
+            def fit_predict(self, x_data: np.ndarray) -> np.ndarray:
+                del x_data
+                raise ValueError("boom")
+
+        evaluator = ClusteringEvaluator()
+        rng = np.random.default_rng(42)
+        x_data = rng.normal(size=(12, 4))
+        labels = np.repeat([0, 1, 2], 4)
+        monkeypatch.setattr(sklearn.cluster, "KMeans", BrokenKMeans)
+
+        score = evaluator._compute_stability(x_data, labels)
+        assert score == 0.0
+
     def test_compute_silhouette_single_cluster(self):
         """Test _compute_silhouette with single cluster."""
         evaluator = ClusteringEvaluator()
@@ -257,6 +305,19 @@ class TestClusteringEvaluatorRunAll:
             assert report.best_result is not None
             assert report.best_result.error is None
             assert report.best_result.overall_score >= 0
+            assert report.best_result.output_kind == "obs"
+
+    def test_run_all_marks_all_results_as_obs_outputs(self, container_for_clustering):
+        """Clustering evaluator should label result metadata as obs-based."""
+        evaluator = ClusteringEvaluator(n_clusters=3)
+        _, report = evaluator.run_all(
+            container=container_for_clustering,
+            assay_name="pca",
+            source_layer="X",
+        )
+
+        assert report.results
+        assert all(result.output_kind == "obs" for result in report.results)
 
     def test_run_all_keep_all_uses_unified_obs_attachment(self, container_for_clustering):
         """Obs outputs should be preserved for every successful method when keep_all=True."""
@@ -266,7 +327,7 @@ class TestClusteringEvaluatorRunAll:
             del assay_name, source_layer, kwargs
             labels = np.tile(np.array([0, 1, 2]), len(container.obs) // 3 + 1)[: len(container.obs)]
             container.obs = container.obs.with_columns(
-                pl.Series(name="method_a_result", values=labels)
+                pl.Series(name="method_a_result", values=labels),
             )
             return container
 
@@ -276,7 +337,7 @@ class TestClusteringEvaluatorRunAll:
                 : len(container.obs)
             ]
             container.obs = container.obs.with_columns(
-                pl.Series(name="method_b_result", values=labels)
+                pl.Series(name="method_b_result", values=labels),
             )
             return container
 

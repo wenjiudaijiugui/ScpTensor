@@ -26,13 +26,14 @@ def sample_obs() -> pl.DataFrame:
     -------
     pl.DataFrame
         DataFrame with sample IDs, batch assignments, and group labels.
+
     """
     return pl.DataFrame(
         {
             "_index": ["S1", "S2", "S3", "S4", "S5"],
             "batch": ["batch1", "batch1", "batch2", "batch2", "batch1"],
             "group": ["A", "A", "B", "B", "A"],
-        }
+        },
     )
 
 
@@ -44,13 +45,14 @@ def sample_var() -> pl.DataFrame:
     -------
     pl.DataFrame
         DataFrame with feature IDs, protein names, and chromosome locations.
+
     """
     return pl.DataFrame(
         {
             "_index": ["P1", "P2", "P3", "P4", "P5"],
             "protein_name": ["Protein1", "Protein2", "Protein3", "Protein4", "Protein5"],
             "chromosome": ["chr1", "chr2", "chr3", "chr1", "chr2"],
-        }
+        },
     )
 
 
@@ -62,6 +64,7 @@ def sample_dense_X() -> np.ndarray:
     -------
     np.ndarray
         Random matrix with shape (5, 5), seeded for reproducibility.
+
     """
     rng = np.random.default_rng(42)
     return rng.random((5, 5))
@@ -75,6 +78,7 @@ def sample_sparse_X() -> sparse.csr_matrix:
     -------
     sparse.csr_matrix
         Sparse matrix with approximately 60% zeros, seeded for reproducibility.
+
     """
     rng = np.random.default_rng(42)
     X_dense = rng.random((5, 5))
@@ -91,6 +95,7 @@ def sample_mask_M() -> np.ndarray:
     np.ndarray
         int8 array with mask codes: 0=VALID, 1=MBR, 2=LOD, 3=FILTERED,
         4=OUTLIER, 5=IMPUTED.
+
     """
     M = np.zeros((5, 5), dtype=np.int8)
     M[0, 0] = MaskCode.MBR
@@ -114,6 +119,7 @@ def sample_matrix(sample_dense_X: np.ndarray) -> ScpMatrix:
     -------
     ScpMatrix
         Matrix without mask.
+
     """
     return ScpMatrix(X=sample_dense_X)
 
@@ -136,6 +142,7 @@ def sample_matrix_with_mask(
     -------
     ScpMatrix
         Matrix with mask codes.
+
     """
     return ScpMatrix(X=sample_dense_X, M=sample_mask_M)
 
@@ -153,6 +160,7 @@ def sample_sparse_matrix(sample_sparse_X: sparse.csr_matrix) -> ScpMatrix:
     -------
     ScpMatrix
         Matrix with sparse storage.
+
     """
     return ScpMatrix(X=sample_sparse_X)
 
@@ -172,6 +180,7 @@ def sample_assay(sample_var: pl.DataFrame, sample_dense_X: np.ndarray) -> Assay:
     -------
     Assay
         Assay with 'raw' layer.
+
     """
     return Assay(var=sample_var, layers={"raw": ScpMatrix(X=sample_dense_X)})
 
@@ -197,6 +206,7 @@ def sample_assay_with_mask(
     -------
     Assay
         Assay with masked 'raw' layer.
+
     """
     return Assay(var=sample_var, layers={"raw": ScpMatrix(X=sample_dense_X, M=sample_mask_M)})
 
@@ -219,6 +229,7 @@ def sample_assay_multi_layer(
     -------
     Assay
         Assay with 'raw', 'log', and 'normalized' layers.
+
     """
     X_log = np.log1p(sample_dense_X)
     X_norm = (X_log - X_log.mean()) / (X_log.std() + 1e-8)
@@ -247,6 +258,7 @@ def sample_container(sample_obs: pl.DataFrame, sample_assay: Assay) -> ScpContai
     -------
     ScpContainer
         Container with proteins assay.
+
     """
     return ScpContainer(obs=sample_obs, assays={"proteins": sample_assay})
 
@@ -272,6 +284,7 @@ def sample_container_multi_assay(
     -------
     ScpContainer
         Container with proteins and peptides assays.
+
     """
     assay1 = Assay(var=sample_var, layers={"X": ScpMatrix(X=sample_dense_X)})
     var_peptide = pl.DataFrame({"_index": [f"PEP{i}" for i in range(10)]})
@@ -288,12 +301,13 @@ def sample_aggregation_link() -> AggregationLink:
     -------
     AggregationLink
         Link mapping peptides to their parent proteins.
+
     """
     linkage = pl.DataFrame(
         {
             "source_id": ["PEP1", "PEP2", "PEP3", "PEP4", "PEP5"],
             "target_id": ["P1", "P1", "P2", "P2", "P3"],
-        }
+        },
     )
     return AggregationLink(source_assay="peptides", target_assay="proteins", linkage=linkage)
 
@@ -306,6 +320,7 @@ def minimal_obs() -> pl.DataFrame:
     -------
     pl.DataFrame
         DataFrame with one row.
+
     """
     return pl.DataFrame({"_index": ["S1"]})
 
@@ -318,6 +333,7 @@ def minimal_var() -> pl.DataFrame:
     -------
     pl.DataFrame
         DataFrame with one row.
+
     """
     return pl.DataFrame({"_index": ["P1"]})
 
@@ -330,6 +346,7 @@ def minimal_X() -> np.ndarray:
     -------
     np.ndarray
         Array with shape (1, 1).
+
     """
     return np.array([[1.0]])
 
@@ -342,6 +359,7 @@ def empty_container_data() -> pl.DataFrame:
     -------
     pl.DataFrame
         DataFrame with samples but no assays.
+
     """
     return pl.DataFrame({"_index": ["S1", "S2"]})
 
@@ -354,6 +372,7 @@ def valid_mask_codes() -> list[int]:
     -------
     list[int]
         List of valid mask code integers.
+
     """
     return [0, 1, 2, 3, 4, 5, 6]
 
@@ -366,6 +385,7 @@ def mask_code_names() -> dict[int, str]:
     -------
     dict[int, str]
         Dictionary mapping code values to descriptive names.
+
     """
     return {
         0: "VALID",

@@ -33,7 +33,7 @@
 本文档覆盖：
 
 - `scptensor.standardization.zscore`
-- `scptensor.__init__.zscore` 顶层重导出边界
+- `zscore` 的包级导出边界
 - `zscore` 的输入层、输出层、写回方式、异常类型与 provenance 语义
 
 ### 2.2 非范围
@@ -56,11 +56,9 @@
 
 ### 3.2 顶层包重导出
 
-`scptensor.__all__` 当前也重导出：
+`scptensor.__all__` 当前不再重导出 `zscore`。
 
-- `zscore`
-
-这意味着 `zscore` 已经是顶层 public API，而不是仅限子模块内部使用的 helper。
+这意味着 `zscore` 的稳定导入边界是 `scptensor.standardization`，而不是顶层 convenience import。
 
 ## 4. 模块定位与稳定边界
 

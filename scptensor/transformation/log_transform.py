@@ -15,6 +15,8 @@ from scptensor.core._layer_processing import (
     log_container_operation,
     resolve_layer_context,
 )
+from scptensor.core._log_scale_detection import detect_logged_source_layer
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.assay_alias import resolve_assay_name
 from scptensor.core.exceptions import ScpValueError, ValidationError
 from scptensor.core.sparse_utils import (
@@ -23,7 +25,6 @@ from scptensor.core.sparse_utils import (
     is_sparse_matrix,
     sparse_safe_log1p_with_scale,
 )
-from scptensor.core.structures import ScpContainer
 
 _LAYER_LOG_PATTERN = re.compile(r"(^|[_\-])(log|log2|log10|ln)([_\-]|$)")
 
@@ -145,18 +146,14 @@ def _detect_already_logged(
     *,
     detect_logged_by_distribution: bool = False,
 ) -> tuple[bool, str]:
-    """Detect whether source data appears already log-transformed."""
-    if _layer_name_suggests_logged(source_layer):
-        return True, f"layer name '{source_layer}' suggests log scale"
-
-    if _history_suggests_logged(container, assay_name, source_layer):
-        return True, f"provenance shows '{source_layer}' was created by log_transform"
-
-    if not detect_logged_by_distribution:
-        return False, "no explicit log provenance found from layer naming or history"
-
-    values = _finite_value_sample(x)
-    return _data_suggests_logged(values)
+    """Compatibility wrapper over the shared internal log-scale detector."""
+    return detect_logged_source_layer(
+        container=container,
+        assay_name=assay_name,
+        source_layer=source_layer,
+        x=x,
+        detect_logged_by_distribution=detect_logged_by_distribution,
+    )
 
 
 def log_transform(
@@ -205,6 +202,7 @@ def log_transform(
     -------
     ScpContainer
         Container with transformed layer added.
+
     """
     if not np.isfinite(base) or base <= 0 or base == 1.0:
         raise ScpValueError(
@@ -281,7 +279,7 @@ def log_transform(
 
     if offset == 0.0:
         if input_is_sparse:
-            sparse_x = cast(sp.spmatrix, x)
+            sparse_x = cast("sp.spmatrix", x)
             sparse_data = np.asarray(sparse_x.data)
             has_nonpositive = (sparse_x.nnz < np.prod(sparse_x.shape)) or np.any(sparse_data <= 0)
         else:
@@ -295,7 +293,7 @@ def log_transform(
             )
 
     if input_is_sparse:
-        sparse_x = cast(sp.spmatrix, x)
+        sparse_x = cast("sp.spmatrix", x)
         sparse_data = np.asarray(sparse_x.data)
         if np.any(sparse_data < 0):
             min_val = np.nanmin(sparse_data)

@@ -23,8 +23,8 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.neighbors import NearestNeighbors
 
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import ScpContainer
 from scptensor.integration.base import (
     add_integrated_layer,
     log_integration_operation,
@@ -105,6 +105,7 @@ def integrate_mnn(
     -------
     ScpContainer
         Container with a new exploratory MNN-corrected layer.
+
     """
     if k <= 0:
         raise ScpValueError(f"k must be positive, got {k}.", parameter="k", value=k)
@@ -119,7 +120,10 @@ def integrate_mnn(
     assay = ctx.assay
     layer = ctx.layer
     _, batches, _, _ = validate_batch_integration_params(
-        container, batch_key, ctx.resolved_assay_name, min_batches=2
+        container,
+        batch_key,
+        ctx.resolved_assay_name,
+        min_batches=2,
     )
     X, input_was_sparse = prepare_integration_input(layer, context="MNN integration")
     if not np.isfinite(X).all():
@@ -367,12 +371,14 @@ def _find_mnn_pairs(
 ) -> list[tuple[int, int]]:
     """Find mutual nearest-neighbor pairs between reference and target batches."""
     ref_to_target = NearestNeighbors(
-        n_neighbors=min(k, target_coords.shape[0]), algorithm="auto"
+        n_neighbors=min(k, target_coords.shape[0]),
+        algorithm="auto",
     ).fit(target_coords)
     target_neighbors = ref_to_target.kneighbors(reference_coords, return_distance=False)
 
     target_to_ref = NearestNeighbors(
-        n_neighbors=min(k, reference_coords.shape[0]), algorithm="auto"
+        n_neighbors=min(k, reference_coords.shape[0]),
+        algorithm="auto",
     ).fit(reference_coords)
     ref_neighbors = target_to_ref.kneighbors(target_coords, return_distance=False)
 

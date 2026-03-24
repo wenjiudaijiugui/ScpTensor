@@ -1,5 +1,4 @@
-"""
-Numba JIT-compiled operations for ScpTensor.
+"""Numba JIT-compiled operations for ScpTensor.
 
 This module contains performance-critical functions compiled with Numba JIT
 for accelerated execution on hot loops.
@@ -53,6 +52,7 @@ if NUMBA_AVAILABLE:
         -------
         float
             Euclidean distance, ignoring NaN pairs
+
         """
         n = x.shape[0]
         dist = 0.0
@@ -69,8 +69,7 @@ if NUMBA_AVAILABLE:
 
         if n_valid > 0:
             return np.sqrt(dist / n_valid)
-        else:
-            return np.inf
+        return np.inf
 
     @jit(nopython=True, cache=True)
     def pairwise_euclidean_distances_no_nan(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
@@ -87,6 +86,7 @@ if NUMBA_AVAILABLE:
         -------
         np.ndarray
             Distance matrix (n_samples_x, n_samples_y)
+
         """
         n_x = X.shape[0]
         n_y = Y.shape[0]
@@ -130,6 +130,7 @@ if NUMBA_AVAILABLE:
         -------
         np.ndarray
             Distance vector (n_samples,)
+
         """
         n_samples = Y.shape[0]
         n_features = x.shape[0]
@@ -172,6 +173,7 @@ if NUMBA_AVAILABLE:
         -------
         np.ndarray
             Distance matrix (n_query, n_reference)
+
         """
         n_query = X.shape[0]
         n_reference = Y.shape[0]
@@ -220,6 +222,7 @@ if NUMBA_AVAILABLE:
         -------
         np.ndarray
             Array of length 7 with counts for each mask code (0-6)
+
         """
         counts = np.zeros(7, dtype=np.int64)
         n_rows, n_cols = M.shape
@@ -234,7 +237,8 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def find_missing_indices(
-        M: np.ndarray, mask_codes: tuple[int, ...]
+        M: np.ndarray,
+        mask_codes: tuple[int, ...],
     ) -> tuple[np.ndarray, np.ndarray]:
         """Find indices of values matching specified mask codes.
 
@@ -251,6 +255,7 @@ if NUMBA_AVAILABLE:
             Row indices of matching values
         cols : np.ndarray
             Column indices of matching values
+
         """
         n_rows, n_cols = M.shape
 
@@ -297,6 +302,7 @@ if NUMBA_AVAILABLE:
         -------
         mask : np.ndarray
             Boolean mask matrix
+
         """
         n_rows, n_cols = X.shape
         mask = np.empty((n_rows, n_cols), dtype=np.bool_)
@@ -333,6 +339,7 @@ if NUMBA_AVAILABLE:
         -------
         counts : np.ndarray
             Count of values above threshold
+
         """
         n_rows, n_cols = X.shape
 
@@ -359,7 +366,10 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def filter_by_threshold_count(
-        X: np.ndarray, threshold: float, min_count: int, axis: int
+        X: np.ndarray,
+        threshold: float,
+        min_count: int,
+        axis: int,
     ) -> np.ndarray:
         """Create a boolean mask for rows/columns with enough values above threshold.
 
@@ -379,6 +389,7 @@ if NUMBA_AVAILABLE:
         -------
         mask : np.ndarray
             Boolean mask indicating which rows/columns to keep
+
         """
         counts = count_above_threshold(X, threshold, axis)
         return counts >= min_count
@@ -403,6 +414,7 @@ if NUMBA_AVAILABLE:
         -------
         float
             Mean of non-NaN values
+
         """
         n = arr.shape[0]
         total = 0.0
@@ -416,8 +428,7 @@ if NUMBA_AVAILABLE:
 
         if count > 0:
             return total / count
-        else:
-            return 0.0
+        return 0.0
 
     @jit(nopython=True, cache=True)
     def var_no_nan(arr: np.ndarray) -> float:
@@ -432,6 +443,7 @@ if NUMBA_AVAILABLE:
         -------
         float
             Variance of non-NaN values
+
         """
         n = arr.shape[0]
 
@@ -451,8 +463,7 @@ if NUMBA_AVAILABLE:
 
         if count > 1:
             return total_sq_diff / (count - 1)
-        else:
-            return 0.0
+        return 0.0
 
     @jit(nopython=True, cache=True)
     def mean_axis_no_nan(X: np.ndarray, axis: int) -> np.ndarray:
@@ -469,6 +480,7 @@ if NUMBA_AVAILABLE:
         -------
         means : np.ndarray
             Mean values along specified axis
+
         """
         n_rows, n_cols = X.shape
 
@@ -514,6 +526,7 @@ if NUMBA_AVAILABLE:
         -------
         variances : np.ndarray
             Variance values along specified axis
+
         """
         n_rows, n_cols = X.shape
 
@@ -557,7 +570,10 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def fill_missing_with_value(
-        X: np.ndarray, M: np.ndarray, fill_value: float, fill_mask_code: int
+        X: np.ndarray,
+        M: np.ndarray,
+        fill_value: float,
+        fill_mask_code: int,
     ) -> None:
         """Fill missing values in-place with a constant value.
 
@@ -571,6 +587,7 @@ if NUMBA_AVAILABLE:
             Value to use for filling
         fill_mask_code : int
             Mask code to identify values to fill
+
         """
         n_rows, n_cols = X.shape
 
@@ -589,6 +606,7 @@ if NUMBA_AVAILABLE:
             Data matrix (modified in-place)
         fill_value : float
             Value to use for filling
+
         """
         n_rows, n_cols = X.shape
 
@@ -606,6 +624,7 @@ if NUMBA_AVAILABLE:
         ----------
         X : np.ndarray
             Data matrix (modified in-place)
+
         """
         n_rows, n_cols = X.shape
 
@@ -635,6 +654,7 @@ if NUMBA_AVAILABLE:
         ----------
         X : np.ndarray
             Data matrix (modified in-place)
+
         """
         n_rows, n_cols = X.shape
 
@@ -700,6 +720,7 @@ if NUMBA_AVAILABLE:
         >>> sums = _sparse_row_sum_jit(X.indptr, X.data, X.shape[0])
         >>> sums
         array([3., 3., 9.])
+
         """
         result = np.empty(n_rows, dtype=np.float64)
         for i in prange(n_rows):
@@ -746,6 +767,7 @@ if NUMBA_AVAILABLE:
         >>> means = _sparse_row_mean_jit(X.indptr, X.data, X.shape[0])
         >>> means
         array([1.5, 3. , 4.5])
+
         """
         result = np.empty(n_rows, dtype=np.float64)
         for i in prange(n_rows):
@@ -802,7 +824,8 @@ else:
         return counts
 
     def find_missing_indices(
-        M: np.ndarray, mask_codes: tuple[int, ...] = (1, 2)
+        M: np.ndarray,
+        mask_codes: tuple[int, ...] = (1, 2),
     ) -> tuple[np.ndarray, np.ndarray]:
         """Fallback find missing indices (pure Python)."""
         mask = np.isin(M, list(mask_codes))
@@ -814,19 +837,21 @@ else:
         """Fallback threshold application (pure NumPy)."""
         if comparison == 0:
             return threshold > X
-        elif comparison == 1:
+        if comparison == 1:
             return threshold >= X
-        elif comparison == 2:
+        if comparison == 2:
             return threshold < X
-        else:
-            return threshold <= X
+        return threshold <= X
 
     def count_above_threshold(X: np.ndarray, threshold: float, axis: int) -> np.ndarray:
         """Fallback count above threshold (pure NumPy)."""
         return np.sum(threshold < X, axis=axis)
 
     def filter_by_threshold_count(
-        X: np.ndarray, threshold: float, min_count: int, axis: int
+        X: np.ndarray,
+        threshold: float,
+        min_count: int,
+        axis: int,
     ) -> np.ndarray:
         """Fallback filter by threshold count (pure NumPy)."""
         counts = count_above_threshold(X, threshold, axis)
@@ -878,7 +903,10 @@ else:
 
     # Matrix manipulation
     def fill_missing_with_value(
-        X: np.ndarray, M: np.ndarray, fill_value: float, fill_mask_code: int
+        X: np.ndarray,
+        M: np.ndarray,
+        fill_value: float,
+        fill_mask_code: int,
     ) -> None:
         """Fallback fill (pure NumPy)."""
         mask = fill_mask_code == M
@@ -925,10 +953,8 @@ else:
             w_sum = np.sum(w)
             if w_sum > 1e-10:
                 return np.dot(vals, w / w_sum)
-            else:
-                return np.mean(vals)
-        else:
             return np.mean(vals)
+        return np.mean(vals)
 
     def knn_find_valid_neighbors(
         X: np.ndarray,
@@ -1020,6 +1046,7 @@ if NUMBA_AVAILABLE:
         -------
         float
             Imputed value
+
         """
         n_available = min(k, len(neighbor_values))
 
@@ -1046,18 +1073,16 @@ if NUMBA_AVAILABLE:
                 for i in range(n_available):
                     weighted_sum += neighbor_values[i] * (weights[i] / w_sum)
                 return weighted_sum
-            else:
-                # Fallback to mean
-                total = 0.0
-                for i in range(n_available):
-                    total += neighbor_values[i]
-                return total / n_available
-        else:
-            # Uniform weighting (simple mean)
+            # Fallback to mean
             total = 0.0
             for i in range(n_available):
                 total += neighbor_values[i]
             return total / n_available
+        # Uniform weighting (simple mean)
+        total = 0.0
+        for i in range(n_available):
+            total += neighbor_values[i]
+        return total / n_available
 
     @jit(nopython=True, cache=True)
     def knn_find_valid_neighbors(
@@ -1090,6 +1115,7 @@ if NUMBA_AVAILABLE:
             Corresponding distances
         n_valid : int
             Number of valid neighbors found
+
         """
         max_valid = len(potential_neighbors)
         valid_neighbors_buf = np.empty(max_valid, dtype=np.int64)
@@ -1133,6 +1159,7 @@ if NUMBA_AVAILABLE:
             Boolean mask of missing values
         col_means : np.ndarray
             Column means to use for initialization
+
         """
         n_rows, n_cols = X.shape
 
@@ -1153,6 +1180,7 @@ if NUMBA_AVAILABLE:
         ----------
         X : np.ndarray
             Data matrix (modified in-place)
+
         """
         n_rows, n_cols = X.shape
 
@@ -1205,6 +1233,7 @@ if NUMBA_AVAILABLE:
             Two-tailed p-value (approximate)
         mean_diff : float
             Mean difference (x - y)
+
         """
         n1 = len(x)
         n2 = len(y)
@@ -1265,10 +1294,8 @@ if NUMBA_AVAILABLE:
             p_val = 2.0 * (1.0 - 0.5 * (1.0 + np.erf(abs_t / np.sqrt(2.0))))  # type: ignore[attr-defined]
 
         # Clamp p-value
-        if p_val > 1.0:
-            p_val = 1.0
-        if p_val < 0.0:
-            p_val = 0.0
+        p_val = min(p_val, 1.0)
+        p_val = max(p_val, 0.0)
 
         return t_stat, p_val, mean1 - mean2
 
@@ -1327,6 +1354,7 @@ if NUMBA_AVAILABLE:
         >>> centers = kmeans_plusplus_init_numba(X, k=2, seed=42)
         >>> centers.shape
         (2, 2)
+
         """
         n, d = X.shape
         centers = np.zeros((k, d))
@@ -1340,8 +1368,7 @@ if NUMBA_AVAILABLE:
                     for f in range(d):
                         diff = X[i, f] - centers[j, f]
                         dist += diff * diff
-                    if dist < dists[i]:
-                        dists[i] = dist
+                    dists[i] = min(dists[i], dist)
 
             total = dists.sum()
             if total == 0:
@@ -1412,6 +1439,7 @@ if NUMBA_AVAILABLE:
         ... )
         >>> labels.shape
         (4,)
+
         """
         n_samples, n_features = X.shape
         centers = init_centers.copy()
@@ -1494,6 +1522,7 @@ if NUMBA_AVAILABLE:
         >>> labels = kmeans_predict_numba(X, centers)
         >>> labels
         array([0, 1])
+
         """
         n = X.shape[0]
         labels = np.zeros(n, dtype=np.int64)

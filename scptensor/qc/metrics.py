@@ -33,6 +33,7 @@ def compute_mad(data: np.ndarray, scale_factor: float = 1.4826) -> float:
     >>> mad = compute_mad(data)
     >>> print(f"MAD: {mad:.2f}")
     MAD: 1.48
+
     """
     if len(data) == 0:
         return np.nan
@@ -73,6 +74,7 @@ def is_outlier_mad(
     >>> outliers = is_outlier_mad(data, nmads=3.0)
     >>> print(outliers)
     [False False False False False  True]
+
     """
     if len(data) == 0:
         return np.array([], dtype=bool)
@@ -88,10 +90,9 @@ def is_outlier_mad(
 
     if direction == "lower":
         return data < lower_bound
-    elif direction == "upper":
+    if direction == "upper":
         return data > upper_bound
-    else:
-        return (data < lower_bound) | (data > upper_bound)
+    return (data < lower_bound) | (data > upper_bound)
 
 
 def compute_cv(
@@ -123,9 +124,10 @@ def compute_cv(
     >>> cv = compute_cv(data, axis=0)
     >>> print(f"CV per column: {cv}")
     CV per column: [0.63245553 0.4472136  0.31649661]
+
     """
     if sp.issparse(data):
-        data_sparse = cast(sp.spmatrix, data)
+        data_sparse = cast("sp.spmatrix", data)
         mean = np.array(data_sparse.mean(axis=axis)).flatten()
         data_sq = data_sparse.multiply(data_sparse)
         mean_sq = np.array(data_sq.mean(axis=axis)).flatten()

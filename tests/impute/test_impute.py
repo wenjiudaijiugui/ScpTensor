@@ -1,5 +1,4 @@
-"""
-Comprehensive tests for impute module.
+"""Comprehensive tests for impute module.
 
 Tests cover:
 - knn imputation
@@ -64,7 +63,9 @@ def create_impute_container():
         if with_mask:
             M = np.zeros(X_true.shape, dtype=np.int8)
             M[missing_mask] = np.where(
-                np.random.rand(np.sum(missing_mask)) < 0.5, MaskCode.MBR, MaskCode.LOD
+                np.random.rand(np.sum(missing_mask)) < 0.5,
+                MaskCode.MBR,
+                MaskCode.LOD,
             )
         else:
             M = None
@@ -184,7 +185,9 @@ class TestKNNImputation:
 
         for rate in missing_rates:
             container, X_true, missing_mask = create_impute_container(
-                n_samples=50, n_features=20, missing_rate=rate
+                n_samples=50,
+                n_features=20,
+                missing_rate=rate,
             )
 
             result = knn(container, assay_name="protein", source_layer="raw", k=5)
@@ -201,7 +204,10 @@ class TestKNNImputation:
         dense arrays before distance computation.
         """
         container, X_true, missing_mask = create_impute_container(
-            n_samples=50, n_features=20, missing_rate=0.2, use_sparse=True
+            n_samples=50,
+            n_features=20,
+            missing_rate=0.2,
+            use_sparse=True,
         )
 
         result = knn(container, assay_name="protein", source_layer="raw", k=5)
@@ -263,7 +269,10 @@ class TestKNNImputation:
     def test_knn_mask_preserved(self, create_impute_container):
         """Test that KNN creates and updates mask matrix correctly."""
         container, X_true, missing_mask = create_impute_container(
-            n_samples=50, n_features=20, missing_rate=0.2, with_mask=True
+            n_samples=50,
+            n_features=20,
+            missing_rate=0.2,
+            with_mask=True,
         )
 
         M_original = container.assays["protein"].layers["raw"].M
@@ -402,7 +411,9 @@ class TestMissForestImputation:
 
         for rate in missing_rates:
             container, X_true, _ = create_impute_container(
-                n_samples=50, n_features=20, missing_rate=rate
+                n_samples=50,
+                n_features=20,
+                missing_rate=rate,
             )
 
             result = missforest(
@@ -511,7 +522,10 @@ class TestMissForestImputation:
     def test_missforest_mask_preserved(self, create_impute_container):
         """Test that MissForest creates and updates mask matrix correctly."""
         container, X_true, missing_mask = create_impute_container(
-            n_samples=50, n_features=20, missing_rate=0.2, with_mask=True
+            n_samples=50,
+            n_features=20,
+            missing_rate=0.2,
+            with_mask=True,
         )
 
         M_original = container.assays["protein"].layers["raw"].M

@@ -1,5 +1,4 @@
-"""
-Local Least Squares imputation.
+"""Local Least Squares imputation.
 
 Reference:
     Kim H, et al. Bioinformatics 2005;21(2):187-198.
@@ -12,8 +11,8 @@ from typing import cast
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 
+from scptensor.core._structure_container import ScpContainer
 from scptensor.core.exceptions import ScpValueError
-from scptensor.core.structures import ScpContainer
 from scptensor.impute._utils import (
     add_imputed_layer,
     log_imputation_operation,
@@ -182,6 +181,7 @@ def lls_impute(
     -------
     np.ndarray
         Data with imputed values.
+
     """
     X = np.asarray(data, dtype=np.float64)
     missing_mask = np.isnan(X)
@@ -210,7 +210,7 @@ def lls_impute(
         )
         return X_imputed_t.T, n_iterations
     X_imputed_t = cast(
-        np.ndarray,
+        "np.ndarray",
         _lls_impute_entities(
             X.T,
             k=k,
@@ -241,8 +241,7 @@ def impute_lls(
     max_iter: int = 100,
     tol: float = 1e-6,
 ) -> ScpContainer:
-    """
-    Impute missing values using Local Least Squares.
+    """Impute missing values using Local Least Squares.
 
     Parameters
     ----------
@@ -273,10 +272,11 @@ def impute_lls(
 
     Examples
     --------
-    >>> from scptensor import impute_lls
+    >>> from scptensor.impute import impute_lls
     >>> result = impute_lls(container, "proteins", "raw", k=10)
     >>> "imputed_lls" in result.assays["proteins"].layers
     True
+
     """
     # Validate parameters
     if k <= 0:
@@ -357,5 +357,5 @@ register_impute_method(
         supports_sparse=False,
         validate=validate_lls,
         apply=impute_lls,
-    )
+    ),
 )

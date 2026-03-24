@@ -27,15 +27,15 @@ Reference:
 
 import numpy as np
 
-from scptensor.core.exceptions import ValidationError
-from scptensor.core.structures import ScpContainer
-
-from .base import (
-    ensure_dense,
-    finalize_normalization_layer,
-    get_layer_name,
-    validate_layer_context,
+from scptensor.core._layer_processing import (
+    ensure_dense_matrix,
+    resolve_result_layer_name,
+    write_result_layer_and_log,
 )
+from scptensor.core._structure_container import ScpContainer
+from scptensor.core.exceptions import ValidationError
+
+from ._context import resolve_normalization_context
 
 
 def norm_median(
@@ -121,12 +121,12 @@ def norm_median(
     - Median normalization is robust to outliers.
     - Recommended for proteomics data with skewed distributions.
     - The median is less affected by extreme values than the mean.
+
     """
-    # Validate and get objects
-    ctx = validate_layer_context(container, assay_name, source_layer)
+    ctx = resolve_normalization_context(container, assay_name, source_layer)
     assay = ctx.assay
     input_layer = ctx.layer
-    x_dense = np.asarray(ensure_dense(input_layer.X), dtype=float)
+    x_dense = np.asarray(ensure_dense_matrix(input_layer.X), dtype=float)
     if np.any(np.isinf(x_dense)):
         raise ValidationError(
             "Median normalization does not accept Inf values. "
@@ -143,15 +143,14 @@ def norm_median(
     if add_global_median:
         np.add(X_centered, global_median, out=X_centered)
 
-    # Get layer name
-    layer_name = get_layer_name(new_layer_name, "median_centered")
+    layer_name = resolve_result_layer_name(new_layer_name, "median_centered")
 
-    return finalize_normalization_layer(
+    return write_result_layer_and_log(
         container,
         assay,
-        input_layer,
-        X=X_centered,
-        new_layer_name=layer_name,
+        source_layer=input_layer,
+        layer_name=layer_name,
+        x=X_centered,
         action="normalization_median_centering",
         params={
             "assay": ctx.resolved_assay_name,

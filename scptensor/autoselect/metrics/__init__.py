@@ -42,7 +42,7 @@ Clustering Metrics (clustering.py)
 All metrics return values in the range [0, 1], where higher values
 indicate better quality.
 
-Example
+Example:
 -------
 >>> import numpy as np
 >>> from scptensor.autoselect.metrics import (
@@ -58,6 +58,7 @@ Example
 >>> bio_score = bio_asw(X, bio_labels)
 >>> cluster_score = silhouette_score(X, bio_labels)
 >>> print(f"Stability: {stability:.3f}, Batch: {batch_score:.3f}")
+
 """
 
 from __future__ import annotations

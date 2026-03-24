@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import scipy.sparse as sp
 
-from scptensor.core.assay_alias import resolve_assay_name
-from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, ValidationError
+from scptensor.core._layer_processing import ensure_dense_matrix, resolve_layer_context
+from scptensor.core.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from scptensor.core.structures import Assay, ScpContainer
@@ -41,27 +41,10 @@ def _validate_assay_layer(
         If assay not found.
     LayerNotFoundError
         If layer not found.
+
     """
-    resolved_assay_name = resolve_assay_name(container, assay_name)
-
-    if resolved_assay_name not in container.assays:
-        available = list(container.assays.keys())
-        raise AssayNotFoundError(
-            assay_name=assay_name,
-            available_assays=available,
-        )
-
-    assay = container.assays[resolved_assay_name]
-
-    if layer_name not in assay.layers:
-        available = list(assay.layers.keys())
-        raise LayerNotFoundError(
-            layer_name=layer_name,
-            assay_name=resolved_assay_name,
-            available_layers=available,
-        )
-
-    return assay, assay.layers[layer_name].X
+    ctx = resolve_layer_context(container, assay_name, layer_name)
+    return ctx.assay, ctx.layer.X
 
 
 def _prepare_matrix(
@@ -81,9 +64,9 @@ def _prepare_matrix(
     -------
     np.ndarray
         Dense numpy array.
+
     """
-    if sp.issparse(X):
-        X = X.toarray()  # type: ignore[union-attr]
+    X = ensure_dense_matrix(X)
 
     if dtype is not None:
         X = X.astype(dtype)
@@ -105,6 +88,7 @@ def _check_no_nan_inf(X: np.ndarray | sp.spmatrix) -> None:
     ------
     ValidationError
         If NaN or Inf values found.
+
     """
     if sp.issparse(X):
         X_data = X.data

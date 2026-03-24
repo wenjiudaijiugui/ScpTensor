@@ -1,6 +1,6 @@
 """Public API guardrails for scptensor.io."""
 
-import scptensor.io as io
+from scptensor import io
 
 
 def test_public_mass_spec_api_is_exposed() -> None:

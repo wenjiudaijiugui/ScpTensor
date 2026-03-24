@@ -1,5 +1,4 @@
-"""
-Edge case tests for ScpContainer.
+"""Edge case tests for ScpContainer.
 
 This module tests edge cases, boundary conditions, and error handling for ScpContainer.
 """
@@ -185,7 +184,7 @@ class TestScpContainerHistory:
                 action="import",
                 params={},
                 description="Initial import",
-            )
+            ),
         ]
         container = ScpContainer(obs=obs, assays={}, history=history)
         assert len(container.history) == 1
@@ -330,7 +329,9 @@ class TestScpContainerLinks:
         link = AggregationLink(source_assay="peptides", target_assay="proteins", linkage=linkage)
 
         container = ScpContainer(
-            obs=obs, assays={"proteins": assay1, "peptides": assay2}, links=[link]
+            obs=obs,
+            assays={"proteins": assay1, "peptides": assay2},
+            links=[link],
         )
         assert len(container.links) == 1
         assert container.links[0].source_assay == "peptides"
@@ -343,7 +344,9 @@ class TestScpContainerLinks:
 
         linkage = pl.DataFrame({"source_id": ["PEP1"], "target_id": ["P1"]})
         link = AggregationLink(
-            source_assay="missing_peptides", target_assay="proteins", linkage=linkage
+            source_assay="missing_peptides",
+            target_assay="proteins",
+            linkage=linkage,
         )
 
         with pytest.raises(ValueError, match="source assay 'missing_peptides' not found"):
@@ -357,7 +360,9 @@ class TestScpContainerLinks:
 
         linkage = pl.DataFrame({"source_id": ["PEP1"], "target_id": ["P1"]})
         link = AggregationLink(
-            source_assay="peptides", target_assay="missing_proteins", linkage=linkage
+            source_assay="peptides",
+            target_assay="missing_proteins",
+            linkage=linkage,
         )
 
         with pytest.raises(ValueError, match="target assay 'missing_proteins' not found"):
@@ -376,7 +381,9 @@ class TestScpContainerLinks:
 
         with pytest.raises(ValueError, match="source_id values not found"):
             ScpContainer(
-                obs=obs, assays={"proteins": protein_assay, "peptides": peptide_assay}, links=[link]
+                obs=obs,
+                assays={"proteins": protein_assay, "peptides": peptide_assay},
+                links=[link],
             )
 
     def test_validate_links_with_missing_target_feature(self):
@@ -392,7 +399,9 @@ class TestScpContainerLinks:
 
         with pytest.raises(ValueError, match="target_id values not found"):
             ScpContainer(
-                obs=obs, assays={"proteins": protein_assay, "peptides": peptide_assay}, links=[link]
+                obs=obs,
+                assays={"proteins": protein_assay, "peptides": peptide_assay},
+                links=[link],
             )
 
 
@@ -411,7 +420,7 @@ class TestScpContainerWithMetadata:
     def test_container_with_boolean_metadata(self):
         """Test container with boolean metadata columns."""
         obs = pl.DataFrame(
-            {"_index": ["S1", "S2"], "is_control": [True, False], "passed_qc": [True, True]}
+            {"_index": ["S1", "S2"], "is_control": [True, False], "passed_qc": [True, True]},
         )
         var = pl.DataFrame({"_index": ["P1"]})
         X = np.random.rand(2, 1)
@@ -426,7 +435,7 @@ class TestScpContainerWithMetadata:
                 "_index": ["S1", "S2"],
                 "batch": ["batch1", "batch2"],
                 "condition": ["control", "treatment"],
-            }
+            },
         )
         var = pl.DataFrame({"_index": ["P1"]})
         X = np.random.rand(2, 1)
@@ -443,7 +452,7 @@ class TestScpContainerWithMetadata:
                 "n_proteins": [100, 150],
                 "is_complete": [True, False],
                 "quality_score": [0.85, 0.92],
-            }
+            },
         )
         var = pl.DataFrame({"_index": ["P1"]})
         X = np.random.rand(2, 1)

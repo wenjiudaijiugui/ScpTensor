@@ -7,6 +7,7 @@ import numpy as np
 import polars as pl
 import pytest
 
+from scptensor.autoselect._heuristics import DIM_REDUCTION_HEURISTICS
 from scptensor.autoselect.evaluators.dim_reduction import DimReductionEvaluator
 from scptensor.core import Assay, ScpContainer, ScpMatrix
 
@@ -24,13 +25,13 @@ def container_for_reduction() -> ScpContainer:
     obs = pl.DataFrame(
         {
             "_index": [f"S{i}" for i in range(n_samples)],
-        }
+        },
     )
 
     var = pl.DataFrame(
         {
             "_index": [f"P{i}" for i in range(n_features)],
-        }
+        },
     )
 
     matrix = ScpMatrix(X=X)
@@ -56,16 +57,16 @@ def container_with_pca() -> ScpContainer:
     obs = pl.DataFrame(
         {
             "_index": [f"S{i}" for i in range(n_samples)],
-        }
+        },
     )
 
     var = pl.DataFrame(
         {
             "_index": [f"PC{i}" for i in range(n_features)],
             "explained_variance_ratio": np.array(
-                [0.3, 0.2, 0.15, 0.1, 0.08, 0.06, 0.04, 0.03, 0.03, 0.01]
+                [0.3, 0.2, 0.15, 0.1, 0.08, 0.06, 0.04, 0.03, 0.03, 0.01],
             ),
-        }
+        },
     )
 
     matrix = ScpMatrix(X=X_pca)
@@ -163,6 +164,23 @@ class TestDimReductionEvaluatorComputeMetrics:
         for key in evaluator.metric_weights:
             assert scores[key] == 0.0
 
+    def test_compute_metrics_fails_closed_when_source_layer_context_is_missing(
+        self,
+        container_with_pca,
+    ):
+        """Metrics should not guess source layers when evaluation context is unavailable."""
+        evaluator = DimReductionEvaluator()
+        evaluator._metric_assay_name = "proteins"
+        evaluator._metric_source_layer = "imputed"
+
+        scores = evaluator.compute_metrics(
+            container=container_with_pca,
+            original_container=container_with_pca,
+            layer_name="pca",
+        )
+
+        assert scores == dict.fromkeys(evaluator.metric_weights, 0.0)
+
 
 class TestDimReductionEvaluatorHelpers:
     """Test DimReductionEvaluator helper methods."""
@@ -175,6 +193,38 @@ class TestDimReductionEvaluatorHelpers:
 
         score = evaluator._compute_variance_explained(X, X, assay)
         assert 0.0 <= score <= 1.0
+
+    def test_compute_variance_explained_uses_central_target_policy(self):
+        """Variance score should scale against the centralized target policy."""
+        evaluator = DimReductionEvaluator()
+        target = DIM_REDUCTION_HEURISTICS.variance_explained_target
+        assay = Assay(
+            var=pl.DataFrame(
+                {
+                    "_index": ["PC1"],
+                    "explained_variance_ratio": [target / 2.0],
+                },
+            ),
+        )
+        assay.add_layer("X", ScpMatrix(X=np.random.default_rng(0).normal(size=(8, 1))))
+
+        score = evaluator._compute_variance_explained(
+            np.random.default_rng(1).normal(size=(8, 4)),
+            np.random.default_rng(2).normal(size=(8, 1)),
+            assay,
+        )
+        assert score == pytest.approx(0.5)
+
+    def test_compute_variance_explained_fails_closed_without_metadata(self):
+        """Variance explained should not use hardcoded proxy scores without provenance."""
+        evaluator = DimReductionEvaluator()
+        assay = Assay(var=pl.DataFrame({"_index": ["C1", "C2"]}))
+        assay.add_layer("X", ScpMatrix(X=np.random.default_rng(0).normal(size=(8, 2))))
+        x_original = np.random.default_rng(1).normal(size=(8, 6))
+        x_reduced = np.random.default_rng(2).normal(size=(8, 2))
+
+        score = evaluator._compute_variance_explained(x_original, x_reduced, assay)
+        assert score == 0.0
 
     def test_compute_local_structure(self):
         """Test _compute_local_structure method."""
@@ -194,6 +244,15 @@ class TestDimReductionEvaluatorHelpers:
 
         score = evaluator._compute_clustering_potential(X)
         assert 0.0 <= score <= 1.0
+
+    def test_compute_reconstruction_error_returns_zero_for_degenerate_input(self):
+        """Degenerate inputs should fail closed instead of returning a neutral score."""
+        evaluator = DimReductionEvaluator()
+        x_original = np.ones((20, 5), dtype=float)
+        x_reduced = np.ones((20, 2), dtype=float)
+
+        score = evaluator._compute_reconstruction_error(x_original, x_reduced)
+        assert score == 0.0
 
 
 class TestDimReductionEvaluatorRunAll:

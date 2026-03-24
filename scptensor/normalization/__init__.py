@@ -11,20 +11,13 @@ Available Methods:
     norm_trqn: Tail-robust quantile normalization for protein-level matrices
     normalize: Unified normalization dispatcher
 
-Note
+Note:
 ----
 Log transformation is categorized under :mod:`scptensor.transformation`.
+
 """
 
 from .api import norm_none, normalize
-from .base import (
-    apply_normalization,
-    create_result_layer,
-    ensure_dense,
-    get_layer_name,
-    log_operation,
-    validate_assay_and_layer,
-)
 from .mean_normalization import norm_mean
 from .median_normalization import norm_median
 from .quantile_normalization import norm_quantile
@@ -38,11 +31,4 @@ __all__ = [
     "norm_quantile",
     "norm_trqn",
     "normalize",
-    # Base utilities (for internal use)
-    "apply_normalization",
-    "create_result_layer",
-    "ensure_dense",
-    "get_layer_name",
-    "log_operation",
-    "validate_assay_and_layer",
 ]

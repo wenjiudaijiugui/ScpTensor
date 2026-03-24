@@ -39,6 +39,7 @@ def create_quantile_test_container(
 
     Returns:
         A test ScpContainer
+
     """
     rng = np.random.default_rng(seed)
 
@@ -48,7 +49,7 @@ def create_quantile_test_container(
             "_index": [f"sample_{i}" for i in range(n_samples)],
             "batch": rng.choice(["A", "B"], n_samples),
             "condition": rng.choice(["control", "treatment"], n_samples),
-        }
+        },
     )
 
     # Create feature metadata
@@ -56,7 +57,7 @@ def create_quantile_test_container(
         {
             "_index": [f"protein_{i}" for i in range(n_features)],
             "mean_intensity": rng.uniform(10, 30, n_features),
-        }
+        },
     )
 
     # Create data matrix with different distributions per sample
@@ -120,7 +121,7 @@ class TestQuantileNormalization:
                 [1.0, 2.0, 3.0, 4.0],
                 [10.0, 20.0, 30.0, 40.0],
                 [100.0, 200.0, 300.0, 400.0],
-            ]
+            ],
         )
 
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
@@ -163,7 +164,10 @@ class TestQuantileNormalization:
         container = create_quantile_test_container(seed=42)
 
         result = norm_quantile(
-            container, assay_name="protein", source_layer="raw", new_layer_name="custom_quantile"
+            container,
+            assay_name="protein",
+            source_layer="raw",
+            new_layer_name="custom_quantile",
         )
 
         assert "custom_quantile" in result.assays["protein"].layers
@@ -257,7 +261,7 @@ class TestQuantileNormalization:
                 [10.0, 20.0, 30.0],
                 [np.nan, np.nan, np.nan],
                 [15.0, 25.0, 35.0],
-            ]
+            ],
         )
 
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})
@@ -278,7 +282,7 @@ class TestQuantileNormalization:
             [
                 [5.0, 5.0, 3.0, 1.0],  # Tied values: 5.0 appears twice
                 [2.0, 4.0, 6.0, 8.0],
-            ]
+            ],
         )
 
         assay = Assay(var=var, layers={"raw": ScpMatrix(X=X)})

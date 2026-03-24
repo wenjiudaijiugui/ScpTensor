@@ -1,5 +1,4 @@
-"""
-Tests for clustering modules.
+"""Tests for clustering modules.
 
 Tests cover:
 - cluster_kmeans (simplified API, aligned with scanpy)
@@ -155,10 +154,16 @@ class TestClusterKmeans:
     def test_kmeans_random_state_reproducibility(self, pca_container):
         """Test K-means reproducibility with random_state."""
         result1 = cluster_kmeans(
-            pca_container, assay_name="reduce_pca", n_clusters=3, random_state=123
+            pca_container,
+            assay_name="reduce_pca",
+            n_clusters=3,
+            random_state=123,
         )
         result2 = cluster_kmeans(
-            pca_container, assay_name="reduce_pca", n_clusters=3, random_state=123
+            pca_container,
+            assay_name="reduce_pca",
+            n_clusters=3,
+            random_state=123,
         )
 
         labels1 = result1.obs["kmeans_k3"].to_list()
@@ -225,7 +230,10 @@ class TestClusterKmeans:
     def test_kmeans_backend_sklearn_default(self, pca_container):
         """Test K-means with default sklearn backend."""
         result = cluster_kmeans(
-            pca_container, assay_name="reduce_pca", n_clusters=3, backend="sklearn"
+            pca_container,
+            assay_name="reduce_pca",
+            n_clusters=3,
+            backend="sklearn",
         )
 
         assert "kmeans_k3" in result.obs.columns
@@ -272,7 +280,8 @@ class TestClusterLeiden:
     """Tests for cluster_leiden function."""
 
     @pytest.mark.skipif(
-        not LEIDEN_AVAILABLE, reason="Requires optional dependencies: leidenalg and python-igraph"
+        not LEIDEN_AVAILABLE,
+        reason="Requires optional dependencies: leidenalg and python-igraph",
     )
     def test_leiden_basic(self, pca_container):
         """Test basic Leiden clustering."""
@@ -282,7 +291,8 @@ class TestClusterLeiden:
         assert expected_col in result.obs.columns
 
     @pytest.mark.skipif(
-        not LEIDEN_AVAILABLE, reason="Requires optional dependencies: leidenalg and python-igraph"
+        not LEIDEN_AVAILABLE,
+        reason="Requires optional dependencies: leidenalg and python-igraph",
     )
     def test_leiden_different_resolution(self, pca_container):
         """Test Leiden with different resolution parameters."""
@@ -292,7 +302,8 @@ class TestClusterLeiden:
             assert expected_col in result.obs.columns
 
     @pytest.mark.skipif(
-        not LEIDEN_AVAILABLE, reason="Requires optional dependencies: leidenalg and python-igraph"
+        not LEIDEN_AVAILABLE,
+        reason="Requires optional dependencies: leidenalg and python-igraph",
     )
     def test_leiden_custom_key_added(self, pca_container):
         """Test Leiden with custom key_added."""
@@ -305,7 +316,8 @@ class TestClusterLeiden:
         assert "my_leiden" in result.obs.columns
 
     @pytest.mark.skipif(
-        not LEIDEN_AVAILABLE, reason="Requires optional dependencies: leidenalg and python-igraph"
+        not LEIDEN_AVAILABLE,
+        reason="Requires optional dependencies: leidenalg and python-igraph",
     )
     def test_leiden_invalid_n_neighbors_zero(self, pca_container):
         """Test Leiden with n_neighbors=0 raises error."""
@@ -313,7 +325,8 @@ class TestClusterLeiden:
             cluster_leiden(pca_container, n_neighbors=0)
 
     @pytest.mark.skipif(
-        not LEIDEN_AVAILABLE, reason="Requires optional dependencies: leidenalg and python-igraph"
+        not LEIDEN_AVAILABLE,
+        reason="Requires optional dependencies: leidenalg and python-igraph",
     )
     def test_leiden_invalid_resolution_zero(self, pca_container):
         """Test Leiden with resolution=0 raises error."""
@@ -321,7 +334,8 @@ class TestClusterLeiden:
             cluster_leiden(pca_container, resolution=0)
 
     @pytest.mark.skipif(
-        not LEIDEN_AVAILABLE, reason="Requires optional dependencies: leidenalg and python-igraph"
+        not LEIDEN_AVAILABLE,
+        reason="Requires optional dependencies: leidenalg and python-igraph",
     )
     def test_leiden_caps_n_neighbors_to_available_samples(self, pca_container):
         """Leiden should cap large n_neighbors values instead of failing on small datasets."""
@@ -331,7 +345,8 @@ class TestClusterLeiden:
         assert result.history[-1].params["n_neighbors"] == pca_container.n_samples
 
     @pytest.mark.skipif(
-        not LEIDEN_AVAILABLE, reason="Requires optional dependencies: leidenalg and python-igraph"
+        not LEIDEN_AVAILABLE,
+        reason="Requires optional dependencies: leidenalg and python-igraph",
     )
     def test_leiden_uses_unified_history_keys(self, pca_container):
         """Leiden provenance should use the same source/output key schema."""

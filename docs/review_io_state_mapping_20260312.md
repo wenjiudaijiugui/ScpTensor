@@ -118,7 +118,7 @@
 
 - 资源类型：`本地实现上下文`
 - 文档：[io_diann_spectronaut.md](io_diann_spectronaut.md)
-- 代码：[mass_spec.py](../scptensor/io/mass_spec.py)
+- 代码：[api.py](../scptensor/io/api.py)、[profiles.py](../scptensor/io/profiles.py)、[long_table.py](../scptensor/io/long_table.py)、[matrix_table.py](../scptensor/io/matrix_table.py)
 - 当前实现直接体现的事实：
   - `DIA-NN` 与 `Spectronaut` 的 `protein / peptide` 两层 profile 已分开。
   - 代码已经识别 vendor-normalized 列名，并为不同软件维护字段候选集合。

@@ -28,7 +28,7 @@ auto_reduce
 auto_cluster
     Auto-select optimal clustering method (experimental stage)
 
-Example
+Example:
 -------
 >>> from scptensor.autoselect import AutoSelectReport, StageReport, EvaluationResult
 >>> result = EvaluationResult(
@@ -52,6 +52,7 @@ Using shortcut functions:
 >>> from scptensor.autoselect import auto_normalize
 >>> container, report = auto_normalize(container)
 >>> print(f"Best method: {report.best_method}")
+
 """
 
 from __future__ import annotations
@@ -117,10 +118,15 @@ def auto_normalize(
     automatically when ``source_layer`` has explicit log provenance from layer
     naming or transformation history. On raw/unknown-scale layers, AutoSelect
     restricts the candidate set to `norm_none`, `norm_mean`, and `norm_median`.
+
     """
     selector = AutoSelector(stages=["normalize"], keep_all=keep_all)
     return selector.run_stage(
-        container, stage="normalize", assay_name=assay_name, source_layer=source_layer, **kwargs
+        container,
+        stage="normalize",
+        assay_name=assay_name,
+        source_layer=source_layer,
+        **kwargs,
     )
 
 
@@ -162,10 +168,15 @@ def auto_impute(
     -----
     This is a convenience function that creates a single-stage AutoSelector.
     For multi-stage pipelines, use AutoSelector directly.
+
     """
     selector = AutoSelector(stages=["impute"], keep_all=keep_all)
     return selector.run_stage(
-        container, stage="impute", assay_name=assay_name, source_layer=source_layer, **kwargs
+        container,
+        stage="impute",
+        assay_name=assay_name,
+        source_layer=source_layer,
+        **kwargs,
     )
 
 
@@ -217,6 +228,7 @@ def auto_integrate(
     -----
     This is a convenience function that creates a single-stage AutoSelector.
     For multi-stage pipelines, use AutoSelector directly.
+
     """
     selector = AutoSelector(stages=["integrate"], keep_all=keep_all)
     return selector.run_stage(
@@ -268,10 +280,15 @@ def auto_reduce(
     This is a convenience function that creates a single-stage AutoSelector.
     For multi-stage pipelines, use AutoSelector directly.
     The ``reduce`` stage is classified as experimental in current release scope.
+
     """
     selector = AutoSelector(stages=["reduce"], keep_all=keep_all)
     return selector.run_stage(
-        container, stage="reduce", assay_name=assay_name, source_layer=source_layer, **kwargs
+        container,
+        stage="reduce",
+        assay_name=assay_name,
+        source_layer=source_layer,
+        **kwargs,
     )
 
 
@@ -314,10 +331,15 @@ def auto_cluster(
     This is a convenience function that creates a single-stage AutoSelector.
     For multi-stage pipelines, use AutoSelector directly.
     The ``cluster`` stage is classified as experimental in current release scope.
+
     """
     selector = AutoSelector(stages=["cluster"], keep_all=keep_all)
     return selector.run_stage(
-        container, stage="cluster", assay_name=assay_name, source_layer=source_layer, **kwargs
+        container,
+        stage="cluster",
+        assay_name=assay_name,
+        source_layer=source_layer,
+        **kwargs,
     )
 
 

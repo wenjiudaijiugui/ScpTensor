@@ -1,5 +1,4 @@
-"""
-Tests for BaseEvaluator abstract base class.
+"""Tests for BaseEvaluator abstract base class.
 
 This module contains tests for the BaseEvaluator abstract class and its
 concrete implementations.
@@ -13,7 +12,7 @@ import polars as pl
 import pytest
 
 from scptensor.autoselect import EvaluationResult, StageReport
-from scptensor.autoselect.evaluators.base import BaseEvaluator
+from scptensor.autoselect.evaluators.base import BaseEvaluator, create_wrapper
 from scptensor.core import Assay, ScpContainer, ScpMatrix
 
 
@@ -58,13 +57,16 @@ class MockEvaluator(BaseEvaluator):
         # Use layer name to generate different scores for testing
         if "method_a" in layer_name:
             return {"metric1": 0.9, "metric2": 0.8, "metric3": 0.85}
-        elif "method_b" in layer_name:
+        if "method_b" in layer_name:
             return {"metric1": 0.85, "metric2": 0.9, "metric3": 0.8}
-        else:
-            return {"metric1": 0.7, "metric2": 0.7, "metric3": 0.7}
+        return {"metric1": 0.7, "metric2": 0.7, "metric3": 0.7}
 
     def _method_a(
-        self, container: ScpContainer, assay_name: str, source_layer: str, **kwargs
+        self,
+        container: ScpContainer,
+        assay_name: str,
+        source_layer: str,
+        **kwargs,
     ) -> ScpContainer:
         """Mock method A that succeeds."""
         assay = container.assays[assay_name]
@@ -76,7 +78,11 @@ class MockEvaluator(BaseEvaluator):
         return container
 
     def _method_b(
-        self, container: ScpContainer, assay_name: str, source_layer: str, **kwargs
+        self,
+        container: ScpContainer,
+        assay_name: str,
+        source_layer: str,
+        **kwargs,
     ) -> ScpContainer:
         """Mock method B that succeeds."""
         assay = container.assays[assay_name]
@@ -88,7 +94,11 @@ class MockEvaluator(BaseEvaluator):
         return container
 
     def _method_failing(
-        self, container: ScpContainer, assay_name: str, source_layer: str, **kwargs
+        self,
+        container: ScpContainer,
+        assay_name: str,
+        source_layer: str,
+        **kwargs,
     ) -> ScpContainer:
         """Mock method that always fails."""
         raise ValueError("Intentional failure for testing")
@@ -104,14 +114,14 @@ def simple_container() -> ScpContainer:
         {
             "_index": ["S1", "S2", "S3", "S4", "S5"],
             "batch": ["B1", "B1", "B2", "B2", "B1"],
-        }
+        },
     )
 
     var = pl.DataFrame(
         {
             "_index": ["P1", "P2", "P3"],
             "protein": ["A", "B", "C"],
-        }
+        },
     )
 
     matrix = ScpMatrix(X=X)
@@ -202,7 +212,10 @@ class TestComputeOverallScore:
                 return {"metric1": 0.0, "metric2": 0.0}
 
             def compute_metrics(
-                self, container, original_container, layer_name
+                self,
+                container,
+                original_container,
+                layer_name,
             ) -> dict[str, float]:
                 return {}
 
@@ -293,6 +306,12 @@ class TestEvaluateMethod:
 
         assert result_container is not None
         assert eval_result.layer_name == "raw_method_a"
+
+    def test_get_metric_assay_has_no_hidden_default(self, simple_container):
+        """Metric assay lookup should not silently fall back to proteins."""
+        evaluator = MockEvaluator()
+
+        assert evaluator._get_metric_assay(simple_container) is None
 
 
 class TestRunAll:
@@ -412,6 +431,7 @@ class TestRunAll:
         assert report.success_rate == 0.0
         assert report.best_method == ""
         assert report.best_result is None
+        assert "unchanged input-container copy" in report.recommendation_reason
 
     def test_run_all_success_rate(self, simple_container):
         """Test that success_rate is correctly calculated."""
@@ -563,6 +583,80 @@ class TestRunAll:
         evaluator._apply_selection_scores(speed_results, "speed")
         assert quality_heavy.selection_score == pytest.approx(0.585)
         assert speed_heavy.selection_score == pytest.approx(0.87)
+
+
+class TestCreateWrapperContract:
+    """Test strict runtime/fixed-parameter contract in create_wrapper."""
+
+    def test_create_wrapper_rejects_unsupported_runtime_kwargs(self, simple_container):
+        """Unknown runtime kwargs must fail explicitly instead of being ignored."""
+
+        def method(
+            container: ScpContainer,
+            assay_name: str,
+            source_layer: str,
+            new_layer_name: str,
+            alpha: float = 1.0,
+        ) -> ScpContainer:
+            del assay_name, source_layer, new_layer_name, alpha
+            return container
+
+        wrapper = create_wrapper(method)
+
+        with pytest.raises(TypeError, match="unsupported runtime kwargs.*beta"):
+            wrapper(simple_container.copy(), "proteins", "raw", beta=2.0)
+
+    def test_create_wrapper_rejects_unsupported_extra_params(self):
+        """Wrapper creation should fail when fixed params are not declared."""
+
+        def method(
+            container: ScpContainer,
+            assay_name: str,
+            source_layer: str,
+            new_layer_name: str,
+        ) -> ScpContainer:
+            del assay_name, source_layer, new_layer_name
+            return container
+
+        with pytest.raises(TypeError, match="unsupported fixed params.*gamma"):
+            create_wrapper(method, gamma=1.0)
+
+    def test_create_wrapper_requires_explicit_core_params(self):
+        """Wrapped methods must explicitly declare the core adapter params."""
+
+        def missing_source_layer(
+            container: ScpContainer,
+            assay_name: str,
+            new_layer_name: str,
+        ) -> ScpContainer:
+            del assay_name, new_layer_name
+            return container
+
+        with pytest.raises(
+            TypeError,
+            match="requires `missing_source_layer` to declare parameters",
+        ):
+            create_wrapper(missing_source_layer)
+
+    def test_create_wrapper_stays_strict_even_if_method_has_var_kwargs(self, simple_container):
+        """`**kwargs` in target method does not relax wrapper runtime contract."""
+
+        def method(
+            container: ScpContainer,
+            assay_name: str,
+            source_layer: str,
+            new_layer_name: str,
+            alpha: float = 1.0,
+            **extra,
+        ) -> ScpContainer:
+            del assay_name, source_layer, new_layer_name, alpha, extra
+            return container
+
+        wrapper = create_wrapper(method)
+        wrapper(simple_container.copy(), "proteins", "raw", alpha=3.0)
+
+        with pytest.raises(TypeError, match="unsupported runtime kwargs.*beta"):
+            wrapper(simple_container.copy(), "proteins", "raw", beta=2.0)
 
 
 class TestEvaluatorProperties:

@@ -6,13 +6,9 @@ from scptensor.core.exceptions import ScpTensorError
 class IOPasswordError(ScpTensorError):
     """HDF5 file password protection errors."""
 
-    pass
-
 
 class IOFormatError(ScpTensorError):
     """File format corruption or version incompatibility."""
-
-    pass
 
 
 class IOWriteError(ScpTensorError):
