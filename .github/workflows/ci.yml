@@ -10,6 +10,7 @@ on:
 env:
   FORCE_COLOR: 1
   UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
+  MPLBACKEND: Agg
 
 jobs:
   # ============================================

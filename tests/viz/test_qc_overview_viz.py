@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 import polars as pl
 import pytest
+
+matplotlib.use("Agg", force=True)
+import matplotlib.pyplot as plt
 
 from scptensor.core.exceptions import VisualizationError
 from scptensor.core.structures import Assay, ScpContainer, ScpMatrix
