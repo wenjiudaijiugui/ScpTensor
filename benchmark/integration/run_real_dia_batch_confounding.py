@@ -25,17 +25,21 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import polars as pl
-from metrics import (
+from sklearn.cluster import KMeans
+from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, silhouette_score
+from sklearn.neighbors import NearestNeighbors
+
+from benchmark.integration.metrics import (
     BALANCED_METRIC_DIRECTIONS,
     CONFOUNDED_METRIC_DIRECTIONS,
     compute_marker_consistency_metrics,
     score_methods,
 )
-from plots import plot_overall_scores, plot_score_heatmap, plot_summary_metrics
-from sklearn.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, silhouette_score
-from sklearn.neighbors import NearestNeighbors
-
+from benchmark.integration.plots import (
+    plot_overall_scores,
+    plot_score_heatmap,
+    plot_summary_metrics,
+)
 from scptensor.core import FilterCriteria, compute_state_transition_metrics
 from scptensor.impute import impute
 from scptensor.integration import integrate_combat, integrate_limma, integrate_mnn

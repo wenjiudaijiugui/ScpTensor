@@ -123,11 +123,12 @@ class PlotStyle:
 
         """
         # Import scienceplots first to register its styles with matplotlib.
-        if importlib.util.find_spec("scienceplots") is not None:
+        scienceplots_available = importlib.util.find_spec("scienceplots") is not None
+        if scienceplots_available:
             try:
                 importlib.import_module("scienceplots")
-            except Exception:
-                pass
+            except ImportError:
+                scienceplots_available = False
 
         import matplotlib.pyplot as plt
 
