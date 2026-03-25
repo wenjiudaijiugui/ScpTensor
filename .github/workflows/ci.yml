@@ -189,9 +189,13 @@ jobs:
         run: |
           uv build
 
+      - name: Create build verification environment
+        run: |
+          uv venv .build-check
+
       - name: Check built package
         run: |
-          uv pip install dist/*.whl --dry-run
+          uv pip install --python .build-check/bin/python dist/*.whl --dry-run
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
