@@ -105,13 +105,15 @@ def load_quant_table(
             raise ValidationError("No rows remain in matrix-format input after preprocessing.")
 
         resolved_feature_column = resolve_feature_column(full_df.columns, profile, feature_column)
-        sample_cols, sample_ids = resolve_matrix_sample_columns(
+        sample_cols, sample_ids, resolved_matrix_quantity = resolve_matrix_sample_columns(
             full_df,
             resolved_software,
             level,
             resolved_feature_column,
             profile,
+            quantity_column=quantity_column,
         )
+        resolved_quantity_column = resolved_matrix_quantity
         vendor_normalized_input = any(is_vendor_normalized_column(column) for column in sample_cols)
         container = load_matrix_table(
             full_df,

@@ -229,6 +229,101 @@ def test_load_spectronaut_matrix_prefers_suffix_sample_columns_over_other_numeri
     )
 
 
+def test_load_spectronaut_real_style_protein_matrix_prefers_pg_quantity_over_other_runwise_metrics(
+    tmp_path: Path,
+) -> None:
+    path = _write_tsv(
+        tmp_path,
+        "spectronaut_real_style_protein_matrix.tsv",
+        pl.DataFrame(
+            {
+                "PG.ProteinGroups": ["P1", "P2"],
+                "[1] SampleA.raw.PG.IsSingleHit": [1, 0],
+                "[2] SampleB.raw.PG.IsSingleHit": [0, 1],
+                "[1] SampleA.raw.PG.Quantity": [10.0, 20.0],
+                "[2] SampleB.raw.PG.Quantity": [11.0, None],
+                "[1] SampleA.raw.PG.Log2Quantity": [3.3, 4.3],
+                "[2] SampleB.raw.PG.Log2Quantity": [3.5, None],
+            },
+        ),
+    )
+
+    container = load_spectronaut(path, assay_name="proteins", level="protein")
+    assay = container.assays["proteins"]
+
+    assert container.obs["_index"].to_list() == ["SampleA", "SampleB"]
+    np.testing.assert_allclose(
+        assay.layers["raw"].X,
+        np.array([[10.0, 20.0], [11.0, np.nan]]),
+        equal_nan=True,
+    )
+
+
+def test_load_spectronaut_real_style_peptide_matrix_prefers_pep_quantity_over_ms1_ms2_metrics(
+    tmp_path: Path,
+) -> None:
+    path = _write_tsv(
+        tmp_path,
+        "spectronaut_real_style_peptide_matrix.tsv",
+        pl.DataFrame(
+            {
+                "EG.PrecursorId": ["pep1", "pep2"],
+                "PG.ProteinGroups": ["P1", "P2"],
+                "[1] SampleA.raw.PEP.Quantity": [1.0, 3.0],
+                "[2] SampleB.raw.PEP.Quantity": [2.0, None],
+                "[1] SampleA.raw.PEP.MS1Quantity": [10.0, 30.0],
+                "[2] SampleB.raw.PEP.MS1Quantity": [20.0, None],
+                "[1] SampleA.raw.EG.ApexRT": [5.0, 6.0],
+                "[2] SampleB.raw.EG.ApexRT": [5.5, None],
+            },
+        ),
+    )
+
+    container = load_peptide_pivot(path, software="spectronaut", assay_name="peptides")
+    assay = container.assays["peptides"]
+
+    assert container.obs["_index"].to_list() == ["SampleA", "SampleB"]
+    np.testing.assert_allclose(
+        assay.layers["raw"].X,
+        np.array([[1.0, 3.0], [2.0, np.nan]]),
+        equal_nan=True,
+    )
+
+
+def test_load_spectronaut_matrix_honors_explicit_quantity_column_for_ms1_matrix(
+    tmp_path: Path,
+) -> None:
+    path = _write_tsv(
+        tmp_path,
+        "spectronaut_real_style_ms1_matrix.tsv",
+        pl.DataFrame(
+            {
+                "EG.PrecursorId": ["pep1", "pep2"],
+                "PG.ProteinGroups": ["P1", "P2"],
+                "[1] SampleA.raw.PEP.Quantity": [1.0, 3.0],
+                "[2] SampleB.raw.PEP.Quantity": [2.0, None],
+                "[1] SampleA.raw.PEP.MS1Quantity": [10.0, 30.0],
+                "[2] SampleB.raw.PEP.MS1Quantity": [20.0, None],
+            },
+        ),
+    )
+
+    container = load_spectronaut(
+        path,
+        assay_name="peptides",
+        level="peptide",
+        quantity_column="PEP.MS1Quantity",
+    )
+    assay = container.assays["peptides"]
+
+    assert container.obs["_index"].to_list() == ["SampleA", "SampleB"]
+    np.testing.assert_allclose(
+        assay.layers["raw"].X,
+        np.array([[10.0, 30.0], [20.0, np.nan]]),
+        equal_nan=True,
+    )
+
+
 def test_load_peptide_pivot_keeps_io_and_aggregation_as_separate_stages(tmp_path: Path) -> None:
     path = _write_tsv(
         tmp_path,

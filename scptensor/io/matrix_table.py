@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import numpy as np
 import polars as pl
 
@@ -18,6 +20,8 @@ from scptensor.io.profiles import (
 )
 from scptensor.io.readers import clean_sample_name, make_unique
 
+SPECTRONAUT_BRACKET_PREFIX_RE = re.compile(r"^\[[^\]]+\]\s*")
+
 
 def numeric_like_columns(df: pl.DataFrame, candidates: list[str]) -> list[str]:
     """Keep columns that can hold numeric quant values."""
@@ -33,27 +37,92 @@ def numeric_like_columns(df: pl.DataFrame, candidates: list[str]) -> list[str]:
     return keep
 
 
+def spectronaut_matrix_suffixes(quantity_token: str) -> tuple[str, ...]:
+    """Return accepted matrix suffix spellings for a Spectronaut quantity token."""
+    normalized = quantity_token.strip().lstrip("._")
+    if not normalized:
+        return ()
+    last_segment = normalized.split(".")[-1]
+    suffixes = [f".{normalized}"]
+    if last_segment:
+        suffixes.append(f"_{last_segment}")
+    return tuple(dict.fromkeys(suffixes))
+
+
+def extract_spectronaut_sample_name(column: str, quantity_token: str | None) -> str:
+    """Extract a stable sample name from a Spectronaut matrix column."""
+    candidate_suffixes: list[str] = []
+    if quantity_token is not None:
+        candidate_suffixes.extend(spectronaut_matrix_suffixes(quantity_token))
+    candidate_suffixes.extend(SPECTRONAUT_MATRIX_SUFFIXES)
+
+    raw_name = column
+    for suffix in dict.fromkeys(candidate_suffixes):
+        if raw_name.endswith(suffix):
+            raw_name = raw_name[: -len(suffix)]
+            break
+
+    raw_name = SPECTRONAUT_BRACKET_PREFIX_RE.sub("", raw_name)
+    return clean_sample_name(raw_name)
+
+
+def resolve_spectronaut_matrix_columns(
+    df: pl.DataFrame,
+    columns: list[str],
+    profile: ImportProfile,
+    quantity_column: str,
+) -> tuple[list[str], str | None]:
+    """Resolve Spectronaut matrix columns, preferring the requested quantity token."""
+    if quantity_column != "auto":
+        search_order = [quantity_column]
+    else:
+        search_order = list(profile.quantity_candidates)
+
+    for quantity_token in search_order:
+        suffixes = spectronaut_matrix_suffixes(quantity_token)
+        matched = [col for col in columns if any(col.endswith(suffix) for suffix in suffixes)]
+        sample_cols = numeric_like_columns(df, matched)
+        if sample_cols:
+            return sample_cols, quantity_token
+
+    if quantity_column != "auto":
+        raise ValidationError(
+            "No Spectronaut matrix columns matched quantity_column="
+            f"'{quantity_column}'. Available columns: {columns[:12]}"
+            + (f", ... (+{len(columns) - 12} more)" if len(columns) > 12 else ""),
+        )
+
+    fallback_candidates = [col for col in columns if col.endswith(SPECTRONAUT_MATRIX_SUFFIXES)]
+    return numeric_like_columns(df, fallback_candidates), None
+
+
 def resolve_matrix_sample_columns(
     df: pl.DataFrame,
     software: ResolvedSoftware,
     level: Level,
     feature_col: str,
     profile: ImportProfile,
-) -> tuple[list[str], list[str]]:
+    *,
+    quantity_column: str,
+) -> tuple[list[str], list[str], str | None]:
     """Resolve quantitative matrix columns and stable sample IDs."""
     columns = df.columns
 
     metadata_like = set(profile.metadata_candidates) | {feature_col}
     generic_candidates = [col for col in columns if col not in metadata_like]
     pattern_candidates: list[str] = []
+    resolved_quantity: str | None = None
     if software == "diann" and level == "peptide":
         pattern_candidates = [
             col for col in generic_candidates if DIANN_PEPTIDE_MATRIX_RE.search(col)
         ]
     elif software == "spectronaut":
-        pattern_candidates = [
-            col for col in generic_candidates if col.endswith(SPECTRONAUT_MATRIX_SUFFIXES)
-        ]
+        pattern_candidates, resolved_quantity = resolve_spectronaut_matrix_columns(
+            df,
+            generic_candidates,
+            profile,
+            quantity_column,
+        )
 
     candidates_to_check = pattern_candidates if pattern_candidates else generic_candidates
     sample_cols = numeric_like_columns(df, candidates_to_check)
@@ -72,14 +141,17 @@ def resolve_matrix_sample_columns(
             sample_ids.append(clean_sample_name(match.group(1) if match else col))
             continue
 
+        if software == "spectronaut":
+            sample_ids.append(extract_spectronaut_sample_name(col, resolved_quantity))
+            continue
+
         matched_suffix = next(
-            (suffix for suffix in SPECTRONAUT_MATRIX_SUFFIXES if col.endswith(suffix)),
-            None,
+            (suffix for suffix in SPECTRONAUT_MATRIX_SUFFIXES if col.endswith(suffix)), None
         )
         raw_name = col[: -len(matched_suffix)] if matched_suffix else col
         sample_ids.append(clean_sample_name(raw_name))
 
-    return sample_cols, make_unique(sample_ids)
+    return sample_cols, make_unique(sample_ids), resolved_quantity
 
 
 def build_var(var_df: pl.DataFrame, feature_col: str) -> pl.DataFrame:
@@ -163,8 +235,11 @@ def load_matrix_table(
 
 __all__ = [
     "build_var",
+    "extract_spectronaut_sample_name",
     "load_matrix_table",
     "matrix_to_assay",
     "numeric_like_columns",
     "resolve_matrix_sample_columns",
+    "resolve_spectronaut_matrix_columns",
+    "spectronaut_matrix_suffixes",
 ]
