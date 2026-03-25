@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
+import types
 from pathlib import Path
 
 
@@ -39,3 +41,20 @@ def test_benchmark_entrypoints_keep_local_metrics_and_plots_isolated() -> None:
     assert hasattr(integration, "BALANCED_METRIC_DIRECTIONS")
     assert callable(normalization.compute_distribution_metrics)
     assert callable(aggregation.summarize_method)
+
+
+def test_imputation_benchmark_module_does_not_depend_on_installed_benchmark_package() -> None:
+    original = sys.modules.get("benchmark")
+    sys.modules["benchmark"] = types.ModuleType("benchmark")
+    try:
+        imputation = _load_module(
+            "benchmark/imputation/run_benchmark.py",
+            "benchmark_imputation_run_contract_poisoned",
+        )
+    finally:
+        if original is None:
+            sys.modules.pop("benchmark", None)
+        else:
+            sys.modules["benchmark"] = original
+
+    assert callable(imputation.compute_ratio_metrics)

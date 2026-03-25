@@ -19,7 +19,6 @@ import polars as pl
 import requests
 import scipy.sparse as sp
 
-from benchmark.normalization.metrics import EXPECTED_LOG2FC_HYE124, compute_ratio_metrics
 from scptensor.aggregation import aggregate_to_protein
 from scptensor.core import Assay, MaskCode, MatrixMetadata, ScpContainer, ScpMatrix
 from scptensor.impute import impute
@@ -37,6 +36,11 @@ load_sidecar_module = import_module("benchmark_local_import").load_sidecar_modul
 
 _metrics_module = load_sidecar_module(__file__, "metrics")
 _plots_module = load_sidecar_module(__file__, "plots")
+_normalization_metrics_module = load_sidecar_module(
+    __file__,
+    "metrics",
+    relative_dir=Path("..") / "normalization",
+)
 
 compute_cluster_metrics = _metrics_module.compute_cluster_metrics
 compute_de_consistency_metrics = _metrics_module.compute_de_consistency_metrics
@@ -44,6 +48,9 @@ compute_reconstruction_metrics = _metrics_module.compute_reconstruction_metrics
 compute_within_group_cv_median = _metrics_module.compute_within_group_cv_median
 score_methods = _metrics_module.score_methods
 summarize_holdout_state_profile = _metrics_module.summarize_holdout_state_profile
+
+EXPECTED_LOG2FC_HYE124 = _normalization_metrics_module.EXPECTED_LOG2FC_HYE124
+compute_ratio_metrics = _normalization_metrics_module.compute_ratio_metrics
 
 plot_metric_heatmap = _plots_module.plot_metric_heatmap
 plot_nrmse_curves = _plots_module.plot_nrmse_curves
