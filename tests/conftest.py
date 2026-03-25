@@ -4,10 +4,19 @@ This module provides reusable fixtures for testing ScpTensor core structures.
 Fixtures are organized by data structure: obs, var, matrices, assays, and containers.
 """
 
+from __future__ import annotations
+
+import os
+
+os.environ.setdefault("MPLBACKEND", "Agg")
+
+import matplotlib
 import numpy as np
 import polars as pl
 import pytest
 from scipy import sparse
+
+matplotlib.use("Agg", force=True)
 
 from scptensor.core import (
     AggregationLink,
