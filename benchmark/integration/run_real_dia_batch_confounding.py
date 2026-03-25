@@ -15,8 +15,10 @@ Legacy report JSON is still generated for backward compatibility.
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import re
+import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -29,17 +31,6 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, silhouette_score
 from sklearn.neighbors import NearestNeighbors
 
-from benchmark.integration.metrics import (
-    BALANCED_METRIC_DIRECTIONS,
-    CONFOUNDED_METRIC_DIRECTIONS,
-    compute_marker_consistency_metrics,
-    score_methods,
-)
-from benchmark.integration.plots import (
-    plot_overall_scores,
-    plot_score_heatmap,
-    plot_summary_metrics,
-)
 from scptensor.core import FilterCriteria, compute_state_transition_metrics
 from scptensor.impute import impute
 from scptensor.integration import integrate_combat, integrate_limma, integrate_mnn
@@ -51,6 +42,22 @@ from scptensor.integration.diagnostics import (
 from scptensor.io import load_diann
 from scptensor.normalization import normalize
 from scptensor.transformation import log_transform
+
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    # Prefer sibling benchmark modules over similarly named packages.
+    sys.path.insert(0, str(_SCRIPT_DIR))
+
+_metrics_module = importlib.import_module("metrics")
+_plots_module = importlib.import_module("plots")
+
+BALANCED_METRIC_DIRECTIONS = _metrics_module.BALANCED_METRIC_DIRECTIONS
+CONFOUNDED_METRIC_DIRECTIONS = _metrics_module.CONFOUNDED_METRIC_DIRECTIONS
+compute_marker_consistency_metrics = _metrics_module.compute_marker_consistency_metrics
+score_methods = _metrics_module.score_methods
+plot_overall_scores = _plots_module.plot_overall_scores
+plot_score_heatmap = _plots_module.plot_score_heatmap
+plot_summary_metrics = _plots_module.plot_summary_metrics
 
 DEFAULT_DATASET_KEY = "pxd054343_diann_1_sc_lf"
 DEFAULT_DATA_PATH = Path("data/dia/diann/PXD054343/1_SC_LF_report.tsv")
