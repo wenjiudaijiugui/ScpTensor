@@ -11,6 +11,7 @@ from pathlib import Path
 
 def test_runtime_baseline_quick_smoke(tmp_path: Path) -> None:
     script = Path("scripts/perf/run_runtime_baseline.py")
+    gate_policy = Path("scripts/perf/runtime_gate_policy.json")
     output_dir = tmp_path / "runtime_baseline"
 
     subprocess.run(
@@ -19,20 +20,9 @@ def test_runtime_baseline_quick_smoke(tmp_path: Path) -> None:
             str(script),
             "--profile",
             "quick",
-            "--scenario",
-            "import_diann_protein_long",
-            "--scenario",
-            "stable_chain_dense",
-            "--scenario",
-            "stable_chain_trqn",
-            "--scenario",
-            "normalize_trqn_only",
-            "--scenario",
-            "sparse_log_only",
-            "--scenario",
-            "autoselect_integrate_only",
-            "--scenario",
-            "viz_qc_overview",
+            "--gate-policy",
+            str(gate_policy),
+            "--fail-on-gate",
             "--output-dir",
             str(output_dir),
         ],
@@ -43,24 +33,31 @@ def test_runtime_baseline_quick_smoke(tmp_path: Path) -> None:
     scenario_summary = output_dir / "scenario_summary.json"
     environment = output_dir / "environment.json"
     errors = output_dir / "errors.json"
+    gate_results = output_dir / "gate_results.json"
 
     assert stage_runs.exists()
     assert scenario_summary.exists()
     assert environment.exists()
     assert errors.exists()
+    assert gate_results.exists()
 
     with stage_runs.open("r", encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
 
     assert rows
     assert any(row["scenario"] == "import_diann_protein_long" for row in rows)
+    assert any(row["scenario"] == "aggregate_peptide_to_protein" for row in rows)
     assert any(row["scenario"] == "stable_chain_dense" for row in rows)
+    assert any(row["scenario"] == "stable_chain_quantile" for row in rows)
     assert any(row["scenario"] == "stable_chain_trqn" for row in rows)
+    assert any(row["scenario"] == "normalize_quantile_only" for row in rows)
     assert any(row["scenario"] == "normalize_trqn_only" for row in rows)
     assert any(row["scenario"] == "sparse_log_only" for row in rows)
+    assert any(row["scenario"] == "sparse_transform_normalize" for row in rows)
     assert any(row["scenario"] == "autoselect_integrate_only" for row in rows)
     assert any(row["scenario"] == "viz_qc_overview" for row in rows)
     assert any(row["stage"] == "log_transform" for row in rows)
+    assert any(row["stage"] == "normalize_quantile" for row in rows)
     assert any(row["stage"] == "normalize_trqn" for row in rows)
     assert any(row["stage"] == "autoselect_integrate" for row in rows)
     assert any(row["stage"] == "plot_qc_completeness" for row in rows)
@@ -68,15 +65,24 @@ def test_runtime_baseline_quick_smoke(tmp_path: Path) -> None:
     with scenario_summary.open("r", encoding="utf-8") as handle:
         summary = json.load(handle)
     assert any(item["scenario"] == "stable_chain_dense" for item in summary)
+    assert any(item["scenario"] == "stable_chain_quantile" for item in summary)
     assert any(item["scenario"] == "stable_chain_trqn" for item in summary)
+    assert any(item["scenario"] == "normalize_quantile_only" for item in summary)
     assert any(item["scenario"] == "normalize_trqn_only" for item in summary)
     assert any(item["scenario"] == "sparse_log_only" for item in summary)
+    assert any(item["scenario"] == "sparse_transform_normalize" for item in summary)
     assert any(item["scenario"] == "autoselect_integrate_only" for item in summary)
     assert any(item["scenario"] == "viz_qc_overview" for item in summary)
 
     with errors.open("r", encoding="utf-8") as handle:
         error_rows = json.load(handle)
     assert error_rows == []
+
+    with gate_results.open("r", encoding="utf-8") as handle:
+        gate_rows = json.load(handle)
+    assert gate_rows
+    assert all(item["status"] == "pass" for item in gate_rows)
+    assert any(item["scenario"] == "sparse_transform_normalize" for item in gate_rows)
 
     listed = subprocess.run(
         [sys.executable, str(script), "--list-scenarios"],

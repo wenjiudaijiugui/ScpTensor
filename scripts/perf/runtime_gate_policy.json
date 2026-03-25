@@ -1,0 +1,65 @@
+{
+  "policy_name": "scptensor_runtime_gate_v1",
+  "description": "Conservative CI-oriented quick-profile runtime budgets for stable preprocessing scenarios.",
+  "profiles": {
+    "quick": {
+      "import_diann_protein_long": {
+        "max_elapsed_s": 1.5,
+        "max_peak_delta_mb": 128.0,
+        "allowed_densify_stages": []
+      },
+      "aggregate_peptide_to_protein": {
+        "max_elapsed_s": 0.25,
+        "max_peak_delta_mb": 32.0,
+        "allowed_densify_stages": []
+      },
+      "stable_chain_dense": {
+        "max_elapsed_s": 0.5,
+        "max_peak_delta_mb": 64.0,
+        "allowed_densify_stages": []
+      },
+      "stable_chain_quantile": {
+        "max_elapsed_s": 0.5,
+        "max_peak_delta_mb": 64.0,
+        "allowed_densify_stages": []
+      },
+      "stable_chain_trqn": {
+        "max_elapsed_s": 0.75,
+        "max_peak_delta_mb": 64.0,
+        "allowed_densify_stages": []
+      },
+      "normalize_quantile_only": {
+        "max_elapsed_s": 0.25,
+        "max_peak_delta_mb": 32.0,
+        "allowed_densify_stages": []
+      },
+      "normalize_trqn_only": {
+        "max_elapsed_s": 0.5,
+        "max_peak_delta_mb": 32.0,
+        "allowed_densify_stages": []
+      },
+      "sparse_log_only": {
+        "max_elapsed_s": 0.1,
+        "max_peak_delta_mb": 16.0,
+        "allowed_densify_stages": []
+      },
+      "sparse_transform_normalize": {
+        "max_elapsed_s": 0.25,
+        "max_peak_delta_mb": 32.0,
+        "allowed_densify_stages": [
+          "normalize_median_after_sparse_log"
+        ]
+      },
+      "autoselect_integrate_only": {
+        "max_elapsed_s": 1.0,
+        "max_peak_delta_mb": 128.0,
+        "allowed_densify_stages": []
+      },
+      "viz_qc_overview": {
+        "max_elapsed_s": 2.5,
+        "max_peak_delta_mb": 256.0,
+        "allowed_densify_stages": []
+      }
+    }
+  }
+}

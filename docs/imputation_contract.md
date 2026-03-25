@@ -366,6 +366,24 @@
 
 也就是说，当前机制兼容性是 **warning-level provenance**，不是 hard validation。
 
+### 8.5 外部证据约束（复核至 `2026-03-25`）
+
+- `infer_missing_mechanism()` 的输出当前只是 **code-level heuristic label**；截至 `2026-03-25` 的外部证据并不支持把这类启发式标签升级为“已被文献证实的真实缺失机制标注”。
+- `Harris et al., Journal of Proteome Research, 2023` 的 downstream-centric benchmark 表明，imputation **不一定**提升 differential peptide identification，但可能增加 quantitative peptides 并改善 lower limit of quantification；这支持把当前 `method="auto"` 理解为 workflow convenience，而不是“全场景最优方法证明”：
+  - DOI: <https://doi.org/10.1021/acs.jproteome.3c00205>
+  - PubMed: <https://pubmed.ncbi.nlm.nih.gov/37861703/>
+- `Karuppanan et al., Journal of Proteome Research, 2025` 进一步说明 normalization 与 imputation 的最佳组合具有 **dataset dependence**；因此 `mcar -> knn`、`mar -> missforest`、`mnar -> qrilc` 只能被视为当前稳定默认映射，而不是可脱离数据结构与上游预处理条件的普适排序：
+  - DOI: <https://doi.org/10.1021/acs.jproteome.4c00552>
+- `Gonidaki et al., Proteomics, 2026` 在大规模临床 peptidomics 队列中显示，imputation 与 batch-effect correction 会 **交互影响** downstream differential-abundance 结果；该研究中 batch correction 的影响明显大于 imputation，且未建模疾病协变量的校正会显著削弱生物信号。这不是 DIA-SCP 论文，但足以约束 ScpTensor 文档不要把 mechanism auto inference 或默认 method mapping 叙述成“生物学上中性的自动决策”：
+  - DOI: <https://doi.org/10.1002/pmic.70111>
+  - PubMed: <https://pubmed.ncbi.nlm.nih.gov/41705731/>
+
+据此，当前冻结边界进一步明确为：
+
+- mechanism inference 仍是 warning/provenance helper，而不是 hard validation
+- `method="auto"` 仍是稳定默认入口，但不能在文档里被写成“文献已证明的最佳策略”
+- 若未来要把 mechanism-aware routing 升级成更强的自动选择器，必须以新的 benchmark 证据、显式版本化和新的回归测试一起引入，而不是在现有 API 下静默改阈值
+
 ## 9. 输出层合同
 
 ### 9.1 返回对象语义

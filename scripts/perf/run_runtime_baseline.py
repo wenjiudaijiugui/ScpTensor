@@ -124,6 +124,36 @@ class ScenarioSummary:
         }
 
 
+@dataclass(frozen=True)
+class ScenarioGateResult:
+    """Machine-readable gate evaluation for one runtime scenario."""
+
+    scenario: str
+    profile: str
+    status: str
+    failures: list[str]
+    observed_elapsed_s: float
+    observed_peak_delta_mb: float
+    observed_densify_stages: list[str]
+    max_elapsed_s: float | None
+    max_peak_delta_mb: float | None
+    allowed_densify_stages: list[str]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "scenario": self.scenario,
+            "profile": self.profile,
+            "status": self.status,
+            "failures": self.failures,
+            "observed_elapsed_s": self.observed_elapsed_s,
+            "observed_peak_delta_mb": self.observed_peak_delta_mb,
+            "observed_densify_stages": self.observed_densify_stages,
+            "max_elapsed_s": self.max_elapsed_s,
+            "max_peak_delta_mb": self.max_peak_delta_mb,
+            "allowed_densify_stages": self.allowed_densify_stages,
+        }
+
+
 class MemorySampler:
     """Track process RSS peak during one operation."""
 
@@ -1280,6 +1310,99 @@ def _write_json(payload: dict[str, Any] | list[dict[str, Any]], destination: Pat
         handle.write("\n")
 
 
+def _load_gate_policy(path: Path) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    if not isinstance(payload, dict):
+        raise ValueError("Gate policy must be a JSON object.")
+    profiles = payload.get("profiles")
+    if not isinstance(profiles, dict):
+        raise ValueError("Gate policy must define a top-level 'profiles' object.")
+    return payload
+
+
+def _evaluate_gate_policy(
+    *,
+    summaries: list[ScenarioSummary],
+    profile: str,
+    policy: dict[str, Any],
+) -> tuple[list[ScenarioGateResult], int]:
+    profile_policies = policy.get("profiles", {}).get(profile, {})
+    if not isinstance(profile_policies, dict):
+        raise ValueError(f"Gate policy for profile '{profile}' must be an object.")
+
+    results: list[ScenarioGateResult] = []
+    n_failures = 0
+    for summary in summaries:
+        budget = profile_policies.get(summary.scenario)
+        if budget is None:
+            results.append(
+                ScenarioGateResult(
+                    scenario=summary.scenario,
+                    profile=profile,
+                    status="skipped",
+                    failures=["No gate budget configured for this scenario/profile."],
+                    observed_elapsed_s=summary.total_elapsed_s,
+                    observed_peak_delta_mb=summary.max_peak_delta_mb,
+                    observed_densify_stages=list(summary.densify_stages),
+                    max_elapsed_s=None,
+                    max_peak_delta_mb=None,
+                    allowed_densify_stages=[],
+                )
+            )
+            continue
+        if not isinstance(budget, dict):
+            raise ValueError(
+                f"Gate policy for scenario '{summary.scenario}' in profile '{profile}' "
+                "must be an object."
+            )
+
+        failures: list[str] = []
+        max_elapsed_s_raw = budget.get("max_elapsed_s")
+        max_peak_delta_mb_raw = budget.get("max_peak_delta_mb")
+        max_elapsed_s = float(max_elapsed_s_raw) if max_elapsed_s_raw is not None else None
+        max_peak_delta_mb = (
+            float(max_peak_delta_mb_raw) if max_peak_delta_mb_raw is not None else None
+        )
+        allowed_densify_stages = [str(item) for item in budget.get("allowed_densify_stages", [])]
+
+        if summary.status != "ok":
+            failures.append(f"Scenario status is '{summary.status}', not 'ok'.")
+        if max_elapsed_s is not None and summary.total_elapsed_s > max_elapsed_s:
+            failures.append(
+                f"elapsed_s exceeded budget: {summary.total_elapsed_s:.6f} > {max_elapsed_s:.6f}"
+            )
+        if max_peak_delta_mb is not None and summary.max_peak_delta_mb > max_peak_delta_mb:
+            failures.append(
+                "rss_peak_delta_mb exceeded budget: "
+                f"{summary.max_peak_delta_mb:.3f} > {max_peak_delta_mb:.3f}"
+            )
+        unexpected_densify = sorted(set(summary.densify_stages) - set(allowed_densify_stages))
+        if unexpected_densify:
+            failures.append("unexpected densify stages observed: " + ", ".join(unexpected_densify))
+
+        status = "pass" if not failures else "fail"
+        if failures:
+            n_failures += 1
+        results.append(
+            ScenarioGateResult(
+                scenario=summary.scenario,
+                profile=profile,
+                status=status,
+                failures=failures,
+                observed_elapsed_s=summary.total_elapsed_s,
+                observed_peak_delta_mb=summary.max_peak_delta_mb,
+                observed_densify_stages=list(summary.densify_stages),
+                max_elapsed_s=max_elapsed_s,
+                max_peak_delta_mb=max_peak_delta_mb,
+                allowed_densify_stages=allowed_densify_stages,
+            )
+        )
+
+    return results, n_failures
+
+
 def _run_suite(
     *,
     scenarios: list[str],
@@ -1287,6 +1410,8 @@ def _run_suite(
     output_dir: Path,
     seed: int,
     continue_on_error: bool,
+    gate_policy_path: Path | None,
+    fail_on_gate: bool,
 ) -> int:
     rows: list[dict[str, Any]] = []
     summaries: list[ScenarioSummary] = []
@@ -1384,11 +1509,27 @@ def _run_suite(
     summary_path = output_dir / "scenario_summary.json"
     env_path = output_dir / "environment.json"
     errors_path = output_dir / "errors.json"
+    gate_results_path = output_dir / "gate_results.json"
 
     if rows:
         _write_stage_runs(rows, stage_runs_path)
     _write_json([summary.to_dict() for summary in summaries], summary_path)
     _write_json(errors, errors_path)
+
+    gate_failures = 0
+    if gate_policy_path is not None:
+        gate_policy = _load_gate_policy(gate_policy_path)
+        gate_results, gate_failures = _evaluate_gate_policy(
+            summaries=summaries,
+            profile=profile,
+            policy=gate_policy,
+        )
+        _write_json([result.to_dict() for result in gate_results], gate_results_path)
+        print(
+            "[INFO] Runtime gate evaluation: "
+            f"{len(gate_results) - gate_failures} pass/skipped, {gate_failures} fail"
+        )
+
     _write_json(
         {
             "generated_at_utc": datetime.now(UTC).isoformat(),
@@ -1402,11 +1543,18 @@ def _run_suite(
             "pid": psutil.Process().pid,
             "output_dir": str(output_dir),
             "cwd": str(PROJECT_ROOT),
+            "gate_policy": str(gate_policy_path) if gate_policy_path is not None else "",
+            "fail_on_gate": fail_on_gate,
+            "gate_failures": gate_failures,
         },
         env_path,
     )
 
-    return 1 if errors else 0
+    if errors:
+        return 1
+    if fail_on_gate and gate_failures:
+        return 1
+    return 0
 
 
 def _parse_args() -> argparse.Namespace:
@@ -1447,6 +1595,16 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print available scenarios and exit.",
     )
+    parser.add_argument(
+        "--gate-policy",
+        type=Path,
+        help=("Optional JSON policy with per-profile scenario budgets (elapsed/RSS/densify)."),
+    )
+    parser.add_argument(
+        "--fail-on-gate",
+        action="store_true",
+        help="Return nonzero when any runtime gate budget is violated.",
+    )
     return parser.parse_args()
 
 
@@ -1465,6 +1623,8 @@ def main() -> int:
         output_dir=output_dir,
         seed=args.seed,
         continue_on_error=args.continue_on_error,
+        gate_policy_path=args.gate_policy,
+        fail_on_gate=args.fail_on_gate,
     )
 
 

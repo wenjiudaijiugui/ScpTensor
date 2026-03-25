@@ -15,12 +15,12 @@ Legacy report JSON is still generated for backward compatibility.
 from __future__ import annotations
 
 import argparse
-import importlib
 import json
 import re
 import sys
 import time
 from datetime import UTC, datetime
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -44,12 +44,14 @@ from scptensor.normalization import normalize
 from scptensor.transformation import log_transform
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
-if str(_SCRIPT_DIR) not in sys.path:
-    # Prefer sibling benchmark modules over similarly named packages.
-    sys.path.insert(0, str(_SCRIPT_DIR))
+_BENCHMARK_ROOT = _SCRIPT_DIR.parent
+if str(_BENCHMARK_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BENCHMARK_ROOT))
 
-_metrics_module = importlib.import_module("metrics")
-_plots_module = importlib.import_module("plots")
+load_sidecar_module = import_module("benchmark_local_import").load_sidecar_module
+
+_metrics_module = load_sidecar_module(__file__, "metrics")
+_plots_module = load_sidecar_module(__file__, "plots")
 
 BALANCED_METRIC_DIRECTIONS = _metrics_module.BALANCED_METRIC_DIRECTIONS
 CONFOUNDED_METRIC_DIRECTIONS = _metrics_module.CONFOUNDED_METRIC_DIRECTIONS

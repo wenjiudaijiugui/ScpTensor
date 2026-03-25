@@ -1,4 +1,4 @@
-# DIA 驱动单细胞蛋白组预处理中的公共 benchmark 数据集与任务设计：优先级文献综述（截至 2026-03-12）
+# DIA 驱动单细胞蛋白组预处理中的公共 benchmark 数据集与任务设计：优先级文献综述（复核至 2026-03-25）
 
 ## 1. 研究范围
 
@@ -9,7 +9,7 @@
   - `benchmark/integration`
   - `benchmark/autoselect`
 - 核心约束：项目合同要求 benchmark 仍围绕 `DIA-NN / Spectronaut` 输入与最终 `protein-level matrix` 展开，不扩展到非 DIA 软件兼容层。
-- 检索日期：`2026-03-12`
+- 检索日期：首轮 `2026-03-12`；稳定入口与公开状态复核 `2026-03-25`
 
 ### 1.1 关键词优先级（P1 / P2 / P3）
 
@@ -64,7 +64,8 @@
   - 提供“不要只 benchmark 单一步骤，要看串联流程”的直接依据。
   - 说明同质与异质设计、同批次与跨批次设计，必须拆开评测。
 - 最新访问核查：
-  - 文中关联数据集 accession `PXD056832` 当前可解析到 ProteomeXchange 页面，但该页面在 `2026-03-12` 仍标记为 `reserved`，语义上对应“已存储但尚未公开发布/公告”，因此不宜直接作为 CI 级稳定公共输入。
+  - 文中关联数据集 accession `PXD056832` 在 `2026-03-25` 复核时仍可解析到 ProteomeXchange 官方页面，但页面正文依旧明确标记为 `reserved`，并写明“not yet publicly released and announced”；因此它仍只能作为 workflow/task-design 证据的关联 accession，不能升级为 CI 级稳定公共输入。
+  - 稳定入口应继续写成 DOI 论文页与 accession 页面分离：论文证据使用 DOI，数据入口单独写 `PXD056832` 的 ProteomeXchange 页面。
 
 ### 3.2 Ctortecka et al., Nature Communications, 2024
 
@@ -74,7 +75,7 @@
 - 数据入口：https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?accession=MSV000093867
 - 主要价值：
   - 给出高通量、公开可访问的单细胞蛋白组数据资源与实验描述。
-  - MassIVE 页面可公开访问，适合被纳入可重复 benchmark 面板。
+  - `MSV000093867` 的 MassIVE dataset summary page 在 `2026-03-25` 复核时保持公开可访问，适合被纳入可重复 benchmark 面板的 `public SCP reference layer`。
 - 适合支持的任务：
   - 样本层 QC
   - missingness / completeness 描述
@@ -86,10 +87,13 @@
 ### 3.3 ProteoBench DIA single-cell 模块（官方文档）
 
 - 链接：https://proteobench.readthedocs.io/en/stable/available-modules/active-modules/9-quant-lfq-ion-dia-singlecell/
-- 访问日期：`2026-03-12`
+- 访问日期：`2026-03-25`
 - 主要价值：
   - 提供社区化、任务化的 benchmark 入口，而不只是单篇论文。
   - 文档直接规定了挑战模块、输出物和评价逻辑，更适合 ScpTensor 后续与外部基准对齐。
+- 稳定入口说明：
+  - 当前稳定文档标题是 `DIA quantification - precursor ion level - Single Cell`；它更像长期维护的 module/spec 页面，而不是一次性论文补充材料。
+  - 因此 ScpTensor 文档应继续把它标成 `模块规范 / 软件文档`，而不是 `数据入口`。
 - 适合支持的任务：
   - end-to-end DIA LFQ single-cell benchmarking
   - completeness / accuracy / consistency 类指标对齐
@@ -100,10 +104,11 @@
 ### 3.4 `scpdata`（Bioconductor 公共数据资源）
 
 - 链接：https://bioconductor.org/packages/release/data/experiment/html/scpdata.html
-- 访问日期：`2026-03-12`
+- 访问日期：`2026-03-25`
 - 主要价值：
   - 提供公开、可脚本化获取的单细胞蛋白组数据资源入口，适合可复现实验与教程。
   - 对 ScpTensor 来说，它更像“数据资源层”，不是单一 benchmark 论文。
+  - Bioconductor release page 当前明确写明该包分发 `MS-based single-cell proteomics` 数据，并以 `scp` data structure 提供 spectrum / peptide / protein level 数据；这进一步支持把它定位为 `资源包`，而不是合同内 `DIA-NN / Spectronaut` 直接输入。
 - 适合支持的任务：
   - 快速复现 benchmark 原型
   - 教程/文档中的小规模公共示例
@@ -146,10 +151,10 @@
 
 ### 3.8 二次核查补充（发布日期、稳定入口与场景边界）
 
-- `Wang et al., Nat Commun (published: 2025-11-21)` 是当前最直接的 DIA-SCP workflow/task-design 证据，但其关联 accession `PXD056832` 在 `2026-03-12` 的官方核查中仍为 ProteomeXchange `reserved` 状态，因此只能作为设计证据，不能写成“当前稳定公开主数据入口”：<https://doi.org/10.1038/s41467-025-65174-4>
-- `Ctortecka et al., Nat Commun (published: 2024-07-23)` 提供稳定可访问的论文页，而 `MSV000093867` 提供稳定可访问的数据页；二者应分开书写为“论文证据”和“数据入口”，避免把 paper URL 与 dataset URL 混成同一层级：<https://doi.org/10.1038/s41467-024-49651-w>；<https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?accession=MSV000093867>
-- `ProteoBench DIA single-cell module`（accessed: `2026-03-12`）是社区 benchmark 模块规范，不是单个 public dataset；适合作为任务定义、输出格式和评分接口的稳定入口：<https://proteobench.readthedocs.io/en/stable/available-modules/active-modules/9-quant-lfq-ion-dia-singlecell/>
-- `scpdata`（accessed: `2026-03-12`）是 Bioconductor 资源包入口，适合作为教程、示例与可脚本化 reference layer，而不是完整的 DIA-SCP benchmark panel：<https://bioconductor.org/packages/release/data/experiment/html/scpdata.html>
+- `Wang et al., Nat Commun (published: 2025-11-21)` 仍是当前最直接的 DIA-SCP workflow/task-design 证据，但其关联 accession `PXD056832` 在 `2026-03-25` 的官方复核中仍为 ProteomeXchange `reserved` 状态，因此只能作为设计证据，不能写成“当前稳定公开主数据入口”：<https://doi.org/10.1038/s41467-025-65174-4>
+- `Ctortecka et al., Nat Commun (published: 2024-07-23)` 提供稳定可访问的论文页，而 `MSV000093867` 在 `2026-03-25` 复核时继续保持公开可访问的数据页；二者应分开书写为“论文证据”和“数据入口”，避免把 paper URL 与 dataset URL 混成同一层级：<https://doi.org/10.1038/s41467-024-49651-w>；<https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?accession=MSV000093867>
+- `ProteoBench DIA single-cell module`（accessed: `2026-03-25`）是社区 benchmark 模块规范，不是单个 public dataset；适合作为任务定义、输出格式和评分接口的稳定入口：<https://proteobench.readthedocs.io/en/stable/available-modules/active-modules/9-quant-lfq-ion-dia-singlecell/>
+- `scpdata`（accessed: `2026-03-25`）是 Bioconductor 资源包入口，当前 release page 继续明确其 single-cell proteomics 数据分发角色；适合作为教程、示例与可脚本化 reference layer，而不是完整的 DIA-SCP benchmark panel：<https://bioconductor.org/packages/release/data/experiment/html/scpdata.html>
 - `Zheng et al., Nat Commun (published: 2025-11-04)` 提供 protein-level endpoint 与 balanced/confounded 解释框架，但它不是 DIA-SCP public dataset 论文；更合适的定位是 `task-design / interpretation evidence`：<https://doi.org/10.1038/s41467-025-64718-y>
 - `Weber et al., Nat Commun (published: 2019-04-02)` 继续约束文档层的 benchmark 设计原则，即必须把数据、指标、失败情形与可重复性分开陈述：<https://doi.org/10.1038/s41467-019-09406-4>
 
@@ -157,10 +162,10 @@
 
 ### 4.1 公共资源对照表
 
-| 资源 | 资源类型 | 稳定入口（2026-03-12） | 合同内角色 | CI 适用性 | 当前风险 |
+| 资源 | 资源类型 | 稳定入口（2026-03-25） | 合同内角色 | CI 适用性 | 当前风险 |
 |---|---|---|---|---|---|
 | Wang 2025 paper | 论文 / 设计证据 | Nature article | DIA-SCP workflow 与任务拆分证据 | 否，论文本身不是输入数据 | 必须与真实数据入口分开 |
-| `PXD056832` | 数据入口 | ProteomeXchange | Wang 2025 关联 accession | 否，当前为 `reserved` | 尚未稳定公开 |
+| `PXD056832` | 数据入口 | ProteomeXchange | Wang 2025 关联 accession | 否，`2026-03-25` 复核仍为 `reserved` | 尚未稳定公开 |
 | Ctortecka 2024 paper | 论文 / 实验描述 | Nature article | public SCP reference evidence | 否，论文本身不是输入数据 | 不是合同内 DIA 主线输入 |
 | `MSV000093867` | 数据入口 | MassIVE dataset | public SCP reference layer | 条件性可用，仅适合 reference / prototype | 需额外标注 provenance、软件出口与数据层级 |
 | ProteoBench DIA-SC module | 模块规范 | ReadTheDocs stable page | 合同内任务定义与外部对齐 | 是，但作为规范入口而非原始数据入口 | 外部模块版本可能演进 |
@@ -177,7 +182,7 @@
 
 ### 4.3 分歧与解释（inference）
 
-- [推断] 由于当前最直接的 DIA-sc benchmark 论文所关联 accession 仍存在公开状态不稳定问题，ScpTensor 的主线回归 benchmark 不应绑定单一 reserved accession，而应把 `合同内主线` 与 `public SCP reference layer` 分开维护。
+- [推断] 由于当前最直接的 DIA-sc benchmark 论文所关联 accession 在 `2026-03-25` 复核时仍处于 `reserved` 状态，ScpTensor 的主线回归 benchmark 不应绑定单一 reserved accession，而应把 `合同内主线` 与 `public SCP reference layer` 分开维护。
 - [推断] `benchmark/` 目录更适合采用“三层设计”：
   - 合同内主线 benchmark：`DIA-NN / Spectronaut` 可复用输入或官方模块规范
   - 稳定公共 reference layer：公开 SCP 数据入口与资源包
@@ -196,6 +201,7 @@
 1. `合同内主线任务规范`
    - 首选：ProteoBench DIA single-cell 模块 + Wang 2025 的 workflow/task design
    - 用途：约束 benchmark 任务拆分、输出接口与评分语义
+   - 稳定入口：优先使用 ReadTheDocs stable 页面与 DOI 页面，而不是把 `PXD056832` 误写成当前公开主数据源
 2. `稳定公共 SCP reference layer`
    - 首选：`MSV000093867` + `scpdata`
    - 用途：教程、原型回放、公开 reference 数据对照
@@ -249,7 +255,7 @@
 
 ## 6. 风险边界
 
-1. 直接适配 DIA-sc 的公开 benchmark 数据仍然不多，且部分论文关联 accession 的公开状态会变化，必须在引入 CI 前二次核查。
+1. 直接适配 DIA-sc 的公开 benchmark 数据仍然不多，且部分论文关联 accession 的公开状态会变化；本轮复核已确认 `PXD056832` 到 `2026-03-25` 仍未公开，因此任何 CI 引入前都必须做二次核查。
 2. 高通量 label-free 数据与 multiplex/参考通道数据的 benchmark 目标不同，不应混在同一排行榜里。
 3. 若只用合成数据，很容易高估方法的稳定性；若只用真实数据，又难以获得 ground truth，因此必须组合两类设计。
 4. 文献里的最佳方法排名往往受任务定义影响，ScpTensor 更应强调“报告任务条件”而非“宣布唯一赢家”。

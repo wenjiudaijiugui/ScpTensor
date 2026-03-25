@@ -147,6 +147,27 @@
 
 注意：这里的 `embedding` 是 **方法合同与输出用途定位**，不是“所有方法都已经严格做了 embedding 输入校验”。当前只有 `harmony` 显式强制 embedding-like 输入；`mnn` 与 `scanorama` 目前仍可直接接受 complete matrix。
 
+### 3.2.1 外部证据约束（复核至 `2026-03-25`）
+
+- `Gong et al., Analytical Chemistry, 2025` 的 SCP integration benchmark 明确把评价拆成三类：`batch-effect removal`、`biological variance conservation`、`consistent marker identification`。这直接支持 ScpTensor 当前把 integration 解释为“多目标权衡”，而不是单一混合度竞赛：
+  - DOI: <https://doi.org/10.1021/acs.analchem.4c04933>
+  - PubMed: <https://pubmed.ncbi.nlm.nih.gov/39761355/>
+- 同一研究虽然在其纳入场景下把 `ComBat`、`Scanorama` 和 `Seurat v3 CCA` 视为较优候选，但这 **不能直接扩大** ScpTensor 的稳定默认集合，因为本仓库稳定主线还同时要求：
+  - 终点是 `protein-level complete matrix`
+  - 默认候选要能清楚界定 DE-oriented / provenance-preserving 边界
+  - 项目内 stable set 不能依赖仓库外未纳入的主算法实现
+- `Chazarra-Gil et al., Nature Communications, 2023` 进一步说明 integration 评估必须显式关注 differential-expression preservation，而不能只看 batch mixing：
+  - DOI: <https://doi.org/10.1038/s41467-023-37126-3>
+- `Gonidaki et al., Proteomics, 2026` 还表明，在真实临床蛋白/肽组数据里，batch correction 的选择会显著影响 downstream differential-abundance 结果；未建模关键生物协变量的校正可能移除真实信号。这强化了本合同现有的 confounding guardrail，并解释了为什么稳定 DE-oriented 默认集合要保持保守：
+  - DOI: <https://doi.org/10.1002/pmic.70111>
+  - PubMed: <https://pubmed.ncbi.nlm.nih.gov/41705731/>
+
+据此，当前稳定分层的外部证据解释应冻结为：
+
+- `none` + `limma` 继续是稳定 DE-oriented matrix 默认集合
+- `combat` 继续保留 direct API 支持，但不自动进入 stable default candidate set
+- `mnn` / `harmony` / `scanorama` 继续保留 exploratory 定位；即使它们在部分 benchmark 中表现良好，也不能在未补齐 DE-safety 证据与合同测试前被升级为稳定默认
+
 ### 3.3 文档命名与实现默认值
 
 仓库文档的 canonical naming 已统一为：

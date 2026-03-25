@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 import time
 from datetime import UTC, datetime
+from importlib import import_module
 from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
@@ -16,20 +18,6 @@ import pandas as pd
 import polars as pl
 import requests
 import scipy.sparse as sp
-from metrics import (
-    compute_cluster_metrics,
-    compute_de_consistency_metrics,
-    compute_reconstruction_metrics,
-    compute_within_group_cv_median,
-    score_methods,
-    summarize_holdout_state_profile,
-)
-from plots import (
-    plot_metric_heatmap,
-    plot_nrmse_curves,
-    plot_overall_scores,
-    plot_runtime_vs_accuracy,
-)
 
 from benchmark.normalization.metrics import EXPECTED_LOG2FC_HYE124, compute_ratio_metrics
 from scptensor.aggregation import aggregate_to_protein
@@ -39,6 +27,28 @@ from scptensor.impute.base import list_impute_methods
 from scptensor.io import load_diann, load_spectronaut
 from scptensor.normalization import normalize
 from scptensor.transformation import log_transform
+
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_BENCHMARK_ROOT = _SCRIPT_DIR.parent
+if str(_BENCHMARK_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BENCHMARK_ROOT))
+
+load_sidecar_module = import_module("benchmark_local_import").load_sidecar_module
+
+_metrics_module = load_sidecar_module(__file__, "metrics")
+_plots_module = load_sidecar_module(__file__, "plots")
+
+compute_cluster_metrics = _metrics_module.compute_cluster_metrics
+compute_de_consistency_metrics = _metrics_module.compute_de_consistency_metrics
+compute_reconstruction_metrics = _metrics_module.compute_reconstruction_metrics
+compute_within_group_cv_median = _metrics_module.compute_within_group_cv_median
+score_methods = _metrics_module.score_methods
+summarize_holdout_state_profile = _metrics_module.summarize_holdout_state_profile
+
+plot_metric_heatmap = _plots_module.plot_metric_heatmap
+plot_nrmse_curves = _plots_module.plot_nrmse_curves
+plot_overall_scores = _plots_module.plot_overall_scores
+plot_runtime_vs_accuracy = _plots_module.plot_runtime_vs_accuracy
 
 DEFAULT_METHODS = [
     "none",

@@ -895,6 +895,23 @@
       "canonical_url": "https://doi.org/10.1021/acs.jproteome.4c00552",
       "doi": "10.1021/acs.jproteome.4c00552",
       "notes": "Combination-level evidence showing normalization-imputation pairings are dataset-dependent and should be compared jointly."
+    },
+    {
+      "id": "gonidaki2026_proteomics_imputation_batch_da",
+      "kind": "paper",
+      "resource_type": "论文证据",
+      "title": "Practical Impact of Imputation and Batch-Effect Correction for Proteomics/Peptidomics Differential-Abundance Analysis",
+      "authors_short": "Gonidaki et al.",
+      "venue": "Proteomics",
+      "year": 2026,
+      "published_date": "2026-02-18",
+      "canonical_url": "https://doi.org/10.1002/pmic.70111",
+      "url_aliases": [
+        "https://pubmed.ncbi.nlm.nih.gov/41705731/"
+      ],
+      "doi": "10.1002/pmic.70111",
+      "pmid": "41705731",
+      "notes": "Large-cohort evidence that imputation and batch-correction choices interact and can materially affect downstream differential-abundance signal preservation."
     }
   ]
 }

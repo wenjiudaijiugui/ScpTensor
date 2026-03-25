@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from datetime import UTC, datetime
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -13,25 +15,33 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import requests
-from metrics import (
-    EXPECTED_LOG2FC_HYE124,
-    compute_distribution_metrics,
-    compute_group_metrics,
-    compute_ratio_metrics,
-    guess_groups_from_sample_ids,
-)
-from plots import (
-    plot_overall_scores,
-    plot_ratio_distributions,
-    plot_score_heatmap,
-    plot_summary_metrics,
-)
 
 from scptensor.aggregation import aggregate_to_protein
 from scptensor.core import compute_state_transition_metrics
 from scptensor.io import load_diann, load_spectronaut
 from scptensor.normalization import normalize
 from scptensor.transformation import log_transform
+
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_BENCHMARK_ROOT = _SCRIPT_DIR.parent
+if str(_BENCHMARK_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BENCHMARK_ROOT))
+
+load_sidecar_module = import_module("benchmark_local_import").load_sidecar_module
+
+_metrics_module = load_sidecar_module(__file__, "metrics")
+_plots_module = load_sidecar_module(__file__, "plots")
+
+EXPECTED_LOG2FC_HYE124 = _metrics_module.EXPECTED_LOG2FC_HYE124
+compute_distribution_metrics = _metrics_module.compute_distribution_metrics
+compute_group_metrics = _metrics_module.compute_group_metrics
+compute_ratio_metrics = _metrics_module.compute_ratio_metrics
+guess_groups_from_sample_ids = _metrics_module.guess_groups_from_sample_ids
+
+plot_overall_scores = _plots_module.plot_overall_scores
+plot_ratio_distributions = _plots_module.plot_ratio_distributions
+plot_score_heatmap = _plots_module.plot_score_heatmap
+plot_summary_metrics = _plots_module.plot_summary_metrics
 
 DEFAULT_METHODS = ["none", "mean", "median", "quantile", "trqn"]
 

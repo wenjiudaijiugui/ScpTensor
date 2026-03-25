@@ -4,32 +4,42 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime
+from importlib import import_module
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import polars as pl
 import requests
-from metrics import (
-    EXPECTED_LOG2FC_HYE124,
-    compute_protein_level_table,
-    summarize_de_consistency_proxy,
-    summarize_mapping_burden,
-    summarize_method,
-    summarize_state_burden,
-)
-from plots import (
-    plot_cv_distribution,
-    plot_log2fc_distribution,
-    plot_metric_heatmap,
-    plot_observed_vs_expected,
-    plot_species_coverage,
-    plot_summary_metrics,
-)
 
 from scptensor.aggregation import aggregate_to_protein
 from scptensor.io import load_spectronaut
+
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_BENCHMARK_ROOT = _SCRIPT_DIR.parent
+if str(_BENCHMARK_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BENCHMARK_ROOT))
+
+load_sidecar_module = import_module("benchmark_local_import").load_sidecar_module
+
+_metrics_module = load_sidecar_module(__file__, "metrics")
+_plots_module = load_sidecar_module(__file__, "plots")
+
+EXPECTED_LOG2FC_HYE124 = _metrics_module.EXPECTED_LOG2FC_HYE124
+compute_protein_level_table = _metrics_module.compute_protein_level_table
+summarize_de_consistency_proxy = _metrics_module.summarize_de_consistency_proxy
+summarize_mapping_burden = _metrics_module.summarize_mapping_burden
+summarize_method = _metrics_module.summarize_method
+summarize_state_burden = _metrics_module.summarize_state_burden
+
+plot_cv_distribution = _plots_module.plot_cv_distribution
+plot_log2fc_distribution = _plots_module.plot_log2fc_distribution
+plot_metric_heatmap = _plots_module.plot_metric_heatmap
+plot_observed_vs_expected = _plots_module.plot_observed_vs_expected
+plot_species_coverage = _plots_module.plot_species_coverage
+plot_summary_metrics = _plots_module.plot_summary_metrics
 
 DEFAULT_METHODS = [
     "sum",

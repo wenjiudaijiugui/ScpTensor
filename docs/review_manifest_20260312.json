@@ -224,7 +224,7 @@
           "url": "https://bioconductor.org/packages/release/data/experiment/html/scpdata.html"
         }
       ],
-      "notes": "PXD056832 is tracked as reserved-status design evidence, not as a stable public input."
+      "notes": "PXD056832 was rechecked on 2026-03-25 and remains reserved-status design evidence, not a stable public input."
     },
     {
       "file": "docs/review_qc_filtering_20260312.md",

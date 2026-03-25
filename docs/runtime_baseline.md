@@ -71,12 +71,15 @@
 - `scenario_summary.json`
 - `environment.json`
 - `errors.json`
+- `gate_results.json`（仅在传入 `--gate-policy` 时生成）
 
 这些目录默认被 `.gitignore` 忽略，不作为仓库提交内容。
 
 `environment.json` 还应记录会影响 sparse log 分支选择的环境量，例如：
 
 - `SCPTENSOR_JIT_THRESHOLD`
+- `gate_policy`
+- `gate_failures`
 
 ## 5. 当前场景
 
@@ -325,6 +328,43 @@ uv run python scripts/perf/run_runtime_baseline.py \
   --output-dir outputs/runtime_baseline_local
 ```
 
+运行带门禁的 quick baseline：
+
+```bash
+uv run python scripts/perf/run_runtime_baseline.py \
+  --profile quick \
+  --gate-policy scripts/perf/runtime_gate_policy.json \
+  --fail-on-gate
+```
+
+说明：
+
+- `scripts/perf/runtime_gate_policy.json` 当前是仓库内置的 **CI-oriented quick gate**
+- 它把 `quick` profile 下各 scenario 的 `max_elapsed_s / max_peak_delta_mb / allowed_densify_stages` 固化为 machine-readable budget
+- `--fail-on-gate` 打开后，只要任一 scenario 超预算，脚本就返回非零退出码
+
+### 8.1 当前内置 quick gate
+
+| scenario | `max_elapsed_s` | `max_peak_delta_mb` | `allowed_densify_stages` |
+| --- | ---: | ---: | --- |
+| `import_diann_protein_long` | `1.50` | `128.0` | `[]` |
+| `aggregate_peptide_to_protein` | `0.25` | `32.0` | `[]` |
+| `stable_chain_dense` | `0.50` | `64.0` | `[]` |
+| `stable_chain_quantile` | `0.50` | `64.0` | `[]` |
+| `stable_chain_trqn` | `0.75` | `64.0` | `[]` |
+| `normalize_quantile_only` | `0.25` | `32.0` | `[]` |
+| `normalize_trqn_only` | `0.50` | `32.0` | `[]` |
+| `sparse_log_only` | `0.10` | `16.0` | `[]` |
+| `sparse_transform_normalize` | `0.25` | `32.0` | `["normalize_median_after_sparse_log"]` |
+| `autoselect_integrate_only` | `1.00` | `128.0` | `[]` |
+| `viz_qc_overview` | `2.50` | `256.0` | `[]` |
+
+解释边界：
+
+- 这些阈值是 **工程回归 gate**，不是性能宣传值
+- 当前仓库只把 `quick` profile 固化为自动门禁；`default` profile 仍保留为本地较大规模对比基线
+- 若后续更换 baseline 规模、绘图实现或 AutoSelect stage 组合，应先同步更新 gate policy，再调整测试/工作流
+
 ## 9. 使用规则
 
 后续任何“优化 PR”若涉及：
@@ -344,8 +384,9 @@ uv run python scripts/perf/run_runtime_baseline.py \
 
 1. 修改前记录一次基线结果。
 2. 修改后复跑相同场景。
-3. 比较 wall-time、peak RSS、densify 和 copy-path 漂移。
-4. 若 stable 行为变化，先回到 contract 判断是否允许。
+3. 若 PR 触及已建 gate 的 scenario，必须同时跑带 `--gate-policy ... --fail-on-gate` 的基线并保留 `gate_results.json`。
+4. 比较 wall-time、peak RSS、densify 和 copy-path 漂移。
+5. 若 stable 行为变化，先回到 contract 判断是否允许。
 
 ## 10. 当前限制
 
@@ -356,6 +397,7 @@ uv run python scripts/perf/run_runtime_baseline.py \
 3. copy-path 目前是“对象共享/变更观察”，不是底层 allocator 级 tracing。
 4. 当前 `autoselect` 与 `viz` 已有最小独立 runtime baseline，但覆盖面仍只到 stable `integrate` 选择层与 QC/workflow 读取层，不代表所有 stage 或所有 plotting recipe 都已单独建模。
 5. sparse log JIT / NumPy 分支已拆出 `sparse_log_only` 独立 scenario；但具体进入哪条分支，仍取决于环境与阈值设置，因此结果解释必须结合 `environment.json` 中的 `SCPTENSOR_JIT_THRESHOLD`。
+6. 当前内置 gate policy 只固化 `quick` profile；`default` profile 仍以本地人工对比为主，待积累更多机器与数据点后再决定是否升格为统一自动门禁。
 
 这些限制在 `PR-0` 是可接受的，因为目标是先建立稳定、快速、可复用的工程基线。
 

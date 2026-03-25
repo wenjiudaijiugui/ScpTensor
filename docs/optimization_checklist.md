@@ -131,6 +131,12 @@ runtime baseline 选择规则：
 - 只改 `TRQN` 内部 rank-invariant 选择 / balanced subset / quantile 子步骤时，以 `normalize_trqn_only` 为主 gate，再用 `stable_chain_trqn` 做链路确认
 - 若改动同时触及 normalization 前后的 layer 写入、overwrite、history、provenance 或 densify 边界，micro-baseline 不能替代对应 full-chain baseline
 
+runtime gate 规则：
+
+- 已进入 `scripts/perf/runtime_gate_policy.json` 的 scenario，PR 完成前应至少运行一次带 `--gate-policy ... --fail-on-gate` 的 quick baseline
+- gate policy 当前是 **工程回归预算**，不是科学 benchmark，也不是不同机器上的绝对性能承诺
+- 若优化确实改变了合理的 runtime / memory budget，应先解释原因，再同步更新 gate policy、相关测试和文档
+
 ## 6. 阶段化执行路线
 
 ### 6.1 `PR-0` 运行时基线
@@ -399,6 +405,7 @@ Authority docs：
 - [ ] frozen invariants 已逐条核对
 - [ ] targeted regression tests 已执行
 - [ ] 新增或修改的性能基线已记录
+- [ ] 若触及已建 runtime gate，`--gate-policy ... --fail-on-gate` 已通过
 - [ ] docs navigation 已同步
 - [ ] 修改过的 Markdown 链接已本地检查
 - [ ] 若行为变化影响 contract，文档已同步更新
