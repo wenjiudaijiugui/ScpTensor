@@ -3,6 +3,8 @@
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 ScpTensor is a Python package for DIA-based single-cell proteomics preprocessing.
 It focuses on robust DIA quant-table ingestion and protein-level preprocessing workflows.
 
