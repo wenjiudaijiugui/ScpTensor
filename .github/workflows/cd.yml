@@ -151,7 +151,7 @@ jobs:
 
       - name: Build package
         run: |
-          uv build --out dist/
+          uv build --out-dir dist/
 
       - name: Create build verification environment
         run: |
