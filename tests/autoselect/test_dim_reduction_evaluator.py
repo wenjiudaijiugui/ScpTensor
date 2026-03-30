@@ -181,6 +181,28 @@ class TestDimReductionEvaluatorComputeMetrics:
 
         assert scores == dict.fromkeys(evaluator.metric_weights, 0.0)
 
+    def test_evaluate_method_resolves_metric_assay_context(self, container_with_pca):
+        """Dim-reduction evaluate_method should carry assay context for metric computation."""
+        evaluator = DimReductionEvaluator()
+
+        def passthrough_method(container, assay_name, source_layer, **kwargs):
+            del assay_name, source_layer, kwargs
+            return container
+
+        result_container, eval_result = evaluator.evaluate_method(
+            container=container_with_pca,
+            method_name="pca",
+            method_func=passthrough_method,
+            assay_name="proteins",
+            source_layer="raw",
+        )
+
+        assert result_container is not None
+        assert eval_result.error is None
+        assert any(score > 0.0 for score in eval_result.scores.values())
+        assert evaluator._metric_assay_name is None
+        assert evaluator._metric_source_layer is None
+
 
 class TestDimReductionEvaluatorHelpers:
     """Test DimReductionEvaluator helper methods."""

@@ -545,47 +545,64 @@ class DimReductionEvaluator(BaseEvaluator):
         start_time = time.perf_counter()
         result_container: ScpContainer | None = None
         error_msg: str | None = None
+        scores: dict[str, float] = {}
+        report_metrics: dict[str, float] = {}
+        resolved_assay_name = resolve_assay_name(container, assay_name)
+        self._metric_assay_name = resolved_assay_name
         self._metric_source_layer = source_layer
 
         try:
             # Execute method on a copy of container
             result_container = method_func(
                 container=container.copy(),
-                assay_name=assay_name,
+                assay_name=resolved_assay_name,
                 source_layer=source_layer,
                 **kwargs,
             )
+            # Compute metrics if method succeeded
+            if result_container is not None:
+                try:
+                    # For dim reduction, layer_name is the assay name.
+                    scores = self.compute_metrics(
+                        container=result_container,
+                        original_container=container,
+                        layer_name=new_assay_name,
+                    )
+                    report_metrics = self.compute_report_metrics(
+                        result_container,
+                        container,
+                        new_assay_name,
+                        scores,
+                    )
+                except Exception as e:
+                    error_msg = f"Metric computation failed: {type(e).__name__}: {e!s}"
+                    scores = dict.fromkeys(self.metric_weights, 0.0)
+                    report_metrics = {}
+            else:
+                scores = dict.fromkeys(self.metric_weights, 0.0)
         except Exception as e:
             error_msg = f"{type(e).__name__}: {e!s}"
             result_container = None
+            scores = dict.fromkeys(self.metric_weights, 0.0)
+            report_metrics = {}
+        finally:
+            # Clear evaluation context to avoid leaking across methods.
+            self._metric_source_layer = None
+            self._metric_assay_name = None
 
         execution_time = time.perf_counter() - start_time
 
-        # Compute metrics if method succeeded
-        if result_container is not None and error_msg is None:
-            try:
-                # For dim reduction, layer_name is the assay name
-                scores = self.compute_metrics(
-                    container=result_container,
-                    original_container=container,
-                    layer_name=new_assay_name,
-                )
-            except Exception as e:
-                error_msg = f"Metric computation failed: {type(e).__name__}: {e!s}"
-                scores = dict.fromkeys(self.metric_weights, 0.0)
-        else:
+        if not scores:
             scores = dict.fromkeys(self.metric_weights, 0.0)
 
         # Compute overall score
         overall_score = 0.0 if error_msg is not None else self.compute_overall_score(scores)
 
-        # Clear evaluation context to avoid leaking across methods.
-        self._metric_source_layer = None
-
         # Create evaluation result
         eval_result = EvaluationResult(
             method_name=method_name,
             scores=scores,
+            report_metrics=report_metrics,
             overall_score=overall_score,
             execution_time=execution_time,
             layer_name=new_assay_name,  # For dim reduction, this is the assay name

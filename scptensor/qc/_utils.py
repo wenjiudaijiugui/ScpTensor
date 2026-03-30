@@ -20,6 +20,23 @@ if TYPE_CHECKING:
 _DETECTED_MASK_CODES = (MaskCode.VALID.value,)
 
 
+def normalize_detected_codes(
+    detected_codes: tuple[int, ...] | list[int] | None,
+) -> tuple[int, ...]:
+    """Normalize/validate mask codes treated as detected observations."""
+    if detected_codes is None:
+        return _DETECTED_MASK_CODES
+
+    normalized = tuple(int(code) for code in detected_codes)
+    if len(normalized) == 0:
+        raise ScpValueError(
+            "detected_codes must include at least one mask code.",
+            parameter="detected_codes",
+            value=detected_codes,
+        )
+    return normalized
+
+
 def validate_assay(
     container: ScpContainer,
     assay_name: str,
@@ -189,7 +206,7 @@ def get_detection_mask(
 
     x_dense = _to_dense_float64(X)
     m_dense = _to_dense_int8(M)
-    return np.isin(m_dense, detected_codes) & np.isfinite(x_dense)
+    return np.isin(m_dense, normalize_detected_codes(detected_codes)) & np.isfinite(x_dense)
 
 
 def count_detected(
@@ -203,7 +220,11 @@ def count_detected(
     if M is None and sp.issparse(X):
         sparse_x = cast("sp.spmatrix", X)
         return np.asarray(sparse_x.getnnz(axis=axis))
-    detected_mask = get_detection_mask(X, M, detected_codes=detected_codes)
+    detected_mask = get_detection_mask(
+        X,
+        M,
+        detected_codes=normalize_detected_codes(detected_codes),
+    )
     return np.sum(detected_mask, axis=axis)
 
 
@@ -215,9 +236,18 @@ def compute_sample_total_intensity(X: np.ndarray | sp.spmatrix) -> np.ndarray:
     return np.nansum(np.asarray(X), axis=1)
 
 
-def compute_sample_qc_vectors(layer: ScpMatrix) -> tuple[np.ndarray, np.ndarray]:
+def compute_sample_qc_vectors(
+    layer: ScpMatrix,
+    *,
+    detected_codes: tuple[int, ...] = _DETECTED_MASK_CODES,
+) -> tuple[np.ndarray, np.ndarray]:
     """Compute sample-level detected feature counts and total intensities."""
-    n_features = count_detected(layer.X, layer.M, axis=1)
+    n_features = count_detected(
+        layer.X,
+        layer.M,
+        axis=1,
+        detected_codes=normalize_detected_codes(detected_codes),
+    )
     total_intensity = compute_sample_total_intensity(layer.X)
     return n_features, total_intensity
 
@@ -294,6 +324,7 @@ def compute_detection_stats(
     X: np.ndarray | sp.spmatrix,
     M: np.ndarray | sp.spmatrix | None = None,
     axis: int = 0,
+    detected_codes: tuple[int, ...] = _DETECTED_MASK_CODES,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Compute detection statistics.
 
@@ -314,7 +345,11 @@ def compute_detection_stats(
 
     """
     x_dense = _to_dense_float64(X)
-    detected_mask = get_detection_mask(X, M)
+    detected_mask = get_detection_mask(
+        X,
+        M,
+        detected_codes=normalize_detected_codes(detected_codes),
+    )
     n_total = x_dense.shape[axis]
     n_detected = np.sum(detected_mask, axis=axis)
     detection_rate = n_detected / n_total
@@ -405,4 +440,5 @@ __all__ = [
     "filter_features_with_provenance",
     "filter_samples_with_provenance",
     "log_filtering_operation",
+    "normalize_detected_codes",
 ]

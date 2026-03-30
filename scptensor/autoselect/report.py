@@ -87,6 +87,11 @@ def save_markdown(report: AutoSelectReport, filepath: str | Path) -> None:
                 pass
             lines.append(f"- **Repeats per Method:** {stage_report.n_repeats}")
             lines.append(f"- **Confidence Level:** {stage_report.confidence_level:.2f}")
+            lines.append(
+                f"- **Stage Valid:** {'yes' if stage_report.stage_valid else 'no'}",
+            )
+            if not stage_report.stage_valid and stage_report.invalid_reason:
+                lines.append(f"- **Invalid Reason:** {stage_report.invalid_reason}")
             if stage_report.input_assay and stage_report.input_layer:
                 lines.append(
                     f"- **Input:** `{stage_report.input_assay}/{stage_report.input_layer}`",
@@ -275,6 +280,8 @@ def save_csv(report: AutoSelectReport, filepath: str | Path) -> None:
                     "selection_strategy": stage_report.selection_strategy,
                     "n_repeats": stage_report.n_repeats,
                     "confidence_level": stage_report.confidence_level,
+                    "stage_valid": stage_report.stage_valid,
+                    "invalid_reason": stage_report.invalid_reason,
                     "recommendation_reason": stage_report.recommendation_reason,
                     "error": result.error or "",
                     "selection_score": result.selection_score,
@@ -305,6 +312,8 @@ def save_csv(report: AutoSelectReport, filepath: str | Path) -> None:
         "selection_strategy",
         "n_repeats",
         "confidence_level",
+        "stage_valid",
+        "invalid_reason",
         "selection_score",
         "overall_score_std",
         "overall_score_ci_lower",

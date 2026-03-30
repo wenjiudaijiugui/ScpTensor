@@ -707,6 +707,27 @@ class BaseEvaluator(ABC):
             ),
         )
 
+    def _is_all_zero_quality_stage(
+        self,
+        successful_results: list[EvaluationResult],
+        *,
+        tolerance: float = 1e-12,
+    ) -> bool:
+        """Return True when every successful method has zero quality signal.
+
+        This guard prevents runtime-only strategy weights from selecting a
+        method when all quality metrics fail closed to zeros.
+        """
+        if not successful_results:
+            return False
+
+        for result in successful_results:
+            if abs(float(result.overall_score)) > tolerance:
+                return False
+            if any(abs(float(value)) > tolerance for value in result.scores.values()):
+                return False
+        return True
+
     def evaluate_method(
         self,
         container: ScpContainer,
@@ -890,12 +911,32 @@ class BaseEvaluator(ABC):
         if not successful_results:
             report.best_method = ""
             report.best_result = None
+            report.stage_valid = False
+            report.invalid_reason = "All methods failed in evaluator execution."
             report.recommendation_reason = (
                 "All methods failed; returned an unchanged input-container copy."
             )
             return container.copy(), report
 
+        if self._is_all_zero_quality_stage(successful_results):
+            for result in successful_results:
+                result.selection_score = 0.0
+            report.best_method = ""
+            report.best_result = None
+            report.stage_valid = False
+            report.invalid_reason = (
+                "All successful methods returned zero quality scores. "
+                "Stage marked invalid to avoid runtime-only method selection."
+            )
+            report.recommendation_reason = (
+                f"Invalid stage: {report.invalid_reason} "
+                "Returned an unchanged input-container copy."
+            )
+            return container.copy(), report
+
         # Select best and build result container
+        report.stage_valid = True
+        report.invalid_reason = ""
         best_result = self._select_best_result(successful_results)
         report.best_method = best_result.method_name
         report.best_result = best_result

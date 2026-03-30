@@ -20,7 +20,7 @@ from scptensor.core.exceptions import AssayNotFoundError, LayerNotFoundError, Sc
 from scptensor.experimental import qc_psm
 
 # New imports from refactored QC module
-from scptensor.qc import qc_feature, qc_sample
+from scptensor.qc import qc_feature, qc_preflight, qc_sample
 from scptensor.qc.metrics import compute_cv, compute_mad, is_outlier_mad
 
 
@@ -226,6 +226,30 @@ class TestCalculateSampleQCMetrics:
 
         result = qc_sample.calculate_sample_qc_metrics(container)
         assert result.obs["n_features_protein"].to_list() == [2, 0, 1]
+
+    def test_calculate_sample_qc_metrics_supports_custom_detected_codes(self):
+        """Sample QC should allow callers to treat additional mask codes as detected."""
+        obs = pl.DataFrame({"_index": ["S1", "S2", "S3"]})
+        var = pl.DataFrame({"_index": ["F1", "F2"]})
+        X = np.array([[0.0, 1.0], [0.0, 0.0], [5.0, 0.0]])
+        M = np.array(
+            [
+                [MaskCode.VALID.value, MaskCode.VALID.value],
+                [MaskCode.LOD.value, MaskCode.LOD.value],
+                [MaskCode.VALID.value, MaskCode.LOD.value],
+            ],
+            dtype=np.int8,
+        )
+        container = ScpContainer(
+            obs=obs,
+            assays={"protein": Assay(var=var, layers={"raw": ScpMatrix(X=X, M=M)})},
+        )
+
+        result = qc_sample.calculate_sample_qc_metrics(
+            container,
+            detected_codes=(MaskCode.VALID.value, MaskCode.LOD.value),
+        )
+        assert result.obs["n_features_protein"].to_list() == [2, 2, 2]
 
     def test_calculate_sample_qc_metrics_accepts_alias_and_copies_container(self, qc_container):
         """QC metrics should resolve assay aliases without mutating the source container."""
@@ -618,6 +642,31 @@ class TestFilterFeaturesByMissingness:
         result = qc_feature.filter_features_by_missingness(container, max_missing_rate=0.5)
         assert result.assays["protein"].var["_index"].to_list() == ["F1"]
 
+    def test_filter_features_by_missingness_supports_custom_detected_codes(self):
+        """Missingness filtering should accept configurable detected mask codes."""
+        obs = pl.DataFrame({"_index": ["S1", "S2", "S3"]})
+        var = pl.DataFrame({"_index": ["F1", "F2"]})
+        X = np.array([[0.0, 1.0], [0.0, 0.0], [5.0, 0.0]])
+        M = np.array(
+            [
+                [MaskCode.VALID.value, MaskCode.VALID.value],
+                [MaskCode.LOD.value, MaskCode.LOD.value],
+                [MaskCode.VALID.value, MaskCode.LOD.value],
+            ],
+            dtype=np.int8,
+        )
+        container = ScpContainer(
+            obs=obs,
+            assays={"protein": Assay(var=var, layers={"raw": ScpMatrix(X=X, M=M)})},
+        )
+
+        result = qc_feature.filter_features_by_missingness(
+            container,
+            max_missing_rate=0.5,
+            detected_codes=(MaskCode.VALID.value, MaskCode.LOD.value),
+        )
+        assert result.assays["protein"].var["_index"].to_list() == ["F1", "F2"]
+
     def test_filter_features_by_missingness_accepts_alias(self, qc_container):
         """Feature filtering should resolve proteins/protein aliases consistently."""
         result = qc_feature.filter_features_by_missingness(
@@ -716,6 +765,72 @@ class TestFilterFeaturesByCV:
             max_cv=0.1,
         )
         assert result.assays["protein"].n_features == 2
+
+
+class TestQcPreflight:
+    """Tests for end-to-end QC preflight workflow."""
+
+    def test_qc_preflight_runs_end_to_end(self, qc_container):
+        """qc_preflight should execute full sample+feature QC chain."""
+        result = qc_preflight(
+            qc_container,
+            assay_name="protein",
+            layer_name="raw",
+            min_features=2,
+            sample_nmads=3.0,
+            use_mad=True,
+            doublet_nmads=3.0,
+            max_missing_rate=0.9,
+            max_cv=5.0,
+        )
+
+        assert isinstance(result, ScpContainer)
+        assert result.n_samples <= qc_container.n_samples
+        assert result.assays["protein"].n_features <= qc_container.assays["protein"].n_features
+        assert result.history[-1].action == "qc_preflight"
+
+    def test_qc_preflight_detected_codes_override_changes_missingness_behavior(self):
+        """qc_preflight should forward detected-code semantics into feature filtering."""
+        obs = pl.DataFrame({"_index": ["S1", "S2", "S3"]})
+        var = pl.DataFrame({"_index": ["F1", "F2"]})
+        X = np.array([[0.0, 1.0], [0.0, 0.0], [5.0, 0.0]])
+        M = np.array(
+            [
+                [MaskCode.VALID.value, MaskCode.VALID.value],
+                [MaskCode.LOD.value, MaskCode.LOD.value],
+                [MaskCode.VALID.value, MaskCode.LOD.value],
+            ],
+            dtype=np.int8,
+        )
+        container = ScpContainer(
+            obs=obs,
+            assays={"protein": Assay(var=var, layers={"raw": ScpMatrix(X=X, M=M)})},
+        )
+
+        default_result = qc_preflight(
+            container,
+            assay_name="protein",
+            layer_name="raw",
+            min_features=0,
+            use_mad=False,
+            doublet_nmads=100.0,
+            max_missing_rate=0.0,
+            max_cv=10.0,
+        )
+        lod_result = qc_preflight(
+            container,
+            assay_name="protein",
+            layer_name="raw",
+            detected_codes=(MaskCode.VALID.value, MaskCode.LOD.value),
+            min_features=0,
+            use_mad=False,
+            doublet_nmads=100.0,
+            max_missing_rate=0.0,
+            max_cv=10.0,
+        )
+
+        assert default_result.assays["protein"].n_features == 0
+        assert lod_result.assays["protein"].n_features == 2
 
 
 # =============================================================================

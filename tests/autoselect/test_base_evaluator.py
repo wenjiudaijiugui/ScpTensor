@@ -431,7 +431,57 @@ class TestRunAll:
         assert report.success_rate == 0.0
         assert report.best_method == ""
         assert report.best_result is None
+        assert report.stage_valid is False
+        assert "All methods failed" in report.invalid_reason
         assert "unchanged input-container copy" in report.recommendation_reason
+
+    def test_run_all_marks_stage_invalid_when_all_quality_scores_are_zero(self, simple_container):
+        """All-zero quality stages should not return a runtime-only best method."""
+
+        class AllZeroQualityEvaluator(BaseEvaluator):
+            @property
+            def stage_name(self) -> str:
+                return "all_zero_quality"
+
+            @property
+            def methods(self) -> dict[str, Callable]:
+                return {"slow": self._slow, "fast": self._fast}
+
+            @property
+            def metric_weights(self) -> dict[str, float]:
+                return {"metric": 1.0}
+
+            def compute_metrics(self, container, original, layer_name):
+                del container, original, layer_name
+                return {"metric": 0.0}
+
+            def _slow(self, container, assay_name, source_layer, **kwargs):
+                time.sleep(0.01)
+                assay = container.assays[assay_name]
+                assay.add_layer(f"{source_layer}_slow", assay.layers[source_layer])
+                return container
+
+            def _fast(self, container, assay_name, source_layer, **kwargs):
+                assay = container.assays[assay_name]
+                assay.add_layer(f"{source_layer}_fast", assay.layers[source_layer])
+                return container
+
+        evaluator = AllZeroQualityEvaluator()
+        result_container, report = evaluator.run_all(
+            container=simple_container.copy(),
+            assay_name="proteins",
+            source_layer="raw",
+            selection_strategy="balanced",
+        )
+
+        assert report.success_rate == 1.0
+        assert report.best_method == ""
+        assert report.best_result is None
+        assert report.stage_valid is False
+        assert "zero quality scores" in report.invalid_reason
+        assert "raw" in result_container.assays["proteins"].layers
+        assert "raw_fast" not in result_container.assays["proteins"].layers
+        assert "raw_slow" not in result_container.assays["proteins"].layers
 
     def test_run_all_success_rate(self, simple_container):
         """Test that success_rate is correctly calculated."""

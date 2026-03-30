@@ -14,6 +14,7 @@ from scptensor.qc._utils import (
     compute_detection_stats,
     count_detected,
     filter_features_with_provenance,
+    normalize_detected_codes,
     resolve_assay,
     resolve_layer,
     validate_threshold,
@@ -25,6 +26,7 @@ def calculate_feature_qc_metrics(
     container: ScpContainer,
     assay_name: str = "proteins",
     layer_name: str = "raw",
+    detected_codes: tuple[int, ...] | list[int] | None = None,
 ) -> ScpContainer:
     """Calculate quality control metrics for features.
 
@@ -61,8 +63,14 @@ def calculate_feature_qc_metrics(
         layer_name=layer_name,
     )
 
+    resolved_detected_codes = normalize_detected_codes(detected_codes)
+
     # Compute detection statistics
-    n_detected, detection_rate, means = compute_detection_stats(layer.X, M=layer.M)
+    n_detected, detection_rate, means = compute_detection_stats(
+        layer.X,
+        M=layer.M,
+        detected_codes=resolved_detected_codes,
+    )
     missing_rate = 1.0 - detection_rate
 
     # Compute CV
@@ -92,6 +100,7 @@ def calculate_feature_qc_metrics(
             "layer": layer_name,
             "n_features": assay.n_features,
             "n_samples": container.n_samples,
+            "detected_codes": list(resolved_detected_codes),
         },
         description=(
             f"Calculated QC metrics for {assay.n_features} features "
@@ -110,6 +119,7 @@ def filter_features_by_missingness(
     assay_name: str = "proteins",
     layer_name: str = "raw",
     max_missing_rate: float = 0.5,
+    detected_codes: tuple[int, ...] | list[int] | None = None,
 ) -> ScpContainer:
     """Filter features based on missing rate.
 
@@ -141,6 +151,7 @@ def filter_features_by_missingness(
 
     """
     validate_threshold(max_missing_rate, "max_missing_rate", min_val=0.0, max_val=1.0)
+    resolved_detected_codes = normalize_detected_codes(detected_codes)
     resolved_assay_name, assay = resolve_assay(container, assay_name)
 
     _, layer = resolve_layer(
@@ -152,7 +163,12 @@ def filter_features_by_missingness(
     n_samples = layer.X.shape[0]
 
     # Compute missing rate
-    n_detected = count_detected(layer.X, layer.M, axis=0)
+    n_detected = count_detected(
+        layer.X,
+        layer.M,
+        axis=0,
+        detected_codes=resolved_detected_codes,
+    )
     missing_rate = 1.0 - (n_detected / n_samples)
 
     # Create filter mask
@@ -171,6 +187,7 @@ def filter_features_by_missingness(
             "n_removed": n_removed,
             "n_total": assay.n_features,
             "max_missing_rate": max_missing_rate,
+            "detected_codes": list(resolved_detected_codes),
         },
         description=(
             f"Filtered {n_removed}/{assay.n_features} features from "

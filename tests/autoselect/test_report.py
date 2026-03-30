@@ -149,6 +149,7 @@ class TestSaveMarkdown:
             assert "Strategy Weights" in content
             assert "Metric Details" in content
             assert "Report Metrics" in content
+            assert "Stage Valid" in content
             assert "`loading_bias_reduction`=0.9300" in content
             assert "[0.8600, 0.9200]" in content
 
@@ -276,6 +277,8 @@ class TestSaveJson:
             assert "stage_name" in norm_stage
             assert "results" in norm_stage
             assert "best_method" in norm_stage
+            assert "stage_valid" in norm_stage
+            assert "invalid_reason" in norm_stage
             assert norm_stage["best_method"] == "log_normalize"
             assert norm_stage["results"][0]["report_metrics"][
                 "loading_bias_reduction"
@@ -335,6 +338,8 @@ class TestSaveCsv:
             assert "selection_strategy" in header
             assert "selection_score" in header
             assert "overall_score_ci_lower" in header
+            assert "stage_valid" in header
+            assert "invalid_reason" in header
             assert "scores" in header
             assert "report_metrics" in header
 

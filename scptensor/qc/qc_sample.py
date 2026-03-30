@@ -14,6 +14,7 @@ from scptensor.core._structure_container import ScpContainer
 from scptensor.qc._utils import (
     compute_sample_qc_vectors,
     filter_samples_with_provenance,
+    normalize_detected_codes,
     resolve_assay,
     resolve_layer,
     validate_column_exists,
@@ -25,6 +26,7 @@ def calculate_sample_qc_metrics(
     container: ScpContainer,
     assay_name: str = "proteins",
     layer_name: str = "raw",
+    detected_codes: tuple[int, ...] | list[int] | None = None,
 ) -> ScpContainer:
     """Calculate quality control metrics for samples.
 
@@ -57,7 +59,11 @@ def calculate_sample_qc_metrics(
     """
     resolved_assay_name, assay = resolve_assay(container, assay_name)
     _, layer = resolve_layer(assay, assay_name=resolved_assay_name, layer_name=layer_name)
-    n_features, total_intensity = compute_sample_qc_vectors(layer)
+    resolved_detected_codes = normalize_detected_codes(detected_codes)
+    n_features, total_intensity = compute_sample_qc_vectors(
+        layer,
+        detected_codes=resolved_detected_codes,
+    )
     log1p_total = np.log1p(total_intensity)
 
     # Create metrics DataFrame with assay-specific column names
@@ -81,6 +87,7 @@ def filter_low_quality_samples(
     min_features: int = 100,
     nmads: float = 3.0,
     use_mad: bool = True,
+    detected_codes: tuple[int, ...] | list[int] | None = None,
 ) -> ScpContainer:
     """Filter low-quality samples based on feature detection count.
 
@@ -121,7 +128,11 @@ def filter_low_quality_samples(
         assay_name=resolved_assay_name,
         layer_name=layer_name,
     )
-    n_features, _ = compute_sample_qc_vectors(layer)
+    resolved_detected_codes = normalize_detected_codes(detected_codes)
+    n_features, _ = compute_sample_qc_vectors(
+        layer,
+        detected_codes=resolved_detected_codes,
+    )
 
     # Apply hard threshold filter
     keep_mask = n_features >= min_features
@@ -157,6 +168,7 @@ def filter_low_quality_samples(
             "min_features": min_features,
             "use_mad": use_mad,
             "nmads": nmads,
+            "detected_codes": list(resolved_detected_codes),
         },
         description=filter_desc,
     )
@@ -167,6 +179,7 @@ def filter_doublets_mad(
     assay_name: str = "proteins",
     layer_name: str = "raw",
     nmads: float = 3.0,
+    detected_codes: tuple[int, ...] | list[int] | None = None,
 ) -> ScpContainer:
     """Filter potential doublets using MAD-based outlier detection.
 
@@ -204,7 +217,11 @@ def filter_doublets_mad(
         assay_name=resolved_assay_name,
         layer_name=layer_name,
     )
-    _, total_intensity = compute_sample_qc_vectors(layer)
+    resolved_detected_codes = normalize_detected_codes(detected_codes)
+    _, total_intensity = compute_sample_qc_vectors(
+        layer,
+        detected_codes=resolved_detected_codes,
+    )
 
     # Transform to log space for better outlier detection
     log_lib_size = np.log1p(total_intensity)
@@ -228,6 +245,7 @@ def filter_doublets_mad(
             "layer": layer_name,
             "nmads": nmads,
             "method": "MAD_upper_tail",
+            "detected_codes": list(resolved_detected_codes),
         },
         description=(
             f"Removed {n_removed}/{container.n_samples} samples as potential doublets "
@@ -241,6 +259,7 @@ def assess_batch_effects(
     batch_col: str,
     assay_name: str = "proteins",
     layer_name: str = "raw",
+    detected_codes: tuple[int, ...] | list[int] | None = None,
 ) -> pl.DataFrame:
     """Assess batch effects by calculating QC metrics per batch.
 
@@ -289,7 +308,11 @@ def assess_batch_effects(
         assay_name=resolved_assay_name,
         layer_name=layer_name,
     )
-    n_features, total_intensity = compute_sample_qc_vectors(layer)
+    resolved_detected_codes = normalize_detected_codes(detected_codes)
+    n_features, total_intensity = compute_sample_qc_vectors(
+        layer,
+        detected_codes=resolved_detected_codes,
+    )
 
     # Create temporary DataFrame with batch identifiers and metrics
     temp_df = container.obs.select(batch_col).with_columns(

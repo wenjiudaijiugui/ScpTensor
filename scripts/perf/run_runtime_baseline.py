@@ -1119,7 +1119,7 @@ def _run_autoselect_integrate_only(
     selector = AutoSelector(
         stages=["integrate"],
         keep_all=False,
-        selection_strategy="balanced",
+        selection_strategy="quality",
         n_repeats=1,
     )
 

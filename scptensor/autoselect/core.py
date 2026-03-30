@@ -125,6 +125,8 @@ class StageReport:
     selection_strategy: str = "balanced"
     n_repeats: int = 1
     confidence_level: float = 0.95
+    stage_valid: bool = True
+    invalid_reason: str = ""
 
     @property
     def success_rate(self) -> float:
@@ -160,6 +162,8 @@ class StageReport:
             "selection_strategy": self.selection_strategy,
             "n_repeats": self.n_repeats,
             "confidence_level": self.confidence_level,
+            "stage_valid": self.stage_valid,
+            "invalid_reason": self.invalid_reason,
             "results": [result.to_dict() for result in self.results],
         }
 
@@ -222,6 +226,9 @@ class AutoSelectReport:
             lines.append("-" * 40)
             lines.append(f"  Methods tested: {len(stage_report.results)}")
             lines.append(f"  Success rate: {stage_report.success_rate:.1%}")
+            lines.append(f"  Stage valid: {stage_report.stage_valid}")
+            if not stage_report.stage_valid and stage_report.invalid_reason:
+                lines.append(f"  Invalid reason: {stage_report.invalid_reason}")
 
             if stage_report.best_method:
                 lines.append(f"  Best method: {stage_report.best_method}")
@@ -647,6 +654,13 @@ class AutoSelector:
 
                 # Add stage report using canonical stage key
                 report.stages[stage] = stage_report
+                if not stage_report.stage_valid:
+                    warning_msg = (
+                        f"Stage '{stage}' marked invalid: "
+                        f"{stage_report.invalid_reason or 'unknown reason'}"
+                    )
+                    warnings.append(warning_msg)
+                    report.warnings.append(warning_msg)
 
             except Exception as e:
                 # Stage failed - add warning and continue

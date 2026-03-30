@@ -25,6 +25,7 @@ from scptensor.qc.qc_sample import (
     filter_doublets_mad,
     filter_low_quality_samples,
 )
+from scptensor.qc.workflow import qc_preflight
 
 __all__ = [
     # Submodules
@@ -35,6 +36,7 @@ __all__ = [
     "filter_low_quality_samples",
     "filter_doublets_mad",
     "assess_batch_effects",
+    "qc_preflight",
     # Feature functions
     "calculate_feature_qc_metrics",
     "filter_features_by_missingness",

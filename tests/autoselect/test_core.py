@@ -139,6 +139,8 @@ class TestStageReport:
         assert report.best_result is None
         assert report.recommendation_reason == ""
         assert report.method_contracts == {}
+        assert report.stage_valid is True
+        assert report.invalid_reason == ""
 
     def test_stage_report_success_rate_empty(self):
         """Test success_rate property with empty results."""
