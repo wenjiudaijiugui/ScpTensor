@@ -480,6 +480,45 @@ def test_load_quant_table_diann_matrix_success_path(tmp_path: Path) -> None:
     assert container.history[-1].params["software"] == "diann"
 
 
+def test_load_quant_table_rejects_tmt_channelized_matrix_input(tmp_path: Path) -> None:
+    channels = [
+        "126",
+        "127N",
+        "127C",
+        "128N",
+        "128C",
+        "129N",
+        "129C",
+        "130N",
+        "130C",
+        "131N",
+        "131C",
+        "132N",
+        "132C",
+        "133N",
+        "133C",
+        "134N",
+    ]
+    matrix = {"Protein.Group": ["P1", "P2"]}
+    for channel in channels:
+        matrix[f"F1_{channel}"] = [100.0, 200.0]
+
+    path = _write_tsv(
+        tmp_path,
+        "diann_tmt_like_matrix.tsv",
+        pl.DataFrame(matrix),
+    )
+
+    with pytest.raises(ValidationError, match="TMT-like channelized sample IDs"):
+        load_quant_table(
+            path,
+            software="diann",
+            level="protein",
+            table_format="matrix",
+            assay_name="proteins",
+        )
+
+
 def test_load_quant_table_auto_detect_spectronaut_long_success(tmp_path: Path) -> None:
     path = _write_tsv(
         tmp_path,

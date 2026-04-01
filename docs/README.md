@@ -27,6 +27,11 @@ Benchmark scripts and benchmark outputs should stay under `benchmark/`.
 - `review_aggregation_benchmark_20260312.md`: DIA single-cell aggregation benchmark design review notes
 - `review_state_metrics_20260312.md`: DIA single-cell state-aware completeness and uncertainty metrics review notes
 
+### Article (Inadmissible Sources)
+
+- `article/README.md`: 不可采纳文献记录索引与写作规则
+- `article/benchmarking_informatics_workflows_for_data-independent_acquisition_single-cell_proteomics_unusable_20260329.md`: 该文献不可作为 benchmark 参考的判定与 ScpTensor 改进启示
+
 ### Registry
 
 - `review_manifest_20260312.json`: typed manifest for all `review_*.md` reviews only; contract docs are indexed in `Contract`
@@ -117,6 +122,8 @@ Canonical citation policy:
 - Keep `docs/` focused on readable documentation.
 - Keep executable benchmarks, benchmark reports, and generated benchmark assets in `benchmark/`.
 - Do not track notebook runtime artifacts under `docs/`.
+- Keep inadmissible literature records under `docs/article/`; they can inform
+  backlog but cannot be treated as reproducible benchmark evidence.
 - Keep shared paper metadata in `docs/references/` to reduce cross-review citation drift.
 - Keep background notes separate from implementation contracts; `aggregation_literature.md`
   is background context, not a frozen source-of-truth contract.

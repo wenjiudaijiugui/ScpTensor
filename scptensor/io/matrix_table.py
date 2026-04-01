@@ -21,6 +21,44 @@ from scptensor.io.profiles import (
 from scptensor.io.readers import clean_sample_name, make_unique
 
 SPECTRONAUT_BRACKET_PREFIX_RE = re.compile(r"^\[[^\]]+\]\s*")
+_TMT_TRAILING_CHANNEL_RE = re.compile(
+    r"(?:^|[_-])"
+    r"(126|127N|127C|128N|128C|129N|129C|130N|130C|131N|131C|132N|132C|133N|133C|134N)"
+    r"$",
+    re.IGNORECASE,
+)
+_TMT_MIN_MATCHED_CHANNELS = 10
+_TMT_MIN_MATCH_FRACTION = 0.80
+
+
+def detect_tmt_channelized_sample_ids(sample_ids: list[str]) -> tuple[bool, dict[str, int]]:
+    """Detect whether sample IDs look like TMT channelized labels.
+
+    ScpTensor targets DIA single-cell proteomics run-level inputs (DIA-NN /
+    Spectronaut) and should reject TMT channelized matrix exports.
+    """
+    if not sample_ids:
+        return False, {}
+
+    matched_tokens: list[str] = []
+    for sample_id in sample_ids:
+        match = _TMT_TRAILING_CHANNEL_RE.search(sample_id.strip())
+        if match is None:
+            continue
+        matched_tokens.append(match.group(1).upper())
+
+    if not matched_tokens:
+        return False, {}
+
+    counts: dict[str, int] = {}
+    for token in matched_tokens:
+        counts[token] = counts.get(token, 0) + 1
+
+    matched_fraction = len(matched_tokens) / len(sample_ids)
+    looks_tmt = (
+        len(counts) >= _TMT_MIN_MATCHED_CHANNELS and matched_fraction >= _TMT_MIN_MATCH_FRACTION
+    )
+    return looks_tmt, counts
 
 
 def numeric_like_columns(df: pl.DataFrame, candidates: list[str]) -> list[str]:
@@ -151,7 +189,20 @@ def resolve_matrix_sample_columns(
         raw_name = col[: -len(matched_suffix)] if matched_suffix else col
         sample_ids.append(clean_sample_name(raw_name))
 
-    return sample_cols, make_unique(sample_ids), resolved_quantity
+    deduped_sample_ids = make_unique(sample_ids)
+    is_tmt_like, channel_counts = detect_tmt_channelized_sample_ids(deduped_sample_ids)
+    if is_tmt_like:
+        channel_preview = ", ".join(
+            f"{channel}:{count}" for channel, count in sorted(channel_counts.items())
+        )
+        raise ValidationError(
+            "Detected TMT-like channelized sample IDs in matrix input "
+            f"(channels: {channel_preview}). "
+            "ScpTensor focuses on DIA single-cell proteomics (DIA-NN/Spectronaut) "
+            "and does not support TMT-channel matrix compatibility.",
+        )
+
+    return sample_cols, deduped_sample_ids, resolved_quantity
 
 
 def build_var(var_df: pl.DataFrame, feature_col: str) -> pl.DataFrame:

@@ -82,3 +82,19 @@ If any document, prompt, or comment conflicts with this file, follow this file.
   - tests under `tests/`
   - workflows under `.github/workflows/`
 - Avoid hardcoded stale counts unless they are generated automatically.
+
+## 9. Evidence and Benchmark Admissibility
+
+- Primary scope stays fixed at DIA-based single-cell proteomics preprocessing.
+- Do not add TMT / iTRAQ / isobaric-channel compatibility to I/O paths,
+  defaults, examples, or benchmark baselines.
+- External literature can be used as benchmark reference only when all of the
+  following are available and verifiable:
+  - directly accessible article content
+  - public code repository with executable analysis pipeline
+  - public quantitative matrix plus sample metadata required for reproduction
+  - enough method detail to map paper figures to reproducible steps
+- If any requirement is missing, the source must be marked as
+  `inadmissible_for_reference` and must not be used as a quantitative baseline.
+- Inadmissible sources may still be recorded under `docs/article/` for
+  improvement inspiration, but must be explicitly labeled as non-reproducible.
