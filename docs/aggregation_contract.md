@@ -23,7 +23,7 @@
 - `tests/aggregation/test_protein_aggregation.py`
 - `docs/core_data_contract.md`
 - `docs/aggregation_literature.md`
-- `docs/review_aggregation_benchmark_20260312.md`
+- `docs/internal/review_aggregation_benchmark_20260312.md`
 - `benchmark/aggregation/README.md`
 
 ## 2. 范围与非范围

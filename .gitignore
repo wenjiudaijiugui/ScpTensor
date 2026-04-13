@@ -16,6 +16,7 @@ venv/
 .coverage
 .coverage.*
 htmlcov/
+site/
 .serena/
 .claude/
 node_modules/
@@ -62,3 +63,4 @@ tests/res/
 # Large downloaded datasets
 scptensor/datasets/pride/*/report.tsv
 scptensor/datasets/massive/*/report.tsv
+.omx/

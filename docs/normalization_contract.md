@@ -30,9 +30,9 @@
 - `tests/normalization/test_quantile_normalization.py`
 - `tests/normalization/test_trqn_normalization.py`
 - `docs/core_data_contract.md`
-- `docs/review_normalization_20260307.md`
-- `docs/review_log_scale_20260312.md`
-- `docs/review_io_state_mapping_20260312.md`
+- `docs/internal/review_normalization_20260307.md`
+- `docs/internal/review_log_scale_20260312.md`
+- `docs/internal/review_io_state_mapping_20260312.md`
 
 ## 2. 范围与非范围
 

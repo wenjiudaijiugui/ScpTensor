@@ -9,8 +9,8 @@
 - 当前稳定代码：`scptensor/qc/*.py`
 - 当前测试锚点：`tests/qc/test_qc.py`
 - 已完成的综述约束：
-  - `docs/review_qc_filtering_20260312.md`
-  - `docs/review_batch_diagnostics_20260312.md`
+  - `docs/internal/review_qc_filtering_20260312.md`
+  - `docs/internal/review_batch_correction_20260305.md`
   - `docs/core_data_contract.md`
 
 本文档只覆盖 `QC`。不覆盖 normalization、imputation、integration、AutoSelect 的实现合同。

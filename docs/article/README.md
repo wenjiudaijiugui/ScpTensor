@@ -12,7 +12,24 @@
 
 ## 当前文件
 
-- `benchmarking_informatics_workflows_for_data-independent_acquisition_single-cell_proteomics_unusable_20260329.md`：
-  记录该文献为何不可作为基准参考，以及对 ScpTensor 的改进启示。
-- `dia_single_cell_processed_matrix_download_list_20260329.md`：
-  汇总适合 ScpTensor 的 DIA 单细胞文献、可直接使用的定量矩阵/长表及下载清单。
+当前只保留一条 consolidated inadmissible record：
+
+- 文献：Benchmarking informatics workflows for data-independent acquisition
+  single-cell proteomics
+- DOI：<https://doi.org/10.1038/s41467-025-65174-4>
+- 记录日期：`2026-03-29`
+- 状态：`inadmissible_for_reference`
+- 不能采纳的原因：
+  - 公开可执行代码链路未完成核验
+  - 公共数据复现包未完成核验
+  - 关联数据入口仍不满足当前仓库的稳定可复现要求
+- 可保留的工程启示：
+  - benchmark 结论前先做 admissibility preflight
+  - `log -> normalize -> impute -> integration -> z-score -> dim_reduction -> cluster`
+    各阶段都要留结构化审计资产
+  - marker 稳定性要做多策略并行审计
+  - 参考对标输出要固定图板和指标口径
+- 仓库内使用结论：
+  - 不可作为 benchmark 参考
+  - 可作为 backlog 启示来源
+  - 不可用于支持“方法优劣定论”

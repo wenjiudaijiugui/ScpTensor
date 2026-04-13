@@ -8,248 +8,83 @@
 ScpTensor is a Python package for DIA-based single-cell proteomics preprocessing.
 It focuses on robust DIA quant-table ingestion and protein-level preprocessing workflows.
 
-Project scope contract: [AGENTS.md](AGENTS.md)
+## Key Features
 
-## Scope
+- **Robust I/O:** Direct import of DIA-NN and Spectronaut quantitative outputs (protein and peptide levels).
+- **Comprehensive Preprocessing:** End-to-end protein-level processing including log transformation, normalization, imputation, and batch integration.
+- **Aggregation:** Robust peptide/precursor to protein aggregation methods.
+- **Contract-Driven:** Strictly defined data boundaries and compute contracts for reproducible results.
 
-Current supported scope:
-- DIA-NN quant output import
-- Spectronaut quant output import
-- peptide/precursor to protein aggregation
-- protein-level preprocessing: transform, normalize, impute, integration
-- preprocessing-oriented visualization
-
-Explicit non-goals in current package scope:
-- differential expression analysis
-- feature selection module
-- non-DIA software input support by default
-
-Release-boundary clarification:
-- Dimensionality reduction (`reduce_*`) and clustering (`cluster_*`) are
-  currently treated as **experimental downstream analysis helpers**, not core
-  preprocessing deliverables for release acceptance.
-- They are provided via `scptensor.experimental`.
+**Note:** ScpTensor explicitly does *not* support non-DIA software by default, nor does it perform downstream differential expression or feature selection natively. Downstream tasks like dimensionality reduction (`reduce_*`) and clustering (`cluster_*`) are provided as experimental helpers via `scptensor.experimental`.
 
 ## Installation
+
+We recommend using [uv](https://github.com/astral-sh/uv) for fast and reliable environment management.
 
 ```bash
 git clone https://github.com/wenjiudaijiugui/ScpTensor.git
 cd ScpTensor
 
-# Use uv-managed environment
 uv venv
-source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-# Stable preprocessing runtime
+# Install the stable core preprocessing runtime
 uv pip install -e .
 
-# Optional: development tools
-uv pip install -e ".[dev]"
-
-# Optional: JIT acceleration
-uv pip install -e ".[accel]"
-
-# Optional: visualization polish / advanced palettes
-uv pip install -e ".[viz]"
-
-# Optional: experimental downstream helpers (e.g. reduce_umap)
-uv pip install -e ".[experimental]"
-
-# Optional: experimental graph clustering helpers (cluster_leiden)
-uv pip install -e ".[graph]"
-
-# Optional: performance baseline tooling
-uv pip install -e ".[perf]"
-
-# Optional: benchmark replay / download tooling
-uv pip install -e ".[benchmark]"
+# Alternatively, install with optional enhancements:
+uv pip install -e ".[viz]"          # Visualization polish
+uv pip install -e ".[accel]"        # Numba JIT acceleration
+uv pip install -e ".[experimental]" # Downstream helpers (e.g. UMAP)
+uv pip install -e ".[all,dev]"      # Full suite for development
 ```
 
-Dependency boundary:
-- default install keeps the stable DIA preprocessing runtime intentionally small
-- `.[accel]` adds `numba` JIT acceleration only
-- `.[viz]` adds optional `seaborn` / `scienceplots` styling and advanced palettes
-- `.[experimental]` adds `umap-learn` for experimental downstream `reduce_umap`
-- `.[graph]` adds `igraph` / `leidenalg` for experimental `cluster_leiden`
-- `.[perf]` adds `psutil` for `scripts/perf/run_runtime_baseline.py`
-- `.[benchmark]` adds benchmark-only dataframe/download/plot tooling
+## Quick Start
 
-## User Workflow Map
-
-Canonical user guide:
-- [Stable user workflows](docs/user_workflows.md)
-
-Choose the mainline that matches your input:
-- already have a DIA-NN / Spectronaut protein table: load directly to `proteins` and continue with `log -> norm -> imputed`
-- only have peptide/precursor output: import to `peptides`, run `aggregate_to_protein()`, then continue on the `proteins` assay
-
-Current stable user entrypoint is the Python API. There is no package CLI yet.
-
-## Quick Start (DIA-NN)
-
-For both canonical workflows, see [docs/user_workflows.md](docs/user_workflows.md).
+The canonical user entrypoint is the Python API. Below is a quick example of processing a DIA-NN report:
 
 ```python
 from pathlib import Path
-
 from scptensor.io import aggregate_to_protein, load_diann
 from scptensor.normalization import norm_median
 from scptensor.transformation import log_transform
 from scptensor.viz import plot_data_overview
 
-# 1) Load DIA-NN long-format report (peptide level)
+# 1. Load DIA-NN long-format report (peptide level)
 report = Path("data/dia/diann/PXD054343/1_SC_LF_report.tsv")
 container = load_diann(report, level="peptide", table_format="long", assay_name="peptides")
 
-# 2) Aggregate peptide -> protein
+# 2. Aggregate peptide -> protein
 container = aggregate_to_protein(
-    container,
-    source_assay="peptides",
-    source_layer="raw",
-    target_assay="proteins",
-    method="top_n",
+    container, source_assay="peptides", source_layer="raw", target_assay="proteins", method="top_n"
 )
 
-# 3) Transform + normalize
-container = log_transform(
-    container,
-    assay_name="proteins",
-    source_layer="raw",
-    new_layer_name="log",
-    base=2.0,
-)
-container = norm_median(
-    container,
-    assay_name="proteins",
-    source_layer="log",
-    new_layer_name="norm",
-)
+# 3. Transform & Normalize
+container = log_transform(container, assay_name="proteins", source_layer="raw", new_layer_name="log", base=2.0)
+container = norm_median(container, assay_name="proteins", source_layer="log", new_layer_name="norm")
 
-# 4) Preprocessing-level visualization
+# 4. Visualize
 _ = plot_data_overview(container, assay_name="proteins", layer="norm")
 ```
 
-## Experimental Modules
-
-Experimental downstream dim-reduction and clustering APIs are available under:
-
-```python
-from scptensor.experimental import cluster_kmeans, reduce_pca
-```
-
-These APIs are intentionally excluded from core preprocessing release criteria.
-Boundary contract: [docs/experimental_downstream_contract.md](docs/experimental_downstream_contract.md)
-
-Experimental peptide/PSM QC helper remains in the same namespace for boundary
-clarity, but it is **not** a downstream helper. Its role is an
-experimental pre-aggregation / peptide-PSM QC module:
-
-```python
-from scptensor.experimental import qc_psm
-```
-
-Helper contract: [docs/qc_psm_contract.md](docs/qc_psm_contract.md)
-
-## Supported Input Types (I/O)
-
-ScpTensor I/O currently targets DIA-NN and Spectronaut only.
-
-| Software | Quant Level | File Shape |
-| --- | --- | --- |
-| DIA-NN | Protein | long + matrix |
-| DIA-NN | Peptide/Precursor | long + matrix |
-| Spectronaut | Protein | long + matrix |
-| Spectronaut | Peptide/Precursor | long + matrix |
-
-Main APIs:
-- `scptensor.io.load_quant_table`
-- `scptensor.io.load_diann`
-- `scptensor.io.load_spectronaut`
-- `scptensor.io.load_peptide_pivot`
-- `scptensor.io.aggregate_to_protein`
+For more detailed guides, see the [Stable User Workflows](docs/user_workflows.md) and the [Main Tutorial Notebook](tutorial/tutorial.ipynb).
 
 ## Documentation
 
-Index:
-- [Docs index](docs/README.md)
-- [Tutorial index](tutorial/README.md)
+- **[Full Documentation Site](docs/index.md):** (Run `uv run mkdocs serve` locally)
+- **[User Workflows](docs/user_workflows.md):** Canonical workflow guides.
+- **[API Reference](docs/api.md):** Complete module and function reference.
+- **[Architecture Contracts](docs/README.md#contract):** Core data models, compute semantics, and I/O specifications.
 
-Contract Index:
-- Full docs-level contract index: [docs/README.md#contract](docs/README.md#contract)
+## Community & Contributing
 
-Scope / Foundation:
-- [Project scope contract](AGENTS.md)
-- [Core data contract](docs/core_data_contract.md)
-- [Core compute contract](docs/core_compute_contract.md)
-- [DIA-NN / Spectronaut I/O contract](docs/io_diann_spectronaut.md)
+We welcome community contributions! Please review our guidelines before submitting a Pull Request or opening an Issue:
 
-Stable Preprocessing Modules:
-- [Aggregation contract](docs/aggregation_contract.md)
-- [Transformation contract](docs/transformation_contract.md)
-- [Normalization contract](docs/normalization_contract.md)
-- [Standardization contract](docs/standardization_contract.md)
-- [Imputation contract](docs/imputation_contract.md)
-- [Integration contract](docs/integration_contract.md)
-- [QC contract](docs/qc_contract.md)
+- **[Contributing Guide](CONTRIBUTING.md):** Setup instructions, coding standards, and PR process.
+- **[Code of Conduct](CODE_OF_CONDUCT.md):** Our community standards and expectations.
+- **[Security Policy](SECURITY.md):** How to responsibly report security vulnerabilities.
 
-Supporting Stable Packages:
-- [AutoSelect contract](docs/autoselect_contract.md)
-- [Utils contract](docs/utils_contract.md)
-- [Visualization contract](docs/viz_contract.md)
-
-Release-Boundary / Experimental:
-- [Experimental downstream boundary contract](docs/experimental_downstream_contract.md)
-- [Experimental PSM QC helper contract](docs/qc_psm_contract.md)
-
-Review Registry:
-- [Review manifest](docs/review_manifest_20260312.json)
-- [Citation registry](docs/references/citations.json)
-- [Citation usage map](docs/references/citation_usage.json)
-
-Note:
-- `review_manifest_20260312.json` is a review-only manifest for `review_*.md` files, not a contract manifest.
-- Frozen implementation contracts are indexed in [docs/README.md#contract](docs/README.md#contract) and grouped above.
-
-Background / Convergence:
-- [Aggregation literature background](docs/aggregation_literature.md)
-- [Experimental helper alignment plan](docs/experimental_downstream_alignment_plan.md)
-- [Optimization execution checklist](docs/optimization_checklist.md)
-- [Runtime baseline spec](docs/runtime_baseline.md)
-
-Tutorial:
-- [Main tutorial notebook](tutorial/tutorial.ipynb)
-- [AutoSelect tutorial](tutorial/autoselect_tutorial.ipynb)
-- [Stable user workflows](docs/user_workflows.md)
-
-## Benchmark Assets
-
-- [Benchmark index](benchmark/README.md)
-- [Aggregation benchmark README](benchmark/aggregation/README.md)
-- [Normalization benchmark README](benchmark/normalization/README.md)
-- [Imputation benchmark README](benchmark/imputation/README.md)
-- [Integration benchmark README](benchmark/integration/README.md)
-- [AutoSelect benchmark assets](benchmark/autoselect/README.md)
-
-## Development
-
-```bash
-# CI-parity core matrix (excludes graph clustering extras)
-uv sync --extra io --extra accel --extra integration --extra viz --extra experimental --extra perf --extra benchmark
-uv sync --group dev
-
-# Add graph clustering extras when working on cluster_leiden
-uv sync --extra graph
-
-# Alternative editable install with every optional extra
-uv pip install -e ".[all,dev]"
-
-# Lint
-uv run ruff check scptensor tests
-
-# Tests
-uv run pytest -q
-```
+*For internal project governance, architectural reviews, and benchmarking, see the `docs/internal/` and `benchmark/` directories.*
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+This project is licensed under the [MIT License](LICENSE).

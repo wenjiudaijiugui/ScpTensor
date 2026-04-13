@@ -117,8 +117,8 @@
 ### 3.6 ScpTensor 当前 I/O 文档与实现（本地实现上下文）
 
 - 资源类型：`本地实现上下文`
-- 文档：[io_diann_spectronaut.md](io_diann_spectronaut.md)
-- 代码：[api.py](../scptensor/io/api.py)、[profiles.py](../scptensor/io/profiles.py)、[long_table.py](../scptensor/io/long_table.py)、[matrix_table.py](../scptensor/io/matrix_table.py)
+- 文档：[io_diann_spectronaut.md](../io_diann_spectronaut.md)
+- 代码：`scptensor/io/api.py`、`scptensor/io/profiles.py`、`scptensor/io/long_table.py`、`scptensor/io/matrix_table.py`
 - 当前实现直接体现的事实：
   - `DIA-NN` 与 `Spectronaut` 的 `protein / peptide` 两层 profile 已分开。
   - 代码已经识别 vendor-normalized 列名，并为不同软件维护字段候选集合。
@@ -203,6 +203,22 @@
 - 当前 `_ImportProfile` 与 `_is_vendor_normalized_column()` 已经具备 contract 雏形。
 - 下一步不应先加更多软件兼容，而应把现有 DIA-NN / Spectronaut 语义写进用户文档与错误信息。
 
+### 5.5 缺失值语义的并入结论
+
+为避免把 importer 语义和 missingness 语义拆成两份平行文档，当前保留如下合并结论：
+
+- importer 文档必须继续把 `unreported`、`MBR-transferred`、vendor `0`、`FILTERED`、
+  `IMPUTED` 分开解释，不能退化成“非空就是 `VALID`”。
+- `MaskCode` 的默认稳妥边界仍是：
+  - `VALID`: 当前 run 中可用观测
+  - `MBR`: run 间匹配/转移值
+  - `LOD`: 低丰度或检测极限驱动的缺失/占位
+  - `FILTERED`: q/FDR 或规则过滤后的失效值
+  - `UNCERTAIN`: 只有最终矩阵、无法恢复上游来源时的保守默认
+- `FILTERED`、`OUTLIER`、`IMPUTED` 不应被默认并回 importer 的 `VALID` 观测语义。
+- 对只有最终 matrix/pivot 的输入，若缺少足够 provenance，宁可保守映射到
+  `LOD` / `UNCERTAIN`，也不要过度宣称“直接检测到”。
+
 ## 6. 风险边界
 
 1. Spectronaut 导出模板高度可配置，部分字段语义只有结合导出参数才能完全解释。
@@ -212,7 +228,7 @@
 
 ## 7. 对后续实现/文档的优先建议
 
-1. 在 [io_diann_spectronaut.md](io_diann_spectronaut.md) 中新增 `state mapping` 章节。
+1. 在 [io_diann_spectronaut.md](../io_diann_spectronaut.md) 中新增 `state mapping` 章节。
 2. 在 importer 返回对象的 provenance 中显式记录 `is_vendor_normalized` 与 `source_column_used`。
 3. 在用户文档中统一使用 `raw / log / norm / imputed` 这套 canonical layer 名；若需要表达 vendor-normalized 线性输入，应写成“`raw` layer with `is_vendor_normalized=true`”，而不是新增默认 layer 名家族。
 
@@ -225,5 +241,9 @@
 - `spectronaut_manual`
 - `cox2014_mcp_maxlfq`
 - `wang2025_natcom_dia_scp_benchmark`
+- `lazar2016_jpr_missing_values`
+- `schlumbohm2022_natcom_harmonizr`
+- `yu2024_mcp_quant_qc`
+- `derks2023_natbiotechnol_plexdia`
 
 注：`Spectronaut 19 Manual v4 PDF` 已作为 `spectronaut_manual` 的 URL alias 收敛进 citation registry；本地实现上下文锚点保留在正文 `3.6`，不再作为尾部额外 citation 清单单列。

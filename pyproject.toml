@@ -89,10 +89,8 @@ dev = [
 
 # Documentation dependencies
 docs = [
-    "sphinx>=7.0",
-    "furo>=2024.0",
-    "sphinx-autodoc-typehints>=2.0",
-    "myst-parser>=3.0",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.24",
 ]
 
 [dependency-groups]

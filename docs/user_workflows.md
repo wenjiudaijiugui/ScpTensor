@@ -9,7 +9,7 @@
 
 如果你想看实现边界与长期合同，继续读：
 
-- [Project scope contract](../AGENTS.md)
+- `AGENTS.md`（repo root project scope contract; not published in MkDocs site）
 - [I/O contract](io_diann_spectronaut.md)
 - [Aggregation contract](aggregation_contract.md)
 

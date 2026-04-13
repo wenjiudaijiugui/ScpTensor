@@ -1,83 +1,88 @@
-# Docs Index
+# Docs Map
 
-`docs/` stores user-facing documentation only.
+`docs/` stores the stable user mainline, implementation contracts, and
+research / audit notes that explain why those contracts look the way they do.
 Benchmark scripts and benchmark outputs should stay under `benchmark/`.
 
-## Current Files
+## Mainline
 
-### User Guide
+Read these first when the goal is the canonical DIA preprocessing path:
 
-- `user_workflows.md`: stable user workflows for DIA-NN / Spectronaut input to complete protein-level matrix
+- `user_workflows.md`: stable `DIA-NN / Spectronaut -> protein matrix` workflow guide
+- `io_diann_spectronaut.md`: vendor I/O contract
+- `aggregation_contract.md`: only stable peptide/precursor -> protein conversion stage
+- `transformation_contract.md`: log-transform stage contract
+- `normalization_contract.md`: normalization stage contract
+- `imputation_contract.md`: imputation stage contract
+- `integration_contract.md`: integration stage contract
+- `qc_contract.md`: protein-level QC contract
 
-### Review
+## Contract
 
-- `review_imputation_20260304.md`: DIA single-cell imputation review notes
-- `review_batch_correction_20260305.md`: DIA single-cell batch-correction review notes
-- `review_normalization_20260307.md`: DIA single-cell normalization review notes
-- `review_qc_filtering_20260312.md`: DIA single-cell QC and filtering review notes
-- `review_batch_diagnostics_20260312.md`: DIA single-cell batch diagnostics metrics review notes
-- `review_autoselect_scoring_20260312.md`: AutoSelect scoring and reporting framework review notes
-- `review_missingness_20260312.md`: DIA single-cell missingness semantics and detection-state review notes
-- `review_log_scale_20260312.md`: DIA single-cell log-transform and scale-contract review notes
-- `review_zscore_standardization_20260313.md`: DIA single-cell z-score standardization and downstream scale-contract review notes
-- `review_public_benchmark_data_20260312.md`: DIA single-cell public benchmark datasets and task-design review notes
-- `review_masked_imputation_20260312.md`: DIA single-cell masked-value imputation benchmark design review notes
-- `review_batch_confounding_20260312.md`: DIA single-cell batch-confounding benchmark design review notes
-- `review_io_state_mapping_20260312.md`: DIA-NN / Spectronaut importer state-mapping contract review notes
-- `review_aggregation_benchmark_20260312.md`: DIA single-cell aggregation benchmark design review notes
-- `review_state_metrics_20260312.md`: DIA single-cell state-aware completeness and uncertainty metrics review notes
+Implementation-facing contracts and boundary documents:
 
-### Article (Inadmissible Sources)
-
-- `article/README.md`: 不可采纳文献记录索引与写作规则
-- `article/benchmarking_informatics_workflows_for_data-independent_acquisition_single-cell_proteomics_unusable_20260329.md`: 该文献不可作为 benchmark 参考的判定与 ScpTensor 改进启示
-
-### Registry
-
-- `review_manifest_20260312.json`: typed manifest for all `review_*.md` reviews only; contract docs are indexed in `Contract`
-- `references/citations.json`: canonical metadata for shared high-frequency citations
-- `references/citation_usage.json`: file-level usage map for shared citations
-
-### Contract
-
-- `core_data_contract.md`: ScpTensor core container contract inspired by AnnData / MuData
-- `core_compute_contract.md`: low-level compute, sparse, and JIT implementation contract
+- `core_data_contract.md`: `ScpContainer -> Assay -> ScpMatrix` contract
+- `core_compute_contract.md`: compute, sparse, and JIT contract
 - `io_diann_spectronaut.md`: DIA-NN / Spectronaut I/O contract
-- `aggregation_contract.md`: peptide/precursor -> protein aggregation implementation contract
-- `transformation_contract.md`: log-transform implementation contract
-- `normalization_contract.md`: normalization implementation contract
-- `standardization_contract.md`: z-score representation-layer implementation contract
-- `imputation_contract.md`: imputation implementation contract
-- `integration_contract.md`: batch-correction / integration implementation contract
-- `qc_contract.md`: protein-level QC implementation contract
+- `aggregation_contract.md`: aggregation contract
+- `transformation_contract.md`: transformation contract
+- `normalization_contract.md`: normalization contract
+- `standardization_contract.md`: `zscore` representation-layer contract
+- `imputation_contract.md`: imputation contract
+- `integration_contract.md`: integration contract
+- `qc_contract.md`: protein-level QC contract
 - `qc_psm_contract.md`: experimental peptide/PSM QC helper contract
-- `autoselect_contract.md`: AutoSelect implementation and reporting contract
-- `utils_contract.md`: utility package public-surface and helper-boundary contract
-- `experimental_downstream_contract.md`: experimental dim-reduction / clustering boundary contract
-- `viz_contract.md`: visualization API, return-type, and data-boundary contract
+- `autoselect_contract.md`: AutoSelect contract
+- `utils_contract.md`: utility package contract
+- `experimental_downstream_contract.md`: experimental downstream boundary contract
+- `viz_contract.md`: visualization contract
 
-### Background
+## Research And Audit
 
-- `aggregation_literature.md`: peptide -> protein aggregation literature background notes
+Review registry and evidence/audit surfaces:
 
-### Active Plan
+- `internal/review_manifest_20260312.json`: machine-readable index for all `internal/review_*.md` files
+- `references/citations.json`: canonical citation registry
+- `references/citation_usage.json`: citation usage map
+- `article/README.md`: inadmissible-source record rules and index
 
-- `experimental_downstream_alignment_plan.md`: non-contract convergence record for experimental helper asymmetries; current mandatory gaps are closed, keep it as a resolution log until an archive slot is introduced
-- `optimization_checklist.md`: document-driven execution checklist for future code optimization; defines authority-doc priority, PR gates, staged execution order, and stop conditions for contract drift
-- `compatibility_policy.md`: stable-surface compatibility rules; defines which aliases and facades remain allowed, which compatibility patterns are explicitly banned, and how tests/docs should treat canonical APIs
-- `runtime_baseline.md`: PR-0 runtime baseline spec for stable preprocessing paths; separates engineering runtime regression checks from scientific method benchmarks and distinguishes full-chain gates from normalization-only micro-gates
-- `repo_file_tiering.md`: repository file importance tiers and cleanup rules; defines what is release-critical, support-only, reference-only, and local-generated noise
+Retained review surfaces are intentionally narrower now:
 
-### Tutorial
+- importer and detection-state semantics:
+  `internal/review_io_state_mapping_20260312.md`
+- preprocessing-stage evidence:
+  `internal/review_normalization_20260307.md`, `internal/review_log_scale_20260312.md`,
+  `internal/review_qc_filtering_20260312.md`
+- benchmark/task-design evidence:
+  `internal/review_public_benchmark_data_20260312.md`,
+  `internal/review_masked_imputation_20260312.md`,
+  `internal/review_state_metrics_20260312.md`,
+  `internal/review_batch_correction_20260305.md`,
+  `internal/review_aggregation_benchmark_20260312.md`,
+  `internal/review_autoselect_scoring_20260312.md`
 
-- `user_workflows.md`: canonical user workflow guide for stable preprocessing
-- `../tutorial/README.md`: tutorial index
+Representation-layer `zscore` guidance is now folded back into
+`standardization_contract.md` instead of living in a separate review file.
+
+## Maintainer Notes
+
+Governance, background, and convergence notes:
+
+- `aggregation_literature.md`: aggregation background note, not a frozen contract
+- `internal/optimization_checklist.md`: authority-doc priority and PR execution checklist
+- `internal/compatibility_policy.md`: stable-surface compatibility rules
+- `internal/runtime_baseline.md`: runtime baseline spec for stable preprocessing paths
+- `internal/repo_file_tiering.md`: repository file cleanup and importance tiers
+
+## Tutorial
+
+- `user_workflows.md`: canonical workflow guide
 - `../tutorial/tutorial.ipynb`: main tutorial
 - `../tutorial/autoselect_tutorial.ipynb`: AutoSelect tutorial
 
 ## Evidence Taxonomy
 
-All `review_*.md` reviews now use the same source typing contract:
+All `internal/review_*.md` reviews use the same source typing contract:
 
 - `论文证据`
   - journal articles, benchmark papers, method papers
@@ -98,16 +103,9 @@ Entry rule:
 
 Machine-readable index:
 
-- `review_manifest_20260312.json`: typed manifest for all `review_*.md` reviews only; it does not enumerate contract docs
+- `internal/review_manifest_20260312.json`: typed manifest for all `internal/review_*.md` reviews only; it does not enumerate contract docs
 - `references/citations.json`: canonical citation registry for repeated paper/module/package entries
 - `references/citation_usage.json`: file-level usage map for the shared citation registry
-
-Repository-wide review status:
-
-- all `review_*.md` files have completed the `registry-first` tail-template migration
-- the standardized tail section is `Shared Citation Registry Coverage`
-- shared citation metadata should be corrected in `references/citations.json` first, then synced back to affected reviews
-- frozen implementation contracts now cover `core-data / core-compute / aggregation / transformation / normalization / standardization / imputation / integration / qc / experimental-qc-psm / autoselect / utils / experimental-downstream / viz`
 
 Canonical citation policy:
 
@@ -119,7 +117,7 @@ Canonical citation policy:
 
 ## Notes
 
-- Keep `docs/` focused on readable documentation.
+- Keep `docs/` focused on readable documentation with one clear user mainline.
 - Keep executable benchmarks, benchmark reports, and generated benchmark assets in `benchmark/`.
 - Do not track notebook runtime artifacts under `docs/`.
 - Keep inadmissible literature records under `docs/article/`; they can inform
@@ -127,9 +125,9 @@ Canonical citation policy:
 - Keep shared paper metadata in `docs/references/` to reduce cross-review citation drift.
 - Keep background notes separate from implementation contracts; `aggregation_literature.md`
   is background context, not a frozen source-of-truth contract.
-- Keep remediation / convergence notes separate from contracts;
-  `experimental_downstream_alignment_plan.md` is not a source-of-truth
-  contract, even after its mandatory gaps are closed.
+- Completed experimental-helper convergence decisions should be folded back into
+  `experimental_downstream_contract.md` or `qc_psm_contract.md`, not kept as a
+  long-lived parallel plan file.
 - Release boundary: dimensionality reduction and clustering are documented as
   experimental downstream helpers, not core preprocessing deliverables.
 - `qc_psm` is documented as an experimental pre-aggregation helper; use

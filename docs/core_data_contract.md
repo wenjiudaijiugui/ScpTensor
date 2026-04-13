@@ -473,7 +473,7 @@ AnnData 官方支持 backed mode 与 on-disk arrays。ScpTensor 当前 stable co
 - `cluster`
 - `experimental` namespace 下的相关 facade
 
-这类 API 当前没有统一的 copy 语义；有的重建 container mapping，有的共享 assay 对象，有的直接把结果写进 `obs`。其边界以 [experimental_downstream_contract.md](/home/shenshang/projects/ScpTensor/docs/experimental_downstream_contract.md) 为准。
+这类 API 当前没有统一的 copy 语义；有的重建 container mapping，有的共享 assay 对象，有的直接把结果写进 `obs`。其边界以 [experimental_downstream_contract.md](experimental_downstream_contract.md) 为准。
 
 因此后续若做 API 收敛，至少要先明确“改变的是哪一个模块家族”，不能把：
 

@@ -23,7 +23,6 @@
 - `scptensor/__init__.py`
 - `tests/standardization/test_zscore.py`
 - `tests/core/test_standardization_api.py`
-- `docs/review_zscore_standardization_20260313.md`
 - `docs/core_data_contract.md`
 
 ## 2. 范围与非范围
@@ -62,7 +61,8 @@
 
 ## 4. 模块定位与稳定边界
 
-结合项目主合同与 `docs/review_zscore_standardization_20260313.md`，`zscore` 的当前正确定位应冻结为：
+结合项目主合同、当前 benchmark/reporting 约束与现有 API 行为，`zscore`
+的当前正确定位应冻结为：
 
 - stable package area 中的表示层 helper
 - downstream exploratory representation transform
@@ -80,6 +80,12 @@
 - `zscore` 生成下游表示层
 - 适合 heatmap、表示空间对照实验、部分 clustering / embedding 辅助场景
 - 不应默认接管稳定 quantitative pipeline
+
+因此与 `zscore` 绑定的报告语义也应冻结为：
+
+- 图表或指标若在 `zscore` 空间上计算，应显式写成 `@zscore`
+- `zscore` 不默认承担 completeness 统计、integration 主榜评分或对外 quantitative export
+- 若需要 quantitative-comparison 专用 z-transform，应单列为新的方法家族，而不是复用当前 helper 语义
 
 ## 5. 当前输入合同
 

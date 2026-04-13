@@ -1,6 +1,6 @@
 {
   "generated_on": "2026-03-13",
-  "scope_glob": "docs/review_*.md",
+  "scope_glob": "docs/internal/review_*.md",
   "shared_reference_registry": "docs/references/citations.json",
   "shared_reference_usage_map": "docs/references/citation_usage.json",
   "registry_first_tail_template": {
@@ -18,7 +18,7 @@
   },
   "reviews": [
     {
-      "file": "docs/review_aggregation_benchmark_20260312.md",
+      "file": "docs/internal/review_aggregation_benchmark_20260312.md",
       "focus": "aggregation benchmark design",
       "resource_types": [
         "论文证据",
@@ -34,7 +34,7 @@
       "notes": "No public dataset is declared as the benchmark owner in this review."
     },
     {
-      "file": "docs/review_autoselect_scoring_20260312.md",
+      "file": "docs/internal/review_autoselect_scoring_20260312.md",
       "focus": "AutoSelect scoring and reporting framework",
       "resource_types": [
         "论文证据"
@@ -43,17 +43,8 @@
       "notes": "Scoring/reporting evidence only; no dataset or package is treated as the stable benchmark owner."
     },
     {
-      "file": "docs/review_batch_confounding_20260312.md",
-      "focus": "batch confounding benchmark design",
-      "resource_types": [
-        "论文证据"
-      ],
-      "stable_entrypoints": [],
-      "notes": "Design-identifiability evidence only."
-    },
-    {
-      "file": "docs/review_batch_correction_20260305.md",
-      "focus": "batch correction literature and task design",
+      "file": "docs/internal/review_batch_correction_20260305.md",
+      "focus": "batch correction, diagnostics, and confounding-aware task design",
       "resource_types": [
         "论文证据",
         "数据入口",
@@ -77,40 +68,10 @@
           "url": "https://proteobench.readthedocs.io/en/stable/available-modules/active-modules/9-quant-lfq-ion-dia-singlecell/"
         }
       ],
-      "notes": "Wang 2025 remains task-design evidence; its linked accession is not treated as a stable public entrypoint."
+      "notes": "Wang 2025 remains task-design evidence; diagnostics and confounding scenario semantics are consolidated here."
     },
     {
-      "file": "docs/review_batch_diagnostics_20260312.md",
-      "focus": "batch diagnostics metrics",
-      "resource_types": [
-        "论文证据",
-        "模块规范 / 软件文档"
-      ],
-      "stable_entrypoints": [
-        {
-          "role": "模块规范 / 软件文档",
-          "label": "scIB user guide",
-          "url": "https://scib.readthedocs.io/en/latest/user_guide.html"
-        },
-        {
-          "role": "模块规范 / 软件文档",
-          "label": "scib-metrics docs",
-          "url": "https://scib-metrics.readthedocs.io/"
-        }
-      ],
-      "notes": "Metric semantics are split between paper evidence and implementation docs."
-    },
-    {
-      "file": "docs/review_imputation_20260304.md",
-      "focus": "imputation method pool and evidence surface",
-      "resource_types": [
-        "论文证据"
-      ],
-      "stable_entrypoints": [],
-      "notes": "Method-pool review only; benchmark input ownership is delegated to newer masked-value and public-dataset reviews."
-    },
-    {
-      "file": "docs/review_io_state_mapping_20260312.md",
+      "file": "docs/internal/review_io_state_mapping_20260312.md",
       "focus": "DIA-NN / Spectronaut importer state mapping contract",
       "resource_types": [
         "论文证据",
@@ -132,7 +93,7 @@
       "notes": "This review intentionally includes local implementation context for alignment, but not public datasets."
     },
     {
-      "file": "docs/review_log_scale_20260312.md",
+      "file": "docs/internal/review_log_scale_20260312.md",
       "focus": "log-transform and scale contract",
       "resource_types": [
         "论文证据",
@@ -153,7 +114,7 @@
       "notes": "Scale/provenance review only; public dataset ownership is out of scope."
     },
     {
-      "file": "docs/review_masked_imputation_20260312.md",
+      "file": "docs/internal/review_masked_imputation_20260312.md",
       "focus": "masked-value benchmark design",
       "resource_types": [
         "论文证据"
@@ -162,23 +123,7 @@
       "notes": "Benchmark protocol review only."
     },
     {
-      "file": "docs/review_missingness_20260312.md",
-      "focus": "missingness semantics and detection states",
-      "resource_types": [
-        "论文证据",
-        "模块规范 / 软件文档"
-      ],
-      "stable_entrypoints": [
-        {
-          "role": "模块规范 / 软件文档",
-          "label": "DIA-NN docs",
-          "url": "https://vdemichev.github.io/DiaNN/"
-        }
-      ],
-      "notes": "State semantics review only; no public dataset is owned here."
-    },
-    {
-      "file": "docs/review_normalization_20260307.md",
+      "file": "docs/internal/review_normalization_20260307.md",
       "focus": "normalization literature and method families",
       "resource_types": [
         "论文证据",
@@ -199,7 +144,7 @@
       "notes": "Normalization-family evidence only; dataset ownership is delegated to public benchmark review."
     },
     {
-      "file": "docs/review_public_benchmark_data_20260312.md",
+      "file": "docs/internal/review_public_benchmark_data_20260312.md",
       "focus": "public benchmark datasets and task design",
       "resource_types": [
         "论文证据",
@@ -227,7 +172,7 @@
       "notes": "PXD056832 was rechecked on 2026-03-25 and remains reserved-status design evidence, not a stable public input."
     },
     {
-      "file": "docs/review_qc_filtering_20260312.md",
+      "file": "docs/internal/review_qc_filtering_20260312.md",
       "focus": "QC and filtering",
       "resource_types": [
         "论文证据"
@@ -236,17 +181,7 @@
       "notes": "QC/filtering principle review only."
     },
     {
-      "file": "docs/review_zscore_standardization_20260313.md",
-      "focus": "z-score standardization and downstream scale contract",
-      "resource_types": [
-        "论文证据",
-        "本地实现上下文"
-      ],
-      "stable_entrypoints": [],
-      "notes": "Representation-layer review only; z-score is scoped to downstream exploratory tasks and local API alignment."
-    },
-    {
-      "file": "docs/review_state_metrics_20260312.md",
+      "file": "docs/internal/review_state_metrics_20260312.md",
       "focus": "state-aware completeness and uncertainty metrics",
       "resource_types": [
         "论文证据",

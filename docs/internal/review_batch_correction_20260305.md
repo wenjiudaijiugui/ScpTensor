@@ -226,6 +226,20 @@
 2. 先补值再校正可能引入偏差（特别是 MNAR）；需要谨慎。
 3. 仅追求 batch mixing 可能过校正，损失真实生物差异。
 
+### 5.5 混杂场景与诊断面板的并入结论
+
+- integration benchmark 应继续显式拆成：
+  - `balanced`
+  - `partially_confounded`
+  - `fully_confounded`
+- `fully_confounded` 的角色是 guardrail / failure-style 场景，不应和主榜混排。
+- diagnostics 必须成组解释，而不是退化成单一 mixing score。最稳妥的最小面板是：
+  - batch removal: `batch ASW`、`iLISI-like` 或同类局部 mixing 指标
+  - biological conservation: `ARI / NMI / bio-ASW` 或其他有标签任务指标
+  - optional global view: `PCR` 或等价的 batch variance summary
+- 任何局部 mixing proxy 都不应被文档写成原始 `kBET` 或原始 `LISI` 的同义替代；
+  若使用近似实现，必须显式标注 proxy / approx。
+
 ---
 
 ## 6. 数据与资源清单（需区分稳定公开与待复核）
@@ -282,6 +296,15 @@
 - `scpdata_bioconductor`
 - `proteobench_dia_singlecell_module`
 - `koca2024_proteomics_scpro_hi`
+- `nygaard2016_biostatistics_exaggerated_confidence`
+- `song2020_natcom_designs_batch`
+- `tran2020_genomebio_batch_benchmark`
+- `chazarra_gil2023_natcom_integration_de`
+- `gong2025_analchem_scp_integration_benchmark`
+- `buettner2019_natmethods_kbet`
+- `scib_metrics_docs`
+- `scib_user_guide`
+- `rautenstrauch2025_natbiotechnol_silhouette`
 
 ---
 

@@ -576,6 +576,6 @@ selection_score = quality_weight * overall_score + runtime_weight * runtime_scor
 - `scptensor/autoselect/evaluators/imputation.py`
 - `scptensor/autoselect/evaluators/integration.py`
 - `scptensor/autoselect/report.py`
-- `docs/review_autoselect_scoring_20260312.md`
+- `docs/internal/review_autoselect_scoring_20260312.md`
 
 若未来实现与本文档冲突，应把冲突先暴露出来，再决定是修代码、修文档，还是显式升级合同版本，而不是静默漂移。

@@ -25,8 +25,8 @@
 - `tests/transformation/test_log_transform.py`
 - `tests/autoselect/test_normalization_evaluator.py`
 - `docs/core_data_contract.md`
-- `docs/review_log_scale_20260312.md`
-- `docs/review_io_state_mapping_20260312.md`
+- `docs/internal/review_log_scale_20260312.md`
+- `docs/internal/review_io_state_mapping_20260312.md`
 
 ## 2. 范围与非范围
 

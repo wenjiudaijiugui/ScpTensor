@@ -7,8 +7,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-REVIEW_GLOB = "docs/review_*.md"
-MANIFEST_DEFAULT = "docs/review_manifest_20260312.json"
+REVIEW_GLOB = "docs/internal/review_*.md"
+MANIFEST_DEFAULT = "docs/internal/review_manifest_20260312.json"
 REVIEW_TAXONOMY_MARKER = "说明：本节统一沿用全仓库资源分型。"
 REVIEW_RECHECK_MARKER = "二次核查补充"
 README_TAXONOMY_HEADER = "## Evidence Taxonomy"
@@ -37,7 +37,7 @@ def parse_args() -> argparse.Namespace:
         "--manifest",
         type=Path,
         default=None,
-        help="Optional manifest path. Defaults to docs/review_manifest_20260312.json under repo root.",
+        help="Optional manifest path. Defaults to docs/internal/review_manifest_20260312.json under repo root.",
     )
     return parser.parse_args()
 
